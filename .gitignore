@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+.pnpm-store/
+*.tsbuildinfo
+.DS_Store
+playwright-report/
+test-results/
