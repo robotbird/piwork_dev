@@ -7,9 +7,8 @@ import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
-  description: "Next.js chatbot template using the AI SDK.",
-  metadataBase: new URL("https://chat.vercel.ai"),
-  title: "Next.js Chatbot Template",
+  description: "piwork 企业智能任务助手",
+  title: "piwork",
 };
 
 export const viewport = {
@@ -56,7 +55,7 @@ export default function RootLayout({
   return (
     <html
       className={`${geist.variable} ${geistMono.variable}`}
-      lang="en"
+      lang="zh-CN"
       suppressHydrationWarning
     >
       <head>
@@ -70,7 +69,7 @@ export default function RootLayout({
       <body className="antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="light"
           disableTransitionOnChange
           enableSystem
         >

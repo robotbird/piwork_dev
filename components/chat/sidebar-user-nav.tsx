@@ -22,14 +22,6 @@ import { guestRegex } from "@/lib/constants";
 import { LoaderIcon } from "./icons";
 import { toast } from "./toast";
 
-function emailToHue(email: string): number {
-  let hash = 0;
-  for (const char of email) {
-    hash = char.charCodeAt(0) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash) % 360;
-}
-
 export function SidebarUserNav({ user }: { user: User }) {
   const router = useRouter();
   const { data, status } = useSession();
@@ -81,14 +73,13 @@ export function SidebarUserNav({ user }: { user: User }) {
                 className="h-8 px-2 rounded-lg bg-transparent text-sidebar-foreground/70 transition-colors duration-150 hover:text-sidebar-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 data-testid="user-nav-button"
               >
-                <div
-                  className="size-5 shrink-0 rounded-full ring-1 ring-sidebar-border/50"
-                  style={{
-                    background: `linear-gradient(135deg, oklch(0.35 0.08 ${emailToHue(user.email ?? "")}), oklch(0.25 0.05 ${emailToHue(user.email ?? "") + 40}))`,
-                  }}
-                />
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#8db8e0] text-[12px] font-medium text-white">
+                  {isGuest ? "R" : (user.email?.[0] ?? "R").toUpperCase()}
+                </span>
                 <span className="truncate text-[13px]" data-testid="user-email">
-                  {isGuest ? "Guest" : user?.email}
+                  {isGuest
+                    ? "robotbird"
+                    : (user.email?.split("@")[0] ?? "用户")}
                 </span>
                 <ChevronUp className="ml-auto size-3.5 text-sidebar-foreground/50" />
               </SidebarMenuButton>

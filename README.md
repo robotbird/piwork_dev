@@ -37,6 +37,24 @@
 
 The chat and title-generation paths use [`@earendil-works/pi-ai`](https://github.com/earendil-works/pi/tree/main/packages/ai) to call DeepSeek's OpenAI-compatible endpoint directly. Models are configured in `lib/ai/models.ts`, and the pi adapter lives in `lib/ai/pi.ts`.
 
+## Skills
+
+The chat runtime uses `@earendil-works/pi-agent-core` for the Pi agent loop and supports project Skills stored as Agent Skills-compatible files under `.pi/skills/<name>/SKILL.md`.
+
+- Create: ask the assistant to create or save a reusable Skill. It will validate the name and write the standard YAML frontmatter plus Markdown instructions.
+- Automatic execution: when a request matches a discovered Skill description, the agent loads the full Skill on demand and follows it.
+- Explicit execution: type `/` in the composer, select a Skill marked with `🔨` from the dynamic command menu, then send `/<name>` or `/<name> <task arguments>`.
+
+Example:
+
+```text
+Create a reusable skill named weekly-recap that turns a weekly report into three concise bullets covering progress, risks, and next steps.
+
+/weekly-recap Summarize this week's project update.
+```
+
+Skill creation writes to the application server's local filesystem. Use persistent storage for `.pi/skills` when deploying to an ephemeral or serverless runtime.
+
 ### DeepSeek Authentication
 
 Set `DEEPSEEK_API_KEY` in `.env.local` for local development and in your deployment environment for production. The key is read on the server and is never sent to the browser.

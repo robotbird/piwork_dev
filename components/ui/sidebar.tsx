@@ -26,8 +26,8 @@ import { PanelLeftIcon } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "16rem"
-const SIDEBAR_WIDTH_MOBILE = "18rem"
+const SIDEBAR_WIDTH = "16.25rem"
+const SIDEBAR_WIDTH_MOBILE = "16.25rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
@@ -179,16 +179,15 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="inset-x-0 bottom-0 top-auto h-[70dvh] w-full rounded-t-2xl border-t border-border/30 bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          className="h-full w-[min(86vw,18rem)] border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
           showCloseButton={false}
-          side="bottom"
+          side="left"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-sidebar-foreground/20" />
-          <div className="flex h-full w-full flex-col overflow-y-auto pt-2">{children}</div>
+          <div className="flex h-full w-full flex-col overflow-y-auto">{children}</div>
         </SheetContent>
       </Sheet>
     )

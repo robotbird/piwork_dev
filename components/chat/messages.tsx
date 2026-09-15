@@ -64,7 +64,7 @@ function PureMessages({
   }, [scrollToBottom]);
 
   return (
-    <div className="relative flex-1 bg-background">
+    <div className="relative flex-1 bg-transparent">
       {messages.length === 0 && !isLoading && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <Greeting />
@@ -73,12 +73,14 @@ function PureMessages({
       <div
         className={cn(
           "absolute inset-0 touch-pan-y overflow-y-auto",
-          messages.length > 0 ? "bg-background" : "bg-transparent"
+          messages.length > 0
+            ? "bg-[#fbfcff] dark:bg-background"
+            : "bg-transparent"
         )}
         ref={messagesContainerRef}
         style={isArtifactVisible ? { scrollbarWidth: "none" } : undefined}
       >
-        <div className="mx-auto flex min-h-full min-w-0 max-w-4xl flex-col gap-5 px-2 py-6 md:gap-7 md:px-4">
+        <div className="mx-auto flex min-h-full min-w-0 max-w-3xl flex-col gap-5 px-4 py-6 md:gap-6 md:px-5">
           {messages.map((message, index) => (
             <PreviewMessage
               addToolApprovalResponse={addToolApprovalResponse}

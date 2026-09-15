@@ -1,22 +1,25 @@
 "use client";
 
 import {
-  MessageSquareIcon,
-  PanelLeftIcon,
-  PenSquareIcon,
-  TrashIcon,
+  BarChart3Icon,
+  CheckSquare2Icon,
+  CirclePlusIcon,
+  Clock3Icon,
+  CompassIcon,
+  FileCheck2Icon,
+  FolderIcon,
+  Grid2X2Icon,
+  HomeIcon,
+  PanelLeftCloseIcon,
+  PlusIcon,
+  UserRoundIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { toast } from "sonner";
-import { useSWRConfig } from "swr";
-import { unstable_serialize } from "swr/infinite";
-import {
-  getChatHistoryPaginationKey,
-  SidebarHistory,
-} from "@/components/chat/sidebar-history";
+import { SidebarHistory } from "@/components/chat/sidebar-history";
 import { SidebarUserNav } from "@/components/chat/sidebar-user-nav";
 import {
   Sidebar,
@@ -24,156 +27,160 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../ui/alert-dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { BrandMark } from "./brand-mark";
+
+const primaryItems = [
+  { icon: CheckSquare2Icon, label: "任务中心" },
+  { icon: Clock3Icon, label: "定时任务" },
+  { icon: Grid2X2Icon, label: "Skill" },
+  { icon: CompassIcon, label: "探索" },
+];
+
+const workspaceItems = [
+  { icon: HomeIcon, label: "我的工作空间" },
+  { icon: BarChart3Icon, label: "经营分析" },
+  { icon: FileCheck2Icon, label: "合同审核" },
+  { icon: FolderIcon, label: "市场研究" },
+];
 
 export function AppSidebar({ user }: { user: User | undefined }) {
   const router = useRouter();
   const { setOpenMobile, toggleSidebar } = useSidebar();
-  const { mutate } = useSWRConfig();
-  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
-
-  const closeMobile = useCallback(() => {
-    setOpenMobile(false);
-  }, [setOpenMobile]);
-
-  const handleToggleSidebar = useCallback(() => {
-    toggleSidebar();
-  }, [toggleSidebar]);
 
   const handleNewChat = useCallback(() => {
     setOpenMobile(false);
     router.push("/");
   }, [router, setOpenMobile]);
 
-  const handleShowDeleteAllDialog = useCallback(() => {
-    setShowDeleteAllDialog(true);
-  }, []);
+  const handleCloseMobile = useCallback(
+    () => setOpenMobile(false),
+    [setOpenMobile]
+  );
 
-  const handleDeleteAll = useCallback(() => {
-    setShowDeleteAllDialog(false);
-    router.replace("/");
-    mutate(unstable_serialize(getChatHistoryPaginationKey), [], {
-      revalidate: false,
-    });
-
-    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/history`, {
-      method: "DELETE",
-    });
-
-    toast.success("All chats deleted");
-  }, [mutate, router]);
+  const handleComingSoon = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      toast.info(`${event.currentTarget.dataset.label}即将开放`);
+    },
+    []
+  );
 
   return (
-    <>
-      <Sidebar collapsible="icon">
-        <SidebarHeader className="pb-0 pt-3">
-          <SidebarMenu>
-            <SidebarMenuItem className="flex flex-row items-center justify-between">
-              <div className="group/logo relative flex items-center justify-center">
+    <Sidebar className="border-r border-sidebar-border/80" collapsible="icon">
+      <SidebarHeader className="px-3 pb-3 pt-4">
+        <div className="flex items-center justify-between group-data-[collapsible=icon]:justify-center">
+          <Link
+            className="ml-1 flex items-center gap-2.5 group-data-[collapsible=icon]:hidden"
+            href="/"
+            onClick={handleCloseMobile}
+          >
+            <BrandMark className="size-10 shrink-0 shadow-[0_6px_16px_-8px_rgba(47,119,255,.9)]" />
+            <span className="text-[19px] font-semibold tracking-[-0.03em] text-[#1c2738] dark:text-sidebar-foreground">
+              piwork
+            </span>
+          </Link>
+          <button
+            aria-label="收起侧边栏"
+            className="grid size-8 place-items-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            onClick={toggleSidebar}
+            type="button"
+          >
+            <PanelLeftCloseIcon className="size-[18px]" />
+          </button>
+        </div>
+      </SidebarHeader>
+
+      <SidebarContent className="px-3 pt-1">
+        <SidebarGroup className="p-0">
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-0.5">
+              <SidebarMenuItem>
                 <SidebarMenuButton
-                  asChild
-                  className="size-8 !px-0 items-center justify-center group-data-[collapsible=icon]:group-hover/logo:opacity-0"
-                  tooltip="Chatbot"
+                  className="h-10 rounded-xl bg-[#e7f0ff] px-3 font-medium text-[#2878f0] hover:bg-[#dceaff] hover:text-[#176be3] data-[active=true]:bg-[#e7f0ff] group-data-[collapsible=icon]:justify-center dark:bg-[#1f1f1f] dark:text-[#ececec] dark:hover:bg-[#2a2a2a] dark:hover:text-white dark:data-[active=true]:bg-[#1f1f1f]"
+                  isActive
+                  onClick={handleNewChat}
+                  tooltip="新任务"
                 >
-                  <Link href="/" onClick={closeMobile}>
-                    <MessageSquareIcon className="size-4 text-sidebar-foreground/50" />
-                  </Link>
+                  <CirclePlusIcon className="size-5" />
+                  <span>新任务</span>
                 </SidebarMenuButton>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <SidebarMenuButton
-                      className="pointer-events-none absolute inset-0 size-8 opacity-0 group-data-[collapsible=icon]:pointer-events-auto group-data-[collapsible=icon]:group-hover/logo:opacity-100"
-                      onClick={handleToggleSidebar}
-                    >
-                      <PanelLeftIcon className="size-4" />
-                    </SidebarMenuButton>
-                  </TooltipTrigger>
-                  <TooltipContent className="hidden md:block" side="right">
-                    Open sidebar
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <div className="group-data-[collapsible=icon]:hidden">
-                <SidebarTrigger className="text-sidebar-foreground/60 transition-colors duration-150 hover:text-sidebar-foreground" />
-              </div>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarGroup className="pt-1">
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
+              </SidebarMenuItem>
+              {primaryItems.map(({ icon: Icon, label }) => (
+                <SidebarMenuItem key={label}>
                   <SidebarMenuButton
-                    className="h-8 rounded-lg border border-sidebar-border text-[13px] text-sidebar-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                    onClick={handleNewChat}
-                    tooltip="New Chat"
+                    className="h-10 rounded-xl px-3 text-[14px] text-[#344054] hover:bg-sidebar-accent/70 hover:text-[#1c2738] group-data-[collapsible=icon]:justify-center dark:text-[#d1d1d1] dark:hover:bg-[#1f1f1f] dark:hover:text-white"
+                    data-label={label}
+                    onClick={handleComingSoon}
+                    tooltip={label}
                   >
-                    <PenSquareIcon className="size-4" />
-                    <span className="font-medium">New chat</span>
+                    <Icon className="size-[19px]" strokeWidth={1.7} />
+                    <span>{label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                {user ? (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      className="rounded-lg text-sidebar-foreground/40 transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
-                      onClick={handleShowDeleteAllDialog}
-                      tooltip="Delete All Chats"
-                    >
-                      <TrashIcon className="size-4" />
-                      <span className="text-[13px]">Delete all</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ) : null}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-          <SidebarHistory user={user} />
-        </SidebarContent>
-        <SidebarFooter className="border-t border-sidebar-border pt-2 pb-3">
-          {user ? <SidebarUserNav user={user} /> : null}
-        </SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-      <AlertDialog
-        onOpenChange={setShowDeleteAllDialog}
-        open={showDeleteAllDialog}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete all chats?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete all
-              your chats and remove them from our servers.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteAll}>
-              Delete All
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+        <SidebarGroup className="mt-2 border-t border-sidebar-border/70 px-0 pt-3 group-data-[collapsible=icon]:hidden">
+          <SidebarGroupLabel className="mb-1 flex h-7 items-center justify-between px-3 text-[13px] font-normal text-sidebar-foreground/50">
+            <span>工作空间</span>
+            <button
+              aria-label="添加工作空间"
+              className="grid size-7 place-items-center rounded-md transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              data-label="新工作空间"
+              onClick={handleComingSoon}
+              type="button"
+            >
+              <PlusIcon className="size-4" />
+            </button>
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-0.5">
+              {workspaceItems.map(({ icon: Icon, label }) => (
+                <SidebarMenuItem key={label}>
+                  <SidebarMenuButton
+                    className="h-9 rounded-lg px-3 text-[14px] text-[#344054] hover:bg-sidebar-accent/70 hover:text-[#1c2738] dark:text-[#d1d1d1] dark:hover:bg-[#1f1f1f] dark:hover:text-white"
+                    data-label={label}
+                    onClick={handleComingSoon}
+                  >
+                    <Icon className="size-[18px]" strokeWidth={1.65} />
+                    <span>{label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarHistory user={user} />
+      </SidebarContent>
+
+      <SidebarFooter className="border-t border-sidebar-border/70 px-3 py-3">
+        {user ? (
+          <SidebarUserNav user={user} />
+        ) : (
+          <Link
+            className="flex h-9 items-center gap-2 rounded-lg px-2 text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center"
+            href="/login"
+          >
+            <span className="grid size-7 place-items-center rounded-full bg-[#8db8e0] text-white">
+              <UserRoundIcon className="size-4" />
+            </span>
+            <span className="group-data-[collapsible=icon]:hidden">
+              robotbird
+            </span>
+          </Link>
+        )}
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
   );
 }

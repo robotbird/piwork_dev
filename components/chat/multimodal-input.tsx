@@ -6,8 +6,14 @@ import equal from "fast-deep-equal";
 import {
   ArrowUpIcon,
   BrainIcon,
+  ChevronDownIcon,
   EyeIcon,
+  FolderOpenIcon,
+  HammerIcon,
   LockIcon,
+  MicIcon,
+  PlusIcon,
+  TimerResetIcon,
   WrenchIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -20,6 +26,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -44,7 +51,7 @@ import {
   type ModelCapabilities,
 } from "@/lib/ai/models";
 import type { Attachment, ChatMessage } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, fetcher } from "@/lib/utils";
 import {
   PromptInput,
   PromptInputFooter,
@@ -54,14 +61,15 @@ import {
 } from "../ai-elements/prompt-input";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { PaperclipIcon, StopIcon } from "./icons";
+import { StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
 import {
+  createSkillSlashCommands,
+  type SkillSummary,
   type SlashCommand,
   SlashCommandMenu,
   slashCommands,
 } from "./slash-commands";
-import { SuggestedActions } from "./suggested-actions";
 import type { VisibilityType } from "./visibility-selector";
 
 function setCookie(name: string, value: string) {
@@ -78,16 +86,13 @@ function PureMultimodalInput({
   stop,
   attachments,
   setAttachments,
-  messages,
   setMessages,
   sendMessage,
   className,
-  selectedVisibilityType,
   selectedModelId,
   onModelChange,
   editingMessage,
   onCancelEdit,
-  isLoading,
 }: {
   chatId: string;
   input: string;
@@ -146,6 +151,32 @@ function PureMultimodalInput({
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
   const [slashIndex, setSlashIndex] = useState(0);
+  const [selectedSkill, setSelectedSkill] = useState<{
+    displayName: string;
+    name: string;
+  } | null>(null);
+  const skillsEndpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/skills`;
+  const { data: skillsData, mutate: refreshSkills } = useSWR<{
+    skills: SkillSummary[];
+  }>(skillsEndpoint, fetcher, {
+    revalidateOnFocus: true,
+  });
+  const availableSlashCommands = useMemo(
+    () => [
+      ...slashCommands,
+      ...createSkillSlashCommands(skillsData?.skills ?? []),
+    ],
+    [skillsData?.skills]
+  );
+  const previousStatusRef = useRef(status);
+
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    previousStatusRef.current = status;
+    if (previousStatus !== "ready" && status === "ready") {
+      refreshSkills();
+    }
+  }, [refreshSkills, status]);
 
   const handleInput = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -166,6 +197,17 @@ function PureMultimodalInput({
   const handleSlashSelect = useCallback(
     (cmd: SlashCommand) => {
       setSlashOpen(false);
+      if (cmd.action === "skill" && cmd.skillName) {
+        setSelectedSkill({
+          displayName: cmd.displayName ?? cmd.skillName,
+          name: cmd.skillName,
+        });
+        setInput("");
+        requestAnimationFrame(() => textareaRef.current?.focus());
+        return;
+      }
+
+      setSelectedSkill(null);
       setInput("");
       switch (cmd.action) {
         case "new":
@@ -233,6 +275,11 @@ function PureMultimodalInput({
       `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
     );
 
+    const task = input.trim();
+    const messageText = selectedSkill
+      ? `/${selectedSkill.name}${task ? ` ${task}` : ""}`
+      : input;
+
     sendMessage({
       parts: [
         ...attachments.map((attachment) => ({
@@ -242,7 +289,7 @@ function PureMultimodalInput({
           url: attachment.url,
         })),
         {
-          text: input,
+          text: messageText,
           type: "text",
         },
       ],
@@ -252,12 +299,15 @@ function PureMultimodalInput({
     setAttachments([]);
     setLocalStorageInput("");
     setInput("");
+    setSelectedSkill(null);
+    setSlashOpen(false);
 
     if (width && width > 768) {
       textareaRef.current?.focus();
     }
   }, [
     input,
+    selectedSkill,
     setInput,
     attachments,
     sendMessage,
@@ -387,20 +437,28 @@ function PureMultimodalInput({
     [onCancelEdit]
   );
 
-  const handleSlashClose = useCallback(() => {
-    setSlashOpen(false);
+  const handleProjectSelect = useCallback(() => {
+    toast.info("项目选择即将开放");
+  }, []);
+
+  const handleApprovalSettings = useCallback(() => {
+    toast.info("审批设置即将开放");
+  }, []);
+
+  const handleVoiceInput = useCallback(() => {
+    toast.info("语音输入即将开放");
   }, []);
 
   const handlePromptSubmit = useCallback(() => {
-    if (input.startsWith("/")) {
+    if (input.startsWith("/") && !input.includes(" ")) {
       const query = input.slice(1).trim();
       const cmd = slashCommands.find((c) => c.name === query);
       if (cmd) {
         handleSlashSelect(cmd);
+        return;
       }
-      return;
     }
-    if (!input.trim() && attachments.length === 0) {
+    if (!(input.trim() || selectedSkill) && attachments.length === 0) {
       return;
     }
     if (status === "ready" || status === "error") {
@@ -408,12 +466,29 @@ function PureMultimodalInput({
     } else {
       toast.error("Please wait for the model to finish its response!");
     }
-  }, [attachments.length, handleSlashSelect, input, status, submitForm]);
+  }, [
+    attachments.length,
+    handleSlashSelect,
+    input,
+    selectedSkill,
+    status,
+    submitForm,
+  ]);
 
   const handleTextareaKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Backspace" && input === "" && selectedSkill) {
+        e.preventDefault();
+        setSelectedSkill(null);
+        setInput(`/${selectedSkill.name}`);
+        setSlashOpen(true);
+        setSlashQuery(selectedSkill.name);
+        setSlashIndex(0);
+        return;
+      }
+
       if (slashOpen) {
-        const filtered = slashCommands.filter((cmd) =>
+        const filtered = availableSlashCommands.filter((cmd) =>
           cmd.name.startsWith(slashQuery.toLowerCase())
         );
         if (e.key === "ArrowDown") {
@@ -446,8 +521,12 @@ function PureMultimodalInput({
     },
     [
       editingMessage,
+      availableSlashCommands,
       handleSlashSelect,
+      input,
       onCancelEdit,
+      selectedSkill,
+      setInput,
       slashIndex,
       slashOpen,
       slashQuery,
@@ -469,18 +548,6 @@ function PureMultimodalInput({
         </div>
       ) : null}
 
-      {!editingMessage &&
-        !isLoading &&
-        messages.length === 0 &&
-        attachments.length === 0 &&
-        uploadQueue.length === 0 && (
-          <SuggestedActions
-            chatId={chatId}
-            selectedVisibilityType={selectedVisibilityType}
-            sendMessage={sendMessage}
-          />
-        )}
-
       <input
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
         multiple
@@ -493,7 +560,7 @@ function PureMultimodalInput({
       <div className="relative">
         {slashOpen ? (
           <SlashCommandMenu
-            onClose={handleSlashClose}
+            commands={availableSlashCommands}
             onSelect={handleSlashSelect}
             query={slashQuery}
             selectedIndex={slashIndex}
@@ -502,9 +569,20 @@ function PureMultimodalInput({
       </div>
 
       <PromptInput
-        className="[&>div]:rounded-2xl [&>div]:border [&>div]:border-border/30 [&>div]:bg-card/70 [&>div]:shadow-[var(--shadow-composer)] [&>div]:transition-shadow [&>div]:duration-300 [&>div]:focus-within:shadow-[var(--shadow-composer-focus)]"
+        className="piwork-composer [&>div]:overflow-hidden [&>div]:border [&>div]:border-[#dce3ed] [&>div]:bg-white/95 [&>div]:shadow-[0_12px_36px_-24px_rgba(53,75,110,.32)] [&>div]:transition-all [&>div]:duration-300 [&>div]:focus-within:!border-[#b9c8de] [&>div]:focus-within:!ring-0 [&>div]:focus-within:shadow-[0_16px_42px_-24px_rgba(41,92,170,.36)] [&>div]:has-[[data-slot=input-group-control]:focus-visible]:!ring-0 dark:[&>div]:border-[#2f2f2f] dark:[&>div]:bg-[#212121] dark:[&>div]:shadow-none dark:[&>div]:focus-within:!border-[#4a4a4a] dark:[&>div]:focus-within:shadow-none"
         onSubmit={handlePromptSubmit}
       >
+        <div className="order-first flex h-10 w-full self-stretch items-center justify-start border-b border-[#e5eaf1] px-4 text-[12px] text-[#7d899c] dark:border-[#333] dark:text-[#b4b4b4]">
+          <button
+            className="flex items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:text-[#344054] dark:hover:text-[#ececec]"
+            onClick={handleProjectSelect}
+            type="button"
+          >
+            <FolderOpenIcon className="size-[18px]" strokeWidth={1.7} />
+            <span>选择项目</span>
+            <ChevronDownIcon className="size-3.5" />
+          </button>
+        </div>
         {(attachments.length > 0 || uploadQueue.length > 0) && (
           <div
             className="flex w-full self-start flex-row gap-2 overflow-x-auto px-3 pt-3 no-scrollbar"
@@ -532,48 +610,88 @@ function PureMultimodalInput({
             ))}
           </div>
         )}
-        <PromptInputTextarea
-          className="min-h-24 text-[13px] leading-relaxed px-4 pt-3.5 pb-1.5 placeholder:text-muted-foreground/35"
-          data-testid="multimodal-input"
-          onChange={handleInput}
-          onKeyDown={handleTextareaKeyDown}
-          placeholder={
-            editingMessage ? "Edit your message..." : "Ask anything..."
-          }
-          ref={textareaRef}
-          value={input}
-        />
-        <PromptInputFooter className="px-3 pb-3">
-          <PromptInputTools>
-            <AttachmentsButton
-              fileInputRef={fileInputRef}
-              selectedModelId={selectedModelId}
-              status={status}
-            />
+        <div className="flex min-h-[56px] w-full items-start px-4 pt-3">
+          {selectedSkill ? (
+            <span
+              className="mt-px inline-flex h-6 shrink-0 items-center gap-1.5 text-[14px] font-medium leading-6 text-primary"
+              data-testid="selected-skill"
+            >
+              <HammerIcon
+                aria-hidden="true"
+                className="size-[17px]"
+                strokeWidth={1.8}
+              />
+              <span>{selectedSkill.displayName}</span>
+            </span>
+          ) : null}
+          <PromptInputTextarea
+            className={cn(
+              "min-h-[43px] px-0 pb-1 pt-0 text-[14px] leading-6 placeholder:text-[#9ba6b6] dark:text-[#ececec] dark:placeholder:text-[#8e8e8e]",
+              selectedSkill && "ml-2"
+            )}
+            data-testid="multimodal-input"
+            onChange={handleInput}
+            onKeyDown={handleTextareaKeyDown}
+            placeholder={
+              editingMessage
+                ? "编辑你的消息..."
+                : selectedSkill
+                  ? "请完善你的任务..."
+                  : "随心输入，描述你想完成的任务..."
+            }
+            ref={textareaRef}
+            value={input}
+          />
+        </div>
+        <PromptInputFooter className="px-3 pb-2.5 pt-1">
+          <PromptInputTools className="gap-3">
+            <AttachmentsButton fileInputRef={fileInputRef} status={status} />
+            <button
+              className="flex h-8 items-center gap-2 rounded-lg px-2 text-[13px] text-[#7c899b] transition-colors hover:bg-[#f3f6fa] hover:text-[#344054] dark:text-[#b4b4b4] dark:hover:bg-[#2f2f2f] dark:hover:text-[#ececec]"
+              onClick={handleApprovalSettings}
+              type="button"
+            >
+              <TimerResetIcon className="size-[17px]" strokeWidth={1.7} />
+              <span className="hidden sm:inline">请求批准</span>
+            </button>
+          </PromptInputTools>
+
+          <PromptInputTools className="gap-2.5">
             <ModelSelectorCompact
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
             />
-          </PromptInputTools>
-
-          {status === "submitted" ? (
-            <StopButton setMessages={setMessages} stop={stop} />
-          ) : (
-            <PromptInputSubmit
-              className={cn(
-                "h-7 w-7 rounded-xl transition-all duration-200",
-                input.trim()
-                  ? "bg-foreground text-background hover:opacity-85 active:scale-95"
-                  : "bg-muted text-muted-foreground/25 cursor-not-allowed"
-              )}
-              data-testid="send-button"
-              disabled={!input.trim() || uploadQueue.length > 0}
-              status={status}
-              variant="secondary"
+            <Button
+              aria-label="语音输入"
+              className="size-9 rounded-xl text-[#526176] dark:text-[#b4b4b4] dark:hover:bg-[#2f2f2f] dark:hover:text-[#ececec]"
+              onClick={handleVoiceInput}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
             >
-              <ArrowUpIcon className="size-4" />
-            </PromptInputSubmit>
-          )}
+              <MicIcon className="size-[19px]" strokeWidth={1.7} />
+            </Button>
+            {status === "submitted" ? (
+              <StopButton setMessages={setMessages} stop={stop} />
+            ) : (
+              <PromptInputSubmit
+                className={cn(
+                  "size-10 rounded-full border-0 transition-all duration-200",
+                  input.trim() || selectedSkill
+                    ? "bg-[#347ff4] text-white shadow-[0_8px_22px_-10px_rgba(52,127,244,.9)] hover:bg-[#2774ea] active:scale-95 dark:bg-[#f2f2f2] dark:text-[#0d0d0d] dark:shadow-none dark:hover:bg-white"
+                    : "bg-[#7eaff8] text-white/90 dark:bg-[#3f3f3f] dark:text-[#8e8e8e]"
+                )}
+                data-testid="send-button"
+                disabled={
+                  !(input.trim() || selectedSkill) || uploadQueue.length > 0
+                }
+                status={status}
+                variant="secondary"
+              >
+                <ArrowUpIcon className="size-5" strokeWidth={1.8} />
+              </PromptInputSubmit>
+            )}
+          </PromptInputTools>
         </PromptInputFooter>
       </PromptInput>
     </div>
@@ -638,21 +756,10 @@ const AttachmentPreviewItem = memo(PureAttachmentPreviewItem);
 function PureAttachmentsButton({
   fileInputRef,
   status,
-  selectedModelId,
 }: {
   fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
   status: UseChatHelpers<ChatMessage>["status"];
-  selectedModelId: string;
 }) {
-  const { data: modelsResponse } = useSWR(
-    `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/models`,
-    (url: string) => fetch(url).then((r) => r.json()),
-    { dedupingInterval: 3_600_000, revalidateOnFocus: false }
-  );
-
-  const caps: Record<string, ModelCapabilities> | undefined =
-    modelsResponse?.capabilities ?? modelsResponse;
-  const hasVision = caps?.[selectedModelId]?.vision ?? false;
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
@@ -663,18 +770,13 @@ function PureAttachmentsButton({
 
   return (
     <Button
-      className={cn(
-        "h-7 w-7 rounded-lg border border-border/40 p-1 transition-colors",
-        hasVision
-          ? "text-foreground hover:border-border hover:text-foreground"
-          : "text-muted-foreground/30 cursor-not-allowed"
-      )}
+      className="size-8 rounded-lg border-0 p-1 text-[#526176] transition-colors hover:bg-[#f3f6fa] hover:text-[#27364b]"
       data-testid="attachments-button"
-      disabled={status !== "ready" || !hasVision}
+      disabled={status !== "ready"}
       onClick={handleClick}
       variant="ghost"
     >
-      <PaperclipIcon size={14} style={{ height: 14, width: 14 }} />
+      <PlusIcon className="size-5" strokeWidth={1.7} />
     </Button>
   );
 }
@@ -812,7 +914,7 @@ function PureModelSelectorCompact({
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
         <Button
-          className="h-7 max-w-[200px] justify-between gap-1.5 rounded-lg px-2 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+          className="h-9 max-w-[200px] justify-between gap-2 rounded-xl border border-[#e2e7ee] bg-white px-3 text-[13px] text-[#344054] shadow-none transition-colors hover:bg-[#f8fafc] dark:border-[#3a3a3a] dark:bg-[#2f2f2f] dark:text-[#ececec] dark:hover:bg-[#383838]"
           data-testid="model-selector"
           variant="ghost"
         >
@@ -930,7 +1032,7 @@ function PureStopButton({
 
   return (
     <Button
-      className="h-7 w-7 rounded-xl bg-foreground p-1 text-background transition-all duration-200 hover:opacity-85 active:scale-95 disabled:bg-muted disabled:text-muted-foreground/25 disabled:cursor-not-allowed"
+      className="size-12 rounded-full bg-[#347ff4] p-1 text-white transition-all duration-200 hover:bg-[#2774ea] active:scale-95 disabled:bg-muted disabled:text-muted-foreground/25 disabled:cursor-not-allowed"
       data-testid="stop-button"
       onClick={handleClick}
     >

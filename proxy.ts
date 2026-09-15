@@ -13,6 +13,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (/\.[^/]+$/.test(pathname)) {
+    return NextResponse.next();
+  }
+
+  if (isDevelopmentEnvironment && request.nextUrl.searchParams.has("preview")) {
+    return NextResponse.next();
+  }
+
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,

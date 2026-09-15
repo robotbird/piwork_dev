@@ -48,13 +48,13 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.12 0 0);
+  --background: #fbfcff;
+  --foreground: #182234;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.12 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.12 0 0);
-  --primary: oklch(0.12 0 0);
+  --primary: #347ff4;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.965 0 0);
   --secondary-foreground: oklch(0.38 0 0);
@@ -71,13 +71,13 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.97 0 0);
-  --sidebar-foreground: oklch(0.38 0 0);
+  --sidebar: #f8fafe;
+  --sidebar-foreground: #526176;
   --sidebar-primary: oklch(0.12 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.12 0 0 / 0.06);
-  --sidebar-accent-foreground: oklch(0.12 0 0);
-  --sidebar-border: oklch(0.88 0 0);
+  --sidebar-accent: #edf2f8;
+  --sidebar-accent-foreground: #1c2738;
+  --sidebar-border: #e3e8f0;
   --sidebar-ring: oklch(0.5 0 0);
 
   --shadow-card: 0 1px 3px oklch(0 0 0 / 0.05), 0 1px 1px oklch(0 0 0 / 0.03);
@@ -95,37 +95,37 @@
 }
 
 .dark {
-  --background: oklch(0.195 0 0);
-  --foreground: oklch(0.94 0 0);
-  --card: oklch(0.225 0 0);
-  --card-foreground: oklch(0.94 0 0);
-  --popover: oklch(0.225 0 0);
-  --popover-foreground: oklch(0.94 0 0);
-  --primary: oklch(0.94 0 0);
-  --primary-foreground: oklch(0.195 0 0);
-  --secondary: oklch(0.26 0 0);
-  --secondary-foreground: oklch(0.75 0 0);
-  --muted: oklch(0.165 0 0);
-  --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.26 0 0);
-  --accent-foreground: oklch(0.94 0 0);
+  --background: #000;
+  --foreground: #ececec;
+  --card: #212121;
+  --card-foreground: #ececec;
+  --popover: #212121;
+  --popover-foreground: #ececec;
+  --primary: #f2f2f2;
+  --primary-foreground: #0d0d0d;
+  --secondary: #2f2f2f;
+  --secondary-foreground: #d1d1d1;
+  --muted: #2f2f2f;
+  --muted-foreground: #b4b4b4;
+  --accent: #2f2f2f;
+  --accent-foreground: #ececec;
   --destructive: oklch(0.7 0.15 25);
-  --border: oklch(0.27 0 0);
-  --input: oklch(0.27 0 0);
-  --ring: oklch(0.45 0 0);
+  --border: #2f2f2f;
+  --input: #424242;
+  --ring: #5e5e5e;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.175 0 0);
-  --sidebar-foreground: oklch(0.78 0 0);
-  --sidebar-primary: oklch(0.94 0 0);
-  --sidebar-primary-foreground: oklch(0.195 0 0);
-  --sidebar-accent: oklch(0.94 0 0 / 0.06);
-  --sidebar-accent-foreground: oklch(0.94 0 0);
-  --sidebar-border: oklch(0.25 0 0);
-  --sidebar-ring: oklch(0.45 0 0);
+  --sidebar: #000;
+  --sidebar-foreground: #ececec;
+  --sidebar-primary: #f2f2f2;
+  --sidebar-primary-foreground: #0d0d0d;
+  --sidebar-accent: #1f1f1f;
+  --sidebar-accent-foreground: #ececec;
+  --sidebar-border: #2f2f2f;
+  --sidebar-ring: #5e5e5e;
 
   --shadow-card:
     inset 0 1px 0 oklch(1 0 0 / 0.04), 0 1px 2px oklch(0 0 0 / 0.2),
@@ -145,12 +145,51 @@
     @apply border-border ring-0;
   }
   body {
+    font-family:
+      var(--font-geist), "PingFang SC", "Microsoft YaHei", sans-serif;
     font-feature-settings: "ss01", "ss02", "cv01";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     @apply bg-background text-foreground;
   }
+}
+
+.piwork-composer > [data-slot="input-group"] {
+  border-radius: 24px;
+}
+
+.dark .piwork-composer > [data-slot="input-group"] {
+  color: #ececec;
+  background: #212121;
+  border-color: #2f2f2f;
+  box-shadow: none;
+}
+
+.dark .piwork-composer > [data-slot="input-group"]:focus-within {
+  border-color: #4a4a4a;
+  box-shadow: none;
+}
+
+.dark .piwork-composer [data-testid="model-selector"] {
+  color: #ececec;
+  background: #2f2f2f;
+  border-color: #3a3a3a;
+}
+
+.dark .piwork-composer [data-testid="model-selector"]:hover {
+  background: #383838;
+}
+
+.dark .piwork-composer [data-testid="send-button"] {
+  color: #0d0d0d !important;
+  background: #f2f2f2 !important;
+  box-shadow: none !important;
+}
+
+.dark .piwork-composer [data-testid="send-button"]:disabled {
+  color: #8e8e8e !important;
+  background: #3f3f3f !important;
 }
 
 @layer base {

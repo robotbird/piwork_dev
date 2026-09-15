@@ -1,7 +1,7 @@
 "use client";
 
-import { isToday, isYesterday, subMonths, subWeeks } from "date-fns";
 import { motion } from "framer-motion";
+import { ChevronRightIcon, FileTextIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { useCallback, useState } from "react";
@@ -22,20 +22,15 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { guestRegex } from "@/lib/constants";
 import type { Chat } from "@/lib/db/schema";
 import { fetcher } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
 import { ChatItem } from "./sidebar-history-item";
-
-type GroupedChats = {
-  today: Chat[];
-  yesterday: Chat[];
-  lastWeek: Chat[];
-  lastMonth: Chat[];
-  older: Chat[];
-};
 
 export type ChatHistory = {
   chats: Chat[];
@@ -44,38 +39,24 @@ export type ChatHistory = {
 
 const PAGE_SIZE = 20;
 
-const groupChatsByDate = (chats: Chat[]): GroupedChats => {
-  const now = new Date();
-  const oneWeekAgo = subWeeks(now, 1);
-  const oneMonthAgo = subMonths(now, 1);
+const previewItems = [
+  "华东区销售分析报告",
+  "Q3 市场调研总结",
+  "供应商合同风险审查",
+  "产品方案撰写",
+  "会议纪要整理",
+];
 
-  return chats.reduce(
-    (groups, chat) => {
-      const chatDate = new Date(chat.createdAt);
+const showPreviewNotice = () => toast.info("登录后可查看任务记录");
 
-      if (isToday(chatDate)) {
-        groups.today.push(chat);
-      } else if (isYesterday(chatDate)) {
-        groups.yesterday.push(chat);
-      } else if (chatDate > oneWeekAgo) {
-        groups.lastWeek.push(chat);
-      } else if (chatDate > oneMonthAgo) {
-        groups.lastMonth.push(chat);
-      } else {
-        groups.older.push(chat);
-      }
-
-      return groups;
-    },
-    {
-      lastMonth: [],
-      lastWeek: [],
-      older: [],
-      today: [],
-      yesterday: [],
-    } as GroupedChats
+function RecentLabel() {
+  return (
+    <SidebarGroupLabel className="mb-1 flex h-7 items-center justify-between px-3 text-[13px] font-normal text-sidebar-foreground/50">
+      <span>最近</span>
+      <ChevronRightIcon className="size-4" />
+    </SidebarGroupLabel>
   );
-};
+}
 
 export function getChatHistoryPaginationKey(
   pageIndex: number,
@@ -165,13 +146,24 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     }
   }, [hasReachedEnd, isValidating, setSize]);
 
-  if (!user) {
+  if (!user || guestRegex.test(user.email ?? "")) {
     return (
-      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+      <SidebarGroup className="mt-3 border-t border-sidebar-border/70 px-0 pt-4 group-data-[collapsible=icon]:hidden">
+        <RecentLabel />
         <SidebarGroupContent>
-          <div className="flex w-full flex-row items-center justify-center gap-2 px-2 text-[13px] text-sidebar-foreground/60">
-            Login to save and revisit previous chats!
-          </div>
+          <SidebarMenu className="gap-0.5">
+            {previewItems.map((title) => (
+              <SidebarMenuItem key={title}>
+                <SidebarMenuButton
+                  className="h-9 rounded-lg px-3 text-[14px] text-[#344054] hover:bg-sidebar-accent/70 hover:text-[#1c2738] dark:text-[#d1d1d1] dark:hover:bg-[#1f1f1f] dark:hover:text-white"
+                  onClick={showPreviewNotice}
+                >
+                  <FileTextIcon className="size-[18px]" strokeWidth={1.65} />
+                  <span>{title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
     );
@@ -179,10 +171,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   if (isLoading) {
     return (
-      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-          History
-        </SidebarGroupLabel>
+      <SidebarGroup className="mt-3 border-t border-sidebar-border/70 px-0 pt-4 group-data-[collapsible=icon]:hidden">
+        <RecentLabel />
         <SidebarGroupContent>
           <div className="flex flex-col gap-0.5 px-1">
             {[44, 32, 28, 64, 52].map((item) => (
@@ -208,13 +198,11 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   if (hasEmptyChatHistory) {
     return (
-      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-          History
-        </SidebarGroupLabel>
+      <SidebarGroup className="mt-3 border-t border-sidebar-border/70 px-0 pt-4 group-data-[collapsible=icon]:hidden">
+        <RecentLabel />
         <SidebarGroupContent>
-          <div className="flex w-full flex-row items-center justify-center gap-2 px-2 text-[13px] text-sidebar-foreground/60">
-            Your conversations will appear here once you start chatting!
+          <div className="px-3 py-2 text-[13px] text-sidebar-foreground/50">
+            开始新任务后，记录会显示在这里
           </div>
         </SidebarGroupContent>
       </SidebarGroup>
@@ -223,10 +211,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   return (
     <>
-      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-          History
-        </SidebarGroupLabel>
+      <SidebarGroup className="mt-3 border-t border-sidebar-border/70 px-0 pt-4 group-data-[collapsible=icon]:hidden">
+        <RecentLabel />
         <SidebarGroupContent>
           <SidebarMenu>
             {paginatedChatHistories
@@ -235,94 +221,17 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                     (paginatedChatHistory) => paginatedChatHistory.chats
                   );
 
-                  const groupedChats = groupChatsByDate(chatsFromHistory);
-
                   return (
-                    <div className="flex flex-col gap-4">
-                      {groupedChats.today.length > 0 && (
-                        <div>
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-                            Today
-                          </div>
-                          {groupedChats.today.map((chat) => (
-                            <ChatItem
-                              chat={chat}
-                              isActive={chat.id === id}
-                              key={chat.id}
-                              onDelete={handleShowDeleteDialog}
-                              setOpenMobile={setOpenMobile}
-                            />
-                          ))}
-                        </div>
-                      )}
-
-                      {groupedChats.yesterday.length > 0 && (
-                        <div>
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-                            Yesterday
-                          </div>
-                          {groupedChats.yesterday.map((chat) => (
-                            <ChatItem
-                              chat={chat}
-                              isActive={chat.id === id}
-                              key={chat.id}
-                              onDelete={handleShowDeleteDialog}
-                              setOpenMobile={setOpenMobile}
-                            />
-                          ))}
-                        </div>
-                      )}
-
-                      {groupedChats.lastWeek.length > 0 && (
-                        <div>
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-                            Last 7 days
-                          </div>
-                          {groupedChats.lastWeek.map((chat) => (
-                            <ChatItem
-                              chat={chat}
-                              isActive={chat.id === id}
-                              key={chat.id}
-                              onDelete={handleShowDeleteDialog}
-                              setOpenMobile={setOpenMobile}
-                            />
-                          ))}
-                        </div>
-                      )}
-
-                      {groupedChats.lastMonth.length > 0 && (
-                        <div>
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-                            Last 30 days
-                          </div>
-                          {groupedChats.lastMonth.map((chat) => (
-                            <ChatItem
-                              chat={chat}
-                              isActive={chat.id === id}
-                              key={chat.id}
-                              onDelete={handleShowDeleteDialog}
-                              setOpenMobile={setOpenMobile}
-                            />
-                          ))}
-                        </div>
-                      )}
-
-                      {groupedChats.older.length > 0 && (
-                        <div>
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/70">
-                            Older
-                          </div>
-                          {groupedChats.older.map((chat) => (
-                            <ChatItem
-                              chat={chat}
-                              isActive={chat.id === id}
-                              key={chat.id}
-                              onDelete={handleShowDeleteDialog}
-                              setOpenMobile={setOpenMobile}
-                            />
-                          ))}
-                        </div>
-                      )}
+                    <div className="flex flex-col gap-0.5">
+                      {chatsFromHistory.map((chat) => (
+                        <ChatItem
+                          chat={chat}
+                          isActive={chat.id === id}
+                          key={chat.id}
+                          onDelete={handleShowDeleteDialog}
+                          setOpenMobile={setOpenMobile}
+                        />
+                      ))}
                     </div>
                   );
                 })()
@@ -336,7 +245,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
               <div className="animate-spin">
                 <LoaderIcon />
               </div>
-              <div className="text-[11px]">Loading...</div>
+              <div className="text-[11px]">加载中...</div>
             </div>
           )}
         </SidebarGroupContent>
@@ -345,17 +254,14 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
       <AlertDialog onOpenChange={setShowDeleteDialog} open={showDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>确认删除此任务？</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your
-              chat and remove it from our servers.
+              删除后无法恢复，该任务及其对话记录将被永久移除。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>
-              Continue
-            </AlertDialogAction>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>删除</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

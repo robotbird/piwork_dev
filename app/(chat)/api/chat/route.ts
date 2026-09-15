@@ -1,3 +1,4 @@
+import { Agent, type AgentMessage } from "@earendil-works/pi-agent-core";
 import { geolocation, ipAddress } from "@vercel/functions";
 import {
   createUIMessageStream,
@@ -15,8 +16,15 @@ import {
   DEFAULT_CHAT_MODEL,
   getModelAvailability,
 } from "@/lib/ai/models";
-import { streamPiAnswer, toPiContext } from "@/lib/ai/pi";
+import { getPiModel, streamPiAgent, toPiContext } from "@/lib/ai/pi";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
+import {
+  buildSkillsSystemPrompt,
+  createSkillTools,
+  invokeSkill,
+  loadProjectSkills,
+  parseSkillCommand,
+} from "@/lib/ai/skills";
 import {
   createStreamId,
   deleteChatById,
@@ -32,7 +40,11 @@ import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
-import { convertToUIMessages, generateUUID } from "@/lib/utils";
+import {
+  convertToUIMessages,
+  generateUUID,
+  getTextFromMessage,
+} from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
@@ -176,11 +188,50 @@ export async function POST(request: Request) {
     }
 
     const modelConfig = chatModels.find((m) => m.id === chatModel);
-    const piContext = toPiContext(
-      uiMessages,
-      chatModel,
-      systemPrompt({ requestHints, supportsTools: false })
+    const currentUserMessageIndex = uiMessages.findLastIndex(
+      (currentMessage) => currentMessage.role === "user"
     );
+    const currentUserMessage = uiMessages[currentUserMessageIndex];
+    const currentUserText = currentUserMessage
+      ? getTextFromMessage(currentUserMessage).trim()
+      : "";
+
+    if (!currentUserText) {
+      return new ChatbotError("bad_request:api").toResponse();
+    }
+
+    const { skills, diagnostics: skillDiagnostics } = await loadProjectSkills();
+    if (skillDiagnostics.length > 0) {
+      console.warn("Skill discovery warnings:", skillDiagnostics);
+    }
+
+    const baseSystemPrompt = systemPrompt({
+      requestHints,
+      supportsTools: false,
+    });
+    const agentSystemPrompt = `${baseSystemPrompt}\n\n${buildSkillsSystemPrompt(skills)}`;
+    const previousPiContext = toPiContext(
+      uiMessages.slice(0, currentUserMessageIndex),
+      chatModel,
+      agentSystemPrompt
+    );
+    const skillCommand = parseSkillCommand(currentUserText);
+
+    let agentPrompt = currentUserText;
+    if (skillCommand) {
+      try {
+        agentPrompt = invokeSkill(
+          skills,
+          skillCommand.name,
+          skillCommand.instructions
+        );
+      } catch (error) {
+        return Response.json(
+          { error: error instanceof Error ? error.message : "Unknown skill" },
+          { status: 404 }
+        );
+      }
+    }
 
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
@@ -247,55 +298,88 @@ export async function POST(request: Request) {
         };
 
         try {
-          const piStream = streamPiAnswer(chatModel, piContext, request.signal);
+          let assistantSequence = 0;
+          let activeAssistantSequence = 0;
+          const agent = new Agent({
+            initialState: {
+              messages: previousPiContext.messages as AgentMessage[],
+              model: getPiModel(chatModel),
+              systemPrompt: agentSystemPrompt,
+              tools: createSkillTools(skills),
+            },
+            streamFn: streamPiAgent,
+            toolExecution: "sequential",
+          });
 
-          for await (const event of piStream) {
-            if (event.type === "start") {
-              continue;
+          agent.subscribe((event) => {
+            if (
+              event.type === "message_start" &&
+              event.message.role === "assistant"
+            ) {
+              assistantSequence += 1;
+              activeAssistantSequence = assistantSequence;
+            }
+
+            if (event.type !== "message_update") {
+              return;
+            }
+
+            const update = event.assistantMessageEvent;
+            if (update.type === "start") {
+              return;
             }
 
             markModelActive();
+            const contentIndex =
+              "contentIndex" in update ? update.contentIndex : 0;
+            const textId = `text-${activeAssistantSequence}-${contentIndex}`;
+            const reasoningId = `reasoning-${activeAssistantSequence}-${contentIndex}`;
 
-            if (event.type === "text_start") {
+            if (update.type === "text_start") {
               dataStream.write({
-                id: `text-${event.contentIndex}`,
+                id: textId,
                 type: "text-start",
               });
-            } else if (event.type === "text_delta") {
+            } else if (update.type === "text_delta") {
               dataStream.write({
-                delta: event.delta,
-                id: `text-${event.contentIndex}`,
+                delta: update.delta,
+                id: textId,
                 type: "text-delta",
               });
-            } else if (event.type === "text_end") {
+            } else if (update.type === "text_end") {
               dataStream.write({
-                id: `text-${event.contentIndex}`,
+                id: textId,
                 type: "text-end",
               });
-            } else if (event.type === "thinking_start") {
+            } else if (update.type === "thinking_start") {
               dataStream.write({
-                id: `reasoning-${event.contentIndex}`,
+                id: reasoningId,
                 type: "reasoning-start",
               });
-            } else if (event.type === "thinking_delta") {
+            } else if (update.type === "thinking_delta") {
               dataStream.write({
-                delta: event.delta,
-                id: `reasoning-${event.contentIndex}`,
+                delta: update.delta,
+                id: reasoningId,
                 type: "reasoning-delta",
               });
-            } else if (event.type === "thinking_end") {
+            } else if (update.type === "thinking_end") {
               dataStream.write({
-                id: `reasoning-${event.contentIndex}`,
+                id: reasoningId,
                 type: "reasoning-end",
               });
-            } else if (event.type === "error") {
-              if (event.reason === "aborted") {
-                break;
-              }
-              throw new Error(
-                event.error.errorMessage ?? "DeepSeek request failed"
-              );
             }
+          });
+
+          const abortAgent = () => agent.abort();
+          request.signal.addEventListener("abort", abortAgent, { once: true });
+          try {
+            await agent.prompt(agentPrompt);
+          } finally {
+            request.signal.removeEventListener("abort", abortAgent);
+          }
+
+          if (agent.state.errorMessage && !request.signal.aborted) {
+            throw new Error(agent.state.errorMessage);
           }
         } finally {
           stopWaitingStatus();

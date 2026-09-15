@@ -1,3 +1,4 @@
+import { FileTextIcon } from "lucide-react";
 import Link from "next/link";
 import { memo, useCallback } from "react";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
@@ -61,10 +62,11 @@ const PureChatItem = ({
     <SidebarMenuItem>
       <SidebarMenuButton
         asChild
-        className="h-8 rounded-none text-[13px] text-sidebar-foreground/50 transition-all duration-150 hover:bg-transparent hover:text-sidebar-foreground data-active:bg-transparent data-active:font-normal data-active:text-sidebar-foreground/50 data-[active=true]:text-sidebar-foreground data-[active=true]:font-medium data-[active=true]:border-b data-[active=true]:border-dashed data-[active=true]:border-sidebar-foreground/50"
+        className="h-9 rounded-lg px-3 text-[14px] text-[#344054] transition-colors hover:bg-sidebar-accent/70 hover:text-[#1c2738] data-[active=true]:bg-[#e7f0ff] data-[active=true]:font-medium data-[active=true]:text-[#2878f0] dark:text-[#d1d1d1] dark:hover:bg-[#1f1f1f] dark:hover:text-white dark:data-[active=true]:bg-[#1f1f1f] dark:data-[active=true]:text-[#ececec]"
         isActive={isActive}
       >
         <Link href={`/chat/${chat.id}`} onClick={closeMobile}>
+          <FileTextIcon className="size-[18px]" strokeWidth={1.65} />
           <span className="truncate">{chat.title}</span>
         </Link>
       </SidebarMenuButton>

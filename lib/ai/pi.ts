@@ -1,4 +1,5 @@
 import {
+  type Api,
   type AssistantMessage,
   type Context,
   createModels,
@@ -8,6 +9,7 @@ import {
   fauxProvider,
   type Message,
   type Model,
+  type SimpleStreamOptions,
 } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import type { ChatMessage } from "@/lib/types";
@@ -164,6 +166,18 @@ export function streamPiAnswer(
     maxRetries: 2,
     signal,
     timeoutMs: 55_000,
+  });
+}
+
+export function streamPiAgent(
+  model: Model<Api>,
+  context: Context,
+  options?: SimpleStreamOptions
+) {
+  return piModels.streamSimple(model, context, {
+    ...options,
+    maxRetries: options?.maxRetries ?? 2,
+    timeoutMs: options?.timeoutMs ?? 55_000,
   });
 }
 

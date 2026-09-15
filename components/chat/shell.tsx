@@ -1,16 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import {
   initialArtifactData,
@@ -44,8 +34,6 @@ export function ChatShell() {
     votes,
     currentModelId,
     setCurrentModelId,
-    showCreditCardAlert,
-    setShowCreditCardAlert,
   } = useActiveChat();
 
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(
@@ -102,14 +90,6 @@ export function ChatShell() {
     setInput("");
   }, [editingMessage, input, regenerate, setInput, setMessages]);
 
-  const handleActivateGateway = useCallback(() => {
-    window.open(
-      "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card",
-      "_blank"
-    );
-    window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/`;
-  }, []);
-
   return (
     <>
       <div className="flex h-dvh w-full flex-row overflow-hidden">
@@ -125,7 +105,7 @@ export function ChatShell() {
             selectedVisibilityType={visibilityType}
           />
 
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-tl-[12px] md:border-t md:border-l md:border-border/40">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-l border-border/50 bg-[#fbfcff] dark:bg-background">
             <Messages
               addToolApprovalResponse={addToolApprovalResponse}
               chatId={chatId}
@@ -141,7 +121,24 @@ export function ChatShell() {
               votes={votes}
             />
 
-            <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
+            <div
+              className={cn(
+                "z-1 mx-auto flex w-full gap-2 bg-transparent px-3 md:px-4",
+                messages.length === 0
+                  ? "absolute"
+                  : "sticky bottom-0 pb-4 md:pb-6"
+              )}
+              style={
+                messages.length === 0
+                  ? {
+                      left: "50%",
+                      maxWidth: "800px",
+                      top: "48.5%",
+                      transform: "translateX(-50%)",
+                    }
+                  : { maxWidth: "800px" }
+              }
+            >
               {!isReadonly && (
                 <MultimodalInput
                   attachments={attachments}
@@ -189,28 +186,6 @@ export function ChatShell() {
       </div>
 
       <DataStreamHandler />
-
-      <AlertDialog
-        onOpenChange={setShowCreditCardAlert}
-        open={showCreditCardAlert}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Activate AI Gateway</AlertDialogTitle>
-            <AlertDialogDescription>
-              This application requires{" "}
-              {process.env.NODE_ENV === "production" ? "the owner" : "you"} to
-              activate Vercel AI Gateway.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleActivateGateway}>
-              Activate
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

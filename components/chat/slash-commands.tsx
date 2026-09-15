@@ -2,6 +2,7 @@
 
 import {
   BombIcon,
+  HammerIcon,
   ListIcon,
   PaletteIcon,
   PenLineIcon,
@@ -10,14 +11,30 @@ import {
   XIcon,
 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { formatSkillDisplayName } from "@/lib/ai/skill-display";
 import { cn } from "@/lib/utils";
 
 export type SlashCommand = {
   name: string;
+  displayName?: string;
   description: string;
   icon: ReactNode;
   action: string;
+  group?: "commands" | "skills";
+  skillName?: string;
   shortcut?: string;
+};
+
+export type SkillSummary = {
+  description: string;
+  displayName: string;
+  name: string;
 };
 
 export const slashCommands: SlashCommand[] = [
@@ -65,10 +82,29 @@ export const slashCommands: SlashCommand[] = [
   },
 ];
 
+export function createSkillSlashCommands(
+  skills: SkillSummary[]
+): SlashCommand[] {
+  const builtInNames = new Set(slashCommands.map((command) => command.name));
+
+  return skills
+    .filter((skill) => !builtInNames.has(skill.name))
+    .map((skill) => ({
+      action: "skill",
+      description: skill.description,
+      displayName:
+        skill.displayName.trim() || formatSkillDisplayName(skill.name),
+      group: "skills",
+      icon: <HammerIcon className="size-3.5" />,
+      name: skill.name,
+      skillName: skill.name,
+    }));
+}
+
 type SlashCommandMenuProps = {
   query: string;
+  commands: SlashCommand[];
   onSelect: (command: SlashCommand) => void;
-  onClose: () => void;
   selectedIndex: number;
 };
 
@@ -87,29 +123,26 @@ function SlashCommandMenuItem({
     onSelect(cmd);
   }, [cmd, onSelect]);
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      e.preventDefault();
-    },
-    []
-  );
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  }, []);
 
   return (
-    <button
+    <CommandItem
       className={cn(
-        "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
-        index === selectedIndex ? "bg-muted/70" : "hover:bg-muted/40"
+        "gap-3 rounded-lg px-3 py-2.5",
+        index === selectedIndex && "bg-muted/70"
       )}
       data-selected={index === selectedIndex}
-      onClick={handleClick}
       onMouseDown={handleMouseDown}
-      type="button"
+      onSelect={handleClick}
+      value={cmd.name}
     >
-      <div className="flex size-6 shrink-0 items-center justify-center text-muted-foreground/60">
+      <span className="flex size-6 shrink-0 items-center justify-center text-muted-foreground/60">
         {cmd.icon}
-      </div>
+      </span>
       <span className="font-mono text-[13px] text-foreground">/{cmd.name}</span>
-      <span className="text-[12px] text-muted-foreground/50">
+      <span className="min-w-0 truncate text-[12px] text-muted-foreground/60">
         {cmd.description}
       </span>
       {cmd.shortcut ? (
@@ -117,27 +150,30 @@ function SlashCommandMenuItem({
           {cmd.shortcut}
         </span>
       ) : null}
-    </button>
+    </CommandItem>
   );
 }
 
 export function SlashCommandMenu({
+  commands,
   query,
   onSelect,
-  onClose: _onClose,
   selectedIndex,
 }: SlashCommandMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const filtered = slashCommands.filter((cmd) =>
+  const filtered = commands.filter((cmd) =>
     cmd.name.startsWith(query.toLowerCase())
   );
+  const commandItems = filtered.filter((cmd) => cmd.group !== "skills");
+  const skillItems = filtered.filter((cmd) => cmd.group === "skills");
 
   useEffect(() => {
-    const selected = menuRef.current?.querySelector("[data-selected='true']");
+    const selected =
+      menuRef.current?.querySelectorAll("[cmdk-item]")[selectedIndex];
     if (selected) {
       selected.scrollIntoView({ block: "nearest" });
     }
-  }, []);
+  }, [selectedIndex]);
 
   if (filtered.length === 0) {
     return null;
@@ -148,20 +184,36 @@ export function SlashCommandMenu({
       className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-xl border border-border/50 bg-card/95 shadow-[var(--shadow-float)] backdrop-blur-xl"
       ref={menuRef}
     >
-      <div className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
-        Commands
-      </div>
-      <div className="max-h-64 overflow-y-auto pb-1 no-scrollbar">
-        {filtered.map((cmd, index) => (
-          <SlashCommandMenuItem
-            cmd={cmd}
-            index={index}
-            key={cmd.name}
-            onSelect={onSelect}
-            selectedIndex={selectedIndex}
-          />
-        ))}
-      </div>
+      <Command className="rounded-xl bg-transparent" shouldFilter={false}>
+        <CommandList className="max-h-72 p-1">
+          {commandItems.length > 0 ? (
+            <CommandGroup heading="Commands">
+              {commandItems.map((cmd) => (
+                <SlashCommandMenuItem
+                  cmd={cmd}
+                  index={filtered.indexOf(cmd)}
+                  key={cmd.name}
+                  onSelect={onSelect}
+                  selectedIndex={selectedIndex}
+                />
+              ))}
+            </CommandGroup>
+          ) : null}
+          {skillItems.length > 0 ? (
+            <CommandGroup heading="Skills">
+              {skillItems.map((cmd) => (
+                <SlashCommandMenuItem
+                  cmd={cmd}
+                  index={filtered.indexOf(cmd)}
+                  key={cmd.name}
+                  onSelect={onSelect}
+                  selectedIndex={selectedIndex}
+                />
+              ))}
+            </CommandGroup>
+          ) : null}
+        </CommandList>
+      </Command>
     </div>
   );
 }
