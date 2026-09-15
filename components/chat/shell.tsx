@@ -123,7 +123,9 @@ export function ChatShell() {
 
             <div
               className={cn(
-                "z-1 mx-auto flex w-full gap-2 bg-transparent px-3 md:px-4",
+                // z-20：必须高于 Messages 中 Greeting 的 z-10 遮罩层，
+                // 否则空会话时问候文字会盖住 slash 命令浮层
+                "z-20 mx-auto flex w-full gap-2 bg-transparent px-3 md:px-4",
                 messages.length === 0
                   ? "absolute"
                   : "sticky bottom-0 pb-4 md:pb-6"

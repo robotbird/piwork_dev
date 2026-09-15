@@ -537,3 +537,31 @@ textarea:focus-visible {
 [data-testid="artifact"] {
   isolation: isolate;
 }
+
+/* Slash 命令/技能面板：恢复可见的细滚动条（覆盖 CommandList 的 no-scrollbar） */
+.skill-menu [data-slot="command-list"] {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0 0 0 / 0.18) transparent;
+}
+
+.skill-menu [data-slot="command-list"]::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.skill-menu [data-slot="command-list"]::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: oklch(0 0 0 / 0.15);
+}
+
+.skill-menu [data-slot="command-list"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark .skill-menu [data-slot="command-list"] {
+  scrollbar-color: oklch(1 0 0 / 0.14) transparent;
+}
+
+.dark .skill-menu [data-slot="command-list"]::-webkit-scrollbar-thumb {
+  background: oklch(1 0 0 / 0.12);
+}

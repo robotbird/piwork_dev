@@ -161,10 +161,11 @@ function PureMultimodalInput({
   }>(skillsEndpoint, fetcher, {
     revalidateOnFocus: true,
   });
+  // 技能在前、内置指令在后（与参考设计的分组顺序一致，键盘索引自洽）
   const availableSlashCommands = useMemo(
     () => [
-      ...slashCommands,
       ...createSkillSlashCommands(skillsData?.skills ?? []),
+      ...slashCommands,
     ],
     [skillsData?.skills]
   );

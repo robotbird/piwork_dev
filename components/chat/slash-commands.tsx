@@ -16,6 +16,7 @@ import {
   CommandGroup,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import { formatSkillDisplayName } from "@/lib/ai/skill-display";
 import { cn } from "@/lib/utils";
@@ -108,6 +109,15 @@ type SlashCommandMenuProps = {
   selectedIndex: number;
 };
 
+function GroupHeading({ label, count }: { label: string; count: number }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      {label}
+      <span className="font-normal text-muted-foreground/40">（{count}）</span>
+    </span>
+  );
+}
+
 function SlashCommandMenuItem({
   cmd,
   index,
@@ -130,23 +140,26 @@ function SlashCommandMenuItem({
   return (
     <CommandItem
       className={cn(
-        "gap-3 rounded-lg px-3 py-2.5",
-        index === selectedIndex && "bg-muted/70"
+        "min-h-11 gap-3 rounded-xl border border-transparent px-3 py-2",
+        "data-[selected=true]:border-border/40 data-[selected=true]:bg-muted",
+        index === selectedIndex && "border-border/40 bg-muted"
       )}
       data-selected={index === selectedIndex}
       onMouseDown={handleMouseDown}
       onSelect={handleClick}
       value={cmd.name}
     >
-      <span className="flex size-6 shrink-0 items-center justify-center text-muted-foreground/60">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground/70">
         {cmd.icon}
       </span>
-      <span className="font-mono text-[13px] text-foreground">/{cmd.name}</span>
-      <span className="min-w-0 truncate text-[12px] text-muted-foreground/60">
+      <span className="shrink-0 font-mono text-[13px] text-foreground">
+        /{cmd.name}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-left text-[12px] text-muted-foreground/60">
         {cmd.description}
       </span>
       {cmd.shortcut ? (
-        <span className="ml-auto text-[11px] text-muted-foreground/30">
+        <span className="shrink-0 text-[11px] text-muted-foreground/30">
           {cmd.shortcut}
         </span>
       ) : null}
@@ -180,15 +193,22 @@ export function SlashCommandMenu({
   }
 
   return (
+    // 不透明卡片：纯色背景（不用半透明+模糊），配合 isolate 保证
+    // 面板完整遮住底层内容（Z 序问题另由 shell.tsx 的 z-20 修复）
     <div
-      className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-xl border border-border/50 bg-card/95 shadow-[var(--shadow-float)] backdrop-blur-xl"
+      className="skill-menu absolute bottom-full left-0 right-0 z-50 mb-2 isolate overflow-hidden rounded-3xl border border-border/60 bg-card text-card-foreground shadow-[var(--shadow-float)]"
       ref={menuRef}
     >
-      <Command className="rounded-xl bg-transparent" shouldFilter={false}>
-        <CommandList className="max-h-72 p-1">
-          {commandItems.length > 0 ? (
-            <CommandGroup heading="Commands">
-              {commandItems.map((cmd) => (
+      <Command
+        className="rounded-3xl bg-transparent p-1.5"
+        shouldFilter={false}
+      >
+        <CommandList className="max-h-[min(420px,55vh)] scroll-py-2 p-1">
+          {skillItems.length > 0 ? (
+            <CommandGroup
+              heading={<GroupHeading count={skillItems.length} label="技能" />}
+            >
+              {skillItems.map((cmd) => (
                 <SlashCommandMenuItem
                   cmd={cmd}
                   index={filtered.indexOf(cmd)}
@@ -199,9 +219,16 @@ export function SlashCommandMenu({
               ))}
             </CommandGroup>
           ) : null}
-          {skillItems.length > 0 ? (
-            <CommandGroup heading="Skills">
-              {skillItems.map((cmd) => (
+          {skillItems.length > 0 && commandItems.length > 0 ? (
+            <CommandSeparator className="mx-3 my-1.5" />
+          ) : null}
+          {commandItems.length > 0 ? (
+            <CommandGroup
+              heading={
+                <GroupHeading count={commandItems.length} label="指令" />
+              }
+            >
+              {commandItems.map((cmd) => (
                 <SlashCommandMenuItem
                   cmd={cmd}
                   index={filtered.indexOf(cmd)}
