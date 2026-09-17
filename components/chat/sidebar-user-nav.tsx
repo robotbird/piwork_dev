@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronUp } from "lucide-react";
+import { ChevronUp, Settings2Icon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { signOut, useSession } from "next-auth/react";
@@ -90,6 +91,21 @@ export function SidebarUserNav({ user }: { user: User }) {
             data-testid="user-nav-menu"
             side="top"
           >
+            {isGuest ? null : (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link
+                    className="cursor-pointer gap-2 text-[13px]"
+                    data-testid="user-nav-item-management"
+                    href="/management/skills"
+                  >
+                    <Settings2Icon className="size-3.5" />
+                    管理
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem
               className="cursor-pointer text-[13px]"
               data-testid="user-nav-item-theme"
