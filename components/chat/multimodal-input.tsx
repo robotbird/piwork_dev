@@ -45,6 +45,10 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import {
+  CHAT_ATTACHMENT_ACCEPT,
+  MAX_CHAT_ATTACHMENT_COUNT,
+} from "@/lib/ai/attachment-types";
+import {
   type ChatModel,
   chatModels,
   DEFAULT_CHAT_MODEL,
@@ -284,15 +288,19 @@ function PureMultimodalInput({
     sendMessage({
       parts: [
         ...attachments.map((attachment) => ({
+          filename: attachment.name,
           mediaType: attachment.contentType,
-          name: attachment.name,
           type: "file" as const,
           url: attachment.url,
         })),
-        {
-          text: messageText,
-          type: "text",
-        },
+        ...(messageText.trim()
+          ? [
+              {
+                text: messageText,
+                type: "text" as const,
+              },
+            ]
+          : []),
       ],
       role: "user",
     });
@@ -333,11 +341,11 @@ function PureMultimodalInput({
 
       if (response.ok) {
         const data = await response.json();
-        const { url, pathname, contentType } = data;
+        const { url, pathname, contentType, name } = data;
 
         return {
           contentType,
-          name: pathname,
+          name: name ?? pathname,
           url,
         };
       }
@@ -350,7 +358,20 @@ function PureMultimodalInput({
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(event.target.files || []);
+      const availableSlots = Math.max(
+        0,
+        MAX_CHAT_ATTACHMENT_COUNT - attachments.length
+      );
+      const selectedFiles = Array.from(event.target.files || []);
+      const files = selectedFiles.slice(0, availableSlots);
+
+      if (selectedFiles.length > availableSlots) {
+        toast.error(`每条消息最多上传 ${MAX_CHAT_ATTACHMENT_COUNT} 个附件`);
+      }
+      if (files.length === 0) {
+        event.target.value = "";
+        return;
+      }
 
       setUploadQueue(files.map((file) => file.name));
 
@@ -369,9 +390,10 @@ function PureMultimodalInput({
         toast.error("Failed to upload files");
       } finally {
         setUploadQueue([]);
+        event.target.value = "";
       }
     },
-    [setAttachments, uploadFile]
+    [attachments.length, setAttachments, uploadFile]
   );
 
   const handlePaste = useCallback(
@@ -384,9 +406,21 @@ function PureMultimodalInput({
       const imageItems = Array.from(items).filter((item) =>
         item.type.startsWith("image/")
       );
+      const availableSlots = Math.max(
+        0,
+        MAX_CHAT_ATTACHMENT_COUNT - attachments.length
+      );
+      const acceptedImageItems = imageItems.slice(0, availableSlots);
 
       if (imageItems.length === 0) {
         return;
+      }
+      if (acceptedImageItems.length === 0) {
+        toast.error(`每条消息最多上传 ${MAX_CHAT_ATTACHMENT_COUNT} 个附件`);
+        return;
+      }
+      if (acceptedImageItems.length < imageItems.length) {
+        toast.error(`每条消息最多上传 ${MAX_CHAT_ATTACHMENT_COUNT} 个附件`);
       }
 
       event.preventDefault();
@@ -394,7 +428,7 @@ function PureMultimodalInput({
       setUploadQueue((prev) => [...prev, "Pasted image"]);
 
       try {
-        const uploadPromises = imageItems
+        const uploadPromises = acceptedImageItems
           .map((item) => item.getAsFile())
           .filter((file): file is File => file !== null)
           .map((file) => uploadFile(file));
@@ -417,7 +451,7 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments, uploadFile]
+    [attachments.length, setAttachments, uploadFile]
   );
 
   useEffect(() => {
@@ -550,6 +584,7 @@ function PureMultimodalInput({
       ) : null}
 
       <input
+        accept={CHAT_ATTACHMENT_ACCEPT}
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
         multiple
         onChange={handleFileChange}

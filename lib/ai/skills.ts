@@ -1,3 +1,4 @@
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import {
   type AgentTool,
   formatSkillInvocation,
@@ -7,6 +8,7 @@ import {
 } from "@earendil-works/pi-agent-core";
 import { NodeExecutionEnv } from "@earendil-works/pi-agent-core/node";
 import { Type } from "@earendil-works/pi-ai";
+import { unzipSync } from "fflate";
 import {
   formatSkillDisplayName,
   parseSkillDisplayName,
@@ -16,6 +18,9 @@ import {
 const SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_DESCRIPTION_LENGTH = 1024;
 const MAX_INSTRUCTIONS_LENGTH = 50_000;
+export const MAX_SKILL_UPLOAD_FILE_COUNT = 200;
+export const MAX_SKILL_UPLOAD_FILE_SIZE = 5 * 1024 * 1024;
+export const MAX_SKILL_UPLOAD_TOTAL_SIZE = 15 * 1024 * 1024;
 const RESERVED_SKILL_NAMES = new Set([
   "clear",
   "delete",
@@ -32,6 +37,110 @@ function getSkillsDirectory(cwd: string) {
 
 function createExecutionEnv(cwd: string) {
   return new NodeExecutionEnv({ cwd });
+}
+
+export type ProjectSkillUploadFile = {
+  content: Uint8Array;
+  path: string;
+};
+
+function normalizeUploadPath(path: string) {
+  const normalized = path.replaceAll("\\", "/");
+  const segments = normalized.split("/");
+
+  if (
+    !normalized ||
+    normalized.startsWith("/") ||
+    segments.some(
+      (segment) =>
+        !segment ||
+        segment === "." ||
+        segment === ".." ||
+        segment.includes("\0")
+    )
+  ) {
+    throw new Error(`Invalid upload path: ${path}`);
+  }
+
+  return segments.join("/");
+}
+
+function isIgnoredZipEntry(path: string) {
+  const normalized = path.replaceAll("\\", "/");
+  return (
+    normalized.endsWith("/") ||
+    normalized.startsWith("__MACOSX/") ||
+    normalized.split("/").at(-1) === ".DS_Store"
+  );
+}
+
+export function extractProjectSkillArchive({
+  content,
+  filename,
+}: {
+  content: Uint8Array;
+  filename: string;
+}): ProjectSkillUploadFile[] {
+  if (!filename.toLocaleLowerCase().endsWith(".zip")) {
+    throw new Error("Skill archive must be a .zip file.");
+  }
+  if (content.byteLength > MAX_SKILL_UPLOAD_TOTAL_SIZE) {
+    throw new Error("The ZIP file exceeds the 15 MB upload limit.");
+  }
+
+  let fileCount = 0;
+  let declaredTotalSize = 0;
+  const archive = unzipSync(content, {
+    filter(entry) {
+      if (isIgnoredZipEntry(entry.name)) {
+        return false;
+      }
+
+      normalizeUploadPath(entry.name);
+      fileCount += 1;
+      declaredTotalSize += entry.originalSize;
+
+      if (fileCount > MAX_SKILL_UPLOAD_FILE_COUNT) {
+        throw new Error(
+          `A skill can contain at most ${MAX_SKILL_UPLOAD_FILE_COUNT} files.`
+        );
+      }
+      if (entry.originalSize > MAX_SKILL_UPLOAD_FILE_SIZE) {
+        throw new Error(`File "${entry.name}" exceeds the 5 MB limit.`);
+      }
+      if (declaredTotalSize > MAX_SKILL_UPLOAD_TOTAL_SIZE) {
+        throw new Error("The extracted skill exceeds the 15 MB total limit.");
+      }
+
+      return true;
+    },
+  });
+
+  let actualTotalSize = 0;
+  let files = Object.entries(archive).map(([path, fileContent]) => {
+    actualTotalSize += fileContent.byteLength;
+    return { content: fileContent, path: normalizeUploadPath(path) };
+  });
+  if (files.length === 0) {
+    throw new Error("The ZIP archive does not contain any skill files.");
+  }
+  if (actualTotalSize > MAX_SKILL_UPLOAD_TOTAL_SIZE) {
+    throw new Error("The extracted skill exceeds the 15 MB total limit.");
+  }
+
+  const manifests = files.filter(
+    (file) => file.path.split("/").at(-1) === "SKILL.md"
+  );
+  if (manifests.length === 1 && manifests[0].path === "SKILL.md") {
+    const archiveRoot = filename.slice(0, -4);
+    validateSkillName(archiveRoot);
+    files = files.map((file) => ({
+      ...file,
+      path: `${archiveRoot}/${file.path}`,
+    }));
+  }
+
+  return files;
 }
 
 export function validateSkillName(name: string) {
@@ -183,6 +292,168 @@ export async function createProjectSkill({
     }
 
     return skill;
+  } finally {
+    await env.cleanup();
+  }
+}
+
+export async function installProjectSkill({
+  files,
+  cwd = process.cwd(),
+}: {
+  files: ProjectSkillUploadFile[];
+  cwd?: string;
+}) {
+  if (files.length === 0) {
+    throw new Error("Choose a skill folder to upload.");
+  }
+
+  const normalizedFiles = files.map((file) => ({
+    ...file,
+    path: normalizeUploadPath(file.path),
+  }));
+  const skillManifests = normalizedFiles.filter(
+    (file) => file.path.split("/").at(-1) === "SKILL.md"
+  );
+
+  if (skillManifests.length !== 1) {
+    throw new Error("An upload must contain exactly one SKILL.md file.");
+  }
+
+  const manifestSegments = skillManifests[0].path.split("/");
+  if (manifestSegments.length !== 2) {
+    throw new Error(
+      "SKILL.md must be at the root of the selected skill folder."
+    );
+  }
+  const uploadedRoot = manifestSegments.slice(0, -1).join("/");
+  validateSkillName(uploadedRoot);
+  const relativeFiles = normalizedFiles.map((file) => {
+    if (uploadedRoot && !file.path.startsWith(`${uploadedRoot}/`)) {
+      throw new Error(
+        "All uploaded files must belong to the same skill folder."
+      );
+    }
+
+    return {
+      content: file.content,
+      path: uploadedRoot ? file.path.slice(uploadedRoot.length + 1) : file.path,
+    };
+  });
+  const uniquePaths = new Set(relativeFiles.map((file) => file.path));
+  if (uniquePaths.size !== relativeFiles.length) {
+    throw new Error("The upload contains duplicate file paths.");
+  }
+
+  const env = createExecutionEnv(cwd);
+  const tempResult = await env.createTempDir("piwork-skill-upload-");
+  if (!tempResult.ok) {
+    await env.cleanup();
+    throw tempResult.error;
+  }
+  const stagingDirectory = tempResult.value;
+  const stagedSkillDirectory = `${stagingDirectory}/${uploadedRoot}`;
+  let installedDirectory: string | null = null;
+
+  try {
+    const stagedWrites = await Promise.all(
+      relativeFiles.map((file) =>
+        env.writeFile(`${stagedSkillDirectory}/${file.path}`, file.content)
+      )
+    );
+    const failedStagedWrite = stagedWrites.find((result) => !result.ok);
+    if (failedStagedWrite && !failedStagedWrite.ok) {
+      throw failedStagedWrite.error;
+    }
+
+    const staged = await loadSkills(env, stagedSkillDirectory);
+    if (staged.skills.length !== 1 || staged.diagnostics.length > 0) {
+      const detail = staged.diagnostics.map((item) => item.message).join("; ");
+      throw new Error(
+        detail || "The uploaded skill could not be validated by Pi."
+      );
+    }
+
+    const [skill] = staged.skills;
+    validateSkillName(skill.name);
+    installedDirectory = `${getSkillsDirectory(cwd)}/${skill.name}`;
+
+    const existing = await env.exists(installedDirectory);
+    if (!existing.ok) {
+      throw existing.error;
+    }
+    if (existing.value) {
+      throw new Error(`Skill "${skill.name}" already exists.`);
+    }
+
+    const created = await env.createDir(installedDirectory, {
+      recursive: true,
+    });
+    if (!created.ok) {
+      throw created.error;
+    }
+
+    const destinationDirectory = installedDirectory;
+    const installedWrites = await Promise.all(
+      relativeFiles.map((file) =>
+        env.writeFile(`${destinationDirectory}/${file.path}`, file.content)
+      )
+    );
+    const failedInstalledWrite = installedWrites.find((result) => !result.ok);
+    if (failedInstalledWrite && !failedInstalledWrite.ok) {
+      throw failedInstalledWrite.error;
+    }
+
+    const installed = await loadSkills(env, installedDirectory);
+    const installedSkill = installed.skills.find(
+      (candidate) => candidate.name === skill.name
+    );
+    if (!installedSkill || installed.diagnostics.length > 0) {
+      const detail = installed.diagnostics
+        .map((item) => item.message)
+        .join("; ");
+      throw new Error(detail || `Skill "${skill.name}" failed validation.`);
+    }
+
+    return installedSkill;
+  } catch (error) {
+    if (installedDirectory) {
+      await env.remove(installedDirectory, { force: true, recursive: true });
+    }
+    throw error;
+  } finally {
+    await env.remove(stagingDirectory, { force: true, recursive: true });
+    await env.cleanup();
+  }
+}
+
+export async function deleteProjectSkill(name: string, cwd = process.cwd()) {
+  validateSkillName(name);
+  const env = createExecutionEnv(cwd);
+
+  try {
+    const loaded = await loadSkills(env, getSkillsDirectory(cwd));
+    const skill = loaded.skills.find((candidate) => candidate.name === name);
+    if (!skill) {
+      throw new Error(`Skill "${name}" was not found.`);
+    }
+
+    const skillsDirectory = resolve(getSkillsDirectory(cwd));
+    const skillDirectory = resolve(dirname(skill.filePath));
+    const relativeDirectory = relative(skillsDirectory, skillDirectory);
+    if (
+      isAbsolute(relativeDirectory) ||
+      relativeDirectory === ".." ||
+      relativeDirectory.startsWith("../")
+    ) {
+      throw new Error("The skill is outside the managed project directory.");
+    }
+
+    const target = relativeDirectory ? skillDirectory : skill.filePath;
+    const removed = await env.remove(target, { force: false, recursive: true });
+    if (!removed.ok) {
+      throw removed.error;
+    }
   } finally {
     await env.cleanup();
   }

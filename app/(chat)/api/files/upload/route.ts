@@ -3,15 +3,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
+import {
+  getSupportedAttachmentType,
+  MAX_CHAT_ATTACHMENT_SIZE,
+  SUPPORTED_ATTACHMENT_LABEL,
+} from "@/lib/ai/attachment-types";
 
 const FileSchema = z.object({
   file: z
     .instanceof(Blob)
-    .refine((file) => file.size <= 5 * 1024 * 1024, {
-      message: "File size should be less than 5MB",
-    })
-    .refine((file) => ["image/jpeg", "image/png"].includes(file.type), {
-      message: "File type should be JPEG or PNG",
+    .refine((file) => file.size <= MAX_CHAT_ATTACHMENT_SIZE, {
+      message: "文件大小不能超过 20 MB",
     }),
 });
 
@@ -45,15 +47,28 @@ export async function POST(request: Request) {
     }
 
     const filename = (formData.get("file") as File).name;
+    const attachmentType = getSupportedAttachmentType(filename);
+    if (!attachmentType) {
+      return NextResponse.json(
+        { error: `不支持该文件格式。支持：${SUPPORTED_ATTACHMENT_LABEL}` },
+        { status: 400 }
+      );
+    }
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
     const fileBuffer = await file.arrayBuffer();
 
     try {
       const data = await put(`${safeName}`, fileBuffer, {
         access: "public",
+        addRandomSuffix: true,
+        contentType: attachmentType.mediaType,
       });
 
-      return NextResponse.json(data);
+      return NextResponse.json({
+        ...data,
+        contentType: attachmentType.mediaType,
+        name: filename,
+      });
     } catch {
       return NextResponse.json({ error: "Upload failed" }, { status: 500 });
     }

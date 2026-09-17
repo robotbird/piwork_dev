@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isSupportedAttachmentMediaType } from "@/lib/ai/attachment-types";
 
 const textPartSchema = z.object({
   text: z.string().min(1).max(2000),
@@ -6,8 +7,8 @@ const textPartSchema = z.object({
 });
 
 const filePartSchema = z.object({
-  mediaType: z.enum(["image/jpeg", "image/png"]),
-  name: z.string().min(1).max(100),
+  filename: z.string().min(1).max(255),
+  mediaType: z.string().refine(isSupportedAttachmentMediaType),
   type: z.enum(["file"]),
   url: z.url(),
 });
@@ -16,7 +17,7 @@ const partSchema = z.union([textPartSchema, filePartSchema]);
 
 const userMessageSchema = z.object({
   id: z.uuid(),
-  parts: z.array(partSchema),
+  parts: z.array(partSchema).min(1).max(6),
   role: z.enum(["user"]),
 });
 

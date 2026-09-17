@@ -540,8 +540,8 @@ textarea:focus-visible {
 
 /* Slash 命令/技能面板：恢复可见的细滚动条（覆盖 CommandList 的 no-scrollbar） */
 .skill-menu [data-slot="command-list"] {
-  scrollbar-width: thin;
   scrollbar-color: oklch(0 0 0 / 0.18) transparent;
+  scrollbar-width: thin;
 }
 
 .skill-menu [data-slot="command-list"]::-webkit-scrollbar {
@@ -550,8 +550,8 @@ textarea:focus-visible {
 }
 
 .skill-menu [data-slot="command-list"]::-webkit-scrollbar-thumb {
-  border-radius: 9999px;
   background: oklch(0 0 0 / 0.15);
+  border-radius: 9999px;
 }
 
 .skill-menu [data-slot="command-list"]::-webkit-scrollbar-track {

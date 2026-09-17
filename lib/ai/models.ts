@@ -41,7 +41,11 @@ export function getCapabilities(): Record<string, ModelCapabilities> {
   return Object.fromEntries(
     chatModels.map((model) => [
       model.id,
-      { reasoning: true, tools: false, vision: false },
+      {
+        reasoning: true,
+        tools: false,
+        vision: model.id === "deepseek/deepseek-flash",
+      },
     ])
   );
 }

@@ -49,6 +49,7 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   reactCompiler: true,
+  serverExternalPackages: ["officeparser"],
 };
 
 export default withBotId(nextConfig);

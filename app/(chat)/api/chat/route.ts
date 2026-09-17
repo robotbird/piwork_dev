@@ -9,6 +9,10 @@ import { checkBotId } from "botid/server";
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
+import {
+  type PreparedChatAttachments,
+  prepareChatAttachments,
+} from "@/lib/ai/attachments";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import {
   allowedModelIds,
@@ -122,7 +126,16 @@ export async function POST(request: Request) {
         userId: session.user.id,
         visibility: selectedVisibilityType,
       });
-      titlePromise = generateTitleFromUserMessage({ message });
+      const hasText = message.parts.some(
+        (part) => part.type === "text" && part.text.trim()
+      );
+      titlePromise = hasText
+        ? generateTitleFromUserMessage({ message })
+        : Promise.resolve(
+            message.parts[0]?.type === "file"
+              ? (message.parts[0].filename ?? "附件处理")
+              : "附件处理"
+          );
     }
 
     let uiMessages: ChatMessage[];
@@ -196,8 +209,38 @@ export async function POST(request: Request) {
       ? getTextFromMessage(currentUserMessage).trim()
       : "";
 
-    if (!currentUserText) {
+    const currentUserFileCount =
+      currentUserMessage?.parts.filter((part) => part.type === "file").length ??
+      0;
+    if (!(currentUserText || currentUserFileCount > 0)) {
       return new ChatbotError("bad_request:api").toResponse();
+    }
+
+    let preparedAttachments: PreparedChatAttachments;
+    try {
+      preparedAttachments = currentUserMessage
+        ? await prepareChatAttachments(currentUserMessage, request.signal)
+        : { images: [], text: "" };
+    } catch (error) {
+      return Response.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unable to process attachments.",
+        },
+        { status: 400 }
+      );
+    }
+    const piModel = getPiModel(chatModel);
+    if (
+      preparedAttachments.images.length > 0 &&
+      !piModel.input.includes("image")
+    ) {
+      return Response.json(
+        { error: "当前模型不支持图片，请切换到 DeepSeek Flash。" },
+        { status: 400 }
+      );
     }
 
     const { skills, diagnostics: skillDiagnostics } = await loadProjectSkills();
@@ -217,7 +260,7 @@ export async function POST(request: Request) {
     );
     const skillCommand = parseSkillCommand(currentUserText);
 
-    let agentPrompt = currentUserText;
+    let agentPrompt = currentUserText || "请分析并处理附件。";
     if (skillCommand) {
       try {
         agentPrompt = invokeSkill(
@@ -231,6 +274,9 @@ export async function POST(request: Request) {
           { status: 404 }
         );
       }
+    }
+    if (preparedAttachments.text) {
+      agentPrompt = `${agentPrompt}\n\n${preparedAttachments.text}`;
     }
 
     const stream = createUIMessageStream({
@@ -303,7 +349,7 @@ export async function POST(request: Request) {
           const agent = new Agent({
             initialState: {
               messages: previousPiContext.messages as AgentMessage[],
-              model: getPiModel(chatModel),
+              model: piModel,
               systemPrompt: agentSystemPrompt,
               tools: createSkillTools(skills),
             },
@@ -373,7 +419,7 @@ export async function POST(request: Request) {
           const abortAgent = () => agent.abort();
           request.signal.addEventListener("abort", abortAgent, { once: true });
           try {
-            await agent.prompt(agentPrompt);
+            await agent.prompt(agentPrompt, preparedAttachments.images);
           } finally {
             request.signal.removeEventListener("abort", abortAgent);
           }

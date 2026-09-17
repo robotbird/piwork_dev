@@ -33,7 +33,7 @@ const deepseekModels: Model<"openai-completions">[] = [
     contextWindow: 128_000,
     cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
     id: "deepseek-flash",
-    input: ["text"],
+    input: ["text", "image"],
     maxTokens: 8192,
     name: "DeepSeek Flash",
     provider: "deepseek",
