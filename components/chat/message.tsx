@@ -1,6 +1,7 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { useCallback } from "react";
+import { isChatFileUrl } from "@/lib/ai/attachment-types";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
@@ -34,6 +35,26 @@ function WaitingText() {
         duration={1}
       >
         {waitingText}
+      </Shimmer>
+    </div>
+  );
+}
+
+// 工具执行进度（如“正在执行命令: python3 …”），仅流式期间展示。
+function ToolStatusText() {
+  const { toolStatus } = useDataStream();
+  if (!toolStatus) {
+    return null;
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground">
+      <Shimmer
+        as="span"
+        className="font-medium whitespace-normal break-words"
+        duration={1}
+      >
+        {toolStatus.message}
       </Shimmer>
     </div>
   );
@@ -132,7 +153,9 @@ const PurePreviewMessage = ({
         <PreviewAttachment
           attachment={{
             contentType: attachment.mediaType,
-            name: attachment.filename ?? "file",
+            name:
+              attachment.filename ??
+              decodeURIComponent(attachment.url.split("/").pop() ?? "file"),
             url: attachment.url,
           }}
           key={attachment.url}
@@ -338,6 +361,26 @@ const PurePreviewMessage = ({
       );
     }
 
+    if (type === "data-delivered-file") {
+      const file = part.data;
+      const downloadHref = isChatFileUrl(file.url)
+        ? `${file.url}?download=1`
+        : (file.downloadUrl ?? file.url);
+
+      return (
+        <div className="flex flex-row gap-2" key={key}>
+          <PreviewAttachment
+            attachment={{
+              contentType: file.contentType,
+              name: file.filename,
+              url: file.url,
+            }}
+            downloadHref={downloadHref}
+          />
+        </div>
+      );
+    }
+
     return null;
   });
 
@@ -358,6 +401,7 @@ const PurePreviewMessage = ({
     <>
       {attachments}
       {parts}
+      {isAssistant && isLoading ? <ToolStatusText /> : null}
       {actions}
     </>
   );

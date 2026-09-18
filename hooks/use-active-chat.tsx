@@ -58,7 +58,7 @@ function extractChatId(pathname: string): string | null {
 
 export function ActiveChatProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { setDataStream, setWaitingStatus } = useDataStream();
+  const { setDataStream, setToolStatus, setWaitingStatus } = useDataStream();
   const { mutate } = useSWRConfig();
 
   const chatIdFromUrl = extractChatId(pathname);
@@ -113,6 +113,17 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     onData: (dataPart) => {
       if (dataPart.type === "data-waiting-status") {
         setWaitingStatus(dataPart.data);
+        return;
+      }
+      if (dataPart.type === "data-tool-status") {
+        setToolStatus(
+          dataPart.data.phase === "start" ? dataPart.data : undefined
+        );
+        return;
+      }
+      if (dataPart.type === "data-delivered-file") {
+        // 由消息 parts 渲染（dataStream.write 无 id 时 SDK 会追加进 parts），
+        // 不进入全局 dataStream 数组。
         return;
       }
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
@@ -178,8 +189,9 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (status === "submitted" || status === "ready" || status === "error") {
       setWaitingStatus(undefined);
+      setToolStatus(undefined);
     }
-  }, [status, setWaitingStatus]);
+  }, [status, setToolStatus, setWaitingStatus]);
 
   const loadedChatIds = useRef(new Set<string>());
 

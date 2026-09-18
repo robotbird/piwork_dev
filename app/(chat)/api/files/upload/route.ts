@@ -1,4 +1,3 @@
-import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -8,6 +7,7 @@ import {
   MAX_CHAT_ATTACHMENT_SIZE,
   SUPPORTED_ATTACHMENT_LABEL,
 } from "@/lib/ai/attachment-types";
+import { storeFile } from "@/lib/ai/file-store";
 
 const FileSchema = z.object({
   file: z
@@ -54,25 +54,21 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const fileBuffer = await file.arrayBuffer();
 
     try {
-      const data = await put(`${safeName}`, fileBuffer, {
-        access: "public",
-        addRandomSuffix: true,
+      const data = await storeFile({
+        buffer: await file.arrayBuffer(),
         contentType: attachmentType.mediaType,
+        filename,
       });
 
-      return NextResponse.json({
-        ...data,
-        contentType: attachmentType.mediaType,
-        name: filename,
-      });
-    } catch {
+      return NextResponse.json(data);
+    } catch (error) {
+      console.error("[files/upload] failed to store file", error);
       return NextResponse.json({ error: "Upload failed" }, { status: 500 });
     }
-  } catch {
+  } catch (error) {
+    console.error("[files/upload] failed to process request", error);
     return NextResponse.json(
       { error: "Failed to process request" },
       { status: 500 }

@@ -1,14 +1,23 @@
 "use client";
 
 import {
+  BadgeCheckIcon,
+  BarChart3Icon,
+  BookOpenTextIcon,
   BoxIcon,
+  BracesIcon,
+  CheckIcon,
   FileArchiveIcon,
+  FileTextIcon,
+  MailIcon,
+  PresentationIcon,
   SearchIcon,
-  Trash2Icon,
+  SparklesIcon,
   UploadCloudIcon,
 } from "lucide-react";
 import {
   type ChangeEvent,
+  type ComponentType,
   type MouseEvent,
   useCallback,
   useMemo,
@@ -16,16 +25,6 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,6 +34,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  type CatalogSkill,
+  type SkillCategory,
+  skillCategories,
+} from "@/lib/ai/skill-catalog";
 import { cn } from "@/lib/utils";
 
 type SkillSummary = {
@@ -42,6 +46,9 @@ type SkillSummary = {
   displayName: string;
   name: string;
 };
+
+type ViewMode = "discover" | "installed";
+type SkillItem = CatalogSkill & { installed: boolean };
 
 type DirectoryInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   directory?: string;
@@ -53,33 +60,90 @@ const directoryInputProps: DirectoryInputProps = {
   webkitdirectory: "",
 };
 
+const iconMap: Record<
+  CatalogSkill["icon"],
+  ComponentType<{ className?: string }>
+> = {
+  chart: BarChart3Icon,
+  code: BracesIcon,
+  document: FileTextIcon,
+  mail: MailIcon,
+  presentation: PresentationIcon,
+  report: BookOpenTextIcon,
+};
+
+function fallbackSkill(skill: SkillSummary): CatalogSkill {
+  return {
+    capabilities: [
+      "遵循 Skill 中定义的专业工作流程",
+      "按需加载参考资料与脚本",
+      "在当前项目中直接调用",
+    ],
+    category: "效率工具",
+    description: skill.description,
+    displayName: skill.displayName,
+    icon: "document",
+    name: skill.name,
+    source: "企业自建",
+    sourceType: "enterprise",
+    version: "本地",
+  };
+}
+
 export function SkillManager({
+  catalog,
   initialSkills,
 }: {
+  catalog: CatalogSkill[];
   initialSkills: SkillSummary[];
 }) {
   const endpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/skills`;
   const folderInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
-  const [skills, setSkills] = useState(initialSkills);
+  const [installedSkills, setInstalledSkills] = useState(initialSkills);
+  const [mode, setMode] = useState<ViewMode>("discover");
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<"全部" | SkillCategory>("全部");
+  const [selectedSkill, setSelectedSkill] = useState<SkillItem | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<SkillSummary | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [pendingName, setPendingName] = useState<string | null>(null);
+
+  const installedNames = useMemo(
+    () => new Set(installedSkills.map((skill) => skill.name)),
+    [installedSkills]
+  );
+
+  const items = useMemo<SkillItem[]>(() => {
+    if (mode === "discover") {
+      return catalog.map((skill) => ({
+        ...skill,
+        installed: installedNames.has(skill.name),
+      }));
+    }
+
+    return installedSkills.map((skill) => ({
+      ...(catalog.find((item) => item.name === skill.name) ??
+        fallbackSkill(skill)),
+      description: skill.description,
+      displayName: skill.displayName,
+      installed: true,
+    }));
+  }, [catalog, installedNames, installedSkills, mode]);
 
   const filteredSkills = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
-    if (!normalized) {
-      return skills;
-    }
-
-    return skills.filter((skill) =>
-      [skill.displayName, skill.name, skill.description].some((value) =>
-        value.toLocaleLowerCase().includes(normalized)
-      )
-    );
-  }, [query, skills]);
+    return items.filter((skill) => {
+      const matchesCategory =
+        category === "全部" || skill.category === category;
+      const matchesQuery =
+        !normalized ||
+        [skill.displayName, skill.name, skill.description, skill.source].some(
+          (value) => value.toLocaleLowerCase().includes(normalized)
+        );
+      return matchesCategory && matchesQuery;
+    });
+  }, [category, items, query]);
 
   const refreshSkills = useCallback(async () => {
     const response = await fetch(endpoint, { cache: "no-store" });
@@ -87,15 +151,74 @@ export function SkillManager({
       throw new Error("无法刷新技能列表");
     }
     const data = (await response.json()) as { skills: SkillSummary[] };
-    setSkills(data.skills);
+    setInstalledSkills(data.skills);
   }, [endpoint]);
+
+  const installSkill = useCallback(
+    async (skill: SkillItem) => {
+      setPendingName(skill.name);
+      try {
+        const response = await fetch(endpoint, {
+          body: JSON.stringify({ catalogSkillName: skill.name }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const data = (await response.json()) as { error?: string };
+        if (!response.ok) {
+          throw new Error(data.error || "安装失败");
+        }
+        await refreshSkills();
+        setSelectedSkill((current) =>
+          current?.name === skill.name
+            ? { ...current, installed: true }
+            : current
+        );
+        toast.success(`已安装「${skill.displayName}」`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "安装失败");
+      } finally {
+        setPendingName(null);
+      }
+    },
+    [endpoint, refreshSkills]
+  );
+
+  const uninstallSkill = useCallback(
+    async (skill: SkillItem) => {
+      setPendingName(skill.name);
+      try {
+        const response = await fetch(endpoint, {
+          body: JSON.stringify({ name: skill.name }),
+          headers: { "Content-Type": "application/json" },
+          method: "DELETE",
+        });
+        const data = (await response.json()) as { error?: string };
+        if (!response.ok) {
+          throw new Error(data.error || "卸载失败");
+        }
+        setInstalledSkills((current) =>
+          current.filter((item) => item.name !== skill.name)
+        );
+        setSelectedSkill((current) =>
+          current?.name === skill.name
+            ? { ...current, installed: false }
+            : current
+        );
+        toast.success(`已卸载「${skill.displayName}」`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "卸载失败");
+      } finally {
+        setPendingName(null);
+      }
+    },
+    [endpoint]
+  );
 
   const uploadFiles = useCallback(
     async (selectedFiles: File[]) => {
       if (selectedFiles.length === 0) {
         return;
       }
-
       setUploading(true);
       try {
         const formData = new FormData();
@@ -103,7 +226,6 @@ export function SkillManager({
           formData.append("files", file);
           formData.append("paths", file.webkitRelativePath || file.name);
         }
-
         const response = await fetch(endpoint, {
           body: formData,
           method: "POST",
@@ -115,9 +237,9 @@ export function SkillManager({
         if (!response.ok) {
           throw new Error(data.error || "上传失败");
         }
-
         await refreshSkills();
         setUploadOpen(false);
+        setMode("installed");
         toast.success(`技能 ${data.name ?? ""} 已上传`);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "上传失败");
@@ -134,51 +256,73 @@ export function SkillManager({
     [endpoint, refreshSkills]
   );
 
-  const deleteSkill = useCallback(async () => {
-    if (!deleteTarget) {
-      return;
-    }
-
-    setDeleting(true);
-    try {
-      const response = await fetch(endpoint, {
-        body: JSON.stringify({ name: deleteTarget.name }),
-        headers: { "Content-Type": "application/json" },
-        method: "DELETE",
-      });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(data.error || "删除失败");
-      }
-
-      setSkills((current) =>
-        current.filter((skill) => skill.name !== deleteTarget.name)
-      );
-      toast.success(`技能 ${deleteTarget.displayName} 已删除`);
-      setDeleteTarget(null);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "删除失败");
-    } finally {
-      setDeleting(false);
-    }
-  }, [deleteTarget, endpoint]);
-
-  const handleOpenUpload = useCallback(() => setUploadOpen(true), []);
-  const handleQueryChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => setQuery(event.target.value),
-    []
-  );
-  const handleDeleteRequest = useCallback(
+  const handleAction = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
-      const skill = skills.find(
-        (candidate) => candidate.name === event.currentTarget.dataset.skillName
+      event.stopPropagation();
+      const skill = items.find(
+        (item) => item.name === event.currentTarget.dataset.skillName
       );
-      if (skill) {
-        setDeleteTarget(skill);
+      if (!skill) {
+        return;
+      }
+      if (skill.installed) {
+        uninstallSkill(skill);
+      } else {
+        installSkill(skill);
       }
     },
-    [skills]
+    [installSkill, items, uninstallSkill]
   );
+
+  const selectMode = useCallback((nextMode: ViewMode) => {
+    setMode(nextMode);
+    setCategory("全部");
+  }, []);
+
+  const handleQueryChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) =>
+      setQuery(event.currentTarget.value),
+    []
+  );
+  const handleModeClick = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) =>
+      selectMode(event.currentTarget.dataset.mode as ViewMode),
+    [selectMode]
+  );
+  const handleCategoryClick = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) =>
+      setCategory(
+        event.currentTarget.dataset.category as "全部" | SkillCategory
+      ),
+    []
+  );
+  const handleOpenSkill = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      const skill = items.find(
+        (item) => item.name === event.currentTarget.dataset.skillName
+      );
+      if (skill) {
+        setSelectedSkill(skill);
+      }
+    },
+    [items]
+  );
+  const handleOpenUpload = useCallback(() => setUploadOpen(true), []);
+  const handleDetailOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setSelectedSkill(null);
+    }
+  }, []);
+  const handleDetailAction = useCallback(() => {
+    if (!selectedSkill) {
+      return;
+    }
+    if (selectedSkill.installed) {
+      uninstallSkill(selectedSkill);
+    } else {
+      installSkill(selectedSkill);
+    }
+  }, [installSkill, selectedSkill, uninstallSkill]);
   const handleBrowseFolder = useCallback(
     () => folderInputRef.current?.click(),
     []
@@ -194,168 +338,173 @@ export function SkillManager({
       uploadFiles(Array.from(event.currentTarget.files ?? [])),
     [uploadFiles]
   );
-  const handleDeleteDialogChange = useCallback(
-    (open: boolean) => {
-      if (!open && !deleting) {
-        setDeleteTarget(null);
-      }
-    },
-    [deleting]
-  );
-  const handleConfirmDelete = useCallback(
-    (event: MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      deleteSkill();
-    },
-    [deleteSkill]
-  );
 
   return (
     <>
-      <section className="min-w-0 px-5 py-8 sm:px-8 md:px-12 md:py-14 lg:px-16">
-        <div className="mx-auto max-w-4xl">
-          <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      <section className="min-w-0 px-5 py-7 sm:px-8 lg:px-10 lg:py-9 xl:px-14">
+        <div className="mx-auto max-w-[1180px]">
+          <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-                技能
-              </h1>
-              <p className="mt-1.5 text-sm text-muted-foreground">
-                上传和管理 Pi 项目技能
+              <div className="flex items-center gap-2.5">
+                <span className="grid size-9 place-items-center rounded-xl bg-[#eaf2ff] text-[#216ff4]">
+                  <SparklesIcon className="size-[18px]" strokeWidth={1.8} />
+                </span>
+                <h1 className="text-[26px] font-semibold tracking-[-0.035em] text-[#172238]">
+                  Skill
+                </h1>
+              </div>
+              <p className="mt-2 text-[14px] text-[#697891]">
+                发现和使用各类 AI 技能，拓展团队的工作能力。
               </p>
             </div>
-            <Button
-              className="w-fit rounded-xl px-4"
-              onClick={handleOpenUpload}
-            >
-              <UploadCloudIcon data-icon="inline-start" />
-              上传技能
-            </Button>
-          </header>
-
-          <div className="mt-10 flex items-center justify-between gap-4 border-b border-border/70 pb-4">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              技能
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
-                {skills.length}
-              </span>
-            </div>
-            <div className="relative w-full max-w-[280px]">
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/65" />
+            <div className="relative w-full xl:max-w-[430px]">
+              <SearchIcon
+                className="pointer-events-none absolute left-3.5 top-1/2 size-[17px] -translate-y-1/2 text-[#71809a]"
+                strokeWidth={1.8}
+              />
               <Input
-                aria-label="搜索技能"
-                className="h-10 rounded-full bg-background pl-9"
+                aria-label="搜索 Skill"
+                className="h-11 rounded-xl border-[#dfe5ee] bg-white pl-10 text-[14px] shadow-none placeholder:text-[#9aa6b8]"
                 onChange={handleQueryChange}
-                placeholder="搜索技能"
+                placeholder="搜索 Skill、功能或来源"
                 value={query}
               />
             </div>
-          </div>
+          </header>
 
-          <div className="divide-y divide-border/60">
-            {filteredSkills.map((skill) => (
-              <article
-                className="group flex items-center gap-4 py-5"
-                data-testid={`skill-row-${skill.name}`}
-                key={skill.name}
+          <div className="mt-7 flex items-end justify-between border-b border-[#e2e8f0]">
+            <div aria-label="Skill 列表" className="flex gap-7" role="tablist">
+              {(["discover", "installed"] as const).map((item) => {
+                const active = mode === item;
+                return (
+                  <button
+                    aria-selected={active}
+                    className={cn(
+                      "relative h-11 text-[15px] font-medium transition-colors",
+                      active
+                        ? "text-[#176ff2]"
+                        : "text-[#52627a] hover:text-[#25344d]"
+                    )}
+                    data-mode={item}
+                    key={item}
+                    onClick={handleModeClick}
+                    role="tab"
+                    type="button"
+                  >
+                    {item === "discover"
+                      ? "发现 Skill"
+                      : `我的 Skill ${installedSkills.length}`}
+                    {active ? (
+                      <span className="absolute inset-x-0 bottom-[-1px] h-0.5 rounded-full bg-[#287cf5]" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+            {mode === "installed" ? (
+              <Button
+                className="mb-2 rounded-lg border-[#dfe5ee] bg-white text-[#34445d] hover:bg-[#f4f7fb]"
+                onClick={handleOpenUpload}
+                size="sm"
+                variant="outline"
               >
-                <div className="grid size-11 shrink-0 place-items-center rounded-full border border-border/70 bg-card text-muted-foreground shadow-[var(--shadow-card)]">
-                  <BoxIcon className="size-[18px]" strokeWidth={1.7} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <h2 className="truncate text-[15px] font-medium">
-                      {skill.displayName}
-                    </h2>
-                    <span className="hidden shrink-0 rounded-md bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
-                      /{skill.name}
-                    </span>
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground">
-                    {skill.description}
-                  </p>
-                </div>
-                <Button
-                  aria-label={`删除 ${skill.displayName}`}
-                  className="shrink-0 rounded-lg text-muted-foreground opacity-70 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
-                  data-skill-name={skill.name}
-                  data-testid={`delete-skill-${skill.name}`}
-                  onClick={handleDeleteRequest}
-                  size="icon-sm"
-                  variant="ghost"
-                >
-                  <Trash2Icon />
-                </Button>
-              </article>
-            ))}
+                <UploadCloudIcon data-icon="inline-start" />
+                上传 Skill
+              </Button>
+            ) : null}
           </div>
 
-          {filteredSkills.length === 0 ? (
-            <div className="flex flex-col items-center py-20 text-center">
-              <div className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground">
+          <fieldset className="mt-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+            <legend className="sr-only">Skill 分类</legend>
+            {skillCategories.map((item) => (
+              <button
+                aria-pressed={category === item}
+                className={cn(
+                  "h-9 shrink-0 rounded-xl border px-4 text-[13px] transition-colors",
+                  category === item
+                    ? "border-[#a9cbff] bg-[#edf5ff] font-medium text-[#176ff2]"
+                    : "border-[#e5e9ef] bg-white text-[#536178] hover:border-[#cbd5e1] hover:text-[#263650]"
+                )}
+                data-category={item}
+                key={item}
+                onClick={handleCategoryClick}
+                type="button"
+              >
+                {item}
+              </button>
+            ))}
+          </fieldset>
+
+          {filteredSkills.length > 0 ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filteredSkills.map((skill) => (
+                <SkillCard
+                  key={skill.name}
+                  onAction={handleAction}
+                  onOpen={handleOpenSkill}
+                  pending={pendingName === skill.name}
+                  skill={skill}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed border-[#dfe5ee] bg-white/70 text-center">
+              <span className="grid size-12 place-items-center rounded-full bg-[#f0f4f9] text-[#6d7b91]">
                 <BoxIcon className="size-5" />
-              </div>
-              <p className="mt-4 text-sm font-medium">
-                {skills.length === 0 ? "还没有技能" : "没有匹配的技能"}
+              </span>
+              <p className="mt-4 text-sm font-medium text-[#25344d]">
+                {mode === "installed" && installedSkills.length === 0
+                  ? "还没有安装 Skill"
+                  : "没有找到匹配的 Skill"}
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {skills.length === 0
-                  ? "上传包含 SKILL.md 的技能文件夹即可开始使用"
-                  : "试试其它关键词"}
+              <p className="mt-1 text-[13px] text-[#8490a3]">
+                {mode === "installed" && installedSkills.length === 0
+                  ? "去发现页挑选一个，或上传企业自建 Skill"
+                  : "试试其它关键词或分类"}
               </p>
             </div>
-          ) : null}
+          )}
         </div>
       </section>
 
+      <SkillDetailDialog
+        onAction={handleDetailAction}
+        onOpenChange={handleDetailOpenChange}
+        pending={selectedSkill?.name === pendingName}
+        skill={selectedSkill}
+      />
+
       <Dialog onOpenChange={setUploadOpen} open={uploadOpen}>
-        <DialogContent className="gap-5 rounded-3xl sm:max-w-lg">
+        <DialogContent className="gap-5 rounded-2xl bg-white sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg">上传技能</DialogTitle>
+            <DialogTitle className="text-lg text-[#172238]">
+              上传企业 Skill
+            </DialogTitle>
             <DialogDescription>
-              选择完整技能文件夹或 .zip 压缩包。技能根目录需包含
-              SKILL.md，目录名需要与其中的技能名称一致。
+              选择完整技能文件夹或 .zip 压缩包。根目录需包含 SKILL.md。
             </DialogDescription>
           </DialogHeader>
-
           <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              className={cn(
-                "flex min-h-40 w-full flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/25 px-5 text-center transition-colors hover:border-foreground/25 hover:bg-muted/45",
-                uploading && "pointer-events-none opacity-60"
-              )}
+            <UploadChoice
+              disabled={uploading}
+              icon={UploadCloudIcon}
+              label="选择技能文件夹"
+              note="包含脚本、参考资料与资源"
               onClick={handleBrowseFolder}
-              type="button"
-            >
-              <UploadCloudIcon className="size-5 text-muted-foreground" />
-              <span className="mt-3 text-sm font-medium">选择技能文件夹</span>
-              <span className="mt-1 text-xs text-muted-foreground">
-                包含脚本、参考资料与资源
-              </span>
-            </button>
-            <button
-              className={cn(
-                "flex min-h-40 w-full flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/25 px-5 text-center transition-colors hover:border-foreground/25 hover:bg-muted/45",
-                uploading && "pointer-events-none opacity-60"
-              )}
+            />
+            <UploadChoice
+              disabled={uploading}
+              icon={FileArchiveIcon}
+              label="选择 Skill 压缩包"
+              note="支持 .zip，最大 15 MB"
               onClick={handleBrowseZip}
-              type="button"
-            >
-              <FileArchiveIcon className="size-5 text-muted-foreground" />
-              <span className="mt-3 text-sm font-medium">
-                选择 Skill 压缩包
-              </span>
-              <span className="mt-1 text-xs text-muted-foreground">
-                支持 .zip，最大 15 MB
-              </span>
-            </button>
+            />
           </div>
-
           {uploading ? (
-            <p className="text-center text-sm text-muted-foreground">
+            <p className="text-center text-sm text-[#697891]">
               正在验证并上传…
             </p>
           ) : null}
-
           <input
             {...directoryInputProps}
             className="hidden"
@@ -373,31 +522,225 @@ export function SkillManager({
           />
         </DialogContent>
       </Dialog>
-
-      <AlertDialog
-        onOpenChange={handleDeleteDialogChange}
-        open={Boolean(deleteTarget)}
-      >
-        <AlertDialogContent className="rounded-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>删除技能？</AlertDialogTitle>
-            <AlertDialogDescription>
-              将从项目中永久删除“{deleteTarget?.displayName}
-              ”及其所有附加文件。此操作无法撤销。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deleting}
-              onClick={handleConfirmDelete}
-              variant="destructive"
-            >
-              {deleting ? "正在删除…" : "删除"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
+  );
+}
+
+function SkillCard({
+  onAction,
+  onOpen,
+  pending,
+  skill,
+}: {
+  onAction: (event: MouseEvent<HTMLButtonElement>) => void;
+  onOpen: (event: MouseEvent<HTMLButtonElement>) => void;
+  pending: boolean;
+  skill: SkillItem;
+}) {
+  const Icon = iconMap[skill.icon];
+  return (
+    <article className="group relative min-h-[174px] rounded-2xl border border-[#e2e7ee] bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.02)] transition-all hover:-translate-y-0.5 hover:border-[#cbd6e4] hover:shadow-[0_10px_28px_rgba(30,64,175,0.07)]">
+      <button
+        aria-label={`查看 ${skill.displayName} 详情`}
+        className="absolute inset-0 rounded-2xl focus-visible:ring-2 focus-visible:ring-[#347ff4]/50"
+        data-skill-name={skill.name}
+        onClick={onOpen}
+        type="button"
+      />
+      <div className="pointer-events-none relative flex items-start gap-3.5">
+        <SkillIcon icon={Icon} name={skill.name} />
+        <div className="min-w-0 flex-1 pt-0.5">
+          <div className="flex items-center gap-1.5">
+            <h2 className="truncate text-[15px] font-semibold text-[#172238]">
+              {skill.displayName}
+            </h2>
+            {skill.sourceType === "official" ? (
+              <BadgeCheckIcon
+                aria-label="官方认证"
+                className="size-4 shrink-0 fill-[#e8f2ff] text-[#2c7df4]"
+              />
+            ) : null}
+          </div>
+          <p className="mt-1 truncate text-xs text-[#8390a4]">{skill.source}</p>
+        </div>
+      </div>
+      <p className="pointer-events-none relative mt-3 line-clamp-2 min-h-10 text-[13px] leading-5 text-[#5e6d83]">
+        {skill.description}
+      </p>
+      <div className="pointer-events-none relative mt-4 flex items-center justify-between">
+        <span className="rounded-md bg-[#f2f5f9] px-2 py-1 text-[11px] text-[#69778c]">
+          {skill.category}
+        </span>
+        <Button
+          className={cn(
+            "pointer-events-auto relative z-10 min-w-[76px] rounded-lg",
+            skill.installed
+              ? "border-[#dfe5ed] bg-white text-[#5c6b80] hover:border-[#f0b8b8] hover:bg-[#fff5f5] hover:text-[#d34d4d]"
+              : "bg-[#2478f3] text-white hover:bg-[#1769dd]"
+          )}
+          data-skill-name={skill.name}
+          disabled={pending}
+          onClick={onAction}
+          size="sm"
+          variant={skill.installed ? "outline" : "default"}
+        >
+          {pending ? "处理中…" : skill.installed ? "已安装" : "安装"}
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function SkillIcon({
+  icon: Icon,
+  name,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  name: string;
+}) {
+  const palettes = [
+    "bg-[#eaf3ff] text-[#2878ef]",
+    "bg-[#eaf8f0] text-[#1b9a5a]",
+    "bg-[#fff3e7] text-[#e17b25]",
+    "bg-[#f2edff] text-[#7456dc]",
+  ];
+  const palette = palettes[name.length % palettes.length];
+  return (
+    <span
+      className={cn(
+        "grid size-11 shrink-0 place-items-center rounded-xl",
+        palette
+      )}
+    >
+      <Icon className="size-[21px]" />
+    </span>
+  );
+}
+
+function SkillDetailDialog({
+  onAction,
+  onOpenChange,
+  pending,
+  skill,
+}: {
+  onAction: () => void;
+  onOpenChange: (open: boolean) => void;
+  pending: boolean;
+  skill: SkillItem | null;
+}) {
+  const Icon = skill ? iconMap[skill.icon] : FileTextIcon;
+  return (
+    <Dialog onOpenChange={onOpenChange} open={Boolean(skill)}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-0 sm:max-w-[620px]">
+        {skill ? (
+          <>
+            <div className="border-b border-[#e8ecf2] px-6 pb-6 pt-7 sm:px-7">
+              <DialogHeader className="pr-8">
+                <div className="flex items-start gap-4">
+                  <SkillIcon icon={Icon} name={skill.name} />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <DialogTitle className="text-xl font-semibold text-[#172238]">
+                        {skill.displayName}
+                      </DialogTitle>
+                      {skill.sourceType === "official" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#edf5ff] px-2 py-1 text-[11px] font-medium text-[#2475e9]">
+                          <BadgeCheckIcon className="size-3.5" />
+                          官方认证
+                        </span>
+                      ) : null}
+                    </div>
+                    <DialogDescription className="mt-1.5 text-[13px]">
+                      由 {skill.source} 提供 · v{skill.version}
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+              <p className="mt-5 text-sm leading-6 text-[#53637a]">
+                {skill.description}
+              </p>
+              <Button
+                className={cn(
+                  "mt-5 h-10 w-full rounded-lg sm:w-32",
+                  skill.installed
+                    ? "border-[#dce3ec] bg-white text-[#506078] hover:border-[#efb4b4] hover:bg-[#fff5f5] hover:text-[#cf4646]"
+                    : "bg-[#2478f3] text-white hover:bg-[#1769dd]"
+                )}
+                disabled={pending}
+                onClick={onAction}
+                variant={skill.installed ? "outline" : "default"}
+              >
+                {pending
+                  ? "处理中…"
+                  : skill.installed
+                    ? "卸载 Skill"
+                    : "一键安装"}
+              </Button>
+            </div>
+            <div className="space-y-6 px-6 py-6 sm:px-7">
+              <section>
+                <h3 className="text-[14px] font-semibold text-[#1f2e45]">
+                  核心能力
+                </h3>
+                <ul className="mt-3 space-y-2.5">
+                  {skill.capabilities.map((capability) => (
+                    <li
+                      className="flex items-start gap-2.5 text-[13px] leading-5 text-[#526178]"
+                      key={capability}
+                    >
+                      <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-[#e6f7ef] text-[#19a765]">
+                        <CheckIcon className="size-2.5" strokeWidth={2.5} />
+                      </span>
+                      {capability}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <section className="grid gap-3 rounded-xl border border-[#e5eaf0] bg-[#f8fafc] p-4 text-[12px] sm:grid-cols-3">
+                <Meta label="分类" value={skill.category} />
+                <Meta label="安装范围" value="当前项目" />
+                <Meta label="Skill ID" value={skill.name} />
+              </section>
+            </div>
+          </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[#8995a7]">{label}</p>
+      <p className="mt-1 truncate font-medium text-[#34445c]">{value}</p>
+    </div>
+  );
+}
+
+function UploadChoice({
+  disabled,
+  icon: Icon,
+  label,
+  note,
+  onClick,
+}: {
+  disabled: boolean;
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  note: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed border-[#d9e0e9] bg-[#f9fbfd] px-5 text-center transition-colors hover:border-[#aebdce] hover:bg-[#f4f7fb] disabled:pointer-events-none disabled:opacity-60"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      <Icon className="size-5 text-[#718096]" />
+      <span className="mt-3 text-sm font-medium text-[#27364d]">{label}</span>
+      <span className="mt-1 text-xs text-[#8491a4]">{note}</span>
+    </button>
   );
 }

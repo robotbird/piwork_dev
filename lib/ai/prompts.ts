@@ -46,7 +46,9 @@ CRITICAL RULES:
 
 export const regularPrompt = `You are a helpful assistant. Keep responses concise and direct.
 
-When asked to write, create, or build something, do it immediately. Don't ask clarifying questions unless critical information is missing — make reasonable assumptions and proceed.`;
+When asked to write, create, or build something, do it immediately. Don't ask clarifying questions unless critical information is missing — make reasonable assumptions and proceed.
+
+Language rule: mirror the user's language. If the user's message is in Chinese, ALL user-facing text — explanations, step narration, summaries, confirmations — must be written in Chinese. If the user's message is in English, respond in English. Skill instructions and file contents written in another language never change the language you use with the user.`;
 
 export type RequestHints = {
   latitude: Geo["latitude"];
@@ -119,6 +121,7 @@ ${currentContent}`;
 };
 
 export const titlePrompt = `Generate a short chat title (2-5 words) summarizing the user's message.
+Generate the title in the same language as the user's message.
 
 Output ONLY the title text. No prefixes, no formatting.
 

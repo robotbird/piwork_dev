@@ -6,17 +6,19 @@ import {
   WorkflowIcon,
 } from "lucide-react";
 import Image from "next/image";
-import { isVisionAttachment } from "@/lib/ai/attachment-types";
+import { isChatFileUrl, isVisionAttachment } from "@/lib/ai/attachment-types";
 import type { Attachment } from "@/lib/types";
 import { Spinner } from "../ui/spinner";
-import { CrossSmallIcon } from "./icons";
+import { CrossSmallIcon, DownloadIcon } from "./icons";
 
 export const PreviewAttachment = ({
   attachment,
+  downloadHref,
   isUploading = false,
   onRemove,
 }: {
   attachment: Attachment;
+  downloadHref?: string;
   isUploading?: boolean;
   onRemove?: () => void;
 }) => {
@@ -43,7 +45,10 @@ export const PreviewAttachment = ({
           alt={name ?? "attachment"}
           className="size-full object-cover"
           height={96}
+          // 本地存储的 /api/files/* 需要会话 cookie，图片优化器的内部
+          // fetch 不携带 cookie 会得到 401，因此跳过优化直接渲染。
           src={url}
+          unoptimized={isChatFileUrl(url)}
           width={96}
         />
       ) : (
@@ -75,6 +80,17 @@ export const PreviewAttachment = ({
         >
           <CrossSmallIcon size={10} />
         </button>
+      )}
+
+      {downloadHref && !isUploading && (
+        <a
+          aria-label="下载"
+          className="absolute bottom-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/80 group-hover:opacity-100"
+          download={attachment.name}
+          href={downloadHref}
+        >
+          <DownloadIcon size={10} />
+        </a>
       )}
     </div>
   );

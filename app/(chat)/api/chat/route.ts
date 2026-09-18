@@ -10,6 +10,16 @@ import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import {
+  buildExecutionSystemPrompt,
+  createDeliverFileTool,
+  createExecutionTools,
+  ensureChatWorkspace,
+  executionToolsEnabled,
+  formatToolStatus,
+  removeChatWorkspace,
+  writeAttachmentsToWorkspace,
+} from "@/lib/ai/agent-tools";
+import {
   type PreparedChatAttachments,
   prepareChatAttachments,
 } from "@/lib/ai/attachments";
@@ -248,11 +258,36 @@ export async function POST(request: Request) {
       console.warn("Skill discovery warnings:", skillDiagnostics);
     }
 
+    // 执行类工具（bash/read/write/edit + deliver_file）以每聊天独立工作区
+    // 运行；用户上传的附件原始字节先落盘到工作区供 skill 脚本直接读取。
+    const workspaceDir = executionToolsEnabled()
+      ? await ensureChatWorkspace(id)
+      : null;
+    const execution = workspaceDir ? createExecutionTools(workspaceDir) : null;
+    let workspaceAttachmentFiles: string[] = [];
+    if (workspaceDir && currentUserMessage) {
+      try {
+        workspaceAttachmentFiles = await writeAttachmentsToWorkspace(
+          currentUserMessage,
+          workspaceDir,
+          request.signal
+        );
+      } catch (error) {
+        console.warn(
+          "Failed to materialize attachments into workspace:",
+          error
+        );
+      }
+    }
+
     const baseSystemPrompt = systemPrompt({
       requestHints,
       supportsTools: false,
     });
-    const agentSystemPrompt = `${baseSystemPrompt}\n\n${buildSkillsSystemPrompt(skills)}`;
+    const executionPrompt = workspaceDir
+      ? `\n\n${buildExecutionSystemPrompt(workspaceDir, workspaceAttachmentFiles)}`
+      : "";
+    const agentSystemPrompt = `${baseSystemPrompt}\n\n${buildSkillsSystemPrompt(skills)}${executionPrompt}`;
     const previousPiContext = toPiContext(
       uiMessages.slice(0, currentUserMessageIndex),
       chatModel,
@@ -351,7 +386,24 @@ export async function POST(request: Request) {
               messages: previousPiContext.messages as AgentMessage[],
               model: piModel,
               systemPrompt: agentSystemPrompt,
-              tools: createSkillTools(skills),
+              tools: [
+                ...createSkillTools(skills),
+                ...(execution?.tools ?? []),
+                ...(workspaceDir
+                  ? [
+                      createDeliverFileTool({
+                        onDelivered: (file) =>
+                          // 非 transient 且无 id：SDK 会将其追加进消息 parts，
+                          // 实时渲染的同时随 onEnd 持久化、刷新后可恢复。
+                          dataStream.write({
+                            data: file,
+                            type: "data-delivered-file",
+                          }),
+                        workspaceDir,
+                      }),
+                    ]
+                  : []),
+              ],
             },
             streamFn: streamPiAgent,
             toolExecution: "sequential",
@@ -364,6 +416,31 @@ export async function POST(request: Request) {
             ) {
               assistantSequence += 1;
               activeAssistantSequence = assistantSequence;
+            }
+
+            if (
+              event.type === "tool_execution_start" ||
+              event.type === "tool_execution_end"
+            ) {
+              const isStart = event.type === "tool_execution_start";
+              const isError =
+                event.type === "tool_execution_end" && event.isError;
+              dataStream.write({
+                data: {
+                  phase: isStart ? "start" : "end",
+                  ...(!isStart && isError ? { isError: true } : {}),
+                  message: formatToolStatus(
+                    isStart ? "start" : "end",
+                    event.toolName,
+                    isStart ? event.args : undefined,
+                    isError
+                  ),
+                  toolName: event.toolName,
+                },
+                transient: true,
+                type: "data-tool-status",
+              });
+              return;
             }
 
             if (event.type !== "message_update") {
@@ -429,6 +506,7 @@ export async function POST(request: Request) {
           }
         } finally {
           stopWaitingStatus();
+          await execution?.cleanup();
         }
 
         if (titlePromise) {
@@ -542,6 +620,9 @@ export async function DELETE(request: Request) {
   }
 
   const deletedChat = await deleteChatById({ id });
+
+  // 聊天删除后同步清理其执行工作区（best-effort）。
+  await removeChatWorkspace(id).catch(() => undefined);
 
   return Response.json(deletedChat, { status: 200 });
 }

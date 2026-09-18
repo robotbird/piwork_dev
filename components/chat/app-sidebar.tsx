@@ -2,11 +2,11 @@
 
 import {
   BarChart3Icon,
-  CheckSquare2Icon,
   CirclePlusIcon,
   Clock3Icon,
   CompassIcon,
   FileCheck2Icon,
+  FileTextIcon,
   FolderIcon,
   Grid2X2Icon,
   HomeIcon,
@@ -15,7 +15,7 @@ import {
   UserRoundIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { useCallback } from "react";
 import { toast } from "sonner";
@@ -38,20 +38,21 @@ import {
 import { BrandMark } from "./brand-mark";
 
 const primaryItems = [
-  { icon: CheckSquare2Icon, label: "任务中心" },
+  { icon: FileTextIcon, label: "我的文档" },
   { icon: Clock3Icon, label: "定时任务" },
-  { icon: Grid2X2Icon, label: "Skill" },
+  { href: "/skills", icon: Grid2X2Icon, label: "Skill" },
   { icon: CompassIcon, label: "探索" },
 ];
 
 const workspaceItems = [
-  { icon: HomeIcon, label: "我的工作空间" },
+  { icon: HomeIcon, label: "我的项目" },
   { icon: BarChart3Icon, label: "经营分析" },
   { icon: FileCheck2Icon, label: "合同审核" },
   { icon: FolderIcon, label: "市场研究" },
 ];
 
 export function AppSidebar({ user }: { user: User | undefined }) {
+  const pathname = usePathname();
   const router = useRouter();
   const { setOpenMobile, toggleSidebar } = useSidebar();
 
@@ -106,23 +107,37 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   className="h-10 rounded-xl bg-[#e7f0ff] px-3 font-medium text-[#2878f0] hover:bg-[#dceaff] hover:text-[#176be3] data-[active=true]:bg-[#e7f0ff] group-data-[collapsible=icon]:justify-center dark:bg-[#1f1f1f] dark:text-[#ececec] dark:hover:bg-[#2a2a2a] dark:hover:text-white dark:data-[active=true]:bg-[#1f1f1f]"
                   isActive
                   onClick={handleNewChat}
-                  tooltip="新任务"
+                  tooltip="新对话"
                 >
                   <CirclePlusIcon className="size-5" />
-                  <span>新任务</span>
+                  <span>新对话</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              {primaryItems.map(({ icon: Icon, label }) => (
+              {primaryItems.map(({ href, icon: Icon, label }) => (
                 <SidebarMenuItem key={label}>
-                  <SidebarMenuButton
-                    className="h-10 rounded-xl px-3 text-[14px] text-[#344054] hover:bg-sidebar-accent/70 hover:text-[#1c2738] group-data-[collapsible=icon]:justify-center dark:text-[#d1d1d1] dark:hover:bg-[#1f1f1f] dark:hover:text-white"
-                    data-label={label}
-                    onClick={handleComingSoon}
-                    tooltip={label}
-                  >
-                    <Icon className="size-[19px]" strokeWidth={1.7} />
-                    <span>{label}</span>
-                  </SidebarMenuButton>
+                  {href ? (
+                    <SidebarMenuButton
+                      asChild
+                      className="h-10 rounded-xl px-3 text-[14px] text-[#344054] hover:bg-sidebar-accent/70 hover:text-[#1c2738] data-[active=true]:bg-[#edf3fc] data-[active=true]:font-medium data-[active=true]:text-[#216ff4] group-data-[collapsible=icon]:justify-center dark:text-[#d1d1d1] dark:hover:bg-[#1f1f1f] dark:hover:text-white"
+                      isActive={pathname === href}
+                      tooltip={label}
+                    >
+                      <Link href={href} onClick={handleCloseMobile}>
+                        <Icon className="size-[19px]" strokeWidth={1.7} />
+                        <span>{label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  ) : (
+                    <SidebarMenuButton
+                      className="h-10 rounded-xl px-3 text-[14px] text-[#344054] hover:bg-sidebar-accent/70 hover:text-[#1c2738] group-data-[collapsible=icon]:justify-center dark:text-[#d1d1d1] dark:hover:bg-[#1f1f1f] dark:hover:text-white"
+                      data-label={label}
+                      onClick={handleComingSoon}
+                      tooltip={label}
+                    >
+                      <Icon className="size-[19px]" strokeWidth={1.7} />
+                      <span>{label}</span>
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -131,11 +146,11 @@ export function AppSidebar({ user }: { user: User | undefined }) {
 
         <SidebarGroup className="mt-2 border-t border-sidebar-border/70 px-0 pt-3 group-data-[collapsible=icon]:hidden">
           <SidebarGroupLabel className="mb-1 flex h-7 items-center justify-between px-3 text-[13px] font-normal text-sidebar-foreground/50">
-            <span>工作空间</span>
+            <span>项目</span>
             <button
-              aria-label="添加工作空间"
+              aria-label="添加项目"
               className="grid size-7 place-items-center rounded-md transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              data-label="新工作空间"
+              data-label="新项目"
               onClick={handleComingSoon}
               type="button"
             >

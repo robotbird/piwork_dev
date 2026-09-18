@@ -3,12 +3,15 @@ import { inflateSync, strFromU8 } from "fflate";
 import { parseOffice, type SupportedFileType } from "officeparser";
 import type { ChatMessage } from "@/lib/types";
 import {
+  getChatFileId,
   getSupportedAttachmentType,
+  isChatFileUrl,
   isVisionAttachment,
   MAX_CHAT_ATTACHMENT_COUNT,
   MAX_CHAT_ATTACHMENT_SIZE,
   type SupportedAttachmentExtension,
 } from "./attachment-types";
+import { readLocalFile } from "./file-store";
 
 const MAX_ATTACHMENT_TEXT_LENGTH = 60_000;
 const MAX_TOTAL_ATTACHMENT_TEXT_LENGTH = 150_000;
@@ -136,10 +139,23 @@ export async function extractAttachmentText({
   return truncateAttachmentText(ast.toText());
 }
 
-async function downloadAttachment(
+export async function downloadAttachment(
   part: AttachmentFilePart,
   signal?: AbortSignal
 ) {
+  // 本地存储的附件直接读磁盘，无需走网络与外域信任校验。
+  if (isChatFileUrl(part.url)) {
+    const id = getChatFileId(part.url);
+    const file = id ? await readLocalFile(id) : null;
+    if (!file) {
+      throw new Error(`Unable to read attachment "${part.filename}".`);
+    }
+    if (file.content.byteLength > MAX_CHAT_ATTACHMENT_SIZE) {
+      throw new Error(`Attachment "${part.filename}" exceeds the 20 MB limit.`);
+    }
+    return new Uint8Array(file.content);
+  }
+
   const url = assertTrustedAttachmentUrl(part.url);
   const response = await fetch(url, { signal });
   if (!response.ok) {

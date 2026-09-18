@@ -1,5 +1,7 @@
 import { auth } from "@/app/(auth)/auth";
+import { getInstallableCatalogSkill } from "@/lib/ai/skill-catalog";
 import {
+  createProjectSkill,
   deleteProjectSkill,
   extractProjectSkillArchive,
   installProjectSkill,
@@ -54,6 +56,27 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (request.headers.get("content-type")?.includes("application/json")) {
+      const body = (await request.json()) as { catalogSkillName?: unknown };
+      if (typeof body.catalogSkillName !== "string") {
+        return apiError("A catalog skill name is required.");
+      }
+
+      const catalogSkill = getInstallableCatalogSkill(body.catalogSkillName);
+      if (!catalogSkill) {
+        return apiError("The requested catalog skill was not found.", 404);
+      }
+
+      const skill = await createProjectSkill({
+        description: catalogSkill.description,
+        displayName: catalogSkill.displayName,
+        instructions: catalogSkill.instructions,
+        name: catalogSkill.name,
+      });
+
+      return Response.json({ name: skill.name }, { status: 201 });
+    }
+
     const formData = await request.formData();
     const files = formData
       .getAll("files")

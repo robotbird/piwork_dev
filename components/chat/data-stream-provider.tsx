@@ -3,7 +3,11 @@
 import type { DataUIPart } from "ai";
 import type React from "react";
 import { createContext, useContext, useMemo, useState } from "react";
-import type { CustomUIDataTypes, WaitingStatusData } from "@/lib/types";
+import type {
+  CustomUIDataTypes,
+  ToolStatusData,
+  WaitingStatusData,
+} from "@/lib/types";
 
 type DataStreamContextValue = {
   dataStream: DataUIPart<CustomUIDataTypes>[];
@@ -13,6 +17,10 @@ type DataStreamContextValue = {
   waitingStatus: WaitingStatusData | undefined;
   setWaitingStatus: React.Dispatch<
     React.SetStateAction<WaitingStatusData | undefined>
+  >;
+  toolStatus: ToolStatusData | undefined;
+  setToolStatus: React.Dispatch<
+    React.SetStateAction<ToolStatusData | undefined>
   >;
 };
 
@@ -27,10 +35,18 @@ export function DataStreamProvider({
     []
   );
   const [waitingStatus, setWaitingStatus] = useState<WaitingStatusData>();
+  const [toolStatus, setToolStatus] = useState<ToolStatusData>();
 
   const value = useMemo(
-    () => ({ dataStream, setDataStream, setWaitingStatus, waitingStatus }),
-    [dataStream, waitingStatus]
+    () => ({
+      dataStream,
+      setDataStream,
+      setToolStatus,
+      setWaitingStatus,
+      toolStatus,
+      waitingStatus,
+    }),
+    [dataStream, toolStatus, waitingStatus]
   );
 
   return (

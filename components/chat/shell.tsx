@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import {
@@ -17,6 +18,7 @@ import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 
 export function ChatShell() {
+  const pathname = usePathname();
   const {
     chatId,
     messages,
@@ -89,6 +91,10 @@ export function ChatShell() {
     });
     setInput("");
   }, [editingMessage, input, regenerate, setInput, setMessages]);
+
+  if (pathname === "/skills") {
+    return null;
+  }
 
   return (
     <>

@@ -34,6 +34,20 @@ export type WaitingStatusData = {
   modelName: string;
 };
 
+export type ToolStatusData = {
+  phase: "start" | "end";
+  toolName: string;
+  message: string;
+  isError?: boolean;
+};
+
+export type DeliveredFileData = {
+  filename: string;
+  contentType: string;
+  url: string;
+  downloadUrl?: string;
+};
+
 export type CustomUIDataTypes = {
   textDelta: string;
   imageDelta: string;
@@ -48,6 +62,8 @@ export type CustomUIDataTypes = {
   finish: null;
   "chat-title": string;
   "waiting-status": WaitingStatusData;
+  "tool-status": ToolStatusData;
+  "delivered-file": DeliveredFileData;
 };
 
 export type ChatMessage = UIMessage<
