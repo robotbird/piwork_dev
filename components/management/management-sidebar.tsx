@@ -334,11 +334,11 @@ export function ManagementSidebar({
           <div className="flex h-full flex-col">
             <div className="flex h-14 shrink-0 items-center justify-between px-3">
               <Link
-                className="group flex h-10 items-center gap-2 rounded-[10px] px-2 text-[15px] font-medium text-foreground transition-colors hover:bg-sidebar-accent"
+                className="group flex h-10 items-center gap-3 rounded-[10px] px-3 text-[14px] leading-5 text-foreground transition-colors duration-150 hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground"
                 href="/"
                 onClick={handleCloseMobile}
               >
-                <ArrowLeftIcon className="size-5 transition-transform group-hover:-translate-x-0.5" />
+                <ArrowLeftIcon className="size-[18px] shrink-0 text-muted-foreground transition-all group-hover:-translate-x-0.5 group-hover:text-foreground" />
                 {translate("返回应用", "Back to app")}
               </Link>
               <button
@@ -360,10 +360,10 @@ export function ManagementSidebar({
 
       <aside className="sticky top-0 hidden h-dvh w-65 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
         <Link
-          className="group mx-3 flex h-14 shrink-0 items-center gap-2.5 rounded-[10px] px-2 text-[15px] font-medium text-foreground transition-colors hover:bg-sidebar-accent"
+          className="group mx-3 mt-3 flex min-h-10 shrink-0 items-center gap-3 rounded-[10px] px-3 text-[14px] leading-5 text-foreground transition-colors duration-150 hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground"
           href="/"
         >
-          <ArrowLeftIcon className="size-5 transition-transform group-hover:-translate-x-0.5" />
+          <ArrowLeftIcon className="size-[18px] shrink-0 text-muted-foreground transition-all group-hover:-translate-x-0.5 group-hover:text-foreground" />
           <span>{translate("返回应用", "Back to app")}</span>
         </Link>
         <SidebarBody user={user} />
