@@ -38,14 +38,11 @@ async function AuthenticatedManagement({
   }
 
   return (
-    <div className="flex min-h-dvh w-full flex-col bg-background text-foreground md:flex-row">
+    <div className="openai-management flex min-h-dvh w-full flex-col bg-background text-foreground md:flex-row">
       <ManagementSidebar
         user={{ email: session.user.email, name: session.user.name }}
       />
-      <div className="min-w-0 flex-1">
-        <div className="hidden h-14 border-b border-border bg-background md:block" />
-        {children}
-      </div>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }

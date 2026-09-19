@@ -207,11 +207,11 @@ export function AdminSkillManager({
 
   return (
     <>
-      <section className="min-w-0 px-5 py-8 sm:px-8 md:px-12 md:py-14 lg:px-16">
-        <div className="mx-auto max-w-4xl">
+      <section className="min-w-0 px-5 py-8 sm:px-8 md:px-10 md:py-14 lg:px-12 lg:py-16">
+        <div className="mx-auto max-w-[960px]">
           <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-2xl font-normal tracking-[-0.02em]">
+              <h1 className="text-2xl font-semibold tracking-[-0.025em]">
                 企业 Skill 库
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
@@ -224,14 +224,14 @@ export function AdminSkillManager({
             </Button>
           </header>
 
-          <div className="mt-10 flex items-center justify-between gap-4 border-b border-border/70 pb-4">
-            <div className="flex items-center gap-2 text-sm font-medium">
+          <div className="mt-9 flex flex-col items-stretch gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex items-center gap-2 whitespace-nowrap text-sm font-medium">
               已上架 Skill
               <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
                 {skills.length}
               </span>
             </div>
-            <div className="relative w-full max-w-[280px]">
+            <div className="relative w-full sm:max-w-[280px]">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/65" />
               <Input
                 aria-label="搜索企业 Skill"

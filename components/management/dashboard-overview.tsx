@@ -284,22 +284,24 @@ export function DashboardOverview() {
   );
 
   return (
-    <main className="min-w-0 flex-1 bg-background px-5 py-7 sm:px-7 lg:px-9 lg:py-6">
-      <div className="mx-auto max-w-[1480px]">
+    <main className="min-w-0 flex-1 bg-background px-5 py-8 sm:px-8 md:px-10 md:py-14 lg:px-12 lg:py-16">
+      <div className="mx-auto max-w-[1180px]">
         <header>
-          <h1 className="text-heading-lg text-foreground">概览</h1>
-          <p className="mt-1 text-body-lg text-muted-foreground">
+          <h1 className="text-2xl font-semibold tracking-[-0.025em] text-foreground">
+            概览
+          </h1>
+          <p className="mt-2 max-w-3xl text-[14px] leading-6 text-muted-foreground">
             统一管理企业的 AI 能力、工具、数据、模型与权限，保障 AI
             能力安全、高效、合规运行。
           </p>
         </header>
 
-        <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <section className="mt-8 grid grid-cols-1 overflow-hidden rounded-[14px] border border-border bg-card sm:grid-cols-2 xl:grid-cols-5">
           {metrics.map((metric) => {
             const Icon = metric.icon;
             return (
               <article
-                className={cn(panelClass, "min-h-[132px] p-5")}
+                className="min-h-[126px] border-b border-border p-5 last:border-b-0 sm:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r xl:last:border-r-0 xl:[&:nth-child(odd)]:border-r"
                 key={metric.label}
               >
                 <div className="flex items-center gap-3">
@@ -329,7 +331,7 @@ export function DashboardOverview() {
           })}
         </section>
 
-        <section className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-12">
+        <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12">
           <article className={cn(panelClass, "xl:col-span-5")}>
             <PanelHeader action={<RangeButton />} title="任务趋势" />
             <div className="flex items-center gap-5 px-5 pt-3 text-xs text-muted-foreground">
@@ -409,7 +411,7 @@ export function DashboardOverview() {
           </article>
         </section>
 
-        <section className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-12">
+        <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12">
           <article className={cn(panelClass, "overflow-hidden xl:col-span-5")}>
             <PanelHeader action={<ViewAll />} title="最近任务" />
             <div className="overflow-x-auto">

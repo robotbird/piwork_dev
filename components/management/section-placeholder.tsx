@@ -1,3 +1,4 @@
+import { ArrowRightIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { ManagementSection } from "@/lib/management/sections";
 
@@ -9,39 +10,46 @@ export function SectionPlaceholder({
   const Icon = section.icon;
 
   return (
-    <main className="min-w-0 px-5 py-8 sm:px-8 md:px-12 md:py-14 lg:px-16">
-      <div className="mx-auto max-w-4xl">
+    <main className="min-w-0 px-5 py-8 sm:px-8 md:px-10 md:py-14 lg:px-12 lg:py-16">
+      <div className="mx-auto max-w-[960px]">
         <header>
-          <div className="flex items-center gap-3">
-            <div className="grid size-12 shrink-0 place-items-center rounded-xl border border-border bg-card text-primary">
-              <Icon className="size-5" />
-            </div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-heading-lg">{section.title}</h1>
-              {section.ready ? null : <Badge variant="secondary">建设中</Badge>}
-            </div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-semibold tracking-[-0.025em]">
+              {section.title}
+            </h1>
+            {section.ready ? null : <Badge variant="secondary">建设中</Badge>}
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {section.tagline}
-          </p>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
+          <p className="mt-2 max-w-2xl text-[14px] leading-6 text-muted-foreground">
             {section.description}
           </p>
         </header>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {section.features.map((feature) => (
-            <div
-              className="rounded-xl border border-border bg-card p-5"
-              key={feature}
-            >
-              <h2 className="text-[15px] font-medium">{feature}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                UI 结构已就位，功能待实现
-              </p>
-            </div>
-          ))}
-        </div>
+        <section className="mt-10">
+          <h2 className="mb-3 text-[15px] font-semibold text-foreground">
+            {section.tagline}
+          </h2>
+          <div className="overflow-hidden rounded-[14px] border border-border bg-card">
+            {section.features.map((feature) => (
+              <div
+                className="group flex min-h-[76px] items-center gap-4 border-b border-border px-5 py-4 last:border-b-0"
+                key={feature}
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-muted text-foreground">
+                  <Icon className="size-[17px]" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-medium text-foreground">
+                    {feature}
+                  </span>
+                  <span className="mt-0.5 block text-[12px] leading-5 text-muted-foreground">
+                    功能结构已规划，将在后续版本开放配置
+                  </span>
+                </span>
+                <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </main>
   );

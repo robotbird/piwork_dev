@@ -156,7 +156,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             <SidebarMenu className="gap-0.5">
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  className="h-10 rounded-[10px] bg-transparent px-3 text-[15px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:font-normal group-data-[collapsible=icon]:justify-center"
+                  className="h-10 rounded-[10px] bg-transparent px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:font-normal group-data-[collapsible=icon]:justify-center"
                   isActive={pathname === "/"}
                   onClick={handleNewChat}
                   tooltip="新对话"
@@ -170,7 +170,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   {href ? (
                     <SidebarMenuButton
                       asChild
-                      className="h-10 rounded-[10px] px-3 text-[15px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:font-normal group-data-[collapsible=icon]:justify-center"
+                      className="h-10 rounded-[10px] px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:font-normal group-data-[collapsible=icon]:justify-center"
                       isActive={pathname === href}
                       tooltip={label}
                     >
@@ -181,7 +181,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                     </SidebarMenuButton>
                   ) : (
                     <SidebarMenuButton
-                      className="h-10 rounded-[10px] px-3 text-[15px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center"
+                      className="h-10 rounded-[10px] px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center"
                       data-label={label}
                       onClick={handleComingSoon}
                       tooltip={label}
@@ -197,7 +197,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
         </SidebarGroup>
 
         <SidebarGroup className="mt-4 px-0 group-data-[collapsible=icon]:hidden">
-          <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-normal text-sidebar-foreground/55">
+          <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-normal text-[var(--muted-ink-soft)]">
             <span>项目</span>
             <button
               aria-label="添加项目"

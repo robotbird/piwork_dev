@@ -51,7 +51,7 @@ const showPreviewNotice = () => toast.info("登录后可查看任务记录");
 
 function RecentLabel() {
   return (
-    <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-normal text-sidebar-foreground/55">
+    <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-normal text-[var(--muted-ink-soft)]">
       <span>最近</span>
       <ChevronRightIcon className="size-4" />
     </SidebarGroupLabel>

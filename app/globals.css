@@ -313,6 +313,90 @@ body:has(.openai-chat) {
   --shadow-composer: 0 1px 2px rgb(0 0 0 / 4%), 0 8px 24px rgb(0 0 0 / 5%);
 }
 
+/* OpenAI Unified Interface tokens scoped to the system management surface. */
+body:has(.openai-management) {
+  --canvas: #ffffff;
+  --canvas-soft: #f7f7f8;
+  --surface-card: #ffffff;
+  --surface-strong: #efeff0;
+  --hairline: #ececee;
+  --hairline-soft: #f7f7f8;
+  --hairline-strong: #dedfe2;
+  --ink: #171719;
+  --body: #67676c;
+  --muted-ink: #67676c;
+  --muted-ink-soft: #929298;
+  --link: #3b82f6;
+  --link-deep: #2563eb;
+  --link-soft: #eaf3ff;
+  --warning: #b7791f;
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface-card);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-card);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-strong);
+  --secondary-foreground: var(--ink);
+  --muted: var(--hairline-soft);
+  --muted-foreground: var(--muted-ink);
+  --accent: var(--surface-strong);
+  --accent-foreground: var(--ink);
+  --destructive: #e5484d;
+  --destructive-deep: #cf353a;
+  --border: var(--hairline);
+  --input: var(--surface-card);
+  --ring: var(--link);
+  --sidebar: #f7f7f8;
+  --sidebar-foreground: #4f4f54;
+  --sidebar-accent: #e7e7e9;
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: #e3e3e5;
+  --sidebar-ring: var(--link);
+}
+
+.dark body:has(.openai-management) {
+  --canvas: #171719;
+  --canvas-soft: #202022;
+  --surface-card: #252527;
+  --surface-strong: #343437;
+  --hairline: #303034;
+  --hairline-soft: #29292c;
+  --hairline-strong: #414146;
+  --ink: #f4f4f5;
+  --body: #b4b4b9;
+  --muted-ink: #a1a1a7;
+  --muted-ink-soft: #7f7f86;
+  --link: #60a5fa;
+  --link-deep: #93c5fd;
+  --link-soft: #213451;
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface-card);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-card);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: #171719;
+  --secondary: var(--surface-strong);
+  --secondary-foreground: var(--ink);
+  --muted: var(--hairline-soft);
+  --muted-foreground: var(--muted-ink);
+  --accent: var(--surface-strong);
+  --accent-foreground: var(--ink);
+  --border: var(--hairline);
+  --input: var(--surface-card);
+  --ring: var(--link);
+  --sidebar: #202022;
+  --sidebar-foreground: var(--body);
+  --sidebar-accent: #343437;
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: #303034;
+  --sidebar-ring: var(--link);
+}
+
 /* 输入器参考 ChatGPT：克制的两段式浮层阴影 + 1px 边框；聚焦只加深边框（规范 §11.2） */
 .openai-composer > [data-slot="input-group"] {
   background: var(--surface-card);
