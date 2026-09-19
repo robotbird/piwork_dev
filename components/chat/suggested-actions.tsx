@@ -3,7 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { motion } from "framer-motion";
 import { memo, useCallback } from "react";
-import { suggestions } from "@/lib/constants";
+import { usePreferences } from "@/components/preferences-provider";
 import type { ChatMessage } from "@/lib/types";
 import { Suggestion } from "../ai-elements/suggestion";
 import type { VisibilityType } from "./visibility-selector";
@@ -15,7 +15,21 @@ type SuggestedActionsProps = {
 };
 
 function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
-  const suggestedActions = suggestions;
+  const { language } = usePreferences();
+  const suggestedActions =
+    language === "zh-CN"
+      ? [
+          "总结这份文档的关键结论",
+          "帮我起草一份项目执行计划",
+          "分析这组数据并提出建议",
+          "将这段内容整理成专业报告",
+        ]
+      : [
+          "Summarize the key findings in this document",
+          "Draft a project execution plan",
+          "Analyze this data and suggest next steps",
+          "Turn this content into a professional report",
+        ];
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
       window.history.pushState(

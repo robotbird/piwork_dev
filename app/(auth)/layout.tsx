@@ -1,13 +1,18 @@
+"use client";
+
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { SparklesIcon } from "@/components/chat/icons";
 import { Preview } from "@/components/chat/preview";
+import { usePreferences } from "@/components/preferences-provider";
 
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { translate } = usePreferences();
+
   return (
     <div className="flex h-dvh w-screen bg-sidebar">
       <div className="flex w-full flex-col bg-background p-8 xl:w-[600px] xl:shrink-0 xl:border-r xl:border-border md:p-16">
@@ -16,7 +21,7 @@ export default function AuthLayout({
           href="/"
         >
           <ArrowLeftIcon className="size-3.5" />
-          Back
+          {translate("返回", "Back")}
         </Link>
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-10">
           <div className="flex flex-col gap-2">
@@ -30,7 +35,7 @@ export default function AuthLayout({
 
       <div className="hidden flex-1 flex-col overflow-hidden pl-12 xl:flex">
         <div className="flex items-center gap-1.5 pt-8 text-[13px] text-muted-foreground/50">
-          Powered by
+          {translate("技术支持", "Powered by")}
           <span className="font-medium text-muted-foreground">
             pi + DeepSeek
           </span>

@@ -7,6 +7,7 @@ import type { User } from "next-auth";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import useSWRInfinite from "swr/infinite";
+import { usePreferences } from "@/components/preferences-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,12 +48,12 @@ const previewItems = [
   "会议纪要整理",
 ];
 
-const showPreviewNotice = () => toast.info("登录后可查看任务记录");
-
 function RecentLabel() {
+  const { translate } = usePreferences();
+
   return (
     <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-normal text-[var(--muted-ink-soft)]">
-      <span>最近</span>
+      <span>{translate("最近", "Recent")}</span>
       <ChevronRightIcon className="size-4" />
     </SidebarGroupLabel>
   );
@@ -80,6 +81,7 @@ export function getChatHistoryPaginationKey(
 }
 
 export function SidebarHistory({ user }: { user: User | undefined }) {
+  const { translate } = usePreferences();
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const id = pathname?.startsWith("/chat/") ? pathname.split("/")[2] : null;
@@ -99,6 +101,13 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
   const router = useRouter();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const showPreviewNotice = useCallback(
+    () =>
+      toast.info(
+        translate("登录后可查看任务记录", "Log in to view task history")
+      ),
+    [translate]
+  );
 
   const hasReachedEnd = paginatedChatHistories
     ? paginatedChatHistories.some((page) => page.hasMore === false)
@@ -132,8 +141,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
       { method: "DELETE" }
     );
 
-    toast.success("Chat deleted");
-  }, [deleteId, mutate, pathname, router]);
+    toast.success(translate("任务已删除", "Chat deleted"));
+  }, [deleteId, mutate, pathname, router, translate]);
 
   const handleShowDeleteDialog = useCallback((chatId: string) => {
     setDeleteId(chatId);
@@ -201,7 +210,10 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
         <RecentLabel />
         <SidebarGroupContent>
           <div className="px-3 py-2 text-sm text-sidebar-foreground/50">
-            开始新任务后，记录会显示在这里
+            {translate(
+              "开始新任务后，记录会显示在这里",
+              "Your task history will appear here"
+            )}
           </div>
         </SidebarGroupContent>
       </SidebarGroup>
@@ -244,7 +256,9 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
               <div className="animate-spin">
                 <LoaderIcon />
               </div>
-              <div className="text-[11px]">加载中...</div>
+              <div className="text-[11px]">
+                {translate("加载中...", "Loading...")}
+              </div>
             </div>
           )}
         </SidebarGroupContent>
@@ -253,14 +267,21 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
       <AlertDialog onOpenChange={setShowDeleteDialog} open={showDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除此任务？</AlertDialogTitle>
+            <AlertDialogTitle>
+              {translate("确认删除此任务？", "Delete this task?")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              删除后无法恢复，该任务及其对话记录将被永久移除。
+              {translate(
+                "删除后无法恢复，该任务及其对话记录将被永久移除。",
+                "This task and its conversation history will be permanently removed."
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>删除</AlertDialogAction>
+            <AlertDialogCancel>{translate("取消", "Cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>
+              {translate("删除", "Delete")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

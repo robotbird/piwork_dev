@@ -43,6 +43,7 @@ import {
   ModelSelectorName,
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
+import { usePreferences } from "@/components/preferences-provider";
 import {
   CHAT_ATTACHMENT_ACCEPT,
   MAX_CHAT_ATTACHMENT_COUNT,
@@ -120,6 +121,7 @@ function PureMultimodalInput({
 }) {
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
+  const { translate } = usePreferences();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
   const hasAutoFocused = useRef(false);
@@ -473,20 +475,24 @@ function PureMultimodalInput({
   );
 
   const handleProjectSelect = useCallback(() => {
-    toast.info("项目选择即将开放");
-  }, []);
+    toast.info(
+      translate("项目选择即将开放", "Project selection is coming soon")
+    );
+  }, [translate]);
 
   const handleFileBrowse = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
   const handlePluginSelect = useCallback(() => {
-    toast.info("插件选择即将开放");
-  }, []);
+    toast.info(
+      translate("插件选择即将开放", "Plugin selection is coming soon")
+    );
+  }, [translate]);
 
   const handleVoiceInput = useCallback(() => {
-    toast.info("语音输入即将开放");
-  }, []);
+    toast.info(translate("语音输入即将开放", "Voice input is coming soon"));
+  }, [translate]);
 
   const handlePromptSubmit = useCallback(() => {
     if (input.startsWith("/") && !input.includes(" ")) {
@@ -674,10 +680,10 @@ function PureMultimodalInput({
                 onKeyDown={handleTextareaKeyDown}
                 placeholder={
                   editingMessage
-                    ? "编辑你的消息..."
+                    ? translate("编辑你的消息...", "Edit your message...")
                     : selectedSkill
-                      ? "请完善你的任务..."
-                      : "处理任何事务"
+                      ? translate("请完善你的任务...", "Describe your task...")
+                      : translate("处理任何事务", "Ask anything")
                 }
                 ref={textareaRef}
                 value={input}
@@ -696,7 +702,7 @@ function PureMultimodalInput({
                   selectedModelId={selectedModelId}
                 />
                 <Button
-                  aria-label="语音输入"
+                  aria-label={translate("语音输入", "Voice input")}
                   className="size-10 rounded-full text-foreground hover:bg-muted"
                   onClick={handleVoiceInput}
                   size="icon-sm"
@@ -746,7 +752,11 @@ function PureMultimodalInput({
               data-testid="multimodal-input"
               onChange={handleInput}
               onKeyDown={handleTextareaKeyDown}
-              placeholder={editingMessage ? "编辑你的消息..." : "处理任何事务"}
+              placeholder={
+                editingMessage
+                  ? translate("编辑你的消息...", "Edit your message...")
+                  : translate("处理任何事务", "Ask anything")
+              }
               ref={textareaRef}
               value={input}
             />
@@ -755,7 +765,7 @@ function PureMultimodalInput({
               selectedModelId={selectedModelId}
             />
             <Button
-              aria-label="语音输入"
+              aria-label={translate("语音输入", "Voice input")}
               className="size-10 rounded-full text-foreground hover:bg-muted"
               onClick={handleVoiceInput}
               size="icon-sm"
@@ -790,32 +800,32 @@ function PureMultimodalInput({
         <div className="relative z-0 mx-5 -mt-4 flex h-12 items-end rounded-b-2xl bg-[#f7f7f7] px-1.5 pb-1.5 text-sm text-muted-foreground dark:bg-muted">
           <div className="flex min-w-0 items-center gap-2">
             <button
-              aria-label="选择项目"
+              aria-label={translate("选择项目", "Choose project")}
               className="flex h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground"
               onClick={handleProjectSelect}
               type="button"
             >
               <FolderIcon className="size-[18px] shrink-0" />
-              <span>项目</span>
+              <span>{translate("项目", "Project")}</span>
             </button>
             <button
-              aria-label="添加文件"
+              aria-label={translate("添加文件", "Add files")}
               className="flex h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
               disabled={status !== "ready"}
               onClick={handleFileBrowse}
               type="button"
             >
               <LibraryBigIcon className="size-[18px] shrink-0" />
-              <span>文件</span>
+              <span>{translate("文件", "Files")}</span>
             </button>
             <button
-              aria-label="选择插件"
+              aria-label={translate("选择插件", "Choose plugins")}
               className="hidden h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground sm:flex"
               onClick={handlePluginSelect}
               type="button"
             >
               <PuzzleIcon className="size-[18px] shrink-0" />
-              <span>插件</span>
+              <span>{translate("插件", "Plugins")}</span>
             </button>
           </div>
         </div>
@@ -1145,6 +1155,7 @@ function PureStopButton({
   stop: () => void;
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 }) {
+  const { translate } = usePreferences();
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
@@ -1156,7 +1167,7 @@ function PureStopButton({
 
   return (
     <Button
-      aria-label="停止生成"
+      aria-label={translate("停止生成", "Stop generating")}
       className="size-10 rounded-full bg-primary p-1 text-primary-foreground transition-all duration-150 hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground/50"
       data-testid="stop-button"
       onClick={handleClick}

@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { usePreferences } from "@/components/preferences-provider";
 
 type SkillSummary = {
   description: string;
@@ -58,6 +59,7 @@ export function AdminSkillManager({
 }: {
   initialSkills: SkillSummary[];
 }) {
+  const { t } = usePreferences();
   const endpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/skills`;
   const folderInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
@@ -83,11 +85,11 @@ export function AdminSkillManager({
   const refreshSkills = useCallback(async () => {
     const response = await fetch(endpoint, { cache: "no-store" });
     if (!response.ok) {
-      throw new Error("无法刷新 Skill 列表");
+      throw new Error(t("无法刷新 Skill 列表"));
     }
     const data = (await response.json()) as { skills: SkillSummary[] };
     setSkills(data.skills);
-  }, [endpoint]);
+  }, [endpoint, t]);
 
   const uploadFiles = useCallback(
     async (selectedFiles: File[]) => {
@@ -110,13 +112,13 @@ export function AdminSkillManager({
           name?: string;
         };
         if (!response.ok) {
-          throw new Error(data.error || "上传失败");
+          throw new Error(data.error || t("上传失败"));
         }
         await refreshSkills();
         setUploadOpen(false);
-        toast.success(`Skill ${data.name ?? ""} 已上传`);
+        toast.success(t("Skill {name} 已上传", { name: data.name ?? "" }));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "上传失败");
+        toast.error(error instanceof Error ? error.message : t("上传失败"));
       } finally {
         setUploading(false);
         if (folderInputRef.current) {
@@ -127,7 +129,7 @@ export function AdminSkillManager({
         }
       }
     },
-    [endpoint, refreshSkills]
+    [endpoint, refreshSkills, t]
   );
 
   const deleteSkill = useCallback(async () => {
@@ -143,19 +145,21 @@ export function AdminSkillManager({
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
-        throw new Error(data.error || "删除失败");
+        throw new Error(data.error || t("删除失败"));
       }
       setSkills((current) =>
         current.filter((skill) => skill.name !== deleteTarget.name)
       );
-      toast.success(`Skill「${deleteTarget.displayName}」已删除`);
+      toast.success(
+        t("Skill「{name}」已删除", { name: deleteTarget.displayName })
+      );
       setDeleteTarget(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "删除失败");
+      toast.error(error instanceof Error ? error.message : t("删除失败"));
     } finally {
       setDeleting(false);
     }
-  }, [deleteTarget, endpoint]);
+  }, [deleteTarget, endpoint, t]);
 
   const handleQueryChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) =>
@@ -212,21 +216,21 @@ export function AdminSkillManager({
           <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-                企业 Skill 库
+                {t("企业 Skill 库")}
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                上传、检索和管理当前 Pi 项目可用的企业 Skill
+                {t("上传、检索和管理当前 Pi 项目可用的企业 Skill")}
               </p>
             </div>
             <Button className="w-fit px-4" onClick={handleOpenUpload}>
               <UploadCloudIcon data-icon="inline-start" />
-              上传 Skill
+              {t("上传 Skill")}
             </Button>
           </header>
 
           <div className="mt-9 flex flex-col items-stretch gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="flex items-center gap-2 whitespace-nowrap text-sm font-medium">
-              已上架 Skill
+              {t("已上架 Skill")}
               <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
                 {skills.length}
               </span>
@@ -234,10 +238,10 @@ export function AdminSkillManager({
             <div className="relative w-full sm:max-w-[280px]">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/65" />
               <Input
-                aria-label="搜索企业 Skill"
+                aria-label={t("搜索企业 Skill")}
                 className="pl-9"
                 onChange={handleQueryChange}
-                placeholder="搜索 Skill"
+                placeholder={t("搜索 Skill")}
                 value={query}
               />
             </div>
@@ -266,7 +270,7 @@ export function AdminSkillManager({
                   </p>
                 </div>
                 <Button
-                  aria-label={`删除 ${skill.displayName}`}
+                  aria-label={t("删除 {name}", { name: skill.displayName })}
                   className="shrink-0 rounded-md text-muted-foreground opacity-70 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                   data-skill-name={skill.name}
                   onClick={handleDeleteRequest}
@@ -285,12 +289,14 @@ export function AdminSkillManager({
                 <BoxIcon className="size-5" />
               </div>
               <p className="mt-4 text-sm font-medium">
-                {skills.length === 0 ? "还没有企业 Skill" : "没有匹配的 Skill"}
+                {skills.length === 0
+                  ? t("还没有企业 Skill")
+                  : t("没有匹配的 Skill")}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {skills.length === 0
-                  ? "上传包含 SKILL.md 的文件夹即可上架"
-                  : "试试其它关键词"}
+                  ? t("上传包含 SKILL.md 的文件夹即可上架")
+                  : t("试试其它关键词")}
               </p>
             </div>
           ) : null}
@@ -300,30 +306,30 @@ export function AdminSkillManager({
       <Dialog onOpenChange={setUploadOpen} open={uploadOpen}>
         <DialogContent className="gap-5 sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg">上传企业 Skill</DialogTitle>
+            <DialogTitle className="text-lg">{t("上传企业 Skill")}</DialogTitle>
             <DialogDescription>
-              选择完整 Skill 文件夹或 .zip 压缩包。根目录需包含 SKILL.md。
+              {t("选择完整 Skill 文件夹或 .zip 压缩包。根目录需包含 SKILL.md。")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
             <UploadOption
               disabled={uploading}
               icon={UploadCloudIcon}
-              label="选择 Skill 文件夹"
-              note="包含脚本、参考资料与资源"
+              label={t("选择 Skill 文件夹")}
+              note={t("包含脚本、参考资料与资源")}
               onClick={handleBrowseFolder}
             />
             <UploadOption
               disabled={uploading}
               icon={FileArchiveIcon}
-              label="选择 Skill 压缩包"
-              note="支持 .zip，最大 15 MB"
+              label={t("选择 Skill 压缩包")}
+              note={t("支持 .zip，最大 15 MB")}
               onClick={handleBrowseZip}
             />
           </div>
           {uploading ? (
             <p className="text-center text-sm text-muted-foreground">
-              正在验证并上传…
+              {t("正在验证并上传…")}
             </p>
           ) : null}
           <input
@@ -350,19 +356,21 @@ export function AdminSkillManager({
       >
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>删除企业 Skill？</AlertDialogTitle>
+            <AlertDialogTitle>{t("删除企业 Skill？")}</AlertDialogTitle>
             <AlertDialogDescription>
-              将从项目中永久删除“{deleteTarget?.displayName}”及其所有附加文件。
+              {t("将从项目中永久删除“{name}”及其所有附加文件。", {
+                name: deleteTarget?.displayName ?? "",
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t("取消")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={handleConfirmDelete}
               variant="destructive"
             >
-              {deleting ? "正在删除…" : "删除"}
+              {deleting ? t("正在删除…") : t("删除")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

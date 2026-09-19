@@ -8,6 +8,7 @@ import {
   SlidersHorizontalIcon,
 } from "lucide-react";
 import { memo } from "react";
+import { usePreferences } from "@/components/preferences-provider";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 import type { VisibilityType } from "./visibility-selector";
@@ -26,12 +27,13 @@ function PureChatHeader({
   title: string;
 }) {
   const { toggleSidebar, isMobile } = useSidebar();
+  const { translate } = usePreferences();
 
   return (
     <header className="relative flex h-14 shrink-0 items-center bg-background px-4 md:px-6">
       {isMobile ? (
         <Button
-          aria-label="打开侧边栏"
+          aria-label={translate("打开侧边栏", "Open sidebar")}
           className="text-foreground/70"
           onClick={toggleSidebar}
           size="icon-sm"
@@ -53,23 +55,31 @@ function PureChatHeader({
               {title}
             </span>
             <span className="hidden text-muted-foreground/70 sm:inline">
-              · 工作
+              · {translate("工作", "Work")}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-1 text-muted-foreground">
             <Button
-              aria-label="分享对话"
+              aria-label={translate("分享对话", "Share conversation")}
               className="hidden gap-2 px-2.5 sm:inline-flex"
               size="sm"
               variant="ghost"
             >
               <Share2Icon className="size-[17px]" />
-              <span>分享</span>
+              <span>{translate("分享", "Share")}</span>
             </Button>
-            <Button aria-label="更多操作" size="icon-sm" variant="ghost">
+            <Button
+              aria-label={translate("更多操作", "More actions")}
+              size="icon-sm"
+              variant="ghost"
+            >
               <MoreHorizontalIcon className="size-[18px]" />
             </Button>
-            <Button aria-label="对话设置" size="icon-sm" variant="ghost">
+            <Button
+              aria-label={translate("对话设置", "Conversation settings")}
+              size="icon-sm"
+              variant="ghost"
+            >
               <SlidersHorizontalIcon className="size-[18px]" />
             </Button>
           </div>

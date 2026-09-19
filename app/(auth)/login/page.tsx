@@ -8,9 +8,11 @@ import { useActionState, useEffect, useState } from "react";
 import { AuthForm } from "@/components/chat/auth-form";
 import { SubmitButton } from "@/components/chat/submit-button";
 import { toast } from "@/components/chat/toast";
+import { usePreferences } from "@/components/preferences-provider";
 import { type LoginActionState, login } from "../actions";
 
 export default function Page() {
+  const { translate } = usePreferences();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [isSuccessful, setIsSuccessful] = useState(false);
@@ -25,10 +27,16 @@ export default function Page() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: router and updateSession are stable refs
   useEffect(() => {
     if (state.status === "failed") {
-      toast({ description: "Invalid credentials!", type: "error" });
+      toast({
+        description: translate("邮箱或密码错误！", "Invalid credentials!"),
+        type: "error",
+      });
     } else if (state.status === "invalid_data") {
       toast({
-        description: "Failed validating your submission!",
+        description: translate(
+          "提交内容校验失败！",
+          "Failed validating your submission!"
+        ),
         type: "error",
       });
     } else if (state.status === "success") {
@@ -36,7 +44,7 @@ export default function Page() {
       updateSession();
       router.refresh();
     }
-  }, [state.status]);
+  }, [state.status, translate]);
 
   const handleSubmit = (formData: FormData) => {
     setEmail(formData.get("email") as string);
@@ -45,19 +53,23 @@ export default function Page() {
 
   return (
     <>
-      <h1 className="text-heading-lg">Welcome back</h1>
+      <h1 className="text-heading-lg">
+        {translate("欢迎回来", "Welcome back")}
+      </h1>
       <p className="text-sm text-muted-foreground">
-        Sign in to your account to continue
+        {translate("登录账户以继续", "Sign in to your account to continue")}
       </p>
       <AuthForm action={handleSubmit} defaultEmail={email}>
-        <SubmitButton isSuccessful={isSuccessful}>Sign in</SubmitButton>
+        <SubmitButton isSuccessful={isSuccessful}>
+          {translate("登录", "Sign in")}
+        </SubmitButton>
         <p className="text-center text-sm text-muted-foreground">
-          {"No account? "}
+          {translate("还没有账户？", "No account? ")}
           <Link
             className="text-foreground underline-offset-4 hover:underline"
             href="/register"
           >
-            Sign up
+            {translate("注册", "Sign up")}
           </Link>
         </p>
       </AuthForm>

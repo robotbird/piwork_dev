@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePreferences } from "@/components/preferences-provider";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import {
   initialArtifactData,
@@ -18,6 +19,7 @@ import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 
 export function ChatShell() {
+  const { translate } = usePreferences();
   const pathname = usePathname();
   const {
     chatId,
@@ -55,11 +57,11 @@ export function ChatShell() {
       .trim();
 
     if (!text) {
-      return "新对话";
+      return translate("新对话", "New chat");
     }
 
     return text.length > 28 ? `${text.slice(0, 28)}…` : text;
-  }, [messages]);
+  }, [messages, translate]);
 
   const stopRef = useRef(stop);
   stopRef.current = stop;
@@ -166,7 +168,10 @@ export function ChatShell() {
             >
               {messages.length > 0 ? (
                 <p className="text-center text-[12px] leading-5 text-muted-foreground/70">
-                  PiWork 可能会出错，请核查重要信息。
+                  {translate(
+                    "PiWork 可能会出错，请核查重要信息。",
+                    "PiWork can make mistakes. Check important information."
+                  )}
                 </p>
               ) : null}
               {!isReadonly && (

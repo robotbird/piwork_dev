@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
-import { suggestions } from "@/lib/constants";
+import { usePreferences } from "@/components/preferences-provider";
 import { SparklesIcon } from "./icons";
 
 function PreviewSuggestionButton({
@@ -29,6 +29,21 @@ function PreviewSuggestionButton({
 
 export function Preview() {
   const router = useRouter();
+  const { language, translate } = usePreferences();
+  const suggestions =
+    language === "zh-CN"
+      ? [
+          "总结这份文档的关键结论",
+          "帮我起草一份项目执行计划",
+          "分析这组数据并提出建议",
+          "将这段内容整理成专业报告",
+        ]
+      : [
+          "Summarize the key findings in this document",
+          "Draft a project execution plan",
+          "Analyze this data and suggest next steps",
+          "Turn this content into a professional report",
+        ];
 
   const handleAction = useCallback(
     (query?: string) => {
@@ -48,16 +63,21 @@ export function Preview() {
         <div className="flex size-5 items-center justify-center rounded bg-muted/60 ring-1 ring-border/50">
           <SparklesIcon size={10} />
         </div>
-        <span className="text-sm text-muted-foreground">Chatbot</span>
+        <span className="text-sm text-muted-foreground">
+          {translate("智能助手", "Chatbot")}
+        </span>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-8 px-8">
         <div className="text-center">
           <h2 className="text-xl font-semibold tracking-tight">
-            What can I help with?
+            {translate("我能为你做什么？", "What can I help with?")}
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Ask a question, write code, or explore ideas.
+            {translate(
+              "提出问题、编写代码或探索想法。",
+              "Ask a question, write code, or explore ideas."
+            )}
           </p>
         </div>
 
@@ -78,7 +98,7 @@ export function Preview() {
           onClick={handleDefaultAction}
           type="button"
         >
-          Ask anything...
+          {translate("处理任何事务...", "Ask anything...")}
         </button>
       </div>
     </div>

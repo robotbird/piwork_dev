@@ -7,6 +7,7 @@ import type { User } from "next-auth";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { useCallback } from "react";
+import { usePreferences } from "@/components/preferences-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,7 @@ import { LoaderIcon } from "./icons";
 import { toast } from "./toast";
 
 export function SidebarUserNav({ user }: { user: User }) {
+  const { translate } = usePreferences();
   const router = useRouter();
   const { data, status } = useSession();
   const { setTheme, resolvedTheme } = useTheme();
@@ -36,7 +38,10 @@ export function SidebarUserNav({ user }: { user: User }) {
   const handleAuthClick = useCallback(() => {
     if (status === "loading") {
       toast({
-        description: "Checking authentication status, please try again!",
+        description: translate(
+          "正在检查登录状态，请稍后再试！",
+          "Checking authentication status, please try again!"
+        ),
         type: "error",
       });
 
@@ -50,7 +55,7 @@ export function SidebarUserNav({ user }: { user: User }) {
         redirectTo: "/",
       });
     }
-  }, [isGuest, router, status]);
+  }, [isGuest, router, status, translate]);
 
   return (
     <SidebarMenu>
@@ -62,7 +67,7 @@ export function SidebarUserNav({ user }: { user: User }) {
                 <div className="flex flex-row items-center gap-2">
                   <div className="size-6 animate-pulse rounded-full bg-sidebar-foreground/10" />
                   <span className="animate-pulse rounded-md bg-sidebar-foreground/10 text-transparent text-sm">
-                    Loading...
+                    {translate("加载中...", "Loading...")}
                   </span>
                 </div>
                 <div className="animate-spin text-sidebar-foreground/50">
@@ -80,7 +85,7 @@ export function SidebarUserNav({ user }: { user: User }) {
                 <span className="truncate text-sm" data-testid="user-email">
                   {isGuest
                     ? "robotbird"
-                    : (user.email?.split("@")[0] ?? "用户")}
+                    : (user.email?.split("@")[0] ?? translate("用户", "User"))}
                 </span>
                 <ChevronUp className="ml-auto size-3.5 text-sidebar-foreground/50" />
               </SidebarMenuButton>
@@ -100,7 +105,7 @@ export function SidebarUserNav({ user }: { user: User }) {
                     href="/management/skills"
                   >
                     <Settings2Icon className="size-3.5" />
-                    管理
+                    {translate("管理", "Management")}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -111,7 +116,9 @@ export function SidebarUserNav({ user }: { user: User }) {
               data-testid="user-nav-item-theme"
               onSelect={handleThemeSelect}
             >
-              {`Toggle ${resolvedTheme === "light" ? "dark" : "light"} mode`}
+              {resolvedTheme === "light"
+                ? translate("切换到深色模式", "Switch to dark mode")
+                : translate("切换到浅色模式", "Switch to light mode")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="user-nav-item-auth">
@@ -120,7 +127,9 @@ export function SidebarUserNav({ user }: { user: User }) {
                 onClick={handleAuthClick}
                 type="button"
               >
-                {isGuest ? "Login to your account" : "Sign out"}
+                {isGuest
+                  ? translate("登录账户", "Log in to your account")
+                  : translate("退出登录", "Sign out")}
               </button>
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -40,6 +40,7 @@ import {
   skillCategories,
 } from "@/lib/ai/skill-catalog";
 import { cn } from "@/lib/utils";
+import { usePreferences } from "@/components/preferences-provider";
 
 type SkillSummary = {
   description: string;
@@ -97,6 +98,7 @@ export function SkillManager({
   catalog: CatalogSkill[];
   initialSkills: SkillSummary[];
 }) {
+  const { t } = usePreferences();
   const endpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/skills`;
   const folderInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
@@ -138,21 +140,27 @@ export function SkillManager({
         category === "全部" || skill.category === category;
       const matchesQuery =
         !normalized ||
-        [skill.displayName, skill.name, skill.description, skill.source].some(
-          (value) => value.toLocaleLowerCase().includes(normalized)
-        );
+        [
+          skill.displayName,
+          t(skill.displayName),
+          skill.name,
+          skill.description,
+          t(skill.description),
+          skill.source,
+          t(skill.source),
+        ].some((value) => value.toLocaleLowerCase().includes(normalized));
       return matchesCategory && matchesQuery;
     });
-  }, [category, items, query]);
+  }, [category, items, query, t]);
 
   const refreshSkills = useCallback(async () => {
     const response = await fetch(endpoint, { cache: "no-store" });
     if (!response.ok) {
-      throw new Error("无法刷新技能列表");
+      throw new Error(t("无法刷新技能列表"));
     }
     const data = (await response.json()) as { skills: SkillSummary[] };
     setInstalledSkills(data.skills);
-  }, [endpoint]);
+  }, [endpoint, t]);
 
   const installSkill = useCallback(
     async (skill: SkillItem) => {
@@ -165,7 +173,7 @@ export function SkillManager({
         });
         const data = (await response.json()) as { error?: string };
         if (!response.ok) {
-          throw new Error(data.error || "安装失败");
+          throw new Error(data.error || t("安装失败"));
         }
         await refreshSkills();
         setSelectedSkill((current) =>
@@ -173,14 +181,14 @@ export function SkillManager({
             ? { ...current, installed: true }
             : current
         );
-        toast.success(`已安装「${skill.displayName}」`);
+        toast.success(t("已安装「{name}」", { name: t(skill.displayName) }));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "安装失败");
+        toast.error(error instanceof Error ? error.message : t("安装失败"));
       } finally {
         setPendingName(null);
       }
     },
-    [endpoint, refreshSkills]
+    [endpoint, refreshSkills, t]
   );
 
   const uninstallSkill = useCallback(
@@ -194,7 +202,7 @@ export function SkillManager({
         });
         const data = (await response.json()) as { error?: string };
         if (!response.ok) {
-          throw new Error(data.error || "卸载失败");
+          throw new Error(data.error || t("卸载失败"));
         }
         setInstalledSkills((current) =>
           current.filter((item) => item.name !== skill.name)
@@ -204,14 +212,14 @@ export function SkillManager({
             ? { ...current, installed: false }
             : current
         );
-        toast.success(`已卸载「${skill.displayName}」`);
+        toast.success(t("已卸载「{name}」", { name: t(skill.displayName) }));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "卸载失败");
+        toast.error(error instanceof Error ? error.message : t("卸载失败"));
       } finally {
         setPendingName(null);
       }
     },
-    [endpoint]
+    [endpoint, t]
   );
 
   const uploadFiles = useCallback(
@@ -235,14 +243,14 @@ export function SkillManager({
           name?: string;
         };
         if (!response.ok) {
-          throw new Error(data.error || "上传失败");
+          throw new Error(data.error || t("上传失败"));
         }
         await refreshSkills();
         setUploadOpen(false);
         setMode("installed");
-        toast.success(`技能 ${data.name ?? ""} 已上传`);
+        toast.success(t("技能 {name} 已上传", { name: data.name ?? "" }));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "上传失败");
+        toast.error(error instanceof Error ? error.message : t("上传失败"));
       } finally {
         setUploading(false);
         if (folderInputRef.current) {
@@ -253,7 +261,7 @@ export function SkillManager({
         }
       }
     },
-    [endpoint, refreshSkills]
+    [endpoint, refreshSkills, t]
   );
 
   const handleAction = useCallback(
@@ -352,23 +360,23 @@ export function SkillManager({
                 <h1 className="text-heading-lg text-foreground">Skill</h1>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                发现和使用各类 AI 技能，拓展团队的工作能力。
+                {t("发现和使用各类 AI 技能，拓展团队的工作能力。")}
               </p>
             </div>
             <div className="relative w-full xl:max-w-[430px]">
               <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                aria-label="搜索 Skill"
+                aria-label={t("搜索 Skill")}
                 className="pl-10 text-sm shadow-none"
                 onChange={handleQueryChange}
-                placeholder="搜索 Skill、功能或来源"
+                placeholder={t("搜索 Skill、功能或来源")}
                 value={query}
               />
             </div>
           </header>
 
           <div className="mt-7 flex items-end justify-between border-b border-border">
-            <div aria-label="Skill 列表" className="flex gap-7" role="tablist">
+            <div aria-label={t("Skill 列表")} className="flex gap-7" role="tablist">
               {(["discover", "installed"] as const).map((item) => {
                 const active = mode === item;
                 return (
@@ -387,8 +395,10 @@ export function SkillManager({
                     type="button"
                   >
                     {item === "discover"
-                      ? "发现 Skill"
-                      : `我的 Skill ${installedSkills.length}`}
+                      ? t("发现 Skill")
+                      : t("我的 Skill {count}", {
+                          count: installedSkills.length,
+                        })}
                     {active ? (
                       <span className="absolute inset-x-0 bottom-[-1px] h-0.5 rounded-full bg-primary" />
                     ) : null}
@@ -404,13 +414,13 @@ export function SkillManager({
                 variant="outline"
               >
                 <UploadCloudIcon data-icon="inline-start" />
-                上传 Skill
+                {t("上传 Skill")}
               </Button>
             ) : null}
           </div>
 
           <fieldset className="mt-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            <legend className="sr-only">Skill 分类</legend>
+            <legend className="sr-only">{t("Skill 分类")}</legend>
             {skillCategories.map((item) => (
               <button
                 aria-pressed={category === item}
@@ -425,7 +435,7 @@ export function SkillManager({
                 onClick={handleCategoryClick}
                 type="button"
               >
-                {item}
+                {t(item)}
               </button>
             ))}
           </fieldset>
@@ -449,13 +459,13 @@ export function SkillManager({
               </span>
               <p className="mt-4 text-sm font-medium text-foreground">
                 {mode === "installed" && installedSkills.length === 0
-                  ? "还没有安装 Skill"
-                  : "没有找到匹配的 Skill"}
+                  ? t("还没有安装 Skill")
+                  : t("没有找到匹配的 Skill")}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {mode === "installed" && installedSkills.length === 0
-                  ? "去发现页挑选一个，或上传企业自建 Skill"
-                  : "试试其它关键词或分类"}
+                  ? t("去发现页挑选一个，或上传企业自建 Skill")
+                  : t("试试其它关键词或分类")}
               </p>
             </div>
           )}
@@ -473,31 +483,31 @@ export function SkillManager({
         <DialogContent className="gap-5 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg text-foreground">
-              上传企业 Skill
+              {t("上传企业 Skill")}
             </DialogTitle>
             <DialogDescription>
-              选择完整技能文件夹或 .zip 压缩包。根目录需包含 SKILL.md。
+              {t("选择完整技能文件夹或 .zip 压缩包。根目录需包含 SKILL.md。")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
             <UploadChoice
               disabled={uploading}
               icon={UploadCloudIcon}
-              label="选择技能文件夹"
-              note="包含脚本、参考资料与资源"
+              label={t("选择技能文件夹")}
+              note={t("包含脚本、参考资料与资源")}
               onClick={handleBrowseFolder}
             />
             <UploadChoice
               disabled={uploading}
               icon={FileArchiveIcon}
-              label="选择 Skill 压缩包"
-              note="支持 .zip，最大 15 MB"
+              label={t("选择 Skill 压缩包")}
+              note={t("支持 .zip，最大 15 MB")}
               onClick={handleBrowseZip}
             />
           </div>
           {uploading ? (
             <p className="text-center text-sm text-muted-foreground">
-              正在验证并上传…
+              {t("正在验证并上传…")}
             </p>
           ) : null}
           <input

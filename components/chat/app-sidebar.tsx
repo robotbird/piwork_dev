@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { BrandMark } from "@/components/chat/brand-mark";
 import { SidebarHistory } from "@/components/chat/sidebar-history";
 import { SidebarUserNav } from "@/components/chat/sidebar-user-nav";
+import { usePreferences } from "@/components/preferences-provider";
 import {
   Sidebar,
   SidebarContent,
@@ -45,20 +46,21 @@ import {
 } from "@/components/ui/tooltip";
 
 const primaryItems = [
-  { icon: FileTextIcon, label: "我的文档" },
-  { icon: Clock3Icon, label: "定时任务" },
-  { href: "/skills", icon: Grid2X2Icon, label: "Skill" },
-  { icon: CompassIcon, label: "探索" },
+  { icon: FileTextIcon, label: ["我的文档", "My documents"] as const },
+  { icon: Clock3Icon, label: ["定时任务", "Scheduled tasks"] as const },
+  { href: "/skills", icon: Grid2X2Icon, label: ["Skill", "Skills"] as const },
+  { icon: CompassIcon, label: ["探索", "Explore"] as const },
 ];
 
 const workspaceItems = [
-  { icon: HomeIcon, label: "我的项目" },
-  { icon: BarChart3Icon, label: "经营分析" },
-  { icon: FileCheck2Icon, label: "合同审核" },
-  { icon: FolderIcon, label: "市场研究" },
+  { icon: HomeIcon, label: ["我的项目", "My projects"] as const },
+  { icon: BarChart3Icon, label: ["经营分析", "Business analysis"] as const },
+  { icon: FileCheck2Icon, label: ["合同审核", "Contract review"] as const },
+  { icon: FolderIcon, label: ["市场研究", "Market research"] as const },
 ];
 
 export function AppSidebar({ user }: { user: User | undefined }) {
+  const { translate } = usePreferences();
   const pathname = usePathname();
   const router = useRouter();
   const { setOpenMobile, toggleSidebar } = useSidebar();
@@ -75,9 +77,14 @@ export function AppSidebar({ user }: { user: User | undefined }) {
 
   const handleComingSoon = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
-      toast.info(`${event.currentTarget.dataset.label}即将开放`);
+      toast.info(
+        translate(
+          `${event.currentTarget.dataset.label}即将开放`,
+          `${event.currentTarget.dataset.label} is coming soon`
+        )
+      );
     },
-    []
+    [translate]
   );
 
   return (
@@ -98,9 +105,9 @@ export function AppSidebar({ user }: { user: User | undefined }) {
           </Link>
           <div className="flex items-center gap-1 group-data-[collapsible=icon]:hidden">
             <button
-              aria-label="搜索"
+              aria-label={translate("搜索", "Search")}
               className="grid size-9 place-items-center rounded-lg text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-              data-label="搜索"
+              data-label={translate("搜索", "Search")}
               onClick={handleComingSoon}
               type="button"
             >
@@ -109,7 +116,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  aria-label="收起侧边栏"
+                  aria-label={translate("收起侧边栏", "Collapse sidebar")}
                   className="grid size-9 place-items-center rounded-lg text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
                   onClick={toggleSidebar}
                   type="button"
@@ -122,7 +129,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                 side="right"
                 sideOffset={8}
               >
-                收起侧边栏
+                {translate("收起侧边栏", "Collapse sidebar")}
               </TooltipContent>
             </Tooltip>
           </div>
@@ -130,7 +137,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                aria-label="打开侧边栏"
+                aria-label={translate("打开侧边栏", "Open sidebar")}
                 className="group/collapsed-toggle relative hidden size-10 place-items-center rounded-xl text-sidebar-accent-foreground transition-colors hover:bg-sidebar-accent group-data-[collapsible=icon]:grid"
                 onClick={toggleSidebar}
                 type="button"
@@ -144,7 +151,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               side="right"
               sideOffset={8}
             >
-              打开侧边栏
+              {translate("打开侧边栏", "Open sidebar")}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -159,35 +166,35 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   className="h-10 rounded-[10px] bg-transparent px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:font-normal group-data-[collapsible=icon]:justify-center"
                   isActive={pathname === "/"}
                   onClick={handleNewChat}
-                  tooltip="新对话"
+                  tooltip={translate("新对话", "New chat")}
                 >
                   <SquarePenIcon className="size-[19px]" />
-                  <span>新对话</span>
+                  <span>{translate("新对话", "New chat")}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {primaryItems.map(({ href, icon: Icon, label }) => (
-                <SidebarMenuItem key={label}>
+                <SidebarMenuItem key={label[0]}>
                   {href ? (
                     <SidebarMenuButton
                       asChild
                       className="h-10 rounded-[10px] px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:font-normal group-data-[collapsible=icon]:justify-center"
                       isActive={pathname === href}
-                      tooltip={label}
+                      tooltip={translate(label[0], label[1])}
                     >
                       <Link href={href} onClick={handleCloseMobile}>
                         <Icon className="size-[19px]" />
-                        <span>{label}</span>
+                        <span>{translate(label[0], label[1])}</span>
                       </Link>
                     </SidebarMenuButton>
                   ) : (
                     <SidebarMenuButton
                       className="h-10 rounded-[10px] px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center"
-                      data-label={label}
+                      data-label={translate(label[0], label[1])}
                       onClick={handleComingSoon}
-                      tooltip={label}
+                      tooltip={translate(label[0], label[1])}
                     >
                       <Icon className="size-[19px]" />
-                      <span>{label}</span>
+                      <span>{translate(label[0], label[1])}</span>
                     </SidebarMenuButton>
                   )}
                 </SidebarMenuItem>
@@ -198,11 +205,11 @@ export function AppSidebar({ user }: { user: User | undefined }) {
 
         <SidebarGroup className="mt-4 px-0 group-data-[collapsible=icon]:hidden">
           <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-normal text-[var(--muted-ink-soft)]">
-            <span>项目</span>
+            <span>{translate("项目", "Projects")}</span>
             <button
-              aria-label="添加项目"
+              aria-label={translate("添加项目", "Add project")}
               className="grid size-7 place-items-center rounded-md transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              data-label="新项目"
+              data-label={translate("新项目", "New project")}
               onClick={handleComingSoon}
               type="button"
             >
@@ -212,14 +219,14 @@ export function AppSidebar({ user }: { user: User | undefined }) {
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               {workspaceItems.map(({ icon: Icon, label }) => (
-                <SidebarMenuItem key={label}>
+                <SidebarMenuItem key={label[0]}>
                   <SidebarMenuButton
                     className="h-9 rounded-lg px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent"
-                    data-label={label}
+                    data-label={translate(label[0], label[1])}
                     onClick={handleComingSoon}
                   >
                     <Icon className="size-4" />
-                    <span>{label}</span>
+                    <span>{translate(label[0], label[1])}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
