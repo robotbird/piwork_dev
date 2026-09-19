@@ -316,7 +316,7 @@ export function ManagementSidebar({
 
       <Sheet onOpenChange={setMobileOpen} open={mobileOpen}>
         <SheetContent
-          className="w-[min(88vw,17rem)] border-r border-sidebar-border bg-sidebar p-0 [&>button]:hidden"
+          className="w-[min(88vw,16.25rem)] border-r border-sidebar-border bg-sidebar p-0 [&>button]:hidden"
           showCloseButton={false}
           side="left"
         >
@@ -358,7 +358,7 @@ export function ManagementSidebar({
         </SheetContent>
       </Sheet>
 
-      <aside className="sticky top-0 hidden h-dvh w-[272px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
+      <aside className="sticky top-0 hidden h-dvh w-65 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
         <Link
           className="group mx-3 flex h-14 shrink-0 items-center gap-2.5 rounded-[10px] px-2 text-[15px] font-medium text-foreground transition-colors hover:bg-sidebar-accent"
           href="/"
