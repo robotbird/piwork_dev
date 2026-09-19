@@ -127,8 +127,11 @@ Dark mode keeps the same geometry with heavier alphas (`.3` / `.2` / `.4`). Floa
 ### Navigation
 
 - Chat sidebar sits on `--sidebar` (canvas in light / `#0a0a0a` in dark) with hairline dividers; the management sidebar matches.
-- Selected nav: `bg-primary/10 text-primary` — a quiet ink tint, not a filled pill.
-- Rows are `rounded-md`, `text-sm`; group labels `text-sm text-muted-foreground`.
+- **Sidebar lists are one shared spec across surfaces** (chat home and management). The chat sidebar must never redefine font family, size, or text colors locally — no `.openai-sidebar`-style CSS overrides; Geist and the tokens below apply everywhere.
+- **Sidebar rows** (nav items, chat history): Geist `text-[14px] leading-5` (14/20). Inactive: `text-sidebar-foreground`, weight 400. Active/current row: `bg-sidebar-accent` + `font-medium` + `text-sidebar-accent-foreground`. Hover: `bg-sidebar-accent/65` + `text-sidebar-accent-foreground`. Management rows are the reference implementation (`NavigationLink` in `management-sidebar.tsx`).
+- **Sidebar group labels**: `text-[13px] font-medium leading-5 text-muted-foreground`. The `SidebarGroupLabel` primitive defaults to `text-[10px] font-semibold uppercase tracking-[0.12em]` — always cancel with `normal-case tracking-normal` and override size/weight/color (see `Projects` / `Recent` labels and management `h2` headings).
+- **Sidebar icons**: 18px (`size-[18px]`, or `[&_svg]:size-[18px]` on the row to beat the primitive's `[&_svg]:size-4`), inactive `text-muted-foreground`, hover/active `text-foreground`.
+- Tailwind v4 gotcha: the data variant shorthand `data-active:` compiles to attribute *presence* `[data-active]`, which also matches `data-active="false"`. Use the explicit `data-[active=true]:` form in `components/ui/sidebar.tsx` and row classes.
 
 ### Cards and dialogs
 
@@ -208,6 +211,7 @@ Do:
 - Keep blue to links, focus, success, and data.
 - Use hairlines; float with `--shadow-float` only when genuinely overlaying.
 - Keep icon strokes at the global 1.5 and sizes on the 12/14/16/20 scale.
+- Keep sidebar lists on the shared §7 Navigation spec — chat and management rows use identical font, weight, and color tokens.
 
 Do not:
 
@@ -216,6 +220,8 @@ Do not:
 - Add bold (700) headings, relaxed heading tracking, glassmorphism, gradient cards, or glow shadows.
 - Copy the mesh gradient or chart palette onto other surfaces.
 - Hardcode hex values in components when a token exists (charts go through `lib/chart-theme.ts`).
+- Write the `data-active:` shorthand for state-dependent row styles — it matches attribute presence in Tailwind v4 and fires on `data-active="false"`; use `data-[active=true]:`.
+- Override the app font family per surface (system-font stacks on one sidebar, Geist on the other).
 - Reshape the settled chat bubble structure or pass `strokeWidth` to lucide icons.
 
 ## 14. Contribution checklist

@@ -52,7 +52,7 @@ function RecentLabel() {
   const { translate } = usePreferences();
 
   return (
-    <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-normal text-[var(--muted-ink-soft)]">
+    <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-medium leading-5 text-muted-foreground normal-case tracking-normal">
       <span>{translate("最近", "Recent")}</span>
       <ChevronRightIcon className="size-4" />
     </SidebarGroupLabel>
@@ -164,7 +164,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
             {previewItems.map((title) => (
               <SidebarMenuItem key={title}>
                 <SidebarMenuButton
-                  className="h-9 rounded-lg px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent"
+                  className="h-9 rounded-lg px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground"
                   onClick={showPreviewNotice}
                 >
                   <span>{title}</span>

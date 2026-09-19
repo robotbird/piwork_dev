@@ -44,6 +44,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 const primaryItems = [
   { icon: FileTextIcon, label: ["我的文档", "My documents"] as const },
@@ -88,10 +89,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
   );
 
   return (
-    <Sidebar
-      className="openai-sidebar border-r border-sidebar-border"
-      collapsible="icon"
-    >
+    <Sidebar className="border-r border-sidebar-border" collapsible="icon">
       <SidebarHeader className="px-3 pb-4 pt-3 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:pb-2">
         <div className="flex items-center justify-between group-data-[collapsible=icon]:justify-center">
           <Link
@@ -163,12 +161,19 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             <SidebarMenu className="gap-0.5">
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  className="h-10 rounded-[10px] bg-transparent px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:font-normal group-data-[collapsible=icon]:justify-center"
+                  className="h-10 rounded-[10px] bg-transparent px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent group-data-[collapsible=icon]:justify-center [&_svg]:size-[18px]"
                   isActive={pathname === "/"}
                   onClick={handleNewChat}
                   tooltip={translate("新对话", "New chat")}
                 >
-                  <SquarePenIcon className="size-[19px]" />
+                  <SquarePenIcon
+                    className={cn(
+                      "shrink-0 transition-colors",
+                      pathname === "/"
+                        ? "text-foreground"
+                        : "text-muted-foreground group-hover/menu-button:text-foreground"
+                    )}
+                  />
                   <span>{translate("新对话", "New chat")}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -177,23 +182,30 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   {href ? (
                     <SidebarMenuButton
                       asChild
-                      className="h-10 rounded-[10px] px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:font-normal group-data-[collapsible=icon]:justify-center"
+                      className="h-10 rounded-[10px] px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent group-data-[collapsible=icon]:justify-center [&_svg]:size-[18px]"
                       isActive={pathname === href}
                       tooltip={translate(label[0], label[1])}
                     >
                       <Link href={href} onClick={handleCloseMobile}>
-                        <Icon className="size-[19px]" />
+                        <Icon
+                          className={cn(
+                            "shrink-0 transition-colors",
+                            pathname === href
+                              ? "text-foreground"
+                              : "text-muted-foreground group-hover/menu-button:text-foreground"
+                          )}
+                        />
                         <span>{translate(label[0], label[1])}</span>
                       </Link>
                     </SidebarMenuButton>
                   ) : (
                     <SidebarMenuButton
-                      className="h-10 rounded-[10px] px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center"
+                      className="h-10 rounded-[10px] px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center [&_svg]:size-[18px]"
                       data-label={translate(label[0], label[1])}
                       onClick={handleComingSoon}
                       tooltip={translate(label[0], label[1])}
                     >
-                      <Icon className="size-[19px]" />
+                      <Icon className="shrink-0 text-muted-foreground transition-colors group-hover/menu-button:text-foreground" />
                       <span>{translate(label[0], label[1])}</span>
                     </SidebarMenuButton>
                   )}
@@ -204,7 +216,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
         </SidebarGroup>
 
         <SidebarGroup className="mt-4 px-0 group-data-[collapsible=icon]:hidden">
-          <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-normal text-[var(--muted-ink-soft)]">
+          <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-medium leading-5 text-muted-foreground normal-case tracking-normal">
             <span>{translate("项目", "Projects")}</span>
             <button
               aria-label={translate("添加项目", "Add project")}
@@ -221,11 +233,11 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               {workspaceItems.map(({ icon: Icon, label }) => (
                 <SidebarMenuItem key={label[0]}>
                   <SidebarMenuButton
-                    className="h-9 rounded-lg px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent"
+                    className="h-9 rounded-lg px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground [&_svg]:size-[18px]"
                     data-label={translate(label[0], label[1])}
                     onClick={handleComingSoon}
                   >
-                    <Icon className="size-4" />
+                    <Icon className="shrink-0 text-muted-foreground transition-colors group-hover/menu-button:text-foreground" />
                     <span>{translate(label[0], label[1])}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

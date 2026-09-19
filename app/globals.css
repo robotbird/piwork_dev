@@ -255,10 +255,10 @@ body:has(.openai-chat) {
   --input: var(--surface-card);
   --ring: var(--link);
   --sidebar: #f9f9f9;
-  --sidebar-foreground: var(--body);
+  --sidebar-foreground: #4f4f54;
   --sidebar-primary: var(--ink);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ececec;
+  --sidebar-accent: #e7e7e9;
   --sidebar-accent-foreground: var(--ink);
   --sidebar-border: var(--hairline);
   --sidebar-ring: var(--link);
@@ -431,14 +431,6 @@ body:has(.openai-management) {
 
 .openai-composer > [data-slot="input-group"]:focus-within {
   border-color: color-mix(in srgb, var(--ink) 12%, var(--hairline));
-}
-
-.openai-sidebar {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  font-weight: 400;
-  letter-spacing: 0;
 }
 
 @layer base {
