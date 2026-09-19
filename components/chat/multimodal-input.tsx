@@ -4,8 +4,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
 import {
-  BrainIcon,
-  EyeIcon,
+  CheckIcon,
   FolderIcon,
   HammerIcon,
   LibraryBigIcon,
@@ -13,7 +12,6 @@ import {
   MicIcon,
   PlusIcon,
   PuzzleIcon,
-  WrenchIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -21,7 +19,6 @@ import {
   type ChangeEvent,
   type Dispatch,
   memo,
-  type ReactNode,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -36,7 +33,6 @@ import {
   ModelSelector,
   ModelSelectorContent,
   ModelSelectorGroup,
-  ModelSelectorInput,
   ModelSelectorItem,
   ModelSelectorList,
   ModelSelectorLogo,
@@ -52,7 +48,6 @@ import {
   type ChatModel,
   chatModels,
   DEFAULT_CHAT_MODEL,
-  type ModelCapabilities,
 } from "@/lib/ai/models";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn, fetcher } from "@/lib/utils";
@@ -920,14 +915,12 @@ function PureAttachmentsButton({
 const AttachmentsButton = memo(PureAttachmentsButton);
 
 function ModelSelectorOption({
-  capabilities,
   curated,
   model,
   onModelChange,
   selectedModelId,
   setOpen,
 }: {
-  capabilities: Record<string, ModelCapabilities> | undefined;
   curated: boolean;
   model: ChatModel;
   onModelChange?: (modelId: string) => void;
@@ -935,22 +928,8 @@ function ModelSelectorOption({
   setOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   const [logoProvider] = model.id.split("/");
-  const maybeWithTooltip = (icon: ReactNode, label: string) => {
-    if (!curated) {
-      return icon;
-    }
+  const isSelected = model.id === selectedModelId;
 
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-flex">{icon}</span>
-        </TooltipTrigger>
-        <TooltipContent side="top" sideOffset={8}>
-          {label}
-        </TooltipContent>
-      </Tooltip>
-    );
-  };
   const handleSelect = useCallback(() => {
     if (!curated) {
       return;
@@ -969,39 +948,26 @@ function ModelSelectorOption({
     <ModelSelectorItem
       aria-disabled={!curated}
       className={cn(
-        "flex w-full transition-colors",
-        model.id === selectedModelId &&
-          "border-b border-dashed border-foreground/50",
+        "w-full gap-2 px-3 py-2 text-[13px]",
         curated
           ? "data-[selected=true]:bg-muted data-[selected=true]:text-foreground"
-          : "cursor-not-allowed opacity-40 data-[selected=true]:bg-transparent data-[selected=true]:opacity-60 data-[selected=true]:ring-1 data-[selected=true]:ring-muted-foreground/30 data-[selected=true]:ring-inset"
+          : "cursor-not-allowed opacity-40 data-[selected=true]:bg-transparent data-[selected=true]:opacity-60"
       )}
       onSelect={handleSelect}
       value={model.id}
     >
-      <ModelSelectorLogo provider={logoProvider} />
-      <ModelSelectorName>{model.name}</ModelSelectorName>
-      <div className="ml-auto flex items-center gap-2 text-foreground/70">
-        {capabilities?.[model.id]?.tools
-          ? maybeWithTooltip(
-              <WrenchIcon className="size-3.5" />,
-              "Supports tool use"
-            )
-          : null}
-        {capabilities?.[model.id]?.vision
-          ? maybeWithTooltip(
-              <EyeIcon className="size-3.5" />,
-              "Supports vision"
-            )
-          : null}
-        {capabilities?.[model.id]?.reasoning
-          ? maybeWithTooltip(
-              <BrainIcon className="size-3.5" />,
-              "Supports reasoning"
-            )
-          : null}
-        {!curated && <LockIcon className="size-3 text-muted-foreground/50" />}
-      </div>
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-border/70 bg-muted/50">
+        <ModelSelectorLogo provider={logoProvider} />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-left font-medium">
+        {model.name}
+      </span>
+      <span className="ml-auto flex shrink-0 items-center">
+        {isSelected ? <CheckIcon className="size-4 text-foreground" /> : null}
+        {curated ? null : (
+          <LockIcon className="size-3 text-muted-foreground/50" />
+        )}
+      </span>
     </ModelSelectorItem>
   );
 
@@ -1035,8 +1001,6 @@ function PureModelSelectorCompact({
     { dedupingInterval: 3_600_000, revalidateOnFocus: false }
   );
 
-  const capabilities: Record<string, ModelCapabilities> | undefined =
-    modelsData?.capabilities ?? modelsData;
   const dynamicModels: ChatModel[] | undefined = modelsData?.models;
   const activeModels = dynamicModels ?? chatModels;
 
@@ -1048,17 +1012,18 @@ function PureModelSelectorCompact({
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
         <Button
-          className="h-9 max-w-[200px] justify-between gap-1.5 rounded-lg border-0 bg-transparent px-2 text-[15px] font-normal text-foreground shadow-none transition-colors hover:bg-muted"
+          className="h-8 max-w-[180px] gap-1 rounded-full border-0 bg-muted px-3 text-[13px] font-normal text-foreground shadow-none transition-colors hover:bg-secondary aria-expanded:bg-muted dark:bg-transparent dark:hover:bg-white/5 dark:aria-expanded:bg-transparent"
           data-testid="model-selector"
           variant="ghost"
         >
           <ModelSelectorName>{selectedModel.name}</ModelSelectorName>
-          <ChevronDownIcon size={14} />
+          <span className="shrink-0 text-muted-foreground">
+            <ChevronDownIcon size={13} />
+          </span>
         </Button>
       </ModelSelectorTrigger>
       <ModelSelectorContent commandDefaultValue={selectedModel.id}>
-        <ModelSelectorInput placeholder="Search models..." />
-        <ModelSelectorList>
+        <ModelSelectorList className="max-h-[min(420px,60vh)] p-1.5">
           {(() => {
             const curatedIds = new Set(chatModels.map((m) => m.id));
             const allModels = dynamicModels
@@ -1120,23 +1085,22 @@ function PureModelSelectorCompact({
             return sortedKeys.map((key) => (
               <ModelSelectorGroup
                 heading={
-                  key === "_available"
-                    ? "Available"
-                    : (providerNames[key] ?? key)
+                  key === "_available" ? undefined : (providerNames[key] ?? key)
                 }
                 key={key}
               >
-                {grouped[key].map(({ model, curated }) => (
-                  <ModelSelectorOption
-                    capabilities={capabilities}
-                    curated={curated}
-                    key={model.id}
-                    model={model}
-                    onModelChange={onModelChange}
-                    selectedModelId={selectedModel.id}
-                    setOpen={setOpen}
-                  />
-                ))}
+                <div className="divide-y divide-border">
+                  {grouped[key].map(({ model, curated }) => (
+                    <ModelSelectorOption
+                      curated={curated}
+                      key={model.id}
+                      model={model}
+                      onModelChange={onModelChange}
+                      selectedModelId={selectedModel.id}
+                      setOpen={setOpen}
+                    />
+                  ))}
+                </div>
               </ModelSelectorGroup>
             ));
           })()}

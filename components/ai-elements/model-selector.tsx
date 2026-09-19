@@ -43,9 +43,9 @@ export const ModelSelectorContent = ({
   ...props
 }: ModelSelectorContentProps) => (
   <PopoverContent
-    align="start"
+    align="end"
     className={cn(
-      "w-[280px] p-0 rounded-xl border border-border/60 bg-card/95 backdrop-blur-xl shadow-[var(--shadow-float)]",
+      "w-[min(232px,calc(100vw-2rem))] p-0 rounded-2xl border border-border/60 bg-card/95 backdrop-blur-xl shadow-[var(--shadow-float)]",
       className
     )}
     side="top"
@@ -91,7 +91,7 @@ export const ModelSelectorGroup = (props: ModelSelectorGroupProps) => (
 export type ModelSelectorItemProps = ComponentProps<typeof CommandItem>;
 
 export const ModelSelectorItem = ({ className, ...props }: ModelSelectorItemProps) => (
-  <CommandItem className={cn("w-full text-[13px] rounded-lg", className)} {...props} />
+  <CommandItem className={cn("w-full gap-3 rounded-lg text-sm", className)} {...props} />
 );
 
 export type ModelSelectorShortcutProps = ComponentProps<typeof CommandShortcut>;
@@ -181,10 +181,10 @@ export const ModelSelectorLogo = ({
   <img
     {...props}
     alt={`${provider} logo`}
-    className={cn("size-4 dark:invert", className)}
-    height={16}
+    className={cn("size-[18px] dark:invert", className)}
+    height={18}
     src={`https://models.dev/logos/${provider}.svg`}
-    width={16}
+    width={18}
   />
 );
 

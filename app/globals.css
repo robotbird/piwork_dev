@@ -313,6 +313,16 @@ body:has(.openai-chat) {
   --shadow-composer: 0 1px 2px rgb(0 0 0 / 4%), 0 8px 24px rgb(0 0 0 / 5%);
 }
 
+/* The chat shell pins its action color on itself: body-level :has() scoping
+   loses the tie whenever a management-scope element coexists with the chat
+   tree (route transitions), which silently flipped --primary to ink and
+   turned the model pill black. An ancestor declaration always wins over
+   body-level scopes, and both chat modes share the same blue. */
+.openai-chat {
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+}
+
 /* OpenAI Unified Interface tokens scoped to the system management surface. */
 body:has(.openai-management) {
   --canvas: #ffffff;
