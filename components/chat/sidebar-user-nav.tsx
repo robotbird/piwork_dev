@@ -58,10 +58,10 @@ export function SidebarUserNav({ user }: { user: User }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             {status === "loading" ? (
-              <SidebarMenuButton className="h-10 justify-between rounded-lg bg-transparent text-sidebar-foreground/50 transition-colors duration-150 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+              <SidebarMenuButton className="h-10 justify-between rounded-md bg-transparent text-sidebar-foreground/50 transition-colors duration-150 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
                 <div className="flex flex-row items-center gap-2">
                   <div className="size-6 animate-pulse rounded-full bg-sidebar-foreground/10" />
-                  <span className="animate-pulse rounded-md bg-sidebar-foreground/10 text-transparent text-[13px]">
+                  <span className="animate-pulse rounded-md bg-sidebar-foreground/10 text-transparent text-sm">
                     Loading...
                   </span>
                 </div>
@@ -71,13 +71,13 @@ export function SidebarUserNav({ user }: { user: User }) {
               </SidebarMenuButton>
             ) : (
               <SidebarMenuButton
-                className="h-8 px-2 rounded-lg bg-transparent text-sidebar-foreground/70 transition-colors duration-150 hover:text-sidebar-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                className="h-8 px-2 rounded-md bg-transparent text-sidebar-foreground/70 transition-colors duration-150 hover:text-sidebar-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 data-testid="user-nav-button"
               >
-                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#8db8e0] text-[12px] font-medium text-white">
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/12 text-[12px] font-medium text-primary">
                   {isGuest ? "R" : (user.email?.[0] ?? "R").toUpperCase()}
                 </span>
-                <span className="truncate text-[13px]" data-testid="user-email">
+                <span className="truncate text-sm" data-testid="user-email">
                   {isGuest
                     ? "robotbird"
                     : (user.email?.split("@")[0] ?? "用户")}
@@ -87,7 +87,7 @@ export function SidebarUserNav({ user }: { user: User }) {
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-(--radix-popper-anchor-width) rounded-lg border border-border/60 bg-card/95 backdrop-blur-xl shadow-[var(--shadow-float)]"
+            className="w-(--radix-popper-anchor-width) rounded-md border border-border bg-card shadow-none"
             data-testid="user-nav-menu"
             side="top"
           >
@@ -95,7 +95,7 @@ export function SidebarUserNav({ user }: { user: User }) {
               <>
                 <DropdownMenuItem asChild>
                   <Link
-                    className="cursor-pointer gap-2 text-[13px]"
+                    className="cursor-pointer gap-2 text-sm"
                     data-testid="user-nav-item-management"
                     href="/management/skills"
                   >
@@ -107,7 +107,7 @@ export function SidebarUserNav({ user }: { user: User }) {
               </>
             )}
             <DropdownMenuItem
-              className="cursor-pointer text-[13px]"
+              className="cursor-pointer text-sm"
               data-testid="user-nav-item-theme"
               onSelect={handleThemeSelect}
             >
@@ -116,7 +116,7 @@ export function SidebarUserNav({ user }: { user: User }) {
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="user-nav-item-auth">
               <button
-                className="w-full cursor-pointer text-[13px]"
+                className="w-full cursor-pointer text-sm"
                 onClick={handleAuthClick}
                 type="button"
               >

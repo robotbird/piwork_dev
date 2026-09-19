@@ -140,7 +140,7 @@ function SlashCommandMenuItem({
   return (
     <CommandItem
       className={cn(
-        "min-h-11 gap-3 rounded-xl border border-transparent px-3 py-2",
+        "min-h-11 gap-3 rounded-md border border-transparent px-3 py-2",
         "data-[selected=true]:border-border/40 data-[selected=true]:bg-muted",
         index === selectedIndex && "border-border/40 bg-muted"
       )}
@@ -149,13 +149,13 @@ function SlashCommandMenuItem({
       onSelect={handleClick}
       value={cmd.name}
     >
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground/70">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground/70">
         {cmd.icon}
       </span>
-      <span className="shrink-0 font-mono text-[13px] text-foreground">
+      <span className="shrink-0 font-mono text-sm text-foreground">
         /{cmd.name}
       </span>
-      <span className="min-w-0 flex-1 truncate text-left text-[12px] text-muted-foreground/60">
+      <span className="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground/60">
         {cmd.description}
       </span>
       {cmd.shortcut ? (
@@ -196,13 +196,10 @@ export function SlashCommandMenu({
     // 不透明卡片：纯色背景（不用半透明+模糊），配合 isolate 保证
     // 面板完整遮住底层内容（Z 序问题另由 shell.tsx 的 z-20 修复）
     <div
-      className="skill-menu absolute bottom-full left-0 right-0 z-50 mb-2 isolate overflow-hidden rounded-3xl border border-border/60 bg-card text-card-foreground shadow-[var(--shadow-float)]"
+      className="skill-menu absolute bottom-full left-0 right-0 z-50 mb-2 isolate overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-[var(--shadow-float)]"
       ref={menuRef}
     >
-      <Command
-        className="rounded-3xl bg-transparent p-1.5"
-        shouldFilter={false}
-      >
+      <Command className="rounded-xl bg-transparent p-1.5" shouldFilter={false}>
         <CommandList className="max-h-[min(420px,55vh)] scroll-py-2 p-1">
           {skillItems.length > 0 ? (
             <CommandGroup

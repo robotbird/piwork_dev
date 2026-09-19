@@ -117,7 +117,7 @@ export function Console({ consoleOutputs, setConsoleOutputs }: ConsoleProps) {
         style={{ height }}
       >
         <div className="sticky top-0 z-50 flex h-10 w-full items-center justify-between border-b border-border/50 bg-background px-3">
-          <div className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
+          <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
             <TerminalWindowIcon />
             <span>Console</span>
           </div>
@@ -134,7 +134,7 @@ export function Console({ consoleOutputs, setConsoleOutputs }: ConsoleProps) {
         <div className="bg-background">
           {[...consoleOutputs].reverse().map((consoleOutput, index) => (
             <div
-              className="flex border-b border-border/30 px-4 py-2.5 font-mono text-[12px] leading-relaxed"
+              className="flex border-b border-border/30 px-4 py-2.5 font-mono text-xs leading-relaxed"
               key={consoleOutput.id}
             >
               <div

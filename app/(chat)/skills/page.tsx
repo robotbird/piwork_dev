@@ -5,7 +5,7 @@ import { loadProjectSkillSummaries } from "@/lib/ai/skills";
 
 export default function SkillsPage() {
   return (
-    <Suspense fallback={<div className="min-h-dvh bg-[#f9fbfe]" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-background" />}>
       <SkillsContent />
     </Suspense>
   );
@@ -15,7 +15,7 @@ async function SkillsContent() {
   const { skills } = await loadProjectSkillSummaries();
 
   return (
-    <main className="min-h-dvh border-l border-border/50 bg-[#f9fbfe]">
+    <main className="min-h-dvh border-l border-border bg-background">
       <SkillMarketplace catalog={publicSkillCatalog} initialSkills={skills} />
     </main>
   );

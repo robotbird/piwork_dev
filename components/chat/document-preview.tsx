@@ -195,7 +195,7 @@ const PureHitboxLayer = ({
       role="presentation"
     >
       <div className="flex w-full items-center justify-end p-4">
-        <div className="absolute top-[13px] right-[9px] rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+        <div className="absolute top-[13px] right-[9px] rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
           <FullscreenIcon />
         </div>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import {
   initialArtifactData,
@@ -44,6 +44,22 @@ export function ChatShell() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
   const { setArtifact } = useArtifact();
+  const conversationTitle = useMemo(() => {
+    const firstUserMessage = messages.find(
+      (message) => message.role === "user"
+    );
+    const text = firstUserMessage?.parts
+      ?.filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("")
+      .trim();
+
+    if (!text) {
+      return "新对话";
+    }
+
+    return text.length > 28 ? `${text.slice(0, 28)}…` : text;
+  }, [messages]);
 
   const stopRef = useRef(stop);
   stopRef.current = stop;
@@ -98,7 +114,7 @@ export function ChatShell() {
 
   return (
     <>
-      <div className="flex h-dvh w-full flex-row overflow-hidden">
+      <div className="openai-chat flex h-dvh w-full flex-row overflow-hidden">
         <div
           className={cn(
             "flex min-w-0 flex-col bg-sidebar transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
@@ -107,11 +123,13 @@ export function ChatShell() {
         >
           <ChatHeader
             chatId={chatId}
+            hasMessages={messages.length > 0}
             isReadonly={isReadonly}
             selectedVisibilityType={visibilityType}
+            title={conversationTitle}
           />
 
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-l border-border/50 bg-[#fbfcff] dark:bg-background">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
             <Messages
               addToolApprovalResponse={addToolApprovalResponse}
               chatId={chatId}
@@ -131,22 +149,26 @@ export function ChatShell() {
               className={cn(
                 // z-20：必须高于 Messages 中 Greeting 的 z-10 遮罩层，
                 // 否则空会话时问候文字会盖住 slash 命令浮层
-                "z-20 mx-auto flex w-full gap-2 bg-transparent px-3 md:px-4",
+                "z-20 mx-auto flex w-full flex-col items-center gap-2 bg-transparent px-4 md:px-8",
                 messages.length === 0
-                  ? "absolute"
-                  : "sticky bottom-0 pb-4 md:pb-6"
+                  ? "absolute max-w-[var(--chat-composer-max)]"
+                  : "sticky bottom-0 max-w-[var(--chat-content-max)] pb-[max(16px,env(safe-area-inset-bottom))] md:pb-6"
               )}
               style={
                 messages.length === 0
                   ? {
                       left: "50%",
-                      maxWidth: "800px",
-                      top: "48.5%",
+                      top: "37.5%",
                       transform: "translateX(-50%)",
                     }
-                  : { maxWidth: "800px" }
+                  : undefined
               }
             >
+              {messages.length > 0 ? (
+                <p className="text-center text-[12px] leading-5 text-muted-foreground/70">
+                  PiWork 可能会出错，请核查重要信息。
+                </p>
+              ) : null}
               {!isReadonly && (
                 <MultimodalInput
                   attachments={attachments}

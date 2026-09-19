@@ -1,12 +1,20 @@
 "use client";
 
-import { BellIcon, PanelLeftIcon, PanelTopIcon } from "lucide-react";
+import {
+  FolderIcon,
+  MoreHorizontalIcon,
+  PanelLeftIcon,
+  Share2Icon,
+  SlidersHorizontalIcon,
+} from "lucide-react";
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 import type { VisibilityType } from "./visibility-selector";
 
 function PureChatHeader({
+  hasMessages,
+  title,
   chatId: _chatId,
   selectedVisibilityType: _selectedVisibilityType,
   isReadonly: _isReadonly,
@@ -14,11 +22,13 @@ function PureChatHeader({
   chatId: string;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
+  hasMessages: boolean;
+  title: string;
 }) {
   const { toggleSidebar, isMobile } = useSidebar();
 
   return (
-    <header className="flex h-[60px] shrink-0 items-center border-b border-border/70 bg-background/90 px-4 backdrop-blur-md md:px-7">
+    <header className="relative flex h-14 shrink-0 items-center bg-background px-4 md:px-6">
       {isMobile ? (
         <Button
           aria-label="打开侧边栏"
@@ -31,15 +41,40 @@ function PureChatHeader({
         </Button>
       ) : null}
 
-      <div className="ml-auto flex items-center gap-3 text-[#1f2a3d] dark:text-foreground/80">
-        <Button aria-label="通知" size="icon-sm" variant="ghost">
-          <BellIcon className="size-[18px]" strokeWidth={1.7} />
-        </Button>
-        <span className="h-4 w-px bg-border/80" />
-        <Button aria-label="工作面板" size="icon-sm" variant="ghost">
-          <PanelTopIcon className="size-[18px]" strokeWidth={1.7} />
-        </Button>
-      </div>
+      {hasMessages ? (
+        <>
+          <div className="flex min-w-0 items-center gap-2.5 text-[15px]">
+            <FolderIcon className="size-[18px] shrink-0 text-muted-foreground" />
+            <span className="hidden font-medium text-foreground sm:inline">
+              PiWork
+            </span>
+            <span className="hidden text-muted-foreground sm:inline">/</span>
+            <span className="max-w-[min(42vw,460px)] truncate text-muted-foreground">
+              {title}
+            </span>
+            <span className="hidden text-muted-foreground/70 sm:inline">
+              · 工作
+            </span>
+          </div>
+          <div className="ml-auto flex items-center gap-1 text-muted-foreground">
+            <Button
+              aria-label="分享对话"
+              className="hidden gap-2 px-2.5 sm:inline-flex"
+              size="sm"
+              variant="ghost"
+            >
+              <Share2Icon className="size-[17px]" />
+              <span>分享</span>
+            </Button>
+            <Button aria-label="更多操作" size="icon-sm" variant="ghost">
+              <MoreHorizontalIcon className="size-[18px]" />
+            </Button>
+            <Button aria-label="对话设置" size="icon-sm" variant="ghost">
+              <SlidersHorizontalIcon className="size-[18px]" />
+            </Button>
+          </div>
+        </>
+      ) : null}
     </header>
   );
 }

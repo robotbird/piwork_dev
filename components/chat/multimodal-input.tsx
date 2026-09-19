@@ -4,16 +4,15 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
 import {
-  ArrowUpIcon,
   BrainIcon,
-  ChevronDownIcon,
   EyeIcon,
-  FolderOpenIcon,
+  FolderIcon,
   HammerIcon,
+  LibraryBigIcon,
   LockIcon,
   MicIcon,
   PlusIcon,
-  TimerResetIcon,
+  PuzzleIcon,
   WrenchIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -65,7 +64,7 @@ import {
 } from "../ai-elements/prompt-input";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { StopIcon } from "./icons";
+import { ArrowUpIcon, ChevronDownIcon, StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
 import {
   createSkillSlashCommands,
@@ -90,6 +89,7 @@ function PureMultimodalInput({
   stop,
   attachments,
   setAttachments,
+  messages,
   setMessages,
   sendMessage,
   className,
@@ -476,8 +476,12 @@ function PureMultimodalInput({
     toast.info("项目选择即将开放");
   }, []);
 
-  const handleApprovalSettings = useCallback(() => {
-    toast.info("审批设置即将开放");
+  const handleFileBrowse = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handlePluginSelect = useCallback(() => {
+    toast.info("插件选择即将开放");
   }, []);
 
   const handleVoiceInput = useCallback(() => {
@@ -567,9 +571,14 @@ function PureMultimodalInput({
       slashQuery,
     ]
   );
+  const isEmptyChat = messages.length === 0;
+  const canSubmit = Boolean(
+    input.trim() || selectedSkill || attachments.length > 0
+  );
+  const isGenerating = status === "submitted" || status === "streaming";
 
   return (
-    <div className={cn("relative flex w-full flex-col gap-4", className)}>
+    <div className={cn("relative flex w-full flex-col gap-3", className)}>
       {editingMessage && onCancelEdit ? (
         <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
           <span>Editing message</span>
@@ -605,23 +614,20 @@ function PureMultimodalInput({
       </div>
 
       <PromptInput
-        className="piwork-composer [&>div]:overflow-hidden [&>div]:border [&>div]:border-[#dce3ed] [&>div]:bg-white/95 [&>div]:shadow-[0_12px_36px_-24px_rgba(53,75,110,.32)] [&>div]:transition-all [&>div]:duration-300 [&>div]:focus-within:!border-[#b9c8de] [&>div]:focus-within:!ring-0 [&>div]:focus-within:shadow-[0_16px_42px_-24px_rgba(41,92,170,.36)] [&>div]:has-[[data-slot=input-group-control]:focus-visible]:!ring-0 dark:[&>div]:border-[#2f2f2f] dark:[&>div]:bg-[#212121] dark:[&>div]:shadow-none dark:[&>div]:focus-within:!border-[#4a4a4a] dark:[&>div]:focus-within:shadow-none"
+        className={cn(
+          "openai-composer relative z-10",
+          isEmptyChat
+            ? "openai-composer--empty"
+            : "openai-composer--conversation"
+        )}
         onSubmit={handlePromptSubmit}
       >
-        <div className="order-first flex h-10 w-full self-stretch items-center justify-start border-b border-[#e5eaf1] px-4 text-[12px] text-[#7d899c] dark:border-[#333] dark:text-[#b4b4b4]">
-          <button
-            className="flex items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:text-[#344054] dark:hover:text-[#ececec]"
-            onClick={handleProjectSelect}
-            type="button"
-          >
-            <FolderOpenIcon className="size-[18px]" strokeWidth={1.7} />
-            <span>选择项目</span>
-            <ChevronDownIcon className="size-3.5" />
-          </button>
-        </div>
         {(attachments.length > 0 || uploadQueue.length > 0) && (
           <div
-            className="flex w-full self-start flex-row gap-2 overflow-x-auto px-3 pt-3 no-scrollbar"
+            className={cn(
+              "flex w-full self-start flex-row gap-2 overflow-x-auto px-3 pt-3 no-scrollbar",
+              !isEmptyChat && "basis-full"
+            )}
             data-testid="attachments-preview"
           >
             {attachments.map((attachment) => (
@@ -646,90 +652,174 @@ function PureMultimodalInput({
             ))}
           </div>
         )}
-        <div className="flex min-h-[56px] w-full items-start px-4 pt-3">
-          {selectedSkill ? (
-            <span
-              className="mt-px inline-flex h-6 shrink-0 items-center gap-1.5 text-[14px] font-medium leading-6 text-primary"
-              data-testid="selected-skill"
-            >
-              <HammerIcon
-                aria-hidden="true"
-                className="size-[17px]"
-                strokeWidth={1.8}
+        {isEmptyChat ? (
+          <>
+            <div className="flex min-h-[64px] w-full items-start px-5 pt-4">
+              {selectedSkill ? (
+                <span
+                  className="mt-px inline-flex h-6 shrink-0 items-center gap-1.5 text-sm font-medium leading-6 text-primary"
+                  data-testid="selected-skill"
+                >
+                  <HammerIcon aria-hidden="true" className="size-4" />
+                  <span>{selectedSkill.displayName}</span>
+                </span>
+              ) : null}
+              <PromptInputTextarea
+                className={cn(
+                  "min-h-[48px] px-0 pb-1 pt-0 text-[16px] leading-6 placeholder:text-[var(--chat-placeholder)] focus-visible:border-transparent focus-visible:ring-0",
+                  selectedSkill && "ml-2"
+                )}
+                data-testid="multimodal-input"
+                onChange={handleInput}
+                onKeyDown={handleTextareaKeyDown}
+                placeholder={
+                  editingMessage
+                    ? "编辑你的消息..."
+                    : selectedSkill
+                      ? "请完善你的任务..."
+                      : "处理任何事务"
+                }
+                ref={textareaRef}
+                value={input}
               />
-              <span>{selectedSkill.displayName}</span>
-            </span>
-          ) : null}
-          <PromptInputTextarea
-            className={cn(
-              "min-h-[43px] px-0 pb-1 pt-0 text-[14px] leading-6 placeholder:text-[#9ba6b6] dark:text-[#ececec] dark:placeholder:text-[#8e8e8e]",
-              selectedSkill && "ml-2"
-            )}
-            data-testid="multimodal-input"
-            onChange={handleInput}
-            onKeyDown={handleTextareaKeyDown}
-            placeholder={
-              editingMessage
-                ? "编辑你的消息..."
-                : selectedSkill
-                  ? "请完善你的任务..."
-                  : "随心输入，描述你想完成的任务..."
-            }
-            ref={textareaRef}
-            value={input}
-          />
-        </div>
-        <PromptInputFooter className="px-3 pb-2.5 pt-1">
-          <PromptInputTools className="gap-3">
+            </div>
+            <PromptInputFooter className="px-3 pb-2.5 pt-1">
+              <PromptInputTools>
+                <AttachmentsButton
+                  fileInputRef={fileInputRef}
+                  status={status}
+                />
+              </PromptInputTools>
+              <PromptInputTools className="gap-1">
+                <ModelSelectorCompact
+                  onModelChange={onModelChange}
+                  selectedModelId={selectedModelId}
+                />
+                <Button
+                  aria-label="语音输入"
+                  className="size-10 rounded-full text-foreground hover:bg-muted"
+                  onClick={handleVoiceInput}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <MicIcon className="size-[19px]" />
+                </Button>
+                {isGenerating ? (
+                  <StopButton setMessages={setMessages} stop={stop} />
+                ) : (
+                  <PromptInputSubmit
+                    className={cn(
+                      "size-10 rounded-full border-0 transition-colors duration-150",
+                      canSubmit
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "bg-[#b8d4ff] text-white"
+                    )}
+                    data-testid="send-button"
+                    disabled={!canSubmit || uploadQueue.length > 0}
+                    status={status}
+                    variant="secondary"
+                  >
+                    <ArrowUpIcon className="size-5" />
+                  </PromptInputSubmit>
+                )}
+              </PromptInputTools>
+            </PromptInputFooter>
+          </>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-end gap-1 px-1.5 py-1.5">
             <AttachmentsButton fileInputRef={fileInputRef} status={status} />
-            <button
-              className="flex h-8 items-center gap-2 rounded-lg px-2 text-[13px] text-[#7c899b] transition-colors hover:bg-[#f3f6fa] hover:text-[#344054] dark:text-[#b4b4b4] dark:hover:bg-[#2f2f2f] dark:hover:text-[#ececec]"
-              onClick={handleApprovalSettings}
-              type="button"
-            >
-              <TimerResetIcon className="size-[17px]" strokeWidth={1.7} />
-              <span className="hidden sm:inline">请求批准</span>
-            </button>
-          </PromptInputTools>
-
-          <PromptInputTools className="gap-2.5">
+            {selectedSkill ? (
+              <span
+                className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-muted px-2.5 text-sm font-medium text-foreground"
+                data-testid="selected-skill"
+              >
+                <HammerIcon aria-hidden="true" className="size-4" />
+                <span>{selectedSkill.displayName}</span>
+              </span>
+            ) : null}
+            <PromptInputTextarea
+              className={cn(
+                "max-h-32 min-h-10 min-w-0 px-2 py-2 text-[16px] leading-6 placeholder:text-[var(--chat-placeholder)] focus-visible:border-transparent focus-visible:ring-0",
+                selectedSkill && "pl-0"
+              )}
+              data-testid="multimodal-input"
+              onChange={handleInput}
+              onKeyDown={handleTextareaKeyDown}
+              placeholder={editingMessage ? "编辑你的消息..." : "处理任何事务"}
+              ref={textareaRef}
+              value={input}
+            />
             <ModelSelectorCompact
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
             />
             <Button
               aria-label="语音输入"
-              className="size-9 rounded-xl text-[#526176] dark:text-[#b4b4b4] dark:hover:bg-[#2f2f2f] dark:hover:text-[#ececec]"
+              className="size-10 rounded-full text-foreground hover:bg-muted"
               onClick={handleVoiceInput}
               size="icon-sm"
               type="button"
               variant="ghost"
             >
-              <MicIcon className="size-[19px]" strokeWidth={1.7} />
+              <MicIcon className="size-[19px]" />
             </Button>
-            {status === "submitted" ? (
+            {isGenerating ? (
               <StopButton setMessages={setMessages} stop={stop} />
             ) : (
               <PromptInputSubmit
                 className={cn(
-                  "size-10 rounded-full border-0 transition-all duration-200",
-                  input.trim() || selectedSkill
-                    ? "bg-[#347ff4] text-white shadow-[0_8px_22px_-10px_rgba(52,127,244,.9)] hover:bg-[#2774ea] active:scale-95 dark:bg-[#f2f2f2] dark:text-[#0d0d0d] dark:shadow-none dark:hover:bg-white"
-                    : "bg-[#7eaff8] text-white/90 dark:bg-[#3f3f3f] dark:text-[#8e8e8e]"
+                  "size-10 rounded-full border-0 transition-colors duration-150",
+                  canSubmit
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-secondary text-muted-foreground"
                 )}
                 data-testid="send-button"
-                disabled={
-                  !(input.trim() || selectedSkill) || uploadQueue.length > 0
-                }
+                disabled={!canSubmit || uploadQueue.length > 0}
                 status={status}
                 variant="secondary"
               >
-                <ArrowUpIcon className="size-5" strokeWidth={1.8} />
+                <ArrowUpIcon className="size-5" />
               </PromptInputSubmit>
             )}
-          </PromptInputTools>
-        </PromptInputFooter>
+          </div>
+        )}
       </PromptInput>
+
+      {isEmptyChat ? (
+        <div className="relative z-0 mx-5 -mt-4 flex h-12 items-end rounded-b-2xl bg-[#f7f7f7] px-1.5 pb-1.5 text-sm text-muted-foreground dark:bg-muted">
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              aria-label="选择项目"
+              className="flex h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground"
+              onClick={handleProjectSelect}
+              type="button"
+            >
+              <FolderIcon className="size-[18px] shrink-0" />
+              <span>项目</span>
+            </button>
+            <button
+              aria-label="添加文件"
+              className="flex h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              disabled={status !== "ready"}
+              onClick={handleFileBrowse}
+              type="button"
+            >
+              <LibraryBigIcon className="size-[18px] shrink-0" />
+              <span>文件</span>
+            </button>
+            <button
+              aria-label="选择插件"
+              className="hidden h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground sm:flex"
+              onClick={handlePluginSelect}
+              type="button"
+            >
+              <PuzzleIcon className="size-[18px] shrink-0" />
+              <span>插件</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -806,13 +896,13 @@ function PureAttachmentsButton({
 
   return (
     <Button
-      className="size-8 rounded-lg border-0 p-1 text-[#526176] transition-colors hover:bg-[#f3f6fa] hover:text-[#27364b]"
+      className="size-8 rounded-md border-0 p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       data-testid="attachments-button"
       disabled={status !== "ready"}
       onClick={handleClick}
       variant="ghost"
     >
-      <PlusIcon className="size-5" strokeWidth={1.7} />
+      <PlusIcon className="size-5" />
     </Button>
   );
 }
@@ -944,18 +1034,16 @@ function PureModelSelectorCompact({
     activeModels.find((m: ChatModel) => m.id === selectedModelId) ??
     activeModels.find((m: ChatModel) => m.id === DEFAULT_CHAT_MODEL) ??
     activeModels[0];
-  const [provider] = selectedModel.id.split("/");
-
   return (
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
         <Button
-          className="h-9 max-w-[200px] justify-between gap-2 rounded-xl border border-[#e2e7ee] bg-white px-3 text-[13px] text-[#344054] shadow-none transition-colors hover:bg-[#f8fafc] dark:border-[#3a3a3a] dark:bg-[#2f2f2f] dark:text-[#ececec] dark:hover:bg-[#383838]"
+          className="h-9 max-w-[200px] justify-between gap-1.5 rounded-lg border-0 bg-transparent px-2 text-[15px] font-normal text-foreground shadow-none transition-colors hover:bg-muted"
           data-testid="model-selector"
           variant="ghost"
         >
-          {provider ? <ModelSelectorLogo provider={provider} /> : null}
           <ModelSelectorName>{selectedModel.name}</ModelSelectorName>
+          <ChevronDownIcon size={14} />
         </Button>
       </ModelSelectorTrigger>
       <ModelSelectorContent commandDefaultValue={selectedModel.id}>
@@ -1068,7 +1156,8 @@ function PureStopButton({
 
   return (
     <Button
-      className="size-12 rounded-full bg-[#347ff4] p-1 text-white transition-all duration-200 hover:bg-[#2774ea] active:scale-95 disabled:bg-muted disabled:text-muted-foreground/25 disabled:cursor-not-allowed"
+      aria-label="停止生成"
+      className="size-10 rounded-full bg-primary p-1 text-primary-foreground transition-all duration-150 hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground/50"
       data-testid="stop-button"
       onClick={handleClick}
     >

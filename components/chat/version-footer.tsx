@@ -144,7 +144,7 @@ export const VersionFooter = ({
 
       <div className="flex flex-row gap-2">
         <button
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-sm font-medium text-background transition-all duration-150 hover:opacity-90 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background transition-all duration-150 hover:opacity-90 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
           disabled={isMutating}
           onClick={handleRestore}
           type="button"
@@ -157,7 +157,7 @@ export const VersionFooter = ({
           ) : null}
         </button>
         <button
-          className="inline-flex items-center justify-center rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-all duration-150 hover:bg-muted active:scale-[0.98]"
+          className="inline-flex items-center justify-center rounded-md border border-border px-3 py-1.5 text-sm font-medium transition-all duration-150 hover:bg-muted active:scale-[0.98]"
           onClick={handleLatest}
           type="button"
         >

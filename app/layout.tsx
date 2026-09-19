@@ -27,8 +27,8 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
 });
 
-const LIGHT_THEME_COLOR = "#f7f7f4";
-const DARK_THEME_COLOR = "#1d1c18";
+const LIGHT_THEME_COLOR = "#fafafa";
+const DARK_THEME_COLOR = "#000000";
 const THEME_COLOR_SCRIPT = `\
 (function() {
   var html = document.documentElement;

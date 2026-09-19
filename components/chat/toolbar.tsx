@@ -147,7 +147,7 @@ const Tool = ({
         </motion.div>
       </TooltipTrigger>
       <TooltipContent
-        className="rounded-2xl bg-foreground p-3 px-4 text-background"
+        className="rounded-xl bg-foreground p-3 px-4 text-background"
         side="left"
         sideOffset={16}
       >
@@ -218,7 +218,7 @@ const ReadingLevelSelector = ({
       {randomArr.map((id) => (
         <motion.div
           animate={{ opacity: 1 }}
-          className="flex size-[40px] flex-row items-center justify-center"
+          className="flex size-10 flex-row items-center justify-center"
           exit={{ opacity: 0 }}
           initial={{ opacity: 0 }}
           key={id}
@@ -255,7 +255,7 @@ const ReadingLevelSelector = ({
             </motion.div>
           </TooltipTrigger>
           <TooltipContent
-            className="rounded-2xl bg-foreground p-3 px-4 text-background text-sm"
+            className="rounded-xl bg-foreground p-3 px-4 text-background text-sm"
             side="left"
             sideOffset={16}
           >
@@ -441,7 +441,7 @@ const PureToolbar = ({
     <TooltipProvider delayDuration={0}>
       <motion.div
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="fixed right-6 bottom-6 z-50 flex cursor-pointer flex-col items-center rounded-3xl border bg-background py-1 shadow-lg"
+        className="fixed right-6 bottom-6 z-50 flex cursor-pointer flex-col items-center rounded-xl border border-[var(--hairline-strong)] bg-background py-1"
         exit={{ opacity: 0, transition: { duration: 0.1 }, y: -20 }}
         initial={{ opacity: 0, scale: 1, y: -20 }}
         onAnimationComplete={handleAnimationComplete}

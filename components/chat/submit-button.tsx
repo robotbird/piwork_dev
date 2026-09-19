@@ -21,6 +21,7 @@ export function SubmitButton({
       className="relative"
       disabled={pending || isSuccessful}
       type={pending ? "button" : "submit"}
+      variant="pill"
     >
       {children}
 

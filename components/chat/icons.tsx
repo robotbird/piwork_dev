@@ -50,7 +50,7 @@ export const AttachmentIcon = () => (
   </svg>
 );
 
-export const VercelIcon = ({ size = 17 }) => (
+export const VercelIcon = ({ size = 16 }) => (
   <svg
     height={size}
     strokeLinejoin="round"

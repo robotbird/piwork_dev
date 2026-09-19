@@ -13,13 +13,11 @@ export function SectionPlaceholder({
       <div className="mx-auto max-w-4xl">
         <header>
           <div className="flex items-center gap-3">
-            <div className="grid size-12 shrink-0 place-items-center rounded-2xl border border-border/70 bg-card text-muted-foreground shadow-[var(--shadow-card)]">
-              <Icon className="size-5" strokeWidth={1.7} />
+            <div className="grid size-12 shrink-0 place-items-center rounded-xl border border-border bg-card text-primary">
+              <Icon className="size-5" />
             </div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-                {section.title}
-              </h1>
+              <h1 className="text-heading-lg">{section.title}</h1>
               {section.ready ? null : <Badge variant="secondary">建设中</Badge>}
             </div>
           </div>
@@ -34,7 +32,7 @@ export function SectionPlaceholder({
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {section.features.map((feature) => (
             <div
-              className="rounded-2xl border border-border/70 bg-card p-5 shadow-[var(--shadow-card)]"
+              className="rounded-xl border border-border bg-card p-5"
               key={feature}
             >
               <h2 className="text-[15px] font-medium">{feature}</h2>

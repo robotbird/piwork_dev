@@ -48,7 +48,7 @@ export function Preview() {
         <div className="flex size-5 items-center justify-center rounded bg-muted/60 ring-1 ring-border/50">
           <SparklesIcon size={10} />
         </div>
-        <span className="text-[13px] text-muted-foreground">Chatbot</span>
+        <span className="text-sm text-muted-foreground">Chatbot</span>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-8 px-8">
@@ -74,7 +74,7 @@ export function Preview() {
 
       <div className="shrink-0 px-5 pb-5">
         <button
-          className="flex w-full items-center rounded-2xl border border-border/30 bg-card/30 px-4 py-3 text-left text-[13px] text-muted-foreground/40 transition-colors hover:border-border/50 hover:text-muted-foreground/60"
+          className="flex w-full items-center rounded-xl border border-border bg-card px-4 py-3 text-left text-sm text-muted-foreground transition-colors hover:border-[var(--hairline-strong)] hover:text-foreground"
           onClick={handleDefaultAction}
           type="button"
         >

@@ -346,25 +346,20 @@ export function SkillManager({
           <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <div className="flex items-center gap-2.5">
-                <span className="grid size-9 place-items-center rounded-xl bg-[#eaf2ff] text-[#216ff4]">
-                  <SparklesIcon className="size-[18px]" strokeWidth={1.8} />
+                <span className="grid size-9 place-items-center rounded-md bg-primary/10 text-primary">
+                  <SparklesIcon className="size-4" />
                 </span>
-                <h1 className="text-[26px] font-semibold tracking-[-0.035em] text-[#172238]">
-                  Skill
-                </h1>
+                <h1 className="text-heading-lg text-foreground">Skill</h1>
               </div>
-              <p className="mt-2 text-[14px] text-[#697891]">
+              <p className="mt-2 text-sm text-muted-foreground">
                 发现和使用各类 AI 技能，拓展团队的工作能力。
               </p>
             </div>
             <div className="relative w-full xl:max-w-[430px]">
-              <SearchIcon
-                className="pointer-events-none absolute left-3.5 top-1/2 size-[17px] -translate-y-1/2 text-[#71809a]"
-                strokeWidth={1.8}
-              />
+              <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 aria-label="搜索 Skill"
-                className="h-11 rounded-xl border-[#dfe5ee] bg-white pl-10 text-[14px] shadow-none placeholder:text-[#9aa6b8]"
+                className="pl-10 text-sm shadow-none"
                 onChange={handleQueryChange}
                 placeholder="搜索 Skill、功能或来源"
                 value={query}
@@ -372,7 +367,7 @@ export function SkillManager({
             </div>
           </header>
 
-          <div className="mt-7 flex items-end justify-between border-b border-[#e2e8f0]">
+          <div className="mt-7 flex items-end justify-between border-b border-border">
             <div aria-label="Skill 列表" className="flex gap-7" role="tablist">
               {(["discover", "installed"] as const).map((item) => {
                 const active = mode === item;
@@ -382,8 +377,8 @@ export function SkillManager({
                     className={cn(
                       "relative h-11 text-[15px] font-medium transition-colors",
                       active
-                        ? "text-[#176ff2]"
-                        : "text-[#52627a] hover:text-[#25344d]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                     data-mode={item}
                     key={item}
@@ -395,7 +390,7 @@ export function SkillManager({
                       ? "发现 Skill"
                       : `我的 Skill ${installedSkills.length}`}
                     {active ? (
-                      <span className="absolute inset-x-0 bottom-[-1px] h-0.5 rounded-full bg-[#287cf5]" />
+                      <span className="absolute inset-x-0 bottom-[-1px] h-0.5 rounded-full bg-primary" />
                     ) : null}
                   </button>
                 );
@@ -403,7 +398,7 @@ export function SkillManager({
             </div>
             {mode === "installed" ? (
               <Button
-                className="mb-2 rounded-lg border-[#dfe5ee] bg-white text-[#34445d] hover:bg-[#f4f7fb]"
+                className="mb-2"
                 onClick={handleOpenUpload}
                 size="sm"
                 variant="outline"
@@ -420,10 +415,10 @@ export function SkillManager({
               <button
                 aria-pressed={category === item}
                 className={cn(
-                  "h-9 shrink-0 rounded-xl border px-4 text-[13px] transition-colors",
+                  "h-9 shrink-0 rounded-md border px-4 text-sm transition-colors",
                   category === item
-                    ? "border-[#a9cbff] bg-[#edf5ff] font-medium text-[#176ff2]"
-                    : "border-[#e5e9ef] bg-white text-[#536178] hover:border-[#cbd5e1] hover:text-[#263650]"
+                    ? "border-primary/35 bg-primary/10 font-medium text-primary"
+                    : "border-border bg-card text-muted-foreground hover:border-[var(--hairline-strong)] hover:text-foreground"
                 )}
                 data-category={item}
                 key={item}
@@ -448,16 +443,16 @@ export function SkillManager({
               ))}
             </div>
           ) : (
-            <div className="mt-5 flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed border-[#dfe5ee] bg-white/70 text-center">
-              <span className="grid size-12 place-items-center rounded-full bg-[#f0f4f9] text-[#6d7b91]">
+            <div className="mt-5 flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--hairline-strong)] bg-card text-center">
+              <span className="grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground">
                 <BoxIcon className="size-5" />
               </span>
-              <p className="mt-4 text-sm font-medium text-[#25344d]">
+              <p className="mt-4 text-sm font-medium text-foreground">
                 {mode === "installed" && installedSkills.length === 0
                   ? "还没有安装 Skill"
                   : "没有找到匹配的 Skill"}
               </p>
-              <p className="mt-1 text-[13px] text-[#8490a3]">
+              <p className="mt-1 text-sm text-muted-foreground">
                 {mode === "installed" && installedSkills.length === 0
                   ? "去发现页挑选一个，或上传企业自建 Skill"
                   : "试试其它关键词或分类"}
@@ -475,9 +470,9 @@ export function SkillManager({
       />
 
       <Dialog onOpenChange={setUploadOpen} open={uploadOpen}>
-        <DialogContent className="gap-5 rounded-2xl bg-white sm:max-w-lg">
+        <DialogContent className="gap-5 sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg text-[#172238]">
+            <DialogTitle className="text-lg text-foreground">
               上传企业 Skill
             </DialogTitle>
             <DialogDescription>
@@ -501,7 +496,7 @@ export function SkillManager({
             />
           </div>
           {uploading ? (
-            <p className="text-center text-sm text-[#697891]">
+            <p className="text-center text-sm text-muted-foreground">
               正在验证并上传…
             </p>
           ) : null}
@@ -539,10 +534,10 @@ function SkillCard({
 }) {
   const Icon = iconMap[skill.icon];
   return (
-    <article className="group relative min-h-[174px] rounded-2xl border border-[#e2e7ee] bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.02)] transition-all hover:-translate-y-0.5 hover:border-[#cbd6e4] hover:shadow-[0_10px_28px_rgba(30,64,175,0.07)]">
+    <article className="group relative min-h-[174px] rounded-xl border border-border bg-card p-5 transition-colors hover:border-[var(--hairline-strong)]">
       <button
         aria-label={`查看 ${skill.displayName} 详情`}
-        className="absolute inset-0 rounded-2xl focus-visible:ring-2 focus-visible:ring-[#347ff4]/50"
+        className="absolute inset-0 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/30"
         data-skill-name={skill.name}
         onClick={onOpen}
         type="button"
@@ -551,32 +546,34 @@ function SkillCard({
         <SkillIcon icon={Icon} name={skill.name} />
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex items-center gap-1.5">
-            <h2 className="truncate text-[15px] font-semibold text-[#172238]">
+            <h2 className="truncate text-[15px] font-medium text-foreground">
               {skill.displayName}
             </h2>
             {skill.sourceType === "official" ? (
               <BadgeCheckIcon
                 aria-label="官方认证"
-                className="size-4 shrink-0 fill-[#e8f2ff] text-[#2c7df4]"
+                className="size-4 shrink-0 fill-primary/10 text-primary"
               />
             ) : null}
           </div>
-          <p className="mt-1 truncate text-xs text-[#8390a4]">{skill.source}</p>
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {skill.source}
+          </p>
         </div>
       </div>
-      <p className="pointer-events-none relative mt-3 line-clamp-2 min-h-10 text-[13px] leading-5 text-[#5e6d83]">
+      <p className="pointer-events-none relative mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-muted-foreground">
         {skill.description}
       </p>
       <div className="pointer-events-none relative mt-4 flex items-center justify-between">
-        <span className="rounded-md bg-[#f2f5f9] px-2 py-1 text-[11px] text-[#69778c]">
+        <span className="rounded-md bg-muted px-2 py-1 text-[11px] text-muted-foreground">
           {skill.category}
         </span>
         <Button
           className={cn(
-            "pointer-events-auto relative z-10 min-w-[76px] rounded-lg",
+            "pointer-events-auto relative z-10 min-w-[76px] rounded-md",
             skill.installed
-              ? "border-[#dfe5ed] bg-white text-[#5c6b80] hover:border-[#f0b8b8] hover:bg-[#fff5f5] hover:text-[#d34d4d]"
-              : "bg-[#2478f3] text-white hover:bg-[#1769dd]"
+              ? "border-border bg-card text-muted-foreground hover:border-destructive/35 hover:bg-destructive/5 hover:text-destructive"
+              : "bg-primary text-primary-foreground hover:bg-primary/85"
           )}
           data-skill-name={skill.name}
           disabled={pending}
@@ -599,10 +596,10 @@ function SkillIcon({
   name: string;
 }) {
   const palettes = [
-    "bg-[#eaf3ff] text-[#2878ef]",
-    "bg-[#eaf8f0] text-[#1b9a5a]",
-    "bg-[#fff3e7] text-[#e17b25]",
-    "bg-[#f2edff] text-[#7456dc]",
+    "bg-primary/10 text-primary",
+    "bg-muted text-foreground",
+    "bg-muted text-foreground",
+    "bg-muted text-foreground",
   ];
   const palette = palettes[name.length % palettes.length];
   return (
@@ -631,40 +628,40 @@ function SkillDetailDialog({
   const Icon = skill ? iconMap[skill.icon] : FileTextIcon;
   return (
     <Dialog onOpenChange={onOpenChange} open={Boolean(skill)}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-0 sm:max-w-[620px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto bg-card p-0 sm:max-w-[620px]">
         {skill ? (
           <>
-            <div className="border-b border-[#e8ecf2] px-6 pb-6 pt-7 sm:px-7">
+            <div className="border-b border-border px-6 pb-6 pt-7 sm:px-7">
               <DialogHeader className="pr-8">
                 <div className="flex items-start gap-4">
                   <SkillIcon icon={Icon} name={skill.name} />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <DialogTitle className="text-xl font-semibold text-[#172238]">
+                      <DialogTitle className="text-xl font-medium text-foreground">
                         {skill.displayName}
                       </DialogTitle>
                       {skill.sourceType === "official" ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#edf5ff] px-2 py-1 text-[11px] font-medium text-[#2475e9]">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
                           <BadgeCheckIcon className="size-3.5" />
                           官方认证
                         </span>
                       ) : null}
                     </div>
-                    <DialogDescription className="mt-1.5 text-[13px]">
+                    <DialogDescription className="mt-1.5 text-sm">
                       由 {skill.source} 提供 · v{skill.version}
                     </DialogDescription>
                   </div>
                 </div>
               </DialogHeader>
-              <p className="mt-5 text-sm leading-6 text-[#53637a]">
+              <p className="mt-5 text-sm leading-6 text-muted-foreground">
                 {skill.description}
               </p>
               <Button
                 className={cn(
-                  "mt-5 h-10 w-full rounded-lg sm:w-32",
+                  "mt-5 h-10 w-full rounded-md sm:w-32",
                   skill.installed
-                    ? "border-[#dce3ec] bg-white text-[#506078] hover:border-[#efb4b4] hover:bg-[#fff5f5] hover:text-[#cf4646]"
-                    : "bg-[#2478f3] text-white hover:bg-[#1769dd]"
+                    ? "border-border bg-card text-muted-foreground hover:border-destructive/35 hover:bg-destructive/5 hover:text-destructive"
+                    : "bg-primary text-primary-foreground hover:bg-primary/85"
                 )}
                 disabled={pending}
                 onClick={onAction}
@@ -679,24 +676,24 @@ function SkillDetailDialog({
             </div>
             <div className="space-y-6 px-6 py-6 sm:px-7">
               <section>
-                <h3 className="text-[14px] font-semibold text-[#1f2e45]">
+                <h3 className="text-sm font-medium text-foreground">
                   核心能力
                 </h3>
                 <ul className="mt-3 space-y-2.5">
                   {skill.capabilities.map((capability) => (
                     <li
-                      className="flex items-start gap-2.5 text-[13px] leading-5 text-[#526178]"
+                      className="flex items-start gap-2.5 text-sm leading-5 text-muted-foreground"
                       key={capability}
                     >
-                      <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-[#e6f7ef] text-[#19a765]">
-                        <CheckIcon className="size-2.5" strokeWidth={2.5} />
+                      <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-muted text-link">
+                        <CheckIcon className="size-2.5" />
                       </span>
                       {capability}
                     </li>
                   ))}
                 </ul>
               </section>
-              <section className="grid gap-3 rounded-xl border border-[#e5eaf0] bg-[#f8fafc] p-4 text-[12px] sm:grid-cols-3">
+              <section className="grid gap-3 rounded-xl border border-border bg-[var(--canvas-soft)] p-4 text-[12px] sm:grid-cols-3">
                 <Meta label="分类" value={skill.category} />
                 <Meta label="安装范围" value="当前项目" />
                 <Meta label="Skill ID" value={skill.name} />
@@ -712,8 +709,8 @@ function SkillDetailDialog({
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[#8995a7]">{label}</p>
-      <p className="mt-1 truncate font-medium text-[#34445c]">{value}</p>
+      <p className="text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate font-medium text-foreground">{value}</p>
     </div>
   );
 }
@@ -733,14 +730,14 @@ function UploadChoice({
 }) {
   return (
     <button
-      className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed border-[#d9e0e9] bg-[#f9fbfd] px-5 text-center transition-colors hover:border-[#aebdce] hover:bg-[#f4f7fb] disabled:pointer-events-none disabled:opacity-60"
+      className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-[var(--canvas-soft)] px-5 text-center transition-colors hover:border-[var(--hairline-strong)] hover:bg-muted disabled:pointer-events-none disabled:opacity-60"
       disabled={disabled}
       onClick={onClick}
       type="button"
     >
-      <Icon className="size-5 text-[#718096]" />
-      <span className="mt-3 text-sm font-medium text-[#27364d]">{label}</span>
-      <span className="mt-1 text-xs text-[#8491a4]">{note}</span>
+      <Icon className="size-5 text-muted-foreground" />
+      <span className="mt-3 text-sm font-medium text-foreground">{label}</span>
+      <span className="mt-1 text-xs text-muted-foreground">{note}</span>
     </button>
   );
 }

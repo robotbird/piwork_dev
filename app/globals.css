@@ -9,6 +9,10 @@
 @plugin "@tailwindcss/typography";
 
 @theme inline {
+  --font-sans:
+    var(--font-geist), "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, "JetBrains Mono", monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -28,6 +32,11 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-deep: var(--destructive-deep);
+  --color-warning: var(--warning);
+  --color-link: var(--link);
+  --color-link-deep: var(--link-deep);
+  --color-link-soft: var(--link-soft);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -44,30 +53,60 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Geist type scale (see DESIGN.md): binary weights 600/500/400, tight
+     negative tracking on display sizes. */
+  --text-display-xl: 3rem;
+  --text-display-xl--line-height: 3rem;
+  --text-display-xl--letter-spacing: -0.05em;
+  --text-display-xl--font-weight: 600;
+  --text-heading-lg: 2rem;
+  --text-heading-lg--line-height: 2.5rem;
+  --text-heading-lg--letter-spacing: -0.04em;
+  --text-heading-lg--font-weight: 600;
+  --text-heading-md: 1.25rem;
+  --text-heading-md--line-height: 1.75rem;
+  --text-heading-md--letter-spacing: -0.02em;
+  --text-heading-md--font-weight: 600;
+  --text-label-sm: 0.875rem;
+  --text-label-sm--line-height: 1.25rem;
+  --text-label-sm--letter-spacing: -0.02em;
+  --text-label-sm--font-weight: 500;
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.5rem;
+  --text-body-md: 0.875rem;
+  --text-body-md--line-height: 1.25rem;
+  --text-body-sm: 0.75rem;
+  --text-body-sm--line-height: 1rem;
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.5rem;
 
-  /* Cursor-inspired brand system. See /DESIGN.md. */
-  --canvas: #f7f7f4;
-  --canvas-soft: #fafaf7;
+  /* Vercel Geist design system. See /DESIGN.md. */
+  --canvas: #fafafa;
+  --canvas-soft: #f2f2f2;
   --surface-card: #ffffff;
-  --surface-strong: #e6e5e0;
-  --hairline: #e6e5e0;
-  --hairline-soft: #efeee8;
-  --hairline-strong: #cfcdc4;
-  --ink: #26251e;
-  --body: #5a5852;
-  --muted-ink: #807d72;
-  --muted-ink-soft: #a09c92;
-  --cursor-orange: #f54e00;
-  --cursor-orange-active: #d04200;
-  --timeline-thinking: #dfa88f;
-  --timeline-grep: #9fc9a2;
-  --timeline-read: #9fbbe0;
-  --timeline-edit: #c0a8dd;
-  --timeline-done: #c08532;
+  --surface-strong: #f2f2f2;
+  --hairline: #ebebeb;
+  --hairline-soft: #f2f2f2;
+  --hairline-strong: #e0e0e0;
+  --ink: #171717;
+  --body: #4d4d4d;
+  --muted-ink: #8f8f8f;
+  --muted-ink-soft: #a1a1a1;
+  --link: #0070f3;
+  --link-deep: #0761d1;
+  --link-soft: #d3e5ff;
+  --warning: #f5a623;
+
+  /* Mesh gradient stops — the only sanctioned chroma, greeting bloom only. */
+  --mesh-develop-1: #007cf0;
+  --mesh-develop-2: #00dfd8;
+  --mesh-preview-1: #7928ca;
+  --mesh-preview-2: #ff0080;
+  --mesh-ship-1: #ff4d4d;
+  --mesh-ship-2: #f9cb28;
 
   --background: var(--canvas);
   --foreground: var(--ink);
@@ -75,37 +114,41 @@
   --card-foreground: var(--ink);
   --popover: var(--surface-card);
   --popover-foreground: var(--ink);
-  --primary: var(--cursor-orange);
+  --primary: var(--ink);
   --primary-foreground: #ffffff;
   --secondary: var(--surface-strong);
   --secondary-foreground: var(--ink);
   --muted: var(--hairline-soft);
   --muted-foreground: var(--muted-ink);
-  --accent: #efeee8;
+  --accent: #f2f2f2;
   --accent-foreground: var(--ink);
-  --destructive: #cf2d56;
+  --destructive: #ee0000;
+  --destructive-deep: #c50000;
   --border: var(--hairline);
   --input: var(--surface-card);
-  --ring: var(--cursor-orange);
-  --chart-1: var(--cursor-orange);
-  --chart-2: var(--timeline-grep);
-  --chart-3: var(--timeline-read);
-  --chart-4: var(--timeline-edit);
-  --chart-5: var(--timeline-done);
-  --sidebar: #f1f0eb;
+  --ring: var(--link);
+  --chart-1: #007cf0;
+  --chart-2: #00dfd8;
+  --chart-3: #7928ca;
+  --chart-4: #f9cb28;
+  --chart-5: #eb367f;
+  --sidebar: var(--canvas);
   --sidebar-foreground: var(--body);
-  --sidebar-primary: var(--cursor-orange);
+  --sidebar-primary: var(--ink);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e8e7e1;
+  --sidebar-accent: #f2f2f2;
   --sidebar-accent-foreground: var(--ink);
-  --sidebar-border: var(--hairline-strong);
-  --sidebar-ring: var(--cursor-orange);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--link);
 
-  /* Hairlines carry depth; these aliases remain for existing call sites. */
+  /* Elevation (Geist): hairline first; layered low-alpha shadows only when
+     a surface actually floats. Never a single heavy drop shadow. */
   --shadow-card: 0 0 0 1px var(--hairline);
-  --shadow-float: 0 0 0 1px var(--hairline-strong);
+  --shadow-whisper: 0 0 0 1px var(--hairline), 0 1px 1px rgba(0, 0, 0, 0.04);
+  --shadow-float:
+    0 0 0 1px var(--hairline), 0 2px 2px rgba(0, 0, 0, 0.02),
+    0 8px 16px -4px rgba(0, 0, 0, 0.08);
   --shadow-composer: 0 0 0 1px var(--hairline-strong);
-  --shadow-composer-focus: 0 0 0 2px color-mix(in srgb, var(--cursor-orange) 22%, transparent);
   --shadow-inset: inset 0 0 0 1px var(--hairline-soft);
   --shadow-glow: 0 0 0 1px var(--hairline);
 
@@ -115,23 +158,141 @@
 }
 
 .dark {
-  --canvas: #1d1c18;
-  --canvas-soft: #22211c;
-  --surface-card: #282720;
-  --surface-strong: #36342c;
-  --hairline: #3b3931;
-  --hairline-soft: #302f29;
-  --hairline-strong: #514e43;
-  --ink: #f1f0e9;
-  --body: #cbc8bc;
-  --muted-ink: #aaa69a;
-  --muted-ink-soft: #858177;
+  /* Vercel official dark: black canvas, elevated panels, neutral hairlines. */
+  --canvas: #000000;
+  --canvas-soft: #111111;
+  --surface-card: #0a0a0a;
+  --surface-strong: #1a1a1a;
+  --hairline: #262626;
+  --hairline-soft: #1a1a1a;
+  --hairline-strong: #333333;
+  --ink: #ededed;
+  --body: #a1a1a1;
+  --muted-ink: #6e6e6e;
+  --muted-ink-soft: #575757;
+  --link: #0070f3;
+  --link-deep: #3291ff;
+  --link-soft: #12325e;
+  --warning: #f5a623;
+
   --background: var(--canvas);
   --foreground: var(--ink);
   --card: var(--surface-card);
   --card-foreground: var(--ink);
   --popover: var(--surface-card);
   --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: #171717;
+  --secondary: var(--surface-strong);
+  --secondary-foreground: var(--ink);
+  --muted: var(--hairline-soft);
+  --muted-foreground: var(--muted-ink);
+  --accent: var(--surface-strong);
+  --accent-foreground: var(--ink);
+  --destructive: #f31b1b;
+  --destructive-deep: #cc0000;
+  --border: var(--hairline);
+  --input: var(--surface-card);
+  --ring: var(--link);
+  --chart-1: #3291ff;
+  --chart-2: #4ddecf;
+  --chart-3: #9d7bff;
+  --chart-4: #ffd76a;
+  --chart-5: #ff5ca8;
+  --sidebar: var(--surface-card);
+  --sidebar-foreground: var(--body);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: #171717;
+  --sidebar-accent: var(--surface-strong);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--link);
+
+  --shadow-card: 0 0 0 1px var(--hairline);
+  --shadow-whisper: 0 0 0 1px var(--hairline), 0 1px 1px rgba(0, 0, 0, 0.3);
+  --shadow-float:
+    0 0 0 1px var(--hairline), 0 2px 2px rgba(0, 0, 0, 0.2),
+    0 8px 16px -4px rgba(0, 0, 0, 0.4);
+  --shadow-composer: 0 0 0 1px var(--hairline-strong);
+}
+
+/* OpenAI Unified Interface is intentionally scoped to the conversation
+   workspace. Other product areas keep their existing visual language until
+   they are migrated deliberately. */
+body:has(.openai-chat) {
+  --canvas: #ffffff;
+  --canvas-soft: #f7f7f8;
+  --surface-card: #ffffff;
+  --surface-strong: #efeff0;
+  --hairline: #ececee;
+  --hairline-soft: #f7f7f8;
+  --hairline-strong: #dedfe2;
+  --ink: #171719;
+  --body: #67676c;
+  --muted-ink: #67676c;
+  --muted-ink-soft: #929298;
+  --link: #3b82f6;
+  --link-deep: #2563eb;
+  --link-soft: #eaf3ff;
+  --warning: #b7791f;
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface-card);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-card);
+  --popover-foreground: var(--ink);
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-strong);
+  --secondary-foreground: var(--ink);
+  --muted: var(--hairline-soft);
+  --muted-foreground: var(--muted-ink);
+  --accent: var(--surface-strong);
+  --accent-foreground: var(--ink);
+  --destructive: #e5484d;
+  --destructive-deep: #cf353a;
+  --border: var(--hairline);
+  --input: var(--surface-card);
+  --ring: var(--link);
+  --sidebar: #f9f9f9;
+  --sidebar-foreground: var(--body);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ececec;
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--link);
+  --chat-accent-soft: #eaf3ff;
+  --chat-placeholder: #929298;
+  --chat-content-max: 832px;
+  --chat-composer-max: 832px;
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 5%), 0 8px 24px rgb(0 0 0 / 7%);
+  --shadow-composer: 0 1px 2px rgb(0 0 0 / 4%), 0 8px 24px rgb(0 0 0 / 5%);
+}
+
+.dark body:has(.openai-chat) {
+  --canvas: #171719;
+  --canvas-soft: #202022;
+  --surface-card: #252527;
+  --surface-strong: #343437;
+  --hairline: #303034;
+  --hairline-soft: #29292c;
+  --hairline-strong: #414146;
+  --ink: #f4f4f5;
+  --body: #b4b4b9;
+  --muted-ink: #a1a1a7;
+  --muted-ink-soft: #7f7f86;
+  --link: #60a5fa;
+  --link-deep: #93c5fd;
+  --link-soft: #213451;
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface-card);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-card);
+  --popover-foreground: var(--ink);
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
   --secondary: var(--surface-strong);
   --secondary-foreground: var(--ink);
   --muted: var(--hairline-soft);
@@ -140,15 +301,50 @@
   --accent-foreground: var(--ink);
   --border: var(--hairline);
   --input: var(--surface-card);
-  --sidebar: #191814;
+  --ring: var(--link);
+  --sidebar: var(--canvas-soft);
   --sidebar-foreground: var(--body);
-  --sidebar-accent: #2b2a24;
+  --sidebar-accent: var(--surface-strong);
   --sidebar-accent-foreground: var(--ink);
   --sidebar-border: var(--hairline);
-  --shadow-card: 0 0 0 1px var(--hairline);
-  --shadow-float: 0 0 0 1px var(--hairline-strong);
-  --shadow-composer: 0 0 0 1px var(--hairline-strong);
-  --shadow-composer-focus: 0 0 0 2px color-mix(in srgb, var(--cursor-orange) 32%, transparent);
+  --chat-accent-soft: #213451;
+  --chat-placeholder: #7f7f86;
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 24%), 0 8px 24px rgb(0 0 0 / 28%);
+  --shadow-composer: 0 1px 2px rgb(0 0 0 / 4%), 0 8px 24px rgb(0 0 0 / 5%);
+}
+
+/* 输入器参考 ChatGPT：克制的两段式浮层阴影 + 1px 边框；聚焦只加深边框（规范 §11.2） */
+.openai-composer > [data-slot="input-group"] {
+  background: var(--surface-card);
+  border-color: var(--hairline);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 4%),
+    0 8px 24px rgb(0 0 0 / 5%);
+  transition: border-color 160ms ease-out;
+}
+
+.openai-composer--empty > [data-slot="input-group"] {
+  min-height: 128px;
+  border-radius: 28px;
+}
+
+.openai-composer--conversation > [data-slot="input-group"] {
+  flex-flow: row wrap;
+  align-items: center;
+  min-height: 64px;
+  border-radius: 32px;
+}
+
+.openai-composer > [data-slot="input-group"]:focus-within {
+  border-color: color-mix(in srgb, var(--ink) 12%, var(--hairline));
+}
+
+.openai-sidebar {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 @layer base {
@@ -156,8 +352,7 @@
     @apply border-border ring-0;
   }
   body {
-    font-family:
-      var(--font-geist), Inter, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: var(--font-sans);
     font-feature-settings: "kern", "liga";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -166,41 +361,57 @@
   }
 }
 
-.piwork-composer > [data-slot="input-group"] {
-  border-radius: 12px;
+/* 图标规范：lucide 通用 UI 图标统一 1.5 描边（CSS 属性覆盖 strokeWidth
+   presentation attribute，全局一行生效；个别强调处用 [stroke-width:2] 逃生）。 */
+@layer base {
+  svg.lucide {
+    stroke-width: 1.5;
+  }
 }
 
-.dark .piwork-composer > [data-slot="input-group"] {
-  color: #ececec;
-  background: #212121;
-  border-color: #2f2f2f;
-  box-shadow: none;
+/* Mesh 渐变光晕 —— 唯一被允许的彩色装饰，仅用于新对话欢迎页。 */
+.mesh-bloom {
+  background:
+    radial-gradient(
+      38% 46% at 26% 38%,
+      color-mix(in srgb, var(--mesh-develop-1) 55%, transparent),
+      transparent 68%
+    ),
+    radial-gradient(
+      30% 40% at 44% 30%,
+      color-mix(in srgb, var(--mesh-develop-2) 40%, transparent),
+      transparent 64%
+    ),
+    radial-gradient(
+      34% 44% at 66% 34%,
+      color-mix(in srgb, var(--mesh-preview-1) 45%, transparent),
+      transparent 66%
+    ),
+    radial-gradient(
+      28% 38% at 82% 46%,
+      color-mix(in srgb, var(--mesh-preview-2) 35%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      40% 50% at 46% 74%,
+      color-mix(in srgb, var(--mesh-ship-1) 30%, transparent),
+      transparent 66%
+    ),
+    radial-gradient(
+      32% 42% at 66% 78%,
+      color-mix(in srgb, var(--mesh-ship-2) 28%, transparent),
+      transparent 62%
+    );
+  -webkit-mask-image: radial-gradient(
+    58% 62% at 50% 46%,
+    #000 42%,
+    transparent 78%
+  );
+  mask-image: radial-gradient(58% 62% at 50% 46%, #000 42%, transparent 78%);
 }
 
-.dark .piwork-composer > [data-slot="input-group"]:focus-within {
-  border-color: #4a4a4a;
-  box-shadow: none;
-}
-
-.dark .piwork-composer [data-testid="model-selector"] {
-  color: #ececec;
-  background: #2f2f2f;
-  border-color: #3a3a3a;
-}
-
-.dark .piwork-composer [data-testid="model-selector"]:hover {
-  background: #383838;
-}
-
-.dark .piwork-composer [data-testid="send-button"] {
-  color: #0d0d0d !important;
-  background: #f2f2f2 !important;
-  box-shadow: none !important;
-}
-
-.dark .piwork-composer [data-testid="send-button"]:disabled {
-  color: #8e8e8e !important;
-  background: #3f3f3f !important;
+.dark .mesh-bloom {
+  opacity: 0.42;
 }
 
 @layer base {
@@ -229,8 +440,8 @@
   h4,
   h5,
   h6 {
-    line-height: 1.2;
-    font-weight: 400;
+    font-weight: 600;
+    line-height: 1.4;
     letter-spacing: -0.02em;
   }
 
@@ -244,19 +455,23 @@ select:focus-visible,
 [role="button"]:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--cursor-orange) 45%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--link) 50%, transparent);
   outline-offset: 2px;
+}
+
+.openai-composer textarea:focus-visible {
+  outline: none;
 }
 
 code,
 pre,
 kbd,
 samp {
-  font-family: var(--font-geist-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-family: var(--font-mono);
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--cursor-orange) 20%, transparent);
+  background: color-mix(in srgb, var(--link) 18%, transparent);
 }
 
 @utility text-balance {
@@ -280,22 +495,6 @@ samp {
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
-  }
-}
-
-@layer utilities {
-  :root {
-    --foreground-rgb: 0, 0, 0;
-    --background-start-rgb: 214, 219, 220;
-    --background-end-rgb: 255, 255, 255;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --foreground-rgb: 255, 255, 255;
-      --background-start-rgb: 0, 0, 0;
-      --background-end-rgb: 0, 0, 0;
-    }
   }
 }
 
@@ -387,10 +586,10 @@ samp {
 @keyframes glow-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 oklch(0.55 0.12 250 / 0%);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--link) 0%);
   }
   50% {
-    box-shadow: 0 0 0 3px oklch(0.55 0.12 250 / 8%);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--link) 8%);
   }
 }
 
@@ -445,10 +644,8 @@ samp {
 }
 
 .cm-editor {
-  font-family:
-    "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", ui-monospace,
-    monospace !important;
-  @apply bg-transparent! outline-hidden! text-[13px]! leading-[1.6]!;
+  font-family: var(--font-mono) !important;
+  @apply bg-transparent! outline-hidden! text-sm! leading-[1.6]!;
 }
 
 .cm-gutters {
@@ -466,7 +663,7 @@ samp {
 .ͼo.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground,
 .ͼo.cm-selectionBackground,
 .ͼo.cm-content::selection {
-  background: oklch(0.55 0.12 250 / 0.15) !important;
+  background: color-mix(in srgb, var(--link) 15%, transparent) !important;
 }
 
 .dark
@@ -476,7 +673,7 @@ samp {
   .cm-selectionBackground,
 .dark .ͼo.cm-selectionBackground,
 .dark .ͼo.cm-content::selection {
-  background: oklch(0.55 0.12 250 / 0.2) !important;
+  background: color-mix(in srgb, var(--link) 20%, transparent) !important;
 }
 
 .cm-activeLine {
@@ -501,20 +698,36 @@ samp {
 }
 
 .cm-cursor {
-  border-left-color: oklch(0.55 0.12 250) !important;
+  border-left-color: var(--link) !important;
   border-left-width: 2px !important;
 }
 
 .cm-matchingBracket {
-  outline: 1px solid oklch(0.55 0.12 250 / 0.3);
-  background: oklch(0.55 0.12 250 / 0.12) !important;
+  outline: 1px solid color-mix(in srgb, var(--link) 30%, transparent);
+  background: color-mix(in srgb, var(--link) 12%, transparent) !important;
   border-radius: 2px;
 }
 
 .suggestion-highlight {
+  color: var(--foreground);
+  cursor: pointer;
   -webkit-user-select: none;
   user-select: none;
-  @apply cursor-pointer rounded-sm bg-blue-200 transition-colors hover:bg-blue-300 dark:bg-blue-500/40 dark:text-blue-50 dark:hover:bg-blue-400/50;
+  background: var(--link-soft);
+  border-radius: calc(var(--radius) - 4px);
+  transition: background-color 0.15s ease;
+}
+
+.suggestion-highlight:hover {
+  background: color-mix(in srgb, var(--link-soft) 70%, var(--link) 30%);
+}
+
+.dark .suggestion-highlight {
+  background: color-mix(in srgb, var(--link) 25%, transparent);
+}
+
+.dark .suggestion-highlight:hover {
+  background: color-mix(in srgb, var(--link) 35%, transparent);
 }
 
 @layer base {

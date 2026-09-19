@@ -53,7 +53,7 @@ export const PreviewAttachment = ({
         />
       ) : (
         <div className="flex size-full flex-col items-center justify-center gap-1.5 px-2 text-muted-foreground">
-          <FileTypeIcon className="size-7" strokeWidth={1.5} />
+          <FileTypeIcon className="size-7" />
           <span className="max-w-full truncate text-[10px] font-medium">
             {extension}
           </span>

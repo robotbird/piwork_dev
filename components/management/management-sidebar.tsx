@@ -103,19 +103,18 @@ function NavigationLink({ item }: { item: NavigationItem }) {
     <Link
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex h-10 items-center gap-3 rounded-lg px-4 text-[14px] transition-colors",
+        "flex h-10 items-center gap-3 rounded-md px-4 text-sm transition-colors",
         active
-          ? "bg-[#eaf2ff] font-medium text-[#216ff4]"
-          : "text-[#344866] hover:bg-[#f0f4fa] hover:text-[#1f3556]"
+          ? "bg-primary/10 font-medium text-primary"
+          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
       )}
       href={item.href}
     >
       <Icon
         className={cn(
-          "size-[18px] shrink-0",
-          active ? "text-[#216ff4]" : "text-[#314b74]"
+          "size-4 shrink-0",
+          active ? "text-primary" : "text-muted-foreground"
         )}
-        strokeWidth={1.8}
       />
       <span className="truncate">{item.label}</span>
     </Link>
@@ -130,10 +129,10 @@ function NavigationContent() {
           <Fragment key={group.label ?? "overview"}>
             {group.label ? (
               <div className="mt-4 flex items-center gap-3 px-3 pb-1.5">
-                <span className="shrink-0 text-[12px] font-medium text-[#6f82a1]">
+                <span className="shrink-0 text-[12px] font-medium text-muted-foreground">
                   {group.label}
                 </span>
-                <i className="h-px flex-1 bg-[#e5ebf3]" />
+                <i className="h-px flex-1 bg-border" />
               </div>
             ) : null}
             <ul className={cn("space-y-0.5", groupIndex === 0 && "pt-1")}>
@@ -146,7 +145,7 @@ function NavigationContent() {
           </Fragment>
         ))}
       </nav>
-      <div className="border-t border-[#e5ebf3] px-2 py-3">
+      <div className="border-t border-border px-2 py-3">
         {footerItems.map((item) => (
           <NavigationLink item={item} key={item.label} />
         ))}
@@ -162,15 +161,12 @@ export function ManagementSidebar({
 }) {
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-[#e3e9f2] bg-white/95 px-3 py-2 backdrop-blur md:hidden">
+      <header className="sticky top-0 z-20 border-b border-border bg-sidebar px-3 py-2 md:hidden">
         <Link
-          className="group flex h-10 w-fit items-center gap-2 rounded-lg px-2.5 text-[15px] font-semibold text-[#182338] transition-colors hover:bg-[#f0f3f7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347ff4]"
+          className="group flex h-10 w-fit items-center gap-2 rounded-md px-2.5 text-sm font-medium text-foreground transition-colors hover:bg-sidebar-accent"
           href="/"
         >
-          <ArrowLeftIcon
-            className="size-5 transition-transform group-hover:-translate-x-0.5"
-            strokeWidth={1.8}
-          />
+          <ArrowLeftIcon className="size-5 transition-transform group-hover:-translate-x-0.5" />
           返回应用
         </Link>
         <div className="mt-3 flex gap-1 overflow-x-auto no-scrollbar">
@@ -184,15 +180,12 @@ export function ManagementSidebar({
         </div>
       </header>
 
-      <aside className="hidden h-dvh w-[248px] shrink-0 flex-col border-r border-[#e3e9f2] bg-white md:sticky md:top-0 md:flex">
+      <aside className="hidden h-dvh w-[248px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:sticky md:top-0 md:flex">
         <Link
-          className="group mx-3 flex h-14 shrink-0 items-center gap-2.5 rounded-lg px-3 text-[16px] font-semibold text-[#172238] transition-colors hover:bg-[#f0f3f7] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#347ff4]"
+          className="group mx-3 flex h-14 shrink-0 items-center gap-2.5 rounded-md px-3 text-base font-medium text-foreground transition-colors hover:bg-sidebar-accent"
           href="/"
         >
-          <ArrowLeftIcon
-            className="size-5 transition-transform group-hover:-translate-x-0.5"
-            strokeWidth={1.8}
-          />
+          <ArrowLeftIcon className="size-5 transition-transform group-hover:-translate-x-0.5" />
           <span>返回应用</span>
         </Link>
         <div className="min-h-0 flex flex-1 flex-col overflow-y-auto">

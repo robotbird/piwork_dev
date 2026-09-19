@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ChevronRightIcon, FileTextIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { useCallback, useState } from "react";
@@ -51,7 +51,7 @@ const showPreviewNotice = () => toast.info("登录后可查看任务记录");
 
 function RecentLabel() {
   return (
-    <SidebarGroupLabel className="mb-1 flex h-7 items-center justify-between px-3 text-[13px] font-normal text-sidebar-foreground/50">
+    <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-normal text-sidebar-foreground/55">
       <span>最近</span>
       <ChevronRightIcon className="size-4" />
     </SidebarGroupLabel>
@@ -148,17 +148,16 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   if (!user || guestRegex.test(user.email ?? "")) {
     return (
-      <SidebarGroup className="mt-3 border-t border-sidebar-border/70 px-0 pt-4 group-data-[collapsible=icon]:hidden">
+      <SidebarGroup className="mt-4 px-0 group-data-[collapsible=icon]:hidden">
         <RecentLabel />
         <SidebarGroupContent>
           <SidebarMenu className="gap-0.5">
             {previewItems.map((title) => (
               <SidebarMenuItem key={title}>
                 <SidebarMenuButton
-                  className="h-9 rounded-lg px-3 text-[14px] text-[#344054] hover:bg-sidebar-accent/70 hover:text-[#1c2738] dark:text-[#d1d1d1] dark:hover:bg-[#1f1f1f] dark:hover:text-white"
+                  className="h-9 rounded-lg px-3 text-[14px] font-normal leading-5 text-sidebar-accent-foreground hover:bg-sidebar-accent"
                   onClick={showPreviewNotice}
                 >
-                  <FileTextIcon className="size-[18px]" strokeWidth={1.65} />
                   <span>{title}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -171,13 +170,13 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   if (isLoading) {
     return (
-      <SidebarGroup className="mt-3 border-t border-sidebar-border/70 px-0 pt-4 group-data-[collapsible=icon]:hidden">
+      <SidebarGroup className="mt-4 px-0 group-data-[collapsible=icon]:hidden">
         <RecentLabel />
         <SidebarGroupContent>
           <div className="flex flex-col gap-0.5 px-1">
             {[44, 32, 28, 64, 52].map((item) => (
               <div
-                className="flex h-8 items-center gap-2 rounded-lg px-2"
+                className="flex h-8 items-center gap-2 rounded-md px-2"
                 key={item}
               >
                 <div
@@ -198,10 +197,10 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   if (hasEmptyChatHistory) {
     return (
-      <SidebarGroup className="mt-3 border-t border-sidebar-border/70 px-0 pt-4 group-data-[collapsible=icon]:hidden">
+      <SidebarGroup className="mt-4 px-0 group-data-[collapsible=icon]:hidden">
         <RecentLabel />
         <SidebarGroupContent>
-          <div className="px-3 py-2 text-[13px] text-sidebar-foreground/50">
+          <div className="px-3 py-2 text-sm text-sidebar-foreground/50">
             开始新任务后，记录会显示在这里
           </div>
         </SidebarGroupContent>
@@ -211,7 +210,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   return (
     <>
-      <SidebarGroup className="mt-3 border-t border-sidebar-border/70 px-0 pt-4 group-data-[collapsible=icon]:hidden">
+      <SidebarGroup className="mt-4 px-0 group-data-[collapsible=icon]:hidden">
         <RecentLabel />
         <SidebarGroupContent>
           <SidebarMenu>

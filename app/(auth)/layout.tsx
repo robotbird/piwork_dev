@@ -10,7 +10,7 @@ export default function AuthLayout({
 }) {
   return (
     <div className="flex h-dvh w-screen bg-sidebar">
-      <div className="flex w-full flex-col bg-background p-8 xl:w-[600px] xl:shrink-0 xl:rounded-r-2xl xl:border-r xl:border-border/40 md:p-16">
+      <div className="flex w-full flex-col bg-background p-8 xl:w-[600px] xl:shrink-0 xl:border-r xl:border-border md:p-16">
         <Link
           className="flex w-fit items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
           href="/"
@@ -20,7 +20,7 @@ export default function AuthLayout({
         </Link>
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-10">
           <div className="flex flex-col gap-2">
-            <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground ring-1 ring-border/50">
+            <div className="mb-2 flex size-10 items-center justify-center rounded-lg border border-border bg-card text-foreground">
               <SparklesIcon size={14} />
             </div>
             {children}

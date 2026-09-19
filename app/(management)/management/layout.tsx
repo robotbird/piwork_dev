@@ -19,7 +19,7 @@ export default function ManagementLayout({
         theme="system"
         toastOptions={{
           className:
-            "!bg-card !text-foreground !border-border/50 !shadow-[var(--shadow-float)]",
+            "!bg-card !text-foreground !border-[var(--hairline-strong)] !shadow-none",
         }}
       />
     </>
@@ -38,12 +38,12 @@ async function AuthenticatedManagement({
   }
 
   return (
-    <div className="flex min-h-dvh w-full flex-col bg-[#f9fbfe] text-foreground md:flex-row">
+    <div className="flex min-h-dvh w-full flex-col bg-background text-foreground md:flex-row">
       <ManagementSidebar
         user={{ email: session.user.email, name: session.user.name }}
       />
       <div className="min-w-0 flex-1">
-        <div className="hidden h-14 border-b border-[#e3e9f2] bg-white md:block" />
+        <div className="hidden h-14 border-b border-border bg-background md:block" />
         {children}
       </div>
     </div>

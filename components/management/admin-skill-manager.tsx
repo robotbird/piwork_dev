@@ -211,17 +211,14 @@ export function AdminSkillManager({
         <div className="mx-auto max-w-4xl">
           <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-[-0.025em]">
+              <h1 className="text-2xl font-normal tracking-[-0.02em]">
                 企业 Skill 库
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
                 上传、检索和管理当前 Pi 项目可用的企业 Skill
               </p>
             </div>
-            <Button
-              className="w-fit rounded-xl px-4"
-              onClick={handleOpenUpload}
-            >
+            <Button className="w-fit px-4" onClick={handleOpenUpload}>
               <UploadCloudIcon data-icon="inline-start" />
               上传 Skill
             </Button>
@@ -238,7 +235,7 @@ export function AdminSkillManager({
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/65" />
               <Input
                 aria-label="搜索企业 Skill"
-                className="h-10 rounded-full bg-background pl-9"
+                className="pl-9"
                 onChange={handleQueryChange}
                 placeholder="搜索 Skill"
                 value={query}
@@ -252,8 +249,8 @@ export function AdminSkillManager({
                 className="group flex items-center gap-4 py-5"
                 key={skill.name}
               >
-                <div className="grid size-11 shrink-0 place-items-center rounded-full border border-border/70 bg-card text-muted-foreground shadow-[var(--shadow-card)]">
-                  <BoxIcon className="size-[18px]" strokeWidth={1.7} />
+                <div className="grid size-11 shrink-0 place-items-center rounded-xl border border-border bg-card text-primary">
+                  <BoxIcon className="size-4" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-2">
@@ -270,7 +267,7 @@ export function AdminSkillManager({
                 </div>
                 <Button
                   aria-label={`删除 ${skill.displayName}`}
-                  className="shrink-0 rounded-lg text-muted-foreground opacity-70 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                  className="shrink-0 rounded-md text-muted-foreground opacity-70 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                   data-skill-name={skill.name}
                   onClick={handleDeleteRequest}
                   size="icon-sm"
@@ -301,7 +298,7 @@ export function AdminSkillManager({
       </section>
 
       <Dialog onOpenChange={setUploadOpen} open={uploadOpen}>
-        <DialogContent className="gap-5 rounded-3xl sm:max-w-lg">
+        <DialogContent className="gap-5 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg">上传企业 Skill</DialogTitle>
             <DialogDescription>
@@ -351,7 +348,7 @@ export function AdminSkillManager({
         onOpenChange={handleDeleteDialogChange}
         open={Boolean(deleteTarget)}
       >
-        <AlertDialogContent className="rounded-3xl">
+        <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
             <AlertDialogTitle>删除企业 Skill？</AlertDialogTitle>
             <AlertDialogDescription>
@@ -390,7 +387,7 @@ function UploadOption({
   return (
     <button
       className={cn(
-        "flex min-h-40 w-full flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/25 px-5 text-center transition-colors hover:border-foreground/25 hover:bg-muted/45",
+        "flex min-h-40 w-full flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/25 px-5 text-center transition-colors hover:border-[var(--hairline-strong)] hover:bg-muted/45",
         disabled && "pointer-events-none opacity-60"
       )}
       disabled={disabled}
