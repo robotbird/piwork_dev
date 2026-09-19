@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  BookOpenTextIcon,
   BoxIcon,
   FileArchiveIcon,
+  MoreHorizontalIcon,
   SearchIcon,
   Trash2Icon,
   UploadCloudIcon,
@@ -16,6 +18,11 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import {
+  type SkillBrowseTarget,
+  SkillContentBrowser,
+} from "@/components/management/skill-content-browser";
+import { usePreferences } from "@/components/preferences-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,15 +41,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { usePreferences } from "@/components/preferences-provider";
 
 type SkillSummary = {
   description: string;
   displayName: string;
+  enabled: boolean;
   name: string;
+  source: "catalog" | "upload";
+  version: string;
 };
+
+type StatusFilter = "all" | "enabled" | "disabled";
 
 type DirectoryInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   directory?: string;
@@ -65,22 +83,39 @@ export function AdminSkillManager({
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [skills, setSkills] = useState(initialSkills);
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<StatusFilter>("all");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SkillSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [togglingName, setTogglingName] = useState<string | null>(null);
+  const [browseTarget, setBrowseTarget] = useState<SkillBrowseTarget | null>(
+    null
+  );
+
+  const counts = useMemo(
+    () => ({
+      all: skills.length,
+      disabled: skills.filter((skill) => !skill.enabled).length,
+      enabled: skills.filter((skill) => skill.enabled).length,
+    }),
+    [skills]
+  );
 
   const filteredSkills = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
-    if (!normalized) {
-      return skills;
-    }
-    return skills.filter((skill) =>
-      [skill.displayName, skill.name, skill.description].some((value) =>
-        value.toLocaleLowerCase().includes(normalized)
-      )
-    );
-  }, [query, skills]);
+    return skills.filter((skill) => {
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "enabled" ? skill.enabled : !skill.enabled);
+      const matchesQuery =
+        !normalized ||
+        [skill.displayName, skill.name, skill.description].some((value) =>
+          value.toLocaleLowerCase().includes(normalized)
+        );
+      return matchesFilter && matchesQuery;
+    });
+  }, [filter, query, skills]);
 
   const refreshSkills = useCallback(async () => {
     const response = await fetch(endpoint, { cache: "no-store" });
@@ -132,6 +167,40 @@ export function AdminSkillManager({
     [endpoint, refreshSkills, t]
   );
 
+  const toggleSkill = useCallback(
+    async (skill: SkillSummary) => {
+      setTogglingName(skill.name);
+      try {
+        const response = await fetch(endpoint, {
+          body: JSON.stringify({ enabled: !skill.enabled, name: skill.name }),
+          headers: { "Content-Type": "application/json" },
+          method: "PATCH",
+        });
+        const data = (await response.json()) as { error?: string };
+        if (!response.ok) {
+          throw new Error(data.error || t("操作失败"));
+        }
+        setSkills((current) =>
+          current.map((item) =>
+            item.name === skill.name
+              ? { ...item, enabled: !skill.enabled }
+              : item
+          )
+        );
+        toast.success(
+          skill.enabled
+            ? t("已停用「{name}」", { name: skill.displayName })
+            : t("已启用「{name}」", { name: skill.displayName })
+        );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : t("操作失败"));
+      } finally {
+        setTogglingName(null);
+      }
+    },
+    [endpoint, t]
+  );
+
   const deleteSkill = useCallback(async () => {
     if (!deleteTarget) {
       return;
@@ -166,11 +235,38 @@ export function AdminSkillManager({
       setQuery(event.currentTarget.value),
     []
   );
+  const handleFilterClick = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) =>
+      setFilter(event.currentTarget.dataset.filter as StatusFilter),
+    []
+  );
+  const handleToggleRequest = useCallback(
+    (skillName: string) => {
+      const skill = skills.find((candidate) => candidate.name === skillName);
+      if (skill) {
+        toggleSkill(skill);
+      }
+    },
+    [skills, toggleSkill]
+  );
+  const handleBrowseRequest = useCallback(
+    (skillName: string) => {
+      const skill = skills.find((candidate) => candidate.name === skillName);
+      if (skill) {
+        setBrowseTarget({
+          description: skill.description,
+          displayName: skill.displayName,
+          name: skill.name,
+          source: skill.source,
+          version: skill.version,
+        });
+      }
+    },
+    [skills]
+  );
   const handleDeleteRequest = useCallback(
-    (event: MouseEvent<HTMLButtonElement>) => {
-      const skill = skills.find(
-        (candidate) => candidate.name === event.currentTarget.dataset.skillName
-      );
+    (skillName: string) => {
+      const skill = skills.find((candidate) => candidate.name === skillName);
       if (skill) {
         setDeleteTarget(skill);
       }
@@ -192,6 +288,11 @@ export function AdminSkillManager({
     },
     [deleteSkill]
   );
+  const handleBrowserOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setBrowseTarget(null);
+    }
+  }, []);
   const handleOpenUpload = useCallback(() => setUploadOpen(true), []);
   const handleBrowseFolder = useCallback(
     () => folderInputRef.current?.click(),
@@ -208,6 +309,13 @@ export function AdminSkillManager({
       uploadFiles(Array.from(event.currentTarget.files ?? [])),
     [uploadFiles]
   );
+
+  const filterTabs: Array<{ count: number; key: StatusFilter; label: string }> =
+    [
+      { count: counts.all, key: "all", label: t("全部") },
+      { count: counts.enabled, key: "enabled", label: t("已启用") },
+      { count: counts.disabled, key: "disabled", label: t("已停用") },
+    ];
 
   return (
     <>
@@ -228,12 +336,39 @@ export function AdminSkillManager({
             </Button>
           </header>
 
-          <div className="mt-9 flex flex-col items-stretch gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="flex items-center gap-2 whitespace-nowrap text-sm font-medium">
-              {t("已上架 Skill")}
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
-                {skills.length}
-              </span>
+          <div className="mt-9 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div
+              aria-label={t("Skill 列表")}
+              className="flex gap-6"
+              role="tablist"
+            >
+              {filterTabs.map((tab) => {
+                const active = filter === tab.key;
+                return (
+                  <button
+                    aria-selected={active}
+                    className={cn(
+                      "relative flex h-9 items-center gap-1.5 text-[15px] font-medium transition-colors",
+                      active
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    data-filter={tab.key}
+                    key={tab.key}
+                    onClick={handleFilterClick}
+                    role="tab"
+                    type="button"
+                  >
+                    {tab.label}
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
+                      {tab.count}
+                    </span>
+                    {active ? (
+                      <span className="absolute inset-x-0 -bottom-[17px] h-0.5 rounded-full bg-primary" />
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
             <div className="relative w-full sm:max-w-[280px]">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/65" />
@@ -242,73 +377,89 @@ export function AdminSkillManager({
                 className="pl-9"
                 onChange={handleQueryChange}
                 placeholder={t("搜索 Skill")}
+                type="search"
                 value={query}
               />
             </div>
           </div>
 
-          <div className="divide-y divide-border/60">
-            {filteredSkills.map((skill) => (
-              <article
-                className="group flex items-center gap-4 py-5"
-                key={skill.name}
+          <div className="mt-5 overflow-hidden rounded-[14px] border border-border bg-card">
+            <div className="overflow-x-auto">
+              <table
+                aria-label={t("企业 Skill 列表")}
+                className="w-full min-w-[760px] text-left text-sm"
               >
-                <div className="grid size-11 shrink-0 place-items-center rounded-xl border border-border bg-card text-primary">
-                  <BoxIcon className="size-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <h2 className="truncate text-[15px] font-medium">
-                      {skill.displayName}
-                    </h2>
-                    <span className="hidden shrink-0 rounded-md bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
-                      /{skill.name}
-                    </span>
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground">
-                    {skill.description}
-                  </p>
-                </div>
-                <Button
-                  aria-label={t("删除 {name}", { name: skill.displayName })}
-                  className="shrink-0 rounded-md text-muted-foreground opacity-70 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
-                  data-skill-name={skill.name}
-                  onClick={handleDeleteRequest}
-                  size="icon-sm"
-                  variant="ghost"
-                >
-                  <Trash2Icon />
-                </Button>
-              </article>
-            ))}
-          </div>
-
-          {filteredSkills.length === 0 ? (
-            <div className="flex flex-col items-center py-20 text-center">
-              <div className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground">
-                <BoxIcon className="size-5" />
-              </div>
-              <p className="mt-4 text-sm font-medium">
-                {skills.length === 0
-                  ? t("还没有企业 Skill")
-                  : t("没有匹配的 Skill")}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {skills.length === 0
-                  ? t("上传包含 SKILL.md 的文件夹即可上架")
-                  : t("试试其它关键词")}
-              </p>
+                <thead className="bg-muted/50 text-[13px] text-muted-foreground">
+                  <tr>
+                    <th className="h-10 px-4 font-medium" scope="col">
+                      {t("Skill")}
+                    </th>
+                    <th className="h-10 w-24 px-4 font-medium" scope="col">
+                      {t("版本")}
+                    </th>
+                    <th className="h-10 w-24 px-4 font-medium" scope="col">
+                      {t("来源")}
+                    </th>
+                    <th className="h-10 w-28 px-4 font-medium" scope="col">
+                      {t("状态")}
+                    </th>
+                    <th
+                      className="h-10 w-14 px-4 text-right font-medium"
+                      scope="col"
+                    >
+                      {t("操作")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSkills.length > 0 ? (
+                    filteredSkills.map((skill) => (
+                      <SkillRow
+                        key={skill.name}
+                        onBrowse={handleBrowseRequest}
+                        onDelete={handleDeleteRequest}
+                        onToggle={handleToggleRequest}
+                        skill={skill}
+                        toggling={togglingName === skill.name}
+                      />
+                    ))
+                  ) : (
+                    <tr className="border-t border-border/70">
+                      <td
+                        className="px-4 py-10 text-center text-sm text-muted-foreground"
+                        colSpan={5}
+                      >
+                        {skills.length === 0
+                          ? t("还没有企业 Skill")
+                          : t("没有匹配的 Skill")}
+                        <span className="mt-1 block text-[13px]">
+                          {skills.length === 0
+                            ? t("上传包含 SKILL.md 的文件夹即可上架")
+                            : t("试试其它关键词")}
+                        </span>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          ) : null}
+          </div>
         </div>
       </section>
+
+      <SkillContentBrowser
+        onOpenChange={handleBrowserOpenChange}
+        skill={browseTarget}
+      />
 
       <Dialog onOpenChange={setUploadOpen} open={uploadOpen}>
         <DialogContent className="gap-5 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg">{t("上传企业 Skill")}</DialogTitle>
             <DialogDescription>
-              {t("选择完整 Skill 文件夹或 .zip 压缩包。根目录需包含 SKILL.md。")}
+              {t(
+                "选择完整 Skill 文件夹或 .zip 压缩包。根目录需包含 SKILL.md。"
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -364,7 +515,9 @@ export function AdminSkillManager({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>{t("取消")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>
+              {t("取消")}
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={handleConfirmDelete}
@@ -376,6 +529,125 @@ export function AdminSkillManager({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+function SkillRow({
+  onBrowse,
+  onDelete,
+  onToggle,
+  skill,
+  toggling,
+}: {
+  onBrowse: (skillName: string) => void;
+  onDelete: (skillName: string) => void;
+  onToggle: (skillName: string) => void;
+  skill: SkillSummary;
+  toggling: boolean;
+}) {
+  const { t } = usePreferences();
+  const handleBrowse = useCallback(
+    () => onBrowse(skill.name),
+    [onBrowse, skill.name]
+  );
+  const handleDelete = useCallback(
+    () => onDelete(skill.name),
+    [onDelete, skill.name]
+  );
+
+  return (
+    <tr className="border-t border-border/70 align-middle transition-colors hover:bg-muted/30">
+      <td className="px-4 py-3.5">
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              "grid size-11 shrink-0 place-items-center rounded-xl border border-border bg-card",
+              skill.enabled ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            <BoxIcon className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <button
+                className={cn(
+                  "truncate text-[14px] leading-5 font-medium hover:underline",
+                  skill.enabled ? "text-link" : "text-muted-foreground"
+                )}
+                onClick={handleBrowse}
+                type="button"
+              >
+                {skill.displayName}
+              </button>
+              <span className="hidden shrink-0 rounded-md bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
+                /{skill.name}
+              </span>
+            </div>
+            <p className="mt-0.5 line-clamp-1 text-[13px] leading-5 text-muted-foreground">
+              {skill.description}
+            </p>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3.5 whitespace-nowrap">
+        {skill.version ? (
+          <span className="font-mono text-[13px] text-muted-foreground">
+            v{skill.version}
+          </span>
+        ) : (
+          <span className="text-[13px] text-muted-foreground">—</span>
+        )}
+      </td>
+      <td className="px-4 py-3.5 whitespace-nowrap text-[13px] text-muted-foreground">
+        {skill.source === "catalog" ? t("官方目录") : t("上传")}
+      </td>
+      <td className="px-4 py-3.5">
+        <div className="flex items-center gap-2">
+          <Switch
+            aria-label={t("启用或停用 {name}", { name: skill.displayName })}
+            checked={skill.enabled}
+            disabled={toggling}
+            onCheckedChange={() => onToggle(skill.name)}
+          />
+          <span
+            className={cn(
+              "text-[13px] leading-5",
+              skill.enabled ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
+            {skill.enabled ? t("已启用") : t("已停用")}
+          </span>
+        </div>
+      </td>
+      <td className="px-4 py-3.5 text-right">
+        <DropdownMenu modal>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={t("更多操作")}
+              className="text-muted-foreground data-[state=open]:bg-muted hover:text-foreground"
+              size="icon-sm"
+              variant="ghost"
+            >
+              <MoreHorizontalIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="bottom">
+            <DropdownMenuItem className="cursor-pointer" onClick={handleBrowse}>
+              <BookOpenTextIcon />
+              <span>{t("浏览内容")}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={handleDelete}
+              variant="destructive"
+            >
+              <Trash2Icon />
+              <span>{t("删除")}</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </td>
+    </tr>
   );
 }
 

@@ -26,7 +26,8 @@ export function getTranslation(
   params?: TranslationParams,
   fallback?: string
 ): string {
-  const message = locales[language].messages[key] ?? fallback ?? key;
+  const messages = locales[language].messages as Record<string, string>;
+  const message = messages[key] ?? fallback ?? key;
   return interpolate(message, params);
 }
 

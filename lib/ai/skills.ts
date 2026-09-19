@@ -1,4 +1,4 @@
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import {
   type AgentTool,
   formatSkillInvocation,
@@ -9,9 +9,11 @@ import {
 import { NodeExecutionEnv } from "@earendil-works/pi-agent-core/node";
 import { Type } from "@earendil-works/pi-ai";
 import { unzipSync } from "fflate";
+import { getInstallableCatalogSkill } from "./skill-catalog";
 import {
   formatSkillDisplayName,
   parseSkillDisplayName,
+  parseSkillVersion,
   validateSkillDisplayName,
 } from "./skill-display";
 
@@ -21,6 +23,9 @@ const MAX_INSTRUCTIONS_LENGTH = 50_000;
 export const MAX_SKILL_UPLOAD_FILE_COUNT = 200;
 export const MAX_SKILL_UPLOAD_FILE_SIZE = 5 * 1024 * 1024;
 export const MAX_SKILL_UPLOAD_TOTAL_SIZE = 15 * 1024 * 1024;
+export const MAX_SKILL_FILE_ENTRY_COUNT = 500;
+export const MAX_SKILL_PREVIEW_FILE_SIZE = 1024 * 1024;
+const MAX_SKILL_PREVIEW_TEXT_LENGTH = 200_000;
 const RESERVED_SKILL_NAMES = new Set([
   "clear",
   "delete",
@@ -33,6 +38,10 @@ const RESERVED_SKILL_NAMES = new Set([
 
 function getSkillsDirectory(cwd: string) {
   return `${cwd}/.pi/skills`;
+}
+
+function getSkillStatePath(cwd: string) {
+  return `${cwd}/.pi/skill-state.json`;
 }
 
 function createExecutionEnv(cwd: string) {
@@ -154,11 +163,62 @@ export function validateSkillName(name: string) {
   }
 }
 
+export type ProjectSkillSource = "catalog" | "upload";
+
+export type ProjectSkillSummary = {
+  description: string;
+  displayName: string;
+  enabled: boolean;
+  name: string;
+  source: ProjectSkillSource;
+  version: string;
+};
+
+async function readDisabledSkillNames(env: NodeExecutionEnv, cwd: string) {
+  const stateFile = await env.readTextFile(getSkillStatePath(cwd));
+  if (!stateFile.ok) {
+    return new Set<string>();
+  }
+
+  try {
+    const parsed = JSON.parse(stateFile.value) as { disabled?: unknown };
+    return new Set(
+      Array.isArray(parsed.disabled)
+        ? parsed.disabled.filter(
+            (name): name is string => typeof name === "string"
+          )
+        : []
+    );
+  } catch {
+    return new Set<string>();
+  }
+}
+
+async function writeDisabledSkillNames(
+  env: NodeExecutionEnv,
+  cwd: string,
+  disabled: Set<string>
+) {
+  await env.createDir(`${cwd}/.pi`, { recursive: true });
+  const written = await env.writeFile(
+    getSkillStatePath(cwd),
+    `${JSON.stringify({ disabled: [...disabled].sort() }, null, 2)}\n`
+  );
+  if (!written.ok) {
+    throw written.error;
+  }
+}
+
 export async function loadProjectSkills(cwd = process.cwd()) {
   const env = createExecutionEnv(cwd);
 
   try {
-    return await loadSkills(env, getSkillsDirectory(cwd));
+    const loaded = await loadSkills(env, getSkillsDirectory(cwd));
+    const disabled = await readDisabledSkillNames(env, cwd);
+    return {
+      diagnostics: loaded.diagnostics,
+      skills: loaded.skills.filter((skill) => !disabled.has(skill.name)),
+    };
   } finally {
     await env.cleanup();
   }
@@ -169,13 +229,17 @@ export async function loadProjectSkillSummaries(cwd = process.cwd()) {
 
   try {
     const loaded = await loadSkills(env, getSkillsDirectory(cwd));
+    const disabled = await readDisabledSkillNames(env, cwd);
     const skills = await Promise.all(
       loaded.skills.map(async (skill) => {
         const metadataPath = skill.filePath.replace(
           /SKILL\.md$/,
           "agents/openai.yaml"
         );
-        const metadata = await env.readTextFile(metadataPath);
+        const [metadata, skillFile] = await Promise.all([
+          env.readTextFile(metadataPath),
+          env.readTextFile(skill.filePath),
+        ]);
         const configuredName = metadata.ok
           ? parseSkillDisplayName(metadata.value)
           : null;
@@ -185,12 +249,46 @@ export async function loadProjectSkillSummaries(cwd = process.cwd()) {
           displayName: configuredName?.trim()
             ? configuredName.trim()
             : formatSkillDisplayName(skill.name),
+          enabled: !disabled.has(skill.name),
           name: skill.name,
+          source: getInstallableCatalogSkill(skill.name)
+            ? ("catalog" as const)
+            : ("upload" as const),
+          version: skillFile.ok
+            ? (parseSkillVersion(skillFile.value) ?? "")
+            : "",
         };
       })
     );
 
     return { diagnostics: loaded.diagnostics, skills };
+  } finally {
+    await env.cleanup();
+  }
+}
+
+export async function setProjectSkillEnabled(
+  name: string,
+  enabled: boolean,
+  cwd = process.cwd()
+) {
+  validateSkillName(name);
+  const env = createExecutionEnv(cwd);
+
+  try {
+    const loaded = await loadSkills(env, getSkillsDirectory(cwd));
+    const skill = loaded.skills.find((candidate) => candidate.name === name);
+    if (!skill) {
+      throw new Error(`Skill "${name}" was not found.`);
+    }
+
+    const disabled = await readDisabledSkillNames(env, cwd);
+    if (enabled) {
+      disabled.delete(name);
+    } else {
+      disabled.add(name);
+    }
+    await writeDisabledSkillNames(env, cwd, disabled);
   } finally {
     await env.cleanup();
   }
@@ -427,33 +525,249 @@ export async function installProjectSkill({
   }
 }
 
-export async function deleteProjectSkill(name: string, cwd = process.cwd()) {
+async function resolveProjectSkill(
+  env: NodeExecutionEnv,
+  cwd: string,
+  name: string
+) {
   validateSkillName(name);
+  const loaded = await loadSkills(env, getSkillsDirectory(cwd));
+  const skill = loaded.skills.find((candidate) => candidate.name === name);
+  if (!skill) {
+    throw new Error(`Skill "${name}" was not found.`);
+  }
+
+  const skillsDirectory = resolve(getSkillsDirectory(cwd));
+  const skillDirectory = resolve(dirname(skill.filePath));
+  const relativeDirectory = relative(skillsDirectory, skillDirectory);
+  if (
+    isAbsolute(relativeDirectory) ||
+    relativeDirectory === ".." ||
+    relativeDirectory.startsWith("../")
+  ) {
+    throw new Error("The skill is outside the managed project directory.");
+  }
+
+  return { relativeDirectory, skill, skillDirectory };
+}
+
+export async function deleteProjectSkill(name: string, cwd = process.cwd()) {
   const env = createExecutionEnv(cwd);
 
   try {
-    const loaded = await loadSkills(env, getSkillsDirectory(cwd));
-    const skill = loaded.skills.find((candidate) => candidate.name === name);
-    if (!skill) {
-      throw new Error(`Skill "${name}" was not found.`);
-    }
-
-    const skillsDirectory = resolve(getSkillsDirectory(cwd));
-    const skillDirectory = resolve(dirname(skill.filePath));
-    const relativeDirectory = relative(skillsDirectory, skillDirectory);
-    if (
-      isAbsolute(relativeDirectory) ||
-      relativeDirectory === ".." ||
-      relativeDirectory.startsWith("../")
-    ) {
-      throw new Error("The skill is outside the managed project directory.");
-    }
-
+    const { relativeDirectory, skill, skillDirectory } =
+      await resolveProjectSkill(env, cwd, name);
     const target = relativeDirectory ? skillDirectory : skill.filePath;
     const removed = await env.remove(target, { force: false, recursive: true });
     if (!removed.ok) {
       throw removed.error;
     }
+  } finally {
+    await env.cleanup();
+  }
+}
+
+export type ProjectSkillFileEntry = {
+  kind: "file" | "directory";
+  name: string;
+  path: string;
+  size: number;
+  mtimeMs: number;
+};
+
+export type ProjectSkillFileContent = {
+  content: string;
+  encoding: "base64" | "text";
+  mimeType: string;
+  path: string;
+  size: number;
+  truncated: boolean;
+};
+
+const IMAGE_MIME_TYPES: Record<string, string> = {
+  ".gif": "image/gif",
+  ".ico": "image/x-icon",
+  ".jpeg": "image/jpeg",
+  ".jpg": "image/jpeg",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".webp": "image/webp",
+};
+
+function resolveSkillFilePath(skillDirectory: string, requestedPath: string) {
+  const normalized = requestedPath.replaceAll("\\", "/");
+  const segments = normalized.split("/");
+
+  if (
+    !normalized ||
+    normalized.startsWith("/") ||
+    segments.some(
+      (segment) =>
+        !segment ||
+        segment === "." ||
+        segment === ".." ||
+        segment.includes("\0")
+    )
+  ) {
+    throw new Error(`Invalid skill file path: ${requestedPath}`);
+  }
+
+  const target = resolve(skillDirectory, normalized);
+  const relativePath = relative(skillDirectory, target);
+  if (isAbsolute(relativePath) || relativePath.startsWith("..")) {
+    throw new Error(`Invalid skill file path: ${requestedPath}`);
+  }
+
+  return { relativePath: relativePath.split("\\").join("/"), target };
+}
+
+function looksLikeBinary(content: Uint8Array) {
+  const limit = Math.min(content.length, 8000);
+  for (let index = 0; index < limit; index += 1) {
+    if (content[index] === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export async function listProjectSkillFiles(
+  name: string,
+  cwd = process.cwd()
+): Promise<{ entries: ProjectSkillFileEntry[] }> {
+  const env = createExecutionEnv(cwd);
+
+  try {
+    const { relativeDirectory, skillDirectory } = await resolveProjectSkill(
+      env,
+      cwd,
+      name
+    );
+    if (!relativeDirectory) {
+      throw new Error(`Skill "${name}" has no skill folder to browse.`);
+    }
+
+    const entries: ProjectSkillFileEntry[] = [];
+    const walk = async (directoryPath: string): Promise<void> => {
+      if (entries.length >= MAX_SKILL_FILE_ENTRY_COUNT) {
+        return;
+      }
+      const listed = await env.listDir(
+        directoryPath ? `${skillDirectory}/${directoryPath}` : skillDirectory
+      );
+      if (!listed.ok) {
+        throw listed.error;
+      }
+
+      const children = [...listed.value].sort((left, right) =>
+        left.name.localeCompare(right.name)
+      );
+      for (const info of children) {
+        if (info.kind === "symlink") {
+          continue;
+        }
+        if (entries.length >= MAX_SKILL_FILE_ENTRY_COUNT) {
+          return;
+        }
+        const relativeInfoPath = directoryPath
+          ? `${directoryPath}/${info.name}`
+          : info.name;
+        entries.push({
+          kind: info.kind === "directory" ? "directory" : "file",
+          mtimeMs: info.mtimeMs,
+          name: info.name,
+          path: relativeInfoPath,
+          size: info.size,
+        });
+        if (info.kind === "directory") {
+          await walk(relativeInfoPath);
+        }
+      }
+    };
+    await walk("");
+
+    return {
+      entries: entries.sort((left, right) =>
+        left.path.localeCompare(right.path)
+      ),
+    };
+  } finally {
+    await env.cleanup();
+  }
+}
+
+export async function readProjectSkillFile(
+  name: string,
+  requestedPath: string,
+  cwd = process.cwd()
+): Promise<ProjectSkillFileContent> {
+  const env = createExecutionEnv(cwd);
+
+  try {
+    const { relativeDirectory, skillDirectory } = await resolveProjectSkill(
+      env,
+      cwd,
+      name
+    );
+    if (!relativeDirectory) {
+      throw new Error(`Skill "${name}" has no skill folder to browse.`);
+    }
+
+    const { relativePath, target } = resolveSkillFilePath(
+      skillDirectory,
+      requestedPath
+    );
+    const info = await env.fileInfo(target);
+    if (!info.ok) {
+      throw info.error;
+    }
+    if (info.value.kind !== "file") {
+      throw new Error(`"${relativePath}" is not a file.`);
+    }
+    if (info.value.size > MAX_SKILL_PREVIEW_FILE_SIZE) {
+      throw new Error(
+        `"${relativePath}" exceeds the ${MAX_SKILL_PREVIEW_FILE_SIZE / 1024} KB preview limit.`
+      );
+    }
+
+    const content = await env.readBinaryFile(target);
+    if (!content.ok) {
+      throw content.error;
+    }
+
+    const imageMimeType =
+      IMAGE_MIME_TYPES[extname(relativePath).toLocaleLowerCase()];
+    if (imageMimeType) {
+      return {
+        content: Buffer.from(content.value).toString("base64"),
+        encoding: "base64",
+        mimeType: imageMimeType,
+        path: relativePath,
+        size: info.value.size,
+        truncated: false,
+      };
+    }
+
+    if (looksLikeBinary(content.value)) {
+      return {
+        content: Buffer.from(content.value).toString("base64"),
+        encoding: "base64",
+        mimeType: "application/octet-stream",
+        path: relativePath,
+        size: info.value.size,
+        truncated: false,
+      };
+    }
+
+    const text = new TextDecoder("utf-8").decode(content.value);
+    return {
+      content: text.slice(0, MAX_SKILL_PREVIEW_TEXT_LENGTH),
+      encoding: "text",
+      mimeType: "text/plain; charset=utf-8",
+      path: relativePath,
+      size: info.value.size,
+      truncated: text.length > MAX_SKILL_PREVIEW_TEXT_LENGTH,
+    };
   } finally {
     await env.cleanup();
   }

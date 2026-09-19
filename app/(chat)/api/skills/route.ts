@@ -9,6 +9,7 @@ import {
   MAX_SKILL_UPLOAD_FILE_COUNT,
   MAX_SKILL_UPLOAD_FILE_SIZE,
   MAX_SKILL_UPLOAD_TOTAL_SIZE,
+  setProjectSkillEnabled,
 } from "@/lib/ai/skills";
 import { ChatbotError } from "@/lib/errors";
 
@@ -139,6 +140,30 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Upload failed";
     return apiError(error, message.includes("already exists") ? 409 : 400);
+  }
+}
+
+export async function PATCH(request: Request) {
+  const session = await requireRegularUser();
+  if (!session) {
+    return new ChatbotError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const body = (await request.json()) as {
+      enabled?: unknown;
+      name?: unknown;
+    };
+    if (typeof body.name !== "string" || typeof body.enabled !== "boolean") {
+      return apiError("A skill name and an enabled flag are required.");
+    }
+
+    await setProjectSkillEnabled(body.name, body.enabled);
+    return Response.json({ updated: true });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to update the skill";
+    return apiError(error, message.includes("was not found") ? 404 : 400);
   }
 }
 

@@ -41,6 +41,23 @@ function parseYamlString(value: string): string | null {
   return cleaned;
 }
 
+export function parseSkillVersion(skillFile: string): string | null {
+  const frontmatter = skillFile.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!frontmatter) {
+    return null;
+  }
+
+  for (const line of frontmatter[1].split(/\r?\n/)) {
+    const match = line.match(/^version:\s*(.+?)\s*$/);
+    if (match) {
+      const parsed = parseYamlString(match[1]);
+      return parsed && !/[\r\n]/.test(parsed) ? parsed : null;
+    }
+  }
+
+  return null;
+}
+
 export function parseSkillDisplayName(metadata: string): string | null {
   let inInterface = false;
 

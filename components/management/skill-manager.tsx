@@ -25,6 +25,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { usePreferences } from "@/components/preferences-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -40,11 +41,11 @@ import {
   skillCategories,
 } from "@/lib/ai/skill-catalog";
 import { cn } from "@/lib/utils";
-import { usePreferences } from "@/components/preferences-provider";
 
 type SkillSummary = {
   description: string;
   displayName: string;
+  enabled?: boolean;
   name: string;
 };
 
@@ -124,13 +125,15 @@ export function SkillManager({
       }));
     }
 
-    return installedSkills.map((skill) => ({
-      ...(catalog.find((item) => item.name === skill.name) ??
-        fallbackSkill(skill)),
-      description: skill.description,
-      displayName: skill.displayName,
-      installed: true,
-    }));
+    return installedSkills
+      .filter((skill) => skill.enabled !== false)
+      .map((skill) => ({
+        ...(catalog.find((item) => item.name === skill.name) ??
+          fallbackSkill(skill)),
+        description: skill.description,
+        displayName: skill.displayName,
+        installed: true,
+      }));
   }, [catalog, installedNames, installedSkills, mode]);
 
   const filteredSkills = useMemo(() => {
@@ -376,7 +379,11 @@ export function SkillManager({
           </header>
 
           <div className="mt-7 flex items-end justify-between border-b border-border">
-            <div aria-label={t("Skill 列表")} className="flex gap-7" role="tablist">
+            <div
+              aria-label={t("Skill 列表")}
+              className="flex gap-7"
+              role="tablist"
+            >
               {(["discover", "installed"] as const).map((item) => {
                 const active = mode === item;
                 return (
