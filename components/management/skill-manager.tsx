@@ -95,16 +95,20 @@ function fallbackSkill(skill: SkillSummary): CatalogSkill {
 export function SkillManager({
   catalog,
   initialSkills,
+  readOnly = false,
 }: {
   catalog: CatalogSkill[];
   initialSkills: SkillSummary[];
+  readOnly?: boolean;
 }) {
   const { t } = usePreferences();
   const endpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/skills`;
   const folderInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [installedSkills, setInstalledSkills] = useState(initialSkills);
-  const [mode, setMode] = useState<ViewMode>("discover");
+  const [mode, setMode] = useState<ViewMode>(
+    readOnly ? "installed" : "discover"
+  );
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<"全部" | SkillCategory>("全部");
   const [selectedSkill, setSelectedSkill] = useState<SkillItem | null>(null);
@@ -384,7 +388,10 @@ export function SkillManager({
               className="flex gap-7"
               role="tablist"
             >
-              {(["discover", "installed"] as const).map((item) => {
+              {(readOnly
+                ? (["installed"] as const)
+                : (["discover", "installed"] as const)
+              ).map((item) => {
                 const active = mode === item;
                 return (
                   <button
@@ -403,9 +410,11 @@ export function SkillManager({
                   >
                     {item === "discover"
                       ? t("发现 Skill")
-                      : t("我的 Skill {count}", {
-                          count: installedSkills.length,
-                        })}
+                      : readOnly
+                        ? `${t("企业 Skill 列表")} ${installedSkills.length}`
+                        : t("我的 Skill {count}", {
+                            count: installedSkills.length,
+                          })}
                     {active ? (
                       <span className="absolute inset-x-0 bottom-[-1px] h-0.5 rounded-full bg-primary" />
                     ) : null}
@@ -413,7 +422,7 @@ export function SkillManager({
                 );
               })}
             </div>
-            {mode === "installed" ? (
+            {mode === "installed" && !readOnly ? (
               <Button
                 className="mb-2"
                 onClick={handleOpenUpload}
@@ -452,7 +461,7 @@ export function SkillManager({
               {filteredSkills.map((skill) => (
                 <SkillCard
                   key={skill.name}
-                  onAction={handleAction}
+                  onAction={readOnly ? undefined : handleAction}
                   onOpen={handleOpenSkill}
                   pending={pendingName === skill.name}
                   skill={skill}
@@ -466,12 +475,16 @@ export function SkillManager({
               </span>
               <p className="mt-4 text-sm font-medium text-foreground">
                 {mode === "installed" && installedSkills.length === 0
-                  ? t("还没有安装 Skill")
+                  ? readOnly
+                    ? t("还没有企业 Skill")
+                    : t("还没有安装 Skill")
                   : t("没有找到匹配的 Skill")}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {mode === "installed" && installedSkills.length === 0
-                  ? t("去发现页挑选一个，或上传企业自建 Skill")
+                  ? readOnly
+                    ? t("请联系管理员上传并启用 Skill")
+                    : t("去发现页挑选一个，或上传企业自建 Skill")
                   : t("试试其它关键词或分类")}
               </p>
             </div>
@@ -480,7 +493,7 @@ export function SkillManager({
       </section>
 
       <SkillDetailDialog
-        onAction={handleDetailAction}
+        onAction={readOnly ? undefined : handleDetailAction}
         onOpenChange={handleDetailOpenChange}
         pending={selectedSkill?.name === pendingName}
         skill={selectedSkill}
@@ -544,7 +557,7 @@ function SkillCard({
   pending,
   skill,
 }: {
-  onAction: (event: MouseEvent<HTMLButtonElement>) => void;
+  onAction?: (event: MouseEvent<HTMLButtonElement>) => void;
   onOpen: (event: MouseEvent<HTMLButtonElement>) => void;
   pending: boolean;
   skill: SkillItem;
@@ -586,21 +599,23 @@ function SkillCard({
         <span className="rounded-md bg-muted px-2 py-1 text-[11px] text-muted-foreground">
           {t(skill.category)}
         </span>
-        <Button
-          className={cn(
-            "pointer-events-auto relative z-10 min-w-[76px] rounded-md",
-            skill.installed
-              ? "border-border bg-card text-muted-foreground hover:border-destructive/35 hover:bg-destructive/5 hover:text-destructive"
-              : "bg-primary text-primary-foreground hover:bg-primary/85"
-          )}
-          data-skill-name={skill.name}
-          disabled={pending}
-          onClick={onAction}
-          size="sm"
-          variant={skill.installed ? "outline" : "default"}
-        >
-          {pending ? t("处理中…") : skill.installed ? t("已安装") : t("安装")}
-        </Button>
+        {onAction ? (
+          <Button
+            className={cn(
+              "pointer-events-auto relative z-10 min-w-[76px] rounded-md",
+              skill.installed
+                ? "border-border bg-card text-muted-foreground hover:border-destructive/35 hover:bg-destructive/5 hover:text-destructive"
+                : "bg-primary text-primary-foreground hover:bg-primary/85"
+            )}
+            data-skill-name={skill.name}
+            disabled={pending}
+            onClick={onAction}
+            size="sm"
+            variant={skill.installed ? "outline" : "default"}
+          >
+            {pending ? t("处理中…") : skill.installed ? t("已安装") : t("安装")}
+          </Button>
+        ) : null}
       </div>
     </article>
   );
@@ -638,7 +653,7 @@ function SkillDetailDialog({
   pending,
   skill,
 }: {
-  onAction: () => void;
+  onAction?: () => void;
   onOpenChange: (open: boolean) => void;
   pending: boolean;
   skill: SkillItem | null;
@@ -678,23 +693,25 @@ function SkillDetailDialog({
               <p className="mt-5 text-sm leading-6 text-muted-foreground">
                 {t(skill.description)}
               </p>
-              <Button
-                className={cn(
-                  "mt-5 h-10 w-full rounded-md sm:w-32",
-                  skill.installed
-                    ? "border-border bg-card text-muted-foreground hover:border-destructive/35 hover:bg-destructive/5 hover:text-destructive"
-                    : "bg-primary text-primary-foreground hover:bg-primary/85"
-                )}
-                disabled={pending}
-                onClick={onAction}
-                variant={skill.installed ? "outline" : "default"}
-              >
-                {pending
-                  ? t("处理中…")
-                  : skill.installed
-                    ? t("卸载 Skill")
-                    : t("一键安装")}
-              </Button>
+              {onAction ? (
+                <Button
+                  className={cn(
+                    "mt-5 h-10 w-full rounded-md sm:w-32",
+                    skill.installed
+                      ? "border-border bg-card text-muted-foreground hover:border-destructive/35 hover:bg-destructive/5 hover:text-destructive"
+                      : "bg-primary text-primary-foreground hover:bg-primary/85"
+                  )}
+                  disabled={pending}
+                  onClick={onAction}
+                  variant={skill.installed ? "outline" : "default"}
+                >
+                  {pending
+                    ? t("处理中…")
+                    : skill.installed
+                      ? t("卸载 Skill")
+                      : t("一键安装")}
+                </Button>
+              ) : null}
             </div>
             <div className="space-y-6 px-6 py-6 sm:px-7">
               <section>

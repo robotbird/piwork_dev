@@ -25,6 +25,23 @@ export const user = pgTable("User", {
 
 export type User = InferSelectModel<typeof user>;
 
+export const skill = pgTable("Skill", {
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  description: varchar("description", { length: 1024 }).notNull(),
+  displayName: text("displayName").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  name: varchar("name", { length: 64 }).primaryKey().notNull(),
+  relativePath: text("relativePath").notNull(),
+  source: varchar("source", { enum: ["catalog", "upload"] }).notNull(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  uploadedBy: uuid("uploadedBy").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  version: varchar("version", { length: 64 }).notNull().default(""),
+});
+
+export type SkillRecord = InferSelectModel<typeof skill>;
+
 export const chat = pgTable("Chat", {
   createdAt: timestamp("createdAt").notNull(),
   id: uuid("id").primaryKey().notNull().defaultRandom(),

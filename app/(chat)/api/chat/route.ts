@@ -24,6 +24,7 @@ import {
   prepareChatAttachments,
 } from "@/lib/ai/attachments";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
+import { loadEnabledManagedProjectSkills } from "@/lib/ai/managed-skills";
 import {
   allowedModelIds,
   chatModels,
@@ -36,7 +37,6 @@ import {
   buildSkillsSystemPrompt,
   createSkillTools,
   invokeSkill,
-  loadProjectSkills,
   parseSkillCommand,
 } from "@/lib/ai/skills";
 import {
@@ -253,7 +253,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const { skills, diagnostics: skillDiagnostics } = await loadProjectSkills();
+    const { skills, diagnostics: skillDiagnostics } =
+      await loadEnabledManagedProjectSkills();
     if (skillDiagnostics.length > 0) {
       console.warn("Skill discovery warnings:", skillDiagnostics);
     }

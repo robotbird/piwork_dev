@@ -23,7 +23,6 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { BrandMark } from "@/components/chat/brand-mark";
 import { SidebarHistory } from "@/components/chat/sidebar-history";
-import { SidebarUserNav } from "@/components/chat/sidebar-user-nav";
 import { usePreferences } from "@/components/preferences-provider";
 import {
   Sidebar,
@@ -44,6 +43,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { UserNav } from "@/components/user-nav";
 import { cn } from "@/lib/utils";
 
 const primaryItems = [
@@ -251,7 +251,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
 
       <SidebarFooter className="px-3 py-3">
         {user ? (
-          <SidebarUserNav user={user} />
+          <UserNav area="app" user={user} />
         ) : (
           <Link
             className="flex h-9 items-center gap-2 rounded-md px-2 text-sm text-sidebar-foreground/75 hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center"

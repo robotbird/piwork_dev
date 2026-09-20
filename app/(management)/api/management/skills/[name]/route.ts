@@ -1,5 +1,4 @@
 import { auth } from "@/app/(auth)/auth";
-import { loadManagedProjectSkillSummaries } from "@/lib/ai/managed-skills";
 import { listProjectSkillFiles, readProjectSkillFile } from "@/lib/ai/skills";
 import { ChatbotError } from "@/lib/errors";
 
@@ -10,28 +9,17 @@ export async function GET(
   { params }: { params: Promise<{ name: string }> }
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (session?.user?.type !== "regular") {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
 
   const { name } = await params;
   const filePath = new URL(request.url).searchParams.get("path");
-
   try {
-    const { skills } = await loadManagedProjectSkillSummaries({
-      enabledOnly: true,
-    });
-    if (!skills.some((skill) => skill.name === name)) {
-      return Response.json(
-        { error: `Enabled skill "${name}" was not found.` },
-        { headers: NO_STORE_HEADERS, status: 404 }
-      );
-    }
     if (filePath === null) {
       const { entries } = await listProjectSkillFiles(name);
       return Response.json({ entries }, { headers: NO_STORE_HEADERS });
     }
-
     const file = await readProjectSkillFile(name, filePath);
     return Response.json({ file }, { headers: NO_STORE_HEADERS });
   } catch (error) {

@@ -24,7 +24,9 @@ import {
   type DBMessage,
   document,
   message,
+  type SkillRecord,
   type Suggestion,
+  skill,
   stream,
   suggestion,
   type User,
@@ -36,9 +38,105 @@ import { generateHashedPassword } from "./utils";
 const client = postgres(process.env.POSTGRES_URL ?? "");
 const db = drizzle(client);
 
+export type UpsertSkillRecord = Pick<
+  SkillRecord,
+  | "description"
+  | "displayName"
+  | "enabled"
+  | "name"
+  | "relativePath"
+  | "source"
+  | "uploadedBy"
+  | "version"
+>;
+
+export async function getSkillRecords({
+  enabledOnly = false,
+}: {
+  enabledOnly?: boolean;
+} = {}): Promise<SkillRecord[]> {
+  try {
+    const query = db.select().from(skill);
+    return enabledOnly
+      ? await query.where(eq(skill.enabled, true)).orderBy(asc(skill.name))
+      : await query.orderBy(asc(skill.name));
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", { cause: error });
+  }
+}
+
+export async function upsertSkillRecord(record: UpsertSkillRecord) {
+  try {
+    const [saved] = await db
+      .insert(skill)
+      .values(record)
+      .onConflictDoUpdate({
+        set: {
+          description: record.description,
+          displayName: record.displayName,
+          enabled: record.enabled,
+          relativePath: record.relativePath,
+          source: record.source,
+          updatedAt: new Date(),
+          uploadedBy: record.uploadedBy,
+          version: record.version,
+        },
+        target: skill.name,
+      })
+      .returning();
+    return saved;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", { cause: error });
+  }
+}
+
+export async function setSkillRecordEnabled({
+  enabled,
+  name,
+}: {
+  enabled: boolean;
+  name: string;
+}) {
+  try {
+    const [updated] = await db
+      .update(skill)
+      .set({ enabled, updatedAt: new Date() })
+      .where(eq(skill.name, name))
+      .returning();
+    return updated ?? null;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", { cause: error });
+  }
+}
+
+export async function deleteSkillRecord(name: string) {
+  try {
+    const [deleted] = await db
+      .delete(skill)
+      .where(eq(skill.name, name))
+      .returning();
+    return deleted ?? null;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", { cause: error });
+  }
+}
+
 export async function getUser(email: string): Promise<User[]> {
   try {
     return await db.select().from(user).where(eq(user.email, email));
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", { cause: error });
+  }
+}
+
+export async function getUserById(id: string): Promise<User | null> {
+  try {
+    const [selectedUser] = await db
+      .select()
+      .from(user)
+      .where(eq(user.id, id))
+      .limit(1);
+    return selectedUser ?? null;
   } catch (error) {
     throw new ChatbotError("bad_request:database", { cause: error });
   }

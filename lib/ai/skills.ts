@@ -224,6 +224,16 @@ export async function loadProjectSkills(cwd = process.cwd()) {
   }
 }
 
+export async function loadAllProjectSkills(cwd = process.cwd()) {
+  const env = createExecutionEnv(cwd);
+
+  try {
+    return await loadSkills(env, getSkillsDirectory(cwd));
+  } finally {
+    await env.cleanup();
+  }
+}
+
 export async function loadProjectSkillSummaries(cwd = process.cwd()) {
   const env = createExecutionEnv(cwd);
 

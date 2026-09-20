@@ -25,7 +25,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { ManagementUserNav } from "@/components/management/management-user-nav";
 import { usePreferences } from "@/components/preferences-provider";
 import {
   Sheet,
@@ -34,6 +33,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { UserNav } from "@/components/user-nav";
 import { cn } from "@/lib/utils";
 
 type NavigationItem = {
@@ -276,7 +276,7 @@ function SidebarBody({
       </nav>
 
       <div className="p-3">
-        <ManagementUserNav user={user} />
+        <UserNav area="management" user={user} />
       </div>
     </div>
   );

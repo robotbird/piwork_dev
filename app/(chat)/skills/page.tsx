@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { SkillMarketplace } from "@/components/chat/skill-marketplace";
+import { loadManagedProjectSkillSummaries } from "@/lib/ai/managed-skills";
 import { publicSkillCatalog } from "@/lib/ai/skill-catalog";
-import { loadProjectSkillSummaries } from "@/lib/ai/skills";
 
 export default function SkillsPage() {
   return (
@@ -12,11 +12,17 @@ export default function SkillsPage() {
 }
 
 async function SkillsContent() {
-  const { skills } = await loadProjectSkillSummaries();
+  const { skills } = await loadManagedProjectSkillSummaries({
+    enabledOnly: true,
+  });
 
   return (
     <main className="min-h-dvh border-l border-border bg-background">
-      <SkillMarketplace catalog={publicSkillCatalog} initialSkills={skills} />
+      <SkillMarketplace
+        catalog={publicSkillCatalog}
+        initialSkills={skills}
+        readOnly
+      />
     </main>
   );
 }

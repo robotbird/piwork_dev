@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { AdminSkillManager } from "@/components/management/admin-skill-manager";
-import { loadProjectSkillSummaries } from "@/lib/ai/skills";
+import { loadManagedProjectSkillSummaries } from "@/lib/ai/managed-skills";
 
 export default function SkillsManagementPage() {
   return (
@@ -11,7 +11,7 @@ export default function SkillsManagementPage() {
 }
 
 async function SkillsManagementContent() {
-  const { skills } = await loadProjectSkillSummaries();
+  const { skills } = await loadManagedProjectSkillSummaries();
 
   return <AdminSkillManager initialSkills={skills} />;
 }
