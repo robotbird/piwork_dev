@@ -680,6 +680,7 @@ export async function listProjectSkillFiles(
           size: info.size,
         });
         if (info.kind === "directory") {
+          // biome-ignore lint/performance/noAwaitInLoops: 顺序遍历保证条目上限与稳定排序
           await walk(relativeInfoPath);
         }
       }

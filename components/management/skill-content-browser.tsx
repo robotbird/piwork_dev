@@ -104,6 +104,10 @@ function isMarkdownFile(path: string) {
   return path.toLocaleLowerCase().endsWith(".md");
 }
 
+function stripMarkdownFrontmatter(content: string) {
+  return content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+}
+
 function buildTree(entries: SkillFileEntry[]): TreeItem[] {
   const root: TreeFolder = {
     children: [],
@@ -185,7 +189,6 @@ export function SkillContentBrowser({
   const { t } = usePreferences();
   const [tree, setTree] = useState<TreeItem[] | null>(null);
   const [treeError, setTreeError] = useState<string | null>(null);
-  const [treeRetryToken, setTreeRetryToken] = useState(0);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [file, setFile] = useState<SkillFileContent | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -198,13 +201,18 @@ export function SkillContentBrowser({
   const endpoint = skill
     ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/skills/${encodeURIComponent(skill.name)}`
     : null;
+  const treeRequestRef = useRef<{ cancelled: boolean } | null>(null);
 
-  useEffect(() => {
-    if (!skill || !endpoint) {
+  const loadTree = useCallback(() => {
+    if (!endpoint) {
       return;
     }
+    if (treeRequestRef.current) {
+      treeRequestRef.current.cancelled = true;
+    }
+    const request = { cancelled: false };
+    treeRequestRef.current = request;
 
-    let cancelled = false;
     fileCache.current.clear();
     setTree(null);
     setTreeError(null);
@@ -220,7 +228,7 @@ export function SkillContentBrowser({
           entries?: SkillFileEntry[];
           error?: string;
         };
-        if (cancelled) {
+        if (request.cancelled) {
           return;
         }
         if (!response.ok || !data.entries) {
@@ -234,18 +242,26 @@ export function SkillContentBrowser({
           setSelectedPath(manifest.path);
         }
       } catch (error) {
-        if (!cancelled) {
+        if (!request.cancelled) {
           setTreeError(
             error instanceof Error ? error.message : t("加载文件列表失败")
           );
         }
       }
     })();
+  }, [endpoint, t]);
 
+  useEffect(() => {
+    if (!skill) {
+      return;
+    }
+    loadTree();
     return () => {
-      cancelled = true;
+      if (treeRequestRef.current) {
+        treeRequestRef.current.cancelled = true;
+      }
     };
-  }, [endpoint, skill, t, treeRetryToken]);
+  }, [loadTree, skill]);
 
   useEffect(() => {
     if (!endpoint || !selectedPath) {
@@ -323,10 +339,7 @@ export function SkillContentBrowser({
     []
   );
 
-  const handleRetryTree = useCallback(() => {
-    setTreeError(null);
-    setTreeRetryToken((token) => token + 1);
-  }, []);
+  const handleRetryTree = useCallback(() => loadTree(), [loadTree]);
 
   const fileCount = useMemo(() => countFiles(tree), [tree]);
 
@@ -540,7 +553,9 @@ function FilePreview({ file }: { file: SkillFileContent }) {
               {t("文件过大，已截断显示")}
             </p>
           ) : null}
-          <MessageResponse className="text-sm">{file.content}</MessageResponse>
+          <MessageResponse className="text-sm">
+            {stripMarkdownFrontmatter(file.content)}
+          </MessageResponse>
         </div>
       );
     }
@@ -564,7 +579,7 @@ function FilePreview({ file }: { file: SkillFileContent }) {
         <p className="mb-3 font-mono text-[11px] text-muted-foreground">
           {file.path} · {formatSize(file.size)}
         </p>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* biome-ignore lint/performance/noImgElement: data URI 预览，无需 next/image 优化 */}
         <img
           alt={file.path}
           className="max-w-full rounded-lg border border-border bg-card"

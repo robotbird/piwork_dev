@@ -550,10 +550,11 @@ function SkillCard({
   skill: SkillItem;
 }) {
   const Icon = iconMap[skill.icon];
+  const { t } = usePreferences();
   return (
     <article className="group relative min-h-[174px] rounded-xl border border-border bg-card p-5 transition-colors hover:border-[var(--hairline-strong)]">
       <button
-        aria-label={`查看 ${skill.displayName} 详情`}
+        aria-label={`${t("查看 {name} 详情", { name: t(skill.displayName) })}`}
         className="absolute inset-0 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/30"
         data-skill-name={skill.name}
         onClick={onOpen}
@@ -564,26 +565,26 @@ function SkillCard({
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex items-center gap-1.5">
             <h2 className="truncate text-[15px] font-medium text-foreground">
-              {skill.displayName}
+              {t(skill.displayName)}
             </h2>
             {skill.sourceType === "official" ? (
               <BadgeCheckIcon
-                aria-label="官方认证"
+                aria-label={t("官方认证")}
                 className="size-4 shrink-0 fill-primary/10 text-primary"
               />
             ) : null}
           </div>
           <p className="mt-1 truncate text-xs text-muted-foreground">
-            {skill.source}
+            {t(skill.source)}
           </p>
         </div>
       </div>
       <p className="pointer-events-none relative mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-muted-foreground">
-        {skill.description}
+        {t(skill.description)}
       </p>
       <div className="pointer-events-none relative mt-4 flex items-center justify-between">
         <span className="rounded-md bg-muted px-2 py-1 text-[11px] text-muted-foreground">
-          {skill.category}
+          {t(skill.category)}
         </span>
         <Button
           className={cn(
@@ -598,7 +599,7 @@ function SkillCard({
           size="sm"
           variant={skill.installed ? "outline" : "default"}
         >
-          {pending ? "处理中…" : skill.installed ? "已安装" : "安装"}
+          {pending ? t("处理中…") : skill.installed ? t("已安装") : t("安装")}
         </Button>
       </div>
     </article>
@@ -643,6 +644,7 @@ function SkillDetailDialog({
   skill: SkillItem | null;
 }) {
   const Icon = skill ? iconMap[skill.icon] : FileTextIcon;
+  const { t } = usePreferences();
   return (
     <Dialog onOpenChange={onOpenChange} open={Boolean(skill)}>
       <DialogContent className="max-h-[90vh] overflow-y-auto bg-card p-0 sm:max-w-[620px]">
@@ -655,23 +657,26 @@ function SkillDetailDialog({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <DialogTitle className="text-xl font-medium text-foreground">
-                        {skill.displayName}
+                        {t(skill.displayName)}
                       </DialogTitle>
                       {skill.sourceType === "official" ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
                           <BadgeCheckIcon className="size-3.5" />
-                          官方认证
+                          {t("官方认证")}
                         </span>
                       ) : null}
                     </div>
                     <DialogDescription className="mt-1.5 text-sm">
-                      由 {skill.source} 提供 · v{skill.version}
+                      {t("由 {source} 提供 · v{version}", {
+                        source: t(skill.source),
+                        version: skill.version,
+                      })}
                     </DialogDescription>
                   </div>
                 </div>
               </DialogHeader>
               <p className="mt-5 text-sm leading-6 text-muted-foreground">
-                {skill.description}
+                {t(skill.description)}
               </p>
               <Button
                 className={cn(
@@ -685,16 +690,16 @@ function SkillDetailDialog({
                 variant={skill.installed ? "outline" : "default"}
               >
                 {pending
-                  ? "处理中…"
+                  ? t("处理中…")
                   : skill.installed
-                    ? "卸载 Skill"
-                    : "一键安装"}
+                    ? t("卸载 Skill")
+                    : t("一键安装")}
               </Button>
             </div>
             <div className="space-y-6 px-6 py-6 sm:px-7">
               <section>
                 <h3 className="text-sm font-medium text-foreground">
-                  核心能力
+                  {t("核心能力")}
                 </h3>
                 <ul className="mt-3 space-y-2.5">
                   {skill.capabilities.map((capability) => (
@@ -705,14 +710,14 @@ function SkillDetailDialog({
                       <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-muted text-link">
                         <CheckIcon className="size-2.5" />
                       </span>
-                      {capability}
+                      {t(capability)}
                     </li>
                   ))}
                 </ul>
               </section>
               <section className="grid gap-3 rounded-xl border border-border bg-[var(--canvas-soft)] p-4 text-[12px] sm:grid-cols-3">
-                <Meta label="分类" value={skill.category} />
-                <Meta label="安装范围" value="当前项目" />
+                <Meta label={t("分类")} value={t(skill.category)} />
+                <Meta label={t("安装范围")} value={t("当前项目")} />
                 <Meta label="Skill ID" value={skill.name} />
               </section>
             </div>

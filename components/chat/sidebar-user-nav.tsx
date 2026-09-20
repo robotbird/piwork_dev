@@ -1,6 +1,13 @@
 "use client";
 
-import { ChevronUp, Settings2Icon } from "lucide-react";
+import {
+  ChevronUp,
+  LogInIcon,
+  LogOutIcon,
+  MoonIcon,
+  Settings2Icon,
+  SunIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
@@ -112,10 +119,15 @@ export function SidebarUserNav({ user }: { user: User }) {
               </>
             )}
             <DropdownMenuItem
-              className="cursor-pointer text-sm"
+              className="cursor-pointer gap-2 text-sm"
               data-testid="user-nav-item-theme"
               onSelect={handleThemeSelect}
             >
+              {resolvedTheme === "light" ? (
+                <MoonIcon className="size-3.5" />
+              ) : (
+                <SunIcon className="size-3.5" />
+              )}
               {resolvedTheme === "light"
                 ? translate("切换到深色模式", "Switch to dark mode")
                 : translate("切换到浅色模式", "Switch to light mode")}
@@ -123,10 +135,15 @@ export function SidebarUserNav({ user }: { user: User }) {
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="user-nav-item-auth">
               <button
-                className="w-full cursor-pointer text-sm"
+                className="w-full cursor-pointer gap-2 text-sm"
                 onClick={handleAuthClick}
                 type="button"
               >
+                {isGuest ? (
+                  <LogInIcon className="size-3.5" />
+                ) : (
+                  <LogOutIcon className="size-3.5" />
+                )}
                 {isGuest
                   ? translate("登录账户", "Log in to your account")
                   : translate("退出登录", "Sign out")}

@@ -15,6 +15,7 @@ import {
   MemberDialog,
   type MemberFormValues,
 } from "@/components/management/member-dialog";
+import { usePreferences } from "@/components/preferences-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -93,6 +94,7 @@ function MemberAvatar({ name }: { name: string }) {
 }
 
 function RoleBadge({ role }: { role: ManagementMember["role"] }) {
+  const { t } = usePreferences();
   return (
     <span
       className={cn(
@@ -102,12 +104,13 @@ function RoleBadge({ role }: { role: ManagementMember["role"] }) {
           : "bg-muted text-muted-foreground"
       )}
     >
-      {ROLE_LABELS[role]}
+      {t(ROLE_LABELS[role])}
     </span>
   );
 }
 
 function StatusBadge({ status }: { status: MemberStatus }) {
+  const { t } = usePreferences();
   return (
     <span
       className={cn(
@@ -122,7 +125,7 @@ function StatusBadge({ status }: { status: MemberStatus }) {
           status === "enabled" ? "bg-link" : "bg-destructive/70"
         )}
       />
-      {STATUS_LABELS[status]}
+      {t(STATUS_LABELS[status])}
     </span>
   );
 }
@@ -140,6 +143,7 @@ function MemberRow({
   onEdit,
   onToggleStatus,
 }: MemberRowProps) {
+  const { t } = usePreferences();
   const isEnabled = member.status === "enabled";
 
   const handleEditClick = useCallback(() => onEdit(member), [member, onEdit]);
@@ -173,7 +177,7 @@ function MemberRow({
         </div>
       </td>
       <td className="px-4 py-3 whitespace-nowrap text-[14px] text-muted-foreground">
-        {member.department}
+        {t(member.department)}
       </td>
       <td className="px-4 py-3">
         <RoleBadge role={member.role} />
@@ -194,7 +198,7 @@ function MemberRow({
             variant="ghost"
           >
             <PencilIcon className="size-3.5" />
-            编辑
+            {t("编辑")}
           </Button>
           <Button
             aria-label={`${isEnabled ? "停用" : "启用"}成员 ${member.name}`}
@@ -208,7 +212,7 @@ function MemberRow({
             ) : (
               <PlayIcon className="size-3.5" />
             )}
-            {isEnabled ? "停用" : "启用"}
+            {t(isEnabled ? "停用" : "启用")}
           </Button>
           <Button
             aria-label={`删除成员 ${member.name}`}
@@ -217,7 +221,7 @@ function MemberRow({
             size="sm"
             variant="ghost"
           >
-            删除
+            {t("删除")}
           </Button>
         </div>
       </td>
@@ -226,6 +230,7 @@ function MemberRow({
 }
 
 export function MemberManager() {
+  const { t } = usePreferences();
   const [members, setMembers] = useState<ManagementMember[]>(SEED_MEMBERS);
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -274,15 +279,18 @@ export function MemberManager() {
     setEditingMember(null);
   }, []);
 
-  const handleCreateSubmit = useCallback((values: MemberFormValues) => {
-    const id = crypto.randomUUID();
-    setMembers((current) => [
-      { addedAt: nowStamp(), id, ...values },
-      ...current,
-    ]);
-    setCreateOpen(false);
-    toast.success(`已添加成员「${values.name}」`);
-  }, []);
+  const handleCreateSubmit = useCallback(
+    (values: MemberFormValues) => {
+      const id = crypto.randomUUID();
+      setMembers((current) => [
+        { addedAt: nowStamp(), id, ...values },
+        ...current,
+      ]);
+      setCreateOpen(false);
+      toast.success(t("已添加成员「{name}」", { name: values.name }));
+    },
+    [t]
+  );
 
   const handleUpdateSubmit = useCallback(
     (values: MemberFormValues) => {
@@ -299,19 +307,20 @@ export function MemberManager() {
       setEditingMember(null);
       toast.success(
         statusChanged
-          ? `已更新成员「${values.name}」，账号${
-              values.status === "enabled" ? "已启用" : "已停用"
-            }`
-          : `已更新成员「${values.name}」`
+          ? t(
+              `已更新成员「{name}」，账号${values.status === "enabled" ? "已启用" : "已停用"}`,
+              { name: values.name }
+            )
+          : t("已更新成员「{name}」", { name: values.name })
       );
     },
-    [editingMember]
+    [editingMember, t]
   );
 
   const handleToggleStatus = useCallback(
     (member: ManagementMember) => {
       if (member.status === "enabled" && isLastEnabledAdmin(members, member)) {
-        toast.error("需保留至少一名已启用的管理员，无法停用该成员");
+        toast.error(t("需保留至少一名已启用的管理员，无法停用该成员"));
         return;
       }
       const nextStatus: MemberStatus =
@@ -323,22 +332,22 @@ export function MemberManager() {
       );
       toast.success(
         nextStatus === "enabled"
-          ? `已启用「${member.name}」`
-          : `已停用「${member.name}」`
+          ? t("已启用「{name}」", { name: member.name })
+          : t("已停用「{name}」", { name: member.name })
       );
     },
-    [members]
+    [members, t]
   );
 
   const handleDeleteRequest = useCallback(
     (member: ManagementMember) => {
       if (isLastEnabledAdmin(members, member)) {
-        toast.error("需保留至少一名已启用的管理员，无法删除该成员");
+        toast.error(t("需保留至少一名已启用的管理员，无法删除该成员"));
         return;
       }
       setDeleteTarget(member);
     },
-    [members]
+    [members, t]
   );
 
   const handleDeleteConfirm = useCallback(() => {
@@ -348,8 +357,8 @@ export function MemberManager() {
     const { id, name } = deleteTarget;
     setMembers((current) => current.filter((member) => member.id !== id));
     setDeleteTarget(null);
-    toast.success(`已删除成员「${name}」`);
-  }, [deleteTarget]);
+    toast.success(t("已删除成员「{name}」", { name }));
+  }, [deleteTarget, t]);
 
   const handleDeleteDialogChange = useCallback((open: boolean) => {
     if (!open) {
@@ -364,10 +373,10 @@ export function MemberManager() {
           <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-                成员管理
+                {t("成员管理")}
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                添加和管理团队成员，控制他们的访问权限
+                {t("添加和管理团队成员，控制他们的访问权限")}
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -377,17 +386,17 @@ export function MemberManager() {
                   className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/65"
                 />
                 <Input
-                  aria-label="搜索成员"
+                  aria-label={t("搜索成员")}
                   className="pl-9"
                   onChange={handleQueryChange}
-                  placeholder="搜索姓名、邮箱或部门"
+                  placeholder={t("搜索姓名、邮箱或部门")}
                   type="search"
                   value={query}
                 />
               </div>
               <Button className="shrink-0" onClick={handleCreateOpen}>
                 <PlusIcon data-icon="inline-start" />
-                添加成员
+                {t("添加成员")}
               </Button>
             </div>
           </header>
@@ -396,21 +405,21 @@ export function MemberManager() {
             <StatCard
               data-testid="member-count-total"
               icon={UsersRoundIcon}
-              label="成员总数"
+              label={t("成员总数")}
               tone="bg-muted text-foreground"
               value={stats.total}
             />
             <StatCard
               data-testid="member-count-enabled"
               icon={UserRoundIcon}
-              label="已启用"
+              label={t("已启用")}
               tone="bg-link-soft text-link-deep"
               value={stats.enabled}
             />
             <StatCard
               data-testid="member-count-disabled"
               icon={UserXIcon}
-              label="未启用"
+              label={t("未启用")}
               tone="bg-muted text-muted-foreground"
               value={stats.total - stats.enabled}
             />
@@ -419,31 +428,31 @@ export function MemberManager() {
           <div className="mt-5 overflow-hidden rounded-[14px] border border-border bg-card">
             <div className="overflow-x-auto">
               <table
-                aria-label="成员列表"
+                aria-label={t("成员列表")}
                 className="w-full min-w-[720px] text-left text-sm"
               >
                 <thead className="bg-muted/50 text-[13px] text-muted-foreground">
                   <tr>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      成员
+                      {t("成员")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      部门
+                      {t("部门")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      角色
+                      {t("角色")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      状态
+                      {t("状态")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      添加时间
+                      {t("添加时间")}
                     </th>
                     <th
                       className="h-10 px-4 text-right font-medium"
                       scope="col"
                     >
-                      操作
+                      {t("操作")}
                     </th>
                   </tr>
                 </thead>
@@ -465,8 +474,8 @@ export function MemberManager() {
                         colSpan={6}
                       >
                         {members.length > 0
-                          ? "没有匹配的成员"
-                          : "还没有成员，点击「添加成员」创建第一位成员"}
+                          ? t("没有匹配的成员")
+                          : t("还没有成员，点击「添加成员」创建第一位成员")}
                       </td>
                     </tr>
                   )}
@@ -491,19 +500,24 @@ export function MemberManager() {
       >
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>删除成员？</AlertDialogTitle>
+            <AlertDialogTitle>{t("删除成员？")}</AlertDialogTitle>
             <AlertDialogDescription>
-              将永久移除「{deleteTarget?.name}」（{deleteTarget?.email}
-              ）及其访问权限，删除后无法恢复。
+              {t(
+                "将永久移除「{name}」（{email}）及其访问权限，删除后无法恢复。",
+                {
+                  email: deleteTarget?.email ?? "",
+                  name: deleteTarget?.name ?? "",
+                }
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("取消")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               variant="destructive"
             >
-              删除
+              {t("删除")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

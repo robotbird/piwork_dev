@@ -1,5 +1,5 @@
 import { en } from "./locales/en";
-import { zhCN } from "./locales/zh-CN";
+import { zhCN } from "./locales/zh-cn";
 import { interpolate, type TranslationParams } from "./types";
 
 export const locales = {
@@ -27,7 +27,9 @@ export function getTranslation(
   fallback?: string
 ): string {
   const messages = locales[language].messages as Record<string, string>;
-  const message = messages[key] ?? fallback ?? key;
+  // 中文键即源文案：默认语言下直接使用键本身，英文 fallback 仅对非默认语言生效
+  const message =
+    messages[key] ?? (language === DEFAULT_LANGUAGE ? key : (fallback ?? key));
   return interpolate(message, params);
 }
 

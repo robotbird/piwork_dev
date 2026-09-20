@@ -5,6 +5,7 @@ import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { useCallback } from "react";
+import { usePreferences } from "@/components/preferences-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,8 +20,10 @@ export function ManagementUserNav({
   user: { email?: string | null; name?: string | null };
 }) {
   const { setTheme, resolvedTheme } = useTheme();
+  const { t } = usePreferences();
 
-  const displayName = user.email?.split("@")[0] ?? user.name?.trim() ?? "用户";
+  const displayName =
+    user.email?.split("@")[0] ?? user.name?.trim() ?? t("用户");
   const initial = (user.email?.[0] ?? displayName[0] ?? "R").toUpperCase();
 
   const handleThemeSelect = useCallback(() => {
@@ -58,7 +61,7 @@ export function ManagementUserNav({
         <DropdownMenuItem asChild>
           <Link className="cursor-pointer gap-2 text-sm" href="/">
             <ArrowLeftIcon className="size-3.5" />
-            返回应用
+            {t("返回应用")}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -67,7 +70,9 @@ export function ManagementUserNav({
           data-testid="management-user-nav-item-theme"
           onSelect={handleThemeSelect}
         >
-          {`切换${resolvedTheme === "light" ? "深色" : "浅色"}模式`}
+          {t("切换{mode}模式", {
+            mode: resolvedTheme === "light" ? t("深色") : t("浅色"),
+          })}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -75,7 +80,7 @@ export function ManagementUserNav({
           data-testid="management-user-nav-item-auth"
           onSelect={handleSignOut}
         >
-          退出登录
+          {t("退出登录")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

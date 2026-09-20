@@ -13,8 +13,8 @@ import {
   type AppLanguage,
   usePreferences,
 } from "@/components/preferences-provider";
-import { cn } from "@/lib/utils";
 import { localeOptions } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 const appearanceOptions = [
   { label: ["浅色", "Light"], value: "light" },

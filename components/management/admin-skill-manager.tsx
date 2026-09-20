@@ -110,12 +110,12 @@ export function AdminSkillManager({
         (filter === "enabled" ? skill.enabled : !skill.enabled);
       const matchesQuery =
         !normalized ||
-        [skill.displayName, skill.name, skill.description].some((value) =>
+        [t(skill.displayName), skill.name, t(skill.description)].some((value) =>
           value.toLocaleLowerCase().includes(normalized)
         );
       return matchesFilter && matchesQuery;
     });
-  }, [filter, query, skills]);
+  }, [filter, query, skills, t]);
 
   const refreshSkills = useCallback(async () => {
     const response = await fetch(endpoint, { cache: "no-store" });
@@ -554,6 +554,10 @@ function SkillRow({
     () => onDelete(skill.name),
     [onDelete, skill.name]
   );
+  const handleToggle = useCallback(
+    () => onToggle(skill.name),
+    [onToggle, skill.name]
+  );
 
   return (
     <tr className="border-t border-border/70 align-middle transition-colors hover:bg-muted/30">
@@ -577,14 +581,14 @@ function SkillRow({
                 onClick={handleBrowse}
                 type="button"
               >
-                {skill.displayName}
+                {t(skill.displayName)}
               </button>
               <span className="hidden shrink-0 rounded-md bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
                 /{skill.name}
               </span>
             </div>
             <p className="mt-0.5 line-clamp-1 text-[13px] leading-5 text-muted-foreground">
-              {skill.description}
+              {t(skill.description)}
             </p>
           </div>
         </div>
@@ -604,14 +608,14 @@ function SkillRow({
       <td className="px-4 py-3.5">
         <div className="flex items-center gap-2">
           <Switch
-            aria-label={t("启用或停用 {name}", { name: skill.displayName })}
+            aria-label={t("启用或停用 {name}", { name: t(skill.displayName) })}
             checked={skill.enabled}
             disabled={toggling}
-            onCheckedChange={() => onToggle(skill.name)}
+            onCheckedChange={handleToggle}
           />
           <span
             className={cn(
-              "text-[13px] leading-5",
+              "text-[13px] leading-5 whitespace-nowrap",
               skill.enabled ? "text-foreground" : "text-muted-foreground"
             )}
           >

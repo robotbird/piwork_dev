@@ -1,4 +1,5 @@
 import { ArrowRightIcon } from "lucide-react";
+import { usePreferences } from "@/components/preferences-provider";
 import { Badge } from "@/components/ui/badge";
 import type { ManagementSection } from "@/lib/management/sections";
 
@@ -8,6 +9,7 @@ export function SectionPlaceholder({
   section: ManagementSection;
 }) {
   const Icon = section.icon;
+  const { t } = usePreferences();
 
   return (
     <main className="min-w-0 px-5 py-8 sm:px-8 md:px-10 md:py-14 lg:px-12 lg:py-16">
@@ -15,18 +17,20 @@ export function SectionPlaceholder({
         <header>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-              {section.title}
+              {t(section.title)}
             </h1>
-            {section.ready ? null : <Badge variant="secondary">建设中</Badge>}
+            {section.ready ? null : (
+              <Badge variant="secondary">{t("建设中")}</Badge>
+            )}
           </div>
           <p className="mt-2 max-w-2xl text-[14px] leading-6 text-muted-foreground">
-            {section.description}
+            {t(section.description)}
           </p>
         </header>
 
         <section className="mt-10">
           <h2 className="mb-3 text-[15px] font-semibold text-foreground">
-            {section.tagline}
+            {t(section.tagline)}
           </h2>
           <div className="overflow-hidden rounded-[14px] border border-border bg-card">
             {section.features.map((feature) => (
@@ -39,10 +43,10 @@ export function SectionPlaceholder({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[14px] font-medium text-foreground">
-                    {feature}
+                    {t(feature)}
                   </span>
                   <span className="mt-0.5 block text-[12px] leading-5 text-muted-foreground">
-                    功能结构已规划，将在后续版本开放配置
+                    {t("功能结构已规划，将在后续版本开放配置")}
                   </span>
                 </span>
                 <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />

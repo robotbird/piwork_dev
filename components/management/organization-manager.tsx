@@ -22,6 +22,7 @@ import {
   DepartmentDialog,
   type DepartmentFormValues,
 } from "@/components/management/department-dialog";
+import { usePreferences } from "@/components/preferences-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +67,7 @@ function DepartmentRow({
   onSelect,
   onToggle,
 }: DepartmentRowProps) {
+  const { t } = usePreferences();
   const handleClick = useCallback(() => {
     onSelect(department);
     if (hasChildren) {
@@ -104,7 +106,7 @@ function DepartmentRow({
         className="size-4 shrink-0 text-muted-foreground"
       />
       <span className="min-w-0 flex-1 truncate text-[14px] leading-5">
-        {department.name}
+        {t(department.name)}
       </span>
       <span
         className={cn(
@@ -127,6 +129,7 @@ function MemberChip({
   isLeader: boolean;
   member: OrganizationMember;
 }) {
+  const { t } = usePreferences();
   return (
     <div className="flex items-center gap-2.5 rounded-[10px] border border-border bg-card py-2 pr-3.5 pl-2.5">
       <span className="grid size-9 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
@@ -139,12 +142,12 @@ function MemberChip({
           </span>
           {isLeader ? (
             <span className="shrink-0 rounded-full bg-link-soft px-1.5 py-0.5 text-[10px] leading-4 font-medium text-link-deep">
-              负责人
+              {t("负责人")}
             </span>
           ) : null}
         </span>
         <span className="block truncate text-xs leading-4 text-muted-foreground">
-          {member.title}
+          {t(member.title)}
         </span>
       </span>
     </div>
@@ -152,6 +155,7 @@ function MemberChip({
 }
 
 export function OrganizationManager() {
+  const { t } = usePreferences();
   const [departments, setDepartments] =
     useState<Department[]>(SEED_DEPARTMENTS);
   const [selectedId, setSelectedId] = useState<string | null>("digital");
@@ -236,20 +240,23 @@ export function OrganizationManager() {
     });
   }, []);
 
-  const handleCreateSubmit = useCallback((values: DepartmentFormValues) => {
-    const { leader, name, parentId } = values;
-    const id = crypto.randomUUID();
-    setDepartments((current) => [
-      ...current,
-      { id, leader, members: [], name, parentId },
-    ]);
-    if (parentId) {
-      setExpandedIds((current) => new Set(current).add(parentId));
-    }
-    setSelectedId(id);
-    setCreateOpen(false);
-    toast.success(`已创建部门「${name}」`);
-  }, []);
+  const handleCreateSubmit = useCallback(
+    (values: DepartmentFormValues) => {
+      const { leader, name, parentId } = values;
+      const id = crypto.randomUUID();
+      setDepartments((current) => [
+        ...current,
+        { id, leader, members: [], name, parentId },
+      ]);
+      if (parentId) {
+        setExpandedIds((current) => new Set(current).add(parentId));
+      }
+      setSelectedId(id);
+      setCreateOpen(false);
+      toast.success(t("已创建部门「{name}」", { name }));
+    },
+    [t]
+  );
 
   const handleUpdateSubmit = useCallback(
     (values: DepartmentFormValues) => {
@@ -269,9 +276,9 @@ export function OrganizationManager() {
         setExpandedIds((current) => new Set(current).add(parentId));
       }
       setEditingDepartment(null);
-      toast.success(`已更新部门「${name}」`);
+      toast.success(t("已更新部门「{name}」", { name }));
     },
-    [editingDepartment]
+    [editingDepartment, t]
   );
 
   const handleDeleteRequest = useCallback((department: Department) => {
@@ -302,8 +309,8 @@ export function OrganizationManager() {
       return departments.find((department) => department.id !== id)?.id ?? null;
     });
     setDeleteTarget(null);
-    toast.success(`已删除部门「${name}」`);
-  }, [departmentById, deleteTarget, departments]);
+    toast.success(t("已删除部门「{name}」", { name }));
+  }, [departmentById, deleteTarget, departments, t]);
 
   const handleDialogClose = useCallback(() => {
     setCreateOpen(false);
@@ -407,10 +414,10 @@ export function OrganizationManager() {
           <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-                组织架构
+                {t("组织架构")}
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                维护部门层级、负责人与成员信息，为权限分配提供组织依据
+                {t("维护部门层级、负责人与成员信息，为权限分配提供组织依据")}
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -420,17 +427,17 @@ export function OrganizationManager() {
                   className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/65"
                 />
                 <Input
-                  aria-label="搜索部门"
+                  aria-label={t("搜索部门")}
                   className="pl-9"
                   onChange={handleQueryChange}
-                  placeholder="搜索部门"
+                  placeholder={t("搜索部门")}
                   type="search"
                   value={query}
                 />
               </div>
               <Button className="shrink-0" onClick={handleCreateOpen}>
                 <PlusIcon data-icon="inline-start" />
-                新建部门
+                {t("新建部门")}
               </Button>
             </div>
           </header>
@@ -439,16 +446,16 @@ export function OrganizationManager() {
             <section className="overflow-hidden rounded-[14px] border border-border bg-card">
               <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
                 <h2 className="text-[15px] leading-6 font-semibold">
-                  企业组织树
+                  {t("企业组织树")}
                 </h2>
                 <span className="text-xs text-muted-foreground">
-                  {departments.length} 个部门
+                  {t("{count} 个部门", { count: departments.length })}
                 </span>
               </div>
               <div className="max-h-[560px] overflow-y-auto p-2">
                 {treeRows.length > 0 ? (
                   <div
-                    aria-label="企业组织树"
+                    aria-label={t("企业组织树")}
                     className="flex flex-col gap-0.5"
                     role="tree"
                   >
@@ -456,7 +463,7 @@ export function OrganizationManager() {
                   </div>
                 ) : (
                   <div className="px-3 py-10 text-center text-sm text-muted-foreground">
-                    没有匹配的部门
+                    {t("没有匹配的部门")}
                   </div>
                 )}
               </div>
@@ -466,33 +473,44 @@ export function OrganizationManager() {
               <section className="rounded-[14px] border border-border bg-card">
                 <div className="p-5 sm:p-6">
                   <h2 className="text-xl leading-7 font-semibold tracking-[-0.02em]">
-                    {selectedDepartment.name}
+                    {t(selectedDepartment.name)}
                   </h2>
                   <dl className="mt-5 grid grid-cols-2 overflow-hidden rounded-[10px] border border-border/70 bg-muted/40 sm:grid-cols-4 sm:divide-x sm:divide-border/70">
                     <SummaryCell
-                      label="部门名称"
-                      value={selectedDepartment.name}
+                      label={t("部门名称")}
+                      value={t(selectedDepartment.name)}
                     />
-                    <SummaryCell label="上级部门" value={parentName ?? "—"} />
                     <SummaryCell
-                      label="负责人"
+                      label={t("上级部门")}
+                      value={parentName ? t(parentName) : "—"}
+                    />
+                    <SummaryCell
+                      label={t("负责人")}
                       muted={selectedDepartment.leader === null}
-                      value={selectedDepartment.leader ?? "未设置"}
+                      value={
+                        selectedDepartment.leader
+                          ? t(selectedDepartment.leader)
+                          : t("未设置")
+                      }
                     />
                     <SummaryCell
-                      label="成员数量"
-                      labelTitle="含下级部门的成员总数"
-                      value={`${memberTotals.get(selectedDepartment.id) ?? 0} 人`}
+                      label={t("成员数量")}
+                      labelTitle={t("含下级部门的成员总数")}
+                      value={t("{count} 人", {
+                        count: memberTotals.get(selectedDepartment.id) ?? 0,
+                      })}
                     />
                   </dl>
 
                   <section className="mt-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-[15px] leading-6 font-semibold">
-                        部门成员
+                        {t("部门成员")}
                       </h3>
                       <span className="text-xs text-muted-foreground">
-                        直属 {selectedDepartment.members.length} 名成员
+                        {t("直属 {count} 名成员", {
+                          count: selectedDepartment.members.length,
+                        })}
                       </span>
                     </div>
                     {selectedDepartment.members.length > 0 ? (
@@ -512,8 +530,10 @@ export function OrganizationManager() {
                           <button
                             aria-label={
                               showAllMembers
-                                ? "收起成员列表"
-                                : `展开全部 ${selectedDepartment.members.length} 名成员`
+                                ? t("收起成员列表")
+                                : t("展开全部 {count} 名成员", {
+                                    count: selectedDepartment.members.length,
+                                  })
                             }
                             className="grid size-[52px] shrink-0 place-items-center rounded-[10px] border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none"
                             onClick={handleToggleMembers}
@@ -535,7 +555,7 @@ export function OrganizationManager() {
                       </div>
                     ) : (
                       <p className="mt-3 text-sm text-muted-foreground">
-                        该部门暂无直属成员
+                        {t("该部门暂无直属成员")}
                       </p>
                     )}
                   </section>
@@ -543,13 +563,13 @@ export function OrganizationManager() {
                 <footer className="flex items-center justify-end border-t border-border px-5 py-4 sm:px-6">
                   <Button onClick={handleEditOpen} variant="outline">
                     <PencilIcon data-icon="inline-start" />
-                    编辑部门
+                    {t("编辑部门")}
                   </Button>
                 </footer>
               </section>
             ) : (
               <section className="flex min-h-40 items-center justify-center rounded-[14px] border border-dashed border-border bg-card text-sm text-muted-foreground">
-                请在左侧选择一个部门查看详情
+                {t("请在左侧选择一个部门查看详情")}
               </section>
             )}
           </div>
