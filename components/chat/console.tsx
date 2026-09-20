@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   type Dispatch,
   type SetStateAction,
@@ -29,6 +30,7 @@ type ConsoleProps = {
 };
 
 export function Console({ consoleOutputs, setConsoleOutputs }: ConsoleProps) {
+  const t = useTranslations("common");
   const [height, setHeight] = useState<number>(300);
   const [isResizing, setIsResizing] = useState(false);
 
@@ -95,7 +97,7 @@ export function Console({ consoleOutputs, setConsoleOutputs }: ConsoleProps) {
   return consoleOutputs.length > 0 ? (
     <>
       <div
-        aria-label="Resize console"
+        aria-label={t("resizeConsole")}
         aria-orientation="horizontal"
         aria-valuemax={maxHeight}
         aria-valuemin={minHeight}
@@ -119,7 +121,7 @@ export function Console({ consoleOutputs, setConsoleOutputs }: ConsoleProps) {
         <div className="sticky top-0 z-50 flex h-10 w-full items-center justify-between border-b border-border/50 bg-background px-3">
           <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
             <TerminalWindowIcon />
-            <span>Console</span>
+            <span>{t("console")}</span>
           </div>
           <Button
             className="size-7 text-muted-foreground/50 hover:text-foreground"
@@ -172,7 +174,7 @@ export function Console({ consoleOutputs, setConsoleOutputs }: ConsoleProps) {
                         key={`${consoleOutput.id}-img-${content.value.slice(0, 32)}`}
                       >
                         <img
-                          alt="output"
+                          alt={t("output")}
                           className="max-w-full rounded-md"
                           src={content.value}
                         />

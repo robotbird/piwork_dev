@@ -3,6 +3,7 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   boolean,
   foreignKey,
+  integer,
   json,
   pgTable,
   primaryKey,
@@ -67,6 +68,43 @@ export const member = pgTable("Member", {
 });
 
 export type MemberRecord = InferSelectModel<typeof member>;
+
+export const role = pgTable("Role", {
+  /** 稳定标识；仅系统角色有值（super_admin / admin / member / auditor），自定义角色为空 */
+  code: varchar("code", { length: 64 }).unique(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  description: varchar("description", { length: 1024 }),
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  /** 成员人数上限；null 表示不限（超级管理员固定为 1，由接口与种子数据共同保证） */
+  memberLimit: integer("memberLimit"),
+  name: varchar("name", { length: 128 }).notNull().unique(),
+  type: varchar("type", { enum: ["system", "custom"] })
+    .notNull()
+    .default("custom"),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export type RoleRecord = InferSelectModel<typeof role>;
+
+export const memberRole = pgTable(
+  "MemberRole",
+  {
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    /** 成员被删除时随之移除 */
+    memberId: uuid("memberId")
+      .notNull()
+      .references((): AnyPgColumn => member.id, { onDelete: "cascade" }),
+    /** 角色被删除时随之移除 */
+    roleId: uuid("roleId")
+      .notNull()
+      .references((): AnyPgColumn => role.id, { onDelete: "cascade" }),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.memberId, table.roleId] }),
+  })
+);
+
+export type MemberRoleRecord = InferSelectModel<typeof memberRole>;
 
 export const skill = pgTable("Skill", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),

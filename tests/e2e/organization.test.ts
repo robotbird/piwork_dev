@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { cleanupTestData } from "./helpers/test-cleanup";
 
 const ORGANIZATION_URL = "/management/organization";
 
@@ -63,6 +64,14 @@ async function createMemberViaApi(
 
 test.describe
   .serial("Organization Management", () => {
+    // 用例结束后清理本套件注册的账号、创建的成员与部门，保持开发库干净
+    test.afterAll(async () => {
+      await cleanupTestData({
+        departmentPatterns: ["人事部-%"],
+        emailPatterns: ["org-e2e-%@test.local", "org-member-%@company.com"],
+      });
+    });
+
     test("creates a root department and a child department", async ({
       page,
     }) => {

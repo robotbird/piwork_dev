@@ -95,9 +95,9 @@ const codeArtifactContent: Artifact<"code", Metadata>["content"] =
 export const codeArtifact = new Artifact<"code", Metadata>({
   actions: [
     {
-      description: "Execute code",
+      description: "executeCode",
       icon: <PlayIcon size={18} />,
-      label: "Run",
+      label: "run",
       onClick: async ({ content, setMetadata }) => {
         const runId = generateUUID();
         const outputContent: ConsoleOutputContent[] = [];
@@ -204,7 +204,7 @@ export const codeArtifact = new Artifact<"code", Metadata>({
       },
     },
     {
-      description: "View Previous version",
+      description: "viewPreviousVersion",
       icon: <UndoIcon size={18} />,
       isDisabled: ({ currentVersionIndex }) => {
         if (currentVersionIndex === 0) {
@@ -218,7 +218,7 @@ export const codeArtifact = new Artifact<"code", Metadata>({
       },
     },
     {
-      description: "View Next version",
+      description: "viewNextVersion",
       icon: <RedoIcon size={18} />,
       isDisabled: ({ isCurrentVersion }) => {
         if (isCurrentVersion) {
@@ -232,17 +232,16 @@ export const codeArtifact = new Artifact<"code", Metadata>({
       },
     },
     {
-      description: "Copy code to clipboard",
+      description: "copyCodeToClipboard",
       icon: <CopyIcon size={18} />,
-      onClick: ({ content }) => {
+      onClick: ({ content, translate }) => {
         navigator.clipboard.writeText(content);
-        toast.success("Copied to clipboard!");
+        toast.success(translate("copied"));
       },
     },
   ],
   content: codeArtifactContent,
-  description:
-    "Useful for code generation; Code execution is only available for python code.",
+  description: "codeDescription",
   initialize: ({ setMetadata }) => {
     setMetadata({
       outputs: [],
@@ -266,7 +265,7 @@ export const codeArtifact = new Artifact<"code", Metadata>({
   },
   toolbar: [
     {
-      description: "Add comments",
+      description: "addComments",
       icon: <MessageIcon />,
       onClick: ({ sendMessage }) => {
         sendMessage({
@@ -281,7 +280,7 @@ export const codeArtifact = new Artifact<"code", Metadata>({
       },
     },
     {
-      description: "Add logs",
+      description: "addLogs",
       icon: <LogsIcon />,
       onClick: ({ sendMessage }) => {
         sendMessage({

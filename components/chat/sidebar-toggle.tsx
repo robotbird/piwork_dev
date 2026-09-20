@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import type { ComponentProps } from "react";
 
 import { type SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -12,6 +15,7 @@ import { SidebarLeftIcon } from "./icons";
 export function SidebarToggle({
   className,
 }: ComponentProps<typeof SidebarTrigger>) {
+  const t = useTranslations("common");
   const { toggleSidebar } = useSidebar();
 
   return (
@@ -28,7 +32,7 @@ export function SidebarToggle({
         </Button>
       </TooltipTrigger>
       <TooltipContent align="start" className="hidden md:block">
-        Toggle Sidebar
+        {t("toggleSidebar")}
       </TooltipContent>
     </Tooltip>
   );

@@ -4,6 +4,7 @@ import cx from "classnames";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { WrenchIcon, XIcon } from "lucide-react";
 import { nanoid } from "nanoid";
+import { useTranslations } from "next-intl";
 import {
   type Dispatch,
   isValidElement,
@@ -44,13 +45,13 @@ type ToolProps = {
 };
 
 const READING_LEVELS = [
-  "Elementary",
-  "Middle School",
-  "Keep current level",
-  "High School",
-  "College",
-  "Graduate",
-];
+  "elementary",
+  "middleSchool",
+  "keepCurrentLevel",
+  "highSchool",
+  "college",
+  "graduate",
+] as const;
 
 const Tool = ({
   description,
@@ -63,6 +64,7 @@ const Tool = ({
   sendMessage,
   onClick,
 }: ToolProps) => {
+  const t = useTranslations("artifactActions");
   const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
@@ -151,7 +153,7 @@ const Tool = ({
         side="left"
         sideOffset={16}
       >
-        {description}
+        {t(description as "fixError")}
       </TooltipContent>
     </Tooltip>
   );
@@ -168,6 +170,7 @@ const ReadingLevelSelector = ({
   isAnimating: boolean;
   sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
 }) => {
+  const t = useTranslations("artifactActions");
   const y = useMotionValue(-40 * 2);
   const dragConstraints = 5 * 40 + 2;
   const yToLevel = useTransform(y, [0, -dragConstraints], [0, 5]);
@@ -259,7 +262,7 @@ const ReadingLevelSelector = ({
             side="left"
             sideOffset={16}
           >
-            {READING_LEVELS[currentLevel]}
+            {t(READING_LEVELS[currentLevel])}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -305,7 +308,7 @@ const createFixErrorTool = (
   consoleOutput: string,
   documentId?: string
 ): ArtifactToolbarItem => ({
-  description: "Fix error",
+  description: "fixError",
   icon: <WrenchIcon className="size-4" />,
   onClick: ({ sendMessage: send }) => {
     send({

@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import {
   countChildDepartments,
   createDepartmentRecord,
@@ -62,6 +63,7 @@ function serializeDepartment(record: {
 }
 
 export async function GET() {
+  const t = await getTranslations("managementApi");
   const session = await requireManagementSession();
   if (!session) {
     return unauthorized();
@@ -73,11 +75,12 @@ export async function GET() {
       headers: { "Cache-Control": "no-store" },
     });
   } catch {
-    return apiError("加载组织架构数据失败，请稍后重试", 500);
+    return apiError(t("loadOrganizationFailed"), 500);
   }
 }
 
 export async function POST(request: Request) {
+  const t = await getTranslations("managementApi");
   const session = await requireManagementSession();
   if (!session) {
     return unauthorized();
@@ -88,10 +91,10 @@ export async function POST(request: Request) {
     const input = parseDepartmentInput(body);
 
     if (!input.name) {
-      return apiError("请输入部门名称");
+      return apiError(t("departmentNameRequired"));
     }
     if (input.name.length > MAX_DEPARTMENT_NAME_LENGTH) {
-      return apiError("部门名称过长");
+      return apiError(t("departmentNameTooLong"));
     }
 
     const { departments, memberIds } = await loadDepartmentIndex();
@@ -100,26 +103,27 @@ export async function POST(request: Request) {
       input.parentId &&
       !departments.some((item) => item.id === input.parentId)
     ) {
-      return apiError("指定的上级部门不存在");
+      return apiError(t("parentNotFound"));
     }
     if (input.leaderId && !memberIds.has(input.leaderId)) {
-      return apiError("部门负责人必须是已有成员");
+      return apiError(t("leaderNotFound"));
     }
     const duplicated = departments.some(
       (item) => item.parentId === input.parentId && item.name === input.name
     );
     if (duplicated) {
-      return apiError("同一上级部门下已存在同名部门", 409);
+      return apiError(t("duplicateDepartment"), 409);
     }
 
     const created = await createDepartmentRecord(input);
     return Response.json(serializeDepartment(created), { status: 201 });
   } catch {
-    return apiError("创建部门失败，请稍后重试", 500);
+    return apiError(t("createDepartmentFailed"), 500);
   }
 }
 
 export async function PATCH(request: Request) {
+  const t = await getTranslations("managementApi");
   const session = await requireManagementSession();
   if (!session) {
     return unauthorized();
@@ -128,20 +132,20 @@ export async function PATCH(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     if (typeof body.id !== "string") {
-      return apiError("缺少部门 id");
+      return apiError(t("departmentIdRequired"));
     }
     const input = parseDepartmentInput(body);
 
     if (!input.name) {
-      return apiError("请输入部门名称");
+      return apiError(t("departmentNameRequired"));
     }
     if (input.name.length > MAX_DEPARTMENT_NAME_LENGTH) {
-      return apiError("部门名称过长");
+      return apiError(t("departmentNameTooLong"));
     }
 
     const existing = await getDepartmentById(body.id);
     if (!existing) {
-      return apiError("部门不存在", 404);
+      return apiError(t("departmentRecordNotFound"), 404);
     }
 
     const { departments, memberIds } = await loadDepartmentIndex();
@@ -150,14 +154,14 @@ export async function PATCH(request: Request) {
       input.parentId &&
       !departments.some((item) => item.id === input.parentId)
     ) {
-      return apiError("指定的上级部门不存在");
+      return apiError(t("parentNotFound"));
     }
     if (input.leaderId && !memberIds.has(input.leaderId)) {
-      return apiError("部门负责人必须是已有成员");
+      return apiError(t("leaderNotFound"));
     }
     // 顶级组织不支持调整上级，保证始终存在顶层的根部门
     if (existing.parentId === null && input.parentId !== null) {
-      return apiError("顶级组织不支持调整上级部门");
+      return apiError(t("rootParentLocked"));
     }
     if (
       input.parentId &&
@@ -166,7 +170,7 @@ export async function PATCH(request: Request) {
           input.parentId
         ))
     ) {
-      return apiError("上级部门不能是自身或其下级部门");
+      return apiError(t("invalidParent"));
     }
     const duplicated = departments.some(
       (item) =>
@@ -175,20 +179,21 @@ export async function PATCH(request: Request) {
         item.name === input.name
     );
     if (duplicated) {
-      return apiError("同一上级部门下已存在同名部门", 409);
+      return apiError(t("duplicateDepartment"), 409);
     }
 
     const updated = await updateDepartmentRecord(existing.id, input);
     if (!updated) {
-      return apiError("部门不存在", 404);
+      return apiError(t("departmentRecordNotFound"), 404);
     }
     return Response.json(serializeDepartment(updated));
   } catch {
-    return apiError("更新部门失败，请稍后重试", 500);
+    return apiError(t("updateDepartmentFailed"), 500);
   }
 }
 
 export async function DELETE(request: Request) {
+  const t = await getTranslations("managementApi");
   const session = await requireManagementSession();
   if (!session) {
     return unauthorized();
@@ -197,22 +202,22 @@ export async function DELETE(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     if (typeof body.id !== "string") {
-      return apiError("缺少部门 id");
+      return apiError(t("departmentIdRequired"));
     }
 
     const existing = await getDepartmentById(body.id);
     if (!existing) {
-      return apiError("部门不存在", 404);
+      return apiError(t("departmentRecordNotFound"), 404);
     }
 
     const childCount = await countChildDepartments(existing.id);
     if (childCount > 0) {
-      return apiError("该部门下还有下级部门，需先删除或转移下级部门", 409);
+      return apiError(t("departmentHasChildren"), 409);
     }
 
     await deleteDepartmentRecord(existing.id);
     return Response.json({ deleted: true });
   } catch {
-    return apiError("删除部门失败，请稍后重试", 500);
+    return apiError(t("deleteDepartmentFailed"), 500);
   }
 }

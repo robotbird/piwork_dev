@@ -1,5 +1,6 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
+import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { isChatFileUrl } from "@/lib/ai/attachment-types";
 import type { Vote } from "@/lib/db/schema";
@@ -14,6 +15,7 @@ import {
   ToolInput,
   ToolOutput,
 } from "../ai-elements/tool";
+import { usePreferences } from "../preferences-provider";
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
@@ -23,8 +25,10 @@ import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
 
 function WaitingText() {
+  const { translate } = usePreferences();
   const { waitingStatus } = useDataStream();
-  const waitingText = waitingStatus?.message ?? "Waiting...";
+  const waitingText =
+    waitingStatus?.message ?? translate("等待中…", "Waiting...");
 
   return (
     <div className="flex min-h-6 min-w-0 items-center text-[15px] leading-6">
@@ -66,6 +70,7 @@ function ToolApprovalActions({
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
   approvalId: string;
 }) {
+  const { translate } = usePreferences();
   const handleDeny = useCallback(() => {
     addToolApprovalResponse({
       approved: false,
@@ -88,14 +93,14 @@ function ToolApprovalActions({
         onClick={handleDeny}
         type="button"
       >
-        Deny
+        {translate("拒绝", "Deny")}
       </button>
       <button
         className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground text-sm transition-colors hover:bg-primary/90"
         onClick={handleAllow}
         type="button"
       >
-        Allow
+        {translate("允许", "Allow")}
       </button>
     </div>
   );
@@ -124,6 +129,7 @@ const PurePreviewMessage = ({
   requiresScrollPadding: boolean;
   onEdit?: (message: ChatMessage) => void;
 }) => {
+  const t = useTranslations("chat");
   const attachmentsFromMessage = message.parts.filter(
     (part) => part.type === "file"
   );
@@ -235,7 +241,7 @@ const PurePreviewMessage = ({
               <ToolHeader state="output-denied" type="tool-getWeather" />
               <ToolContent>
                 <div className="px-4 py-3 text-muted-foreground text-sm">
-                  Weather lookup was denied.
+                  {t("weatherLookupDenied")}
                 </div>
               </ToolContent>
             </Tool>
@@ -286,7 +292,7 @@ const PurePreviewMessage = ({
             className="rounded-lg border border-destructive/25 bg-destructive/5 p-4 text-destructive"
             key={toolCallId}
           >
-            Error creating document: {String(part.output.error)}
+            {t("documentCreateError", { error: String(part.output.error) })}
           </div>
         );
       }
@@ -309,7 +315,7 @@ const PurePreviewMessage = ({
             className="rounded-lg border border-destructive/25 bg-destructive/5 p-4 text-destructive"
             key={toolCallId}
           >
-            Error updating document: {String(part.output.error)}
+            {t("documentUpdateError", { error: String(part.output.error) })}
           </div>
         );
       }
@@ -343,7 +349,7 @@ const PurePreviewMessage = ({
                 output={
                   "error" in part.output ? (
                     <div className="rounded-sm border border-destructive/25 p-2 text-destructive">
-                      Error: {String(part.output.error)}
+                      {t("errorLabel", { error: String(part.output.error) })}
                     </div>
                   ) : (
                     <DocumentToolResult

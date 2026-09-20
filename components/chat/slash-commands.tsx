@@ -10,6 +10,7 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
 import {
   Command,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/command";
 import { formatSkillDisplayName } from "@/lib/ai/skill-display";
 import { cn } from "@/lib/utils";
+import { usePreferences } from "../preferences-provider";
 
 export type SlashCommand = {
   name: string;
@@ -41,43 +43,43 @@ export type SkillSummary = {
 export const slashCommands: SlashCommand[] = [
   {
     action: "new",
-    description: "Start a new chat",
+    description: "new",
     icon: <PenSquareIcon className="size-3.5" />,
     name: "new",
   },
   {
     action: "clear",
-    description: "Clear current chat",
+    description: "clear",
     icon: <Trash2Icon className="size-3.5" />,
     name: "clear",
   },
   {
     action: "rename",
-    description: "Rename current chat",
+    description: "rename",
     icon: <PenLineIcon className="size-3.5" />,
     name: "rename",
   },
   {
     action: "model",
-    description: "Change the AI model",
+    description: "model",
     icon: <ListIcon className="size-3.5" />,
     name: "model",
   },
   {
     action: "theme",
-    description: "Toggle dark/light mode",
+    description: "theme",
     icon: <PaletteIcon className="size-3.5" />,
     name: "theme",
   },
   {
     action: "delete",
-    description: "Delete current chat",
+    description: "delete",
     icon: <XIcon className="size-3.5" />,
     name: "delete",
   },
   {
     action: "purge",
-    description: "Delete all chats",
+    description: "purge",
     icon: <BombIcon className="size-3.5" />,
     name: "purge",
   },
@@ -129,6 +131,7 @@ function SlashCommandMenuItem({
   onSelect: (command: SlashCommand) => void;
   selectedIndex: number;
 }) {
+  const t = useTranslations("chatCommands");
   const handleClick = useCallback(() => {
     onSelect(cmd);
   }, [cmd, onSelect]);
@@ -156,7 +159,18 @@ function SlashCommandMenuItem({
         /{cmd.name}
       </span>
       <span className="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground/60">
-        {cmd.description}
+        {cmd.group === "skills"
+          ? cmd.description
+          : t(
+              cmd.name as
+                | "new"
+                | "clear"
+                | "rename"
+                | "model"
+                | "theme"
+                | "delete"
+                | "purge"
+            )}
       </span>
       {cmd.shortcut ? (
         <span className="shrink-0 text-[11px] text-muted-foreground/30">
@@ -173,6 +187,7 @@ export function SlashCommandMenu({
   onSelect,
   selectedIndex,
 }: SlashCommandMenuProps) {
+  const { translate } = usePreferences();
   const menuRef = useRef<HTMLDivElement>(null);
   const filtered = commands.filter((cmd) =>
     cmd.name.startsWith(query.toLowerCase())
@@ -203,7 +218,12 @@ export function SlashCommandMenu({
         <CommandList className="max-h-[min(420px,55vh)] scroll-py-2 p-1">
           {skillItems.length > 0 ? (
             <CommandGroup
-              heading={<GroupHeading count={skillItems.length} label="技能" />}
+              heading={
+                <GroupHeading
+                  count={skillItems.length}
+                  label={translate("技能", "Skills")}
+                />
+              }
             >
               {skillItems.map((cmd) => (
                 <SlashCommandMenuItem
@@ -222,7 +242,10 @@ export function SlashCommandMenu({
           {commandItems.length > 0 ? (
             <CommandGroup
               heading={
-                <GroupHeading count={commandItems.length} label="指令" />
+                <GroupHeading
+                  count={commandItems.length}
+                  label={translate("指令", "Commands")}
+                />
               }
             >
               {commandItems.map((cmd) => (

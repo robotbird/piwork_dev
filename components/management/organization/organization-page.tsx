@@ -714,23 +714,31 @@ export function OrganizationPage({
       >
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>删除部门？</AlertDialogTitle>
+            <AlertDialogTitle>{t("删除部门？")}</AlertDialogTitle>
             <AlertDialogDescription>
-              将永久删除「{deleteTarget?.name}」
               {deleteTarget && directMemberCount(deleteTarget.id) > 0
-                ? `，其 ${directMemberCount(deleteTarget.id)} 名直属成员将变为未分配部门`
-                : ""}
-              ，删除后无法恢复。
+                ? t(
+                    "将永久删除「{name}」，其 {count} 名直属成员将变为未分配部门，删除后无法恢复。",
+                    {
+                      count: directMemberCount(deleteTarget.id),
+                      name: deleteTarget.name,
+                    }
+                  )
+                : t("将永久删除「{name}」，删除后无法恢复。", {
+                    name: deleteTarget?.name ?? "",
+                  })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>
+              {t("取消")}
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={handleDeleteActionClick}
               variant="destructive"
             >
-              {deleting ? "删除中…" : "删除"}
+              {deleting ? t("删除中…") : t("删除")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

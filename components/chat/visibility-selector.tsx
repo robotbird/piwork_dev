@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   type Dispatch,
   type ReactNode,
@@ -28,21 +29,15 @@ export type VisibilityType = "private" | "public";
 
 const visibilities: Array<{
   id: VisibilityType;
-  label: string;
-  description: string;
   icon: ReactNode;
 }> = [
   {
-    description: "Only you can access this chat",
     icon: <LockIcon />,
     id: "private",
-    label: "Private",
   },
   {
-    description: "Anyone with the link can access this chat",
     icon: <GlobeIcon />,
     id: "public",
-    label: "Public",
   },
 ];
 
@@ -57,6 +52,7 @@ function VisibilitySelectorItem({
   visibility: (typeof visibilities)[number];
   visibilityType: VisibilityType;
 }) {
+  const t = useTranslations("visibility");
   const handleSelect = useCallback(() => {
     setVisibilityType(visibility.id);
     setOpen(false);
@@ -70,12 +66,10 @@ function VisibilitySelectorItem({
       onSelect={handleSelect}
     >
       <div className="flex flex-col items-start gap-1">
-        {visibility.label}
-        {visibility.description ? (
-          <div className="text-muted-foreground text-xs">
-            {visibility.description}
-          </div>
-        ) : null}
+        {t(`${visibility.id}.label`)}
+        <div className="text-muted-foreground text-xs">
+          {t(`${visibility.id}.description`)}
+        </div>
       </div>
       <div className="text-foreground opacity-0 group-data-[active=true]/item:opacity-100 dark:text-foreground">
         <CheckCircleFillIcon />
@@ -92,6 +86,7 @@ export function VisibilitySelector({
   chatId: string;
   selectedVisibilityType: VisibilityType;
 } & React.ComponentProps<typeof Button>) {
+  const t = useTranslations("visibility");
   const [open, setOpen] = useState(false);
 
   const { visibilityType, setVisibilityType } = useChatVisibility({
@@ -120,7 +115,9 @@ export function VisibilitySelector({
           variant="outline"
         >
           {selectedVisibility?.icon}
-          <span className="md:sr-only">{selectedVisibility?.label}</span>
+          <span className="md:sr-only">
+            {selectedVisibility ? t(`${selectedVisibility.id}.label`) : null}
+          </span>
           <ChevronDownIcon />
         </Button>
       </DropdownMenuTrigger>

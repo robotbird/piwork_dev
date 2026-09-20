@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowRightIcon } from "lucide-react";
 import { usePreferences } from "@/components/preferences-provider";
 import { Badge } from "@/components/ui/badge";

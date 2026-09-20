@@ -1,3 +1,5 @@
+"use client";
+
 import { SectionPlaceholder } from "@/components/management/section-placeholder";
 import { getManagementSection } from "@/lib/management/sections";
 

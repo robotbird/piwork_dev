@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import {
   createMemberWithAccount,
   deleteMemberAccount,
@@ -8,6 +9,11 @@ import {
   updateMemberRecord,
 } from "@/lib/db/organization-queries";
 import { getUser } from "@/lib/db/queries";
+import {
+  attachMemberToDefaultRoles,
+  isMemberSuperAdmin,
+  syncMembershipsForLegacyRole,
+} from "@/lib/db/role-queries";
 import { ChatbotError } from "@/lib/errors";
 import { requireManagementSession } from "@/lib/management/access";
 import type { ManagementMember } from "@/lib/management/members";
@@ -63,6 +69,7 @@ function parseStatus(value: unknown): "enabled" | "disabled" | null {
 }
 
 export async function GET() {
+  const t = await getTranslations("managementApi");
   const session = await requireManagementSession();
   if (!session) {
     return unauthorized();
@@ -74,11 +81,12 @@ export async function GET() {
       headers: { "Cache-Control": "no-store" },
     });
   } catch {
-    return apiError("加载成员数据失败，请稍后重试", 500);
+    return apiError(t("loadMembersFailed"), 500);
   }
 }
 
 export async function POST(request: Request) {
+  const t = await getTranslations("managementApi");
   const session = await requireManagementSession();
   if (!session) {
     return unauthorized();
@@ -100,26 +108,26 @@ export async function POST(request: Request) {
     const role = parseRole(body.role);
 
     if (!name) {
-      return apiError("请输入成员姓名");
+      return apiError(t("memberNameRequired"));
     }
     if (!email || !isValidEmail(email)) {
-      return apiError("邮箱格式不正确");
+      return apiError(t("invalidEmail"));
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
-      return apiError(`初始密码至少 ${MIN_PASSWORD_LENGTH} 位`);
+      return apiError(t("passwordTooShort", { count: MIN_PASSWORD_LENGTH }));
     }
     if (!role) {
-      return apiError("角色不合法");
+      return apiError(t("invalidRole"));
     }
 
     const existingUsers = await getUser(email);
     if (existingUsers.length > 0) {
-      return apiError("该邮箱已被其他成员使用", 409);
+      return apiError(t("emailInUse"), 409);
     }
     if (departmentId) {
       const departments = await listDepartments();
       if (!departments.some((item) => item.id === departmentId)) {
-        return apiError("指定的部门不存在");
+        return apiError(t("departmentNotFound"));
       }
     }
 
@@ -131,6 +139,8 @@ export async function POST(request: Request) {
       role,
       title,
     });
+    // 同步初始角色关系：普通成员进「普通成员」，管理员再进「管理员」
+    await attachMemberToDefaultRoles(created.id, role);
     const departments = await listDepartments();
     const departmentNames = new Map(
       departments.map((item) => [item.id, item.name])
@@ -139,11 +149,12 @@ export async function POST(request: Request) {
       status: 201,
     });
   } catch {
-    return apiError("添加成员失败，请稍后重试", 500);
+    return apiError(t("addMemberFailed"), 500);
   }
 }
 
 export async function PATCH(request: Request) {
+  const t = await getTranslations("managementApi");
   const session = await requireManagementSession();
   if (!session) {
     return unauthorized();
@@ -152,7 +163,7 @@ export async function PATCH(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     if (typeof body.id !== "string") {
-      return apiError("缺少成员 id");
+      return apiError(t("memberIdRequired"));
     }
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const title =
@@ -167,21 +178,25 @@ export async function PATCH(request: Request) {
     const status = parseStatus(body.status);
 
     if (!name) {
-      return apiError("请输入成员姓名");
+      return apiError(t("memberNameRequired"));
     }
     if (!role || !status) {
-      return apiError("角色或状态不合法");
+      return apiError(t("invalidRoleOrStatus"));
     }
 
     const members = await listMembers();
     const target = members.find((item) => item.id === body.id);
     if (!target) {
-      return apiError("成员不存在", 404);
+      return apiError(t("memberNotFound"), 404);
     }
 
     // 不能停用当前登录的账号，避免把自己锁在管理控制台之外
     if (target.userId === session.userId && status === "disabled") {
-      return apiError("不能停用当前登录的账号", 403);
+      return apiError(t("cannotDisableSelf"), 403);
+    }
+    // 超级管理员的担任关系由「角色与权限」页管理，先转移超级管理员再降级
+    if (role !== "admin" && (await isMemberSuperAdmin(target.id))) {
+      return apiError(t("cannotDemoteSuperAdmin"), 409);
     }
     // 需保留至少一名已启用的管理员
     if (
@@ -190,16 +205,13 @@ export async function PATCH(request: Request) {
       (role !== "admin" || status !== "enabled") &&
       !hasOtherEnabledAdmin(members, target.id)
     ) {
-      return apiError(
-        "需保留至少一名已启用的管理员，无法降级或停用该成员",
-        409
-      );
+      return apiError(t("lastAdminCannotChange"), 409);
     }
 
     if (departmentId) {
       const departments = await listDepartments();
       if (!departments.some((item) => item.id === departmentId)) {
-        return apiError("指定的部门不存在");
+        return apiError(t("departmentNotFound"));
       }
     }
 
@@ -212,8 +224,10 @@ export async function PATCH(request: Request) {
       title,
     });
     if (!updated) {
-      return apiError("成员不存在", 404);
+      return apiError(t("memberNotFound"), 404);
     }
+    // 同步角色关系，保证「管理员 / 超级管理员」成员关系与 Member.role 一致
+    await syncMembershipsForLegacyRole(target.id, role);
     const departments = await listDepartments();
     const departmentNames = new Map(
       departments.map((item) => [item.id, item.name])
@@ -231,11 +245,12 @@ export async function PATCH(request: Request) {
       )
     );
   } catch {
-    return apiError("更新成员失败，请稍后重试", 500);
+    return apiError(t("updateMemberFailed"), 500);
   }
 }
 
 export async function DELETE(request: Request) {
+  const t = await getTranslations("managementApi");
   const session = await requireManagementSession();
   if (!session) {
     return unauthorized();
@@ -244,28 +259,32 @@ export async function DELETE(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     if (typeof body.id !== "string") {
-      return apiError("缺少成员 id");
+      return apiError(t("memberIdRequired"));
     }
 
     const members = await listMembers();
     const target = members.find((item) => item.id === body.id);
     if (!target) {
-      return apiError("成员不存在", 404);
+      return apiError(t("memberNotFound"), 404);
     }
     if (target.userId === session.userId) {
-      return apiError("不能删除当前登录的账号", 403);
+      return apiError(t("cannotDeleteSelf"), 403);
+    }
+    // 超级管理员仅 1 人，删除前需先在「角色与权限」页转移给其他成员
+    if (await isMemberSuperAdmin(target.id)) {
+      return apiError(t("transferSuperAdminFirst"), 409);
     }
     if (
       target.role === "admin" &&
       target.status === "enabled" &&
       !hasOtherEnabledAdmin(members, target.id)
     ) {
-      return apiError("需保留至少一名已启用的管理员，无法删除该成员", 409);
+      return apiError(t("lastAdminCannotDelete"), 409);
     }
 
     await deleteMemberAccount(target.id);
     return Response.json({ deleted: true });
   } catch {
-    return apiError("删除成员失败，请稍后重试", 500);
+    return apiError(t("deleteMemberFailed"), 500);
   }
 }

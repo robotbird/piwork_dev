@@ -1,7 +1,9 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { formatDistance } from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
 import equal from "fast-deep-equal";
 import { AnimatePresence, motion } from "framer-motion";
+import { useLocale, useTranslations } from "next-intl";
 import {
   type Dispatch,
   memo,
@@ -87,6 +89,8 @@ function PureArtifact({
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
 }) {
+  const t = useTranslations("artifact");
+  const locale = useLocale();
   const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
 
   const {
@@ -341,18 +345,27 @@ function PureArtifact({
                 {isContentDirty ? (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <div className="size-1.5 animate-pulse rounded-full bg-amber-500" />
-                    Saving...
+                    {t("saving")}
                   </div>
                 ) : document ? (
                   <div className="text-xs text-muted-foreground">
-                    {`Updated ${formatDistance(new Date(document.createdAt), new Date(), { addSuffix: true })}`}
+                    {t("updated", {
+                      relativeTime: formatDistance(
+                        new Date(document.createdAt),
+                        new Date(),
+                        {
+                          addSuffix: true,
+                          locale: locale === "zh" ? zhCN : enUS,
+                        }
+                      ),
+                    })}
                   </div>
                 ) : artifact.status === "streaming" ? (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <div className="animate-spin">
                       <LoaderIcon size={12} />
                     </div>
-                    Generating...
+                    {t("generating")}
                   </div>
                 ) : (
                   <div className="h-3 w-24 animate-pulse rounded bg-muted-foreground/10" />

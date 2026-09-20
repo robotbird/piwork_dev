@@ -204,7 +204,7 @@ function MemberRow({
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1">
           <Button
-            aria-label={`编辑成员 ${displayName(member)}`}
+            aria-label={t("编辑成员 {name}", { name: displayName(member) })}
             className="h-7 px-2 text-[13px] text-muted-foreground"
             onClick={handleEditClick}
             size="sm"
@@ -214,7 +214,9 @@ function MemberRow({
             {t("编辑")}
           </Button>
           <Button
-            aria-label={`${isEnabled ? "停用" : "启用"}成员 ${displayName(member)}`}
+            aria-label={t(isEnabled ? "停用成员 {name}" : "启用成员 {name}", {
+              name: displayName(member),
+            })}
             className="h-7 px-2 text-[13px] text-muted-foreground"
             onClick={handleToggleClick}
             size="sm"
@@ -228,7 +230,7 @@ function MemberRow({
             {t(isEnabled ? "停用" : "启用")}
           </Button>
           <Button
-            aria-label={`删除成员 ${displayName(member)}`}
+            aria-label={t("删除成员 {name}", { name: displayName(member) })}
             className="h-7 px-2 text-[13px] text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={handleDeleteClick}
             size="sm"
@@ -400,7 +402,9 @@ export function MembersPage({
       toast.success(
         statusChanged
           ? t(
-              `已更新成员「{name}」，账号${values.status === "enabled" ? "已启用" : "已停用"}`,
+              values.status === "enabled"
+                ? "已更新成员「{name}」，账号已启用"
+                : "已更新成员「{name}」，账号已停用",
               { name: values.name }
             )
           : t("已更新成员「{name}」", { name: values.name })
@@ -652,21 +656,27 @@ export function MembersPage({
       >
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>删除成员？</AlertDialogTitle>
+            <AlertDialogTitle>{t("删除成员？")}</AlertDialogTitle>
             <AlertDialogDescription>
-              将永久删除「{deleteTarget ? displayName(deleteTarget) : ""}」（
-              {deleteTarget?.email ?? ""}）
-              的登录账号、成员记录及其名下的会话与文档，删除后无法恢复。
+              {t(
+                "将永久删除「{name}」（{email}）的登录账号、成员记录及其名下的会话与文档，删除后无法恢复。",
+                {
+                  email: deleteTarget?.email ?? "",
+                  name: deleteTarget ? displayName(deleteTarget) : "",
+                }
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>
+              {t("取消")}
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={handleDeleteActionClick}
               variant="destructive"
             >
-              {deleting ? "删除中…" : "删除"}
+              {deleting ? t("删除中…") : t("删除")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

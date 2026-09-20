@@ -7,6 +7,7 @@ import {
 } from "ai";
 import { checkBotId } from "botid/server";
 import { after } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import {
@@ -75,6 +76,7 @@ function getStreamContext() {
 }
 
 export async function POST(request: Request) {
+  const t = await getTranslations("api");
   let requestBody: PostRequestBody;
 
   try {
@@ -247,10 +249,7 @@ export async function POST(request: Request) {
       preparedAttachments.images.length > 0 &&
       !piModel.input.includes("image")
     ) {
-      return Response.json(
-        { error: "当前模型不支持图片，请切换到 DeepSeek Flash。" },
-        { status: 400 }
-      );
+      return Response.json({ error: t("modelNoImages") }, { status: 400 });
     }
 
     const { skills, diagnostics: skillDiagnostics } =
@@ -563,7 +562,7 @@ export async function POST(request: Request) {
           });
         }
       },
-      onError: () => "DeepSeek 暂时无法响应，请稍后重试。",
+      onError: () => t("modelUnavailable"),
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
     });
 

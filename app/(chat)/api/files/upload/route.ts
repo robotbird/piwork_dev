@@ -1,31 +1,31 @@
 import { NextResponse } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
 import {
   getSupportedAttachmentType,
   MAX_CHAT_ATTACHMENT_SIZE,
-  SUPPORTED_ATTACHMENT_LABEL,
 } from "@/lib/ai/attachment-types";
 import { storeFile } from "@/lib/ai/file-store";
 
-const FileSchema = z.object({
-  file: z
-    .instanceof(Blob)
-    .refine((file) => file.size <= MAX_CHAT_ATTACHMENT_SIZE, {
-      message: "文件大小不能超过 20 MB",
-    }),
-});
-
 export async function POST(request: Request) {
+  const t = await getTranslations("api");
+  const fileSchema = z.object({
+    file: z
+      .instanceof(Blob)
+      .refine((file) => file.size <= MAX_CHAT_ATTACHMENT_SIZE, {
+        message: t("fileTooLarge"),
+      }),
+  });
   const session = await auth();
 
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: t("unauthorized") }, { status: 401 });
   }
 
   if (request.body === null) {
-    return new Response("Request body is empty", { status: 400 });
+    return new Response(t("requestBodyEmpty"), { status: 400 });
   }
 
   try {
@@ -33,10 +33,10 @@ export async function POST(request: Request) {
     const file = formData.get("file") as Blob;
 
     if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+      return NextResponse.json({ error: t("fileRequired") }, { status: 400 });
     }
 
-    const validatedFile = FileSchema.safeParse({ file });
+    const validatedFile = fileSchema.safeParse({ file });
 
     if (!validatedFile.success) {
       const errorMessage = validatedFile.error.issues
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     const attachmentType = getSupportedAttachmentType(filename);
     if (!attachmentType) {
       return NextResponse.json(
-        { error: `不支持该文件格式。支持：${SUPPORTED_ATTACHMENT_LABEL}` },
+        { error: t("unsupportedFile") },
         { status: 400 }
       );
     }
@@ -65,13 +65,10 @@ export async function POST(request: Request) {
       return NextResponse.json(data);
     } catch (error) {
       console.error("[files/upload] failed to store file", error);
-      return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+      return NextResponse.json({ error: t("uploadFailed") }, { status: 500 });
     }
   } catch (error) {
     console.error("[files/upload] failed to process request", error);
-    return NextResponse.json(
-      { error: "Failed to process request" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: t("requestFailed") }, { status: 500 });
   }
 }

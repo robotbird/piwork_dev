@@ -1,3 +1,5 @@
+"use client";
+
 import Form from "next/form";
 import { usePreferences } from "../preferences-provider";
 import { Input } from "../ui/input";

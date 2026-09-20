@@ -21,7 +21,7 @@ type TextArtifactMetadata = {
 export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
   actions: [
     {
-      description: "View changes",
+      description: "viewChanges",
       icon: <ClockRewind size={18} />,
       isDisabled: ({ currentVersionIndex }) => {
         if (currentVersionIndex === 0) {
@@ -35,7 +35,7 @@ export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
       },
     },
     {
-      description: "View Previous version",
+      description: "viewPreviousVersion",
       icon: <UndoIcon size={18} />,
       isDisabled: ({ currentVersionIndex }) => {
         if (currentVersionIndex === 0) {
@@ -49,7 +49,7 @@ export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
       },
     },
     {
-      description: "View Next version",
+      description: "viewNextVersion",
       icon: <RedoIcon size={18} />,
       isDisabled: ({ isCurrentVersion }) => {
         if (isCurrentVersion) {
@@ -63,11 +63,11 @@ export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
       },
     },
     {
-      description: "Copy to clipboard",
+      description: "copyToClipboard",
       icon: <CopyIcon size={18} />,
-      onClick: ({ content }) => {
+      onClick: ({ content, translate }) => {
         navigator.clipboard.writeText(content);
-        toast.success("Copied to clipboard!");
+        toast.success(translate("copied"));
       },
     },
   ],
@@ -117,7 +117,7 @@ export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
       </div>
     );
   },
-  description: "Useful for text content, like drafting essays and emails.",
+  description: "textDescription",
   initialize: async ({ documentId, setMetadata }) => {
     const suggestions = await getSuggestions({ documentId });
 
@@ -149,7 +149,7 @@ export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
   },
   toolbar: [
     {
-      description: "Add final polish",
+      description: "addFinalPolish",
       icon: <PenIcon />,
       onClick: ({ sendMessage }) => {
         sendMessage({
@@ -164,7 +164,7 @@ export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
       },
     },
     {
-      description: "Request suggestions",
+      description: "requestSuggestions",
       icon: <MessageIcon />,
       onClick: ({ sendMessage }) => {
         sendMessage({

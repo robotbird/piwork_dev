@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { memo, useCallback } from "react";
 import { usePreferences } from "@/components/preferences-provider";

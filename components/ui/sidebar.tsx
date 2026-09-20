@@ -3,6 +3,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Slot } from "radix-ui"
+import { useTranslations } from "next-intl"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -154,6 +155,7 @@ function Sidebar({
   variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
+  const t = useTranslations("common")
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
 
   if (collapsible === "none") {
@@ -184,8 +186,8 @@ function Sidebar({
           side="left"
         >
           <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+            <SheetTitle>{t("sidebar")}</SheetTitle>
+            <SheetDescription>{t("mobileSidebarDescription")}</SheetDescription>
           </SheetHeader>
           <div className="flex h-full w-full flex-col overflow-y-auto">{children}</div>
         </SheetContent>
@@ -242,6 +244,7 @@ function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>) {
+  const t = useTranslations("common")
   const { toggleSidebar } = useSidebar()
 
   return (
@@ -258,12 +261,13 @@ function SidebarTrigger({
       {...props}
     >
       <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
+      <span className="sr-only">{t("toggleSidebar")}</span>
     </Button>
   )
 }
 
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
+  const t = useTranslations("common")
   const { toggleSidebar, state } = useSidebar()
   const isCollapsed = state === "collapsed"
 
@@ -277,14 +281,14 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
     >
       <button
         data-sidebar="rail"
-        aria-label="Toggle Sidebar"
+        aria-label={t("toggleSidebar")}
         tabIndex={-1}
         onClick={toggleSidebar}
         className="absolute inset-y-0 left-0 w-4 cursor-w-resize [[data-side=left][data-state=collapsed]_&]:cursor-e-resize"
         {...props}
       />
       <button
-        aria-label="Toggle Sidebar"
+        aria-label={t("toggleSidebar")}
         tabIndex={-1}
         onClick={toggleSidebar}
         className={cn(
@@ -293,7 +297,7 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
         )}
       />
       <button
-        aria-label="Toggle Sidebar"
+        aria-label={t("toggleSidebar")}
         tabIndex={-1}
         onClick={toggleSidebar}
         className={cn(

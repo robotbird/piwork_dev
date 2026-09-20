@@ -17,7 +17,7 @@ type SuggestedActionsProps = {
 function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
   const { language } = usePreferences();
   const suggestedActions =
-    language === "zh-CN"
+    language === "zh"
       ? [
           "总结这份文档的关键结论",
           "帮我起草一份项目执行计划",

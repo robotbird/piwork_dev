@@ -1,3 +1,5 @@
+"use client";
+
 import {
   FileIcon,
   FileSpreadsheetIcon,
@@ -8,6 +10,7 @@ import {
 import Image from "next/image";
 import { isChatFileUrl, isVisionAttachment } from "@/lib/ai/attachment-types";
 import type { Attachment } from "@/lib/types";
+import { usePreferences } from "../preferences-provider";
 import { Spinner } from "../ui/spinner";
 import { CrossSmallIcon, DownloadIcon } from "./icons";
 
@@ -22,6 +25,7 @@ export const PreviewAttachment = ({
   isUploading?: boolean;
   onRemove?: () => void;
 }) => {
+  const { translate } = usePreferences();
   const { name, url, contentType } = attachment;
   const extension = name?.split(".").at(-1)?.toLocaleUpperCase() ?? "FILE";
   const FileTypeIcon =
@@ -42,7 +46,7 @@ export const PreviewAttachment = ({
     >
       {isVisionAttachment(contentType ?? "") ? (
         <Image
-          alt={name ?? "attachment"}
+          alt={name ?? translate("附件", "Attachment")}
           className="size-full object-cover"
           height={96}
           // 本地存储的 /api/files/* 需要会话 cookie，图片优化器的内部
@@ -74,6 +78,7 @@ export const PreviewAttachment = ({
 
       {onRemove && !isUploading && (
         <button
+          aria-label={translate("移除附件", "Remove attachment")}
           className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/80 group-hover:opacity-100"
           onClick={onRemove}
           type="button"
@@ -84,7 +89,7 @@ export const PreviewAttachment = ({
 
       {downloadHref && !isUploading && (
         <a
-          aria-label="下载"
+          aria-label={translate("下载", "Download")}
           className="absolute bottom-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/80 group-hover:opacity-100"
           download={attachment.name}
           href={downloadHref}

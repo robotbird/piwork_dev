@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { cleanupTestData } from "./helpers/test-cleanup";
 
 const MEMBER_URL = "/management/organization?view=members";
 const DEFAULT_PASSWORD = "test123456";
@@ -147,6 +148,22 @@ async function fillMemberForm(
 
 test.describe
   .serial("Member Management", () => {
+    // 用例结束后清理本套件注册的账号、创建的成员与部门，保持开发库干净
+    test.afterAll(async () => {
+      await cleanupTestData({
+        departmentPatterns: ["研发部-%"],
+        emailPatterns: [
+          "members-e2e-%@test.local",
+          "tester-%@company.com",
+          "signin-%@company.com",
+          "edit-%@company.com",
+          "toggle-%@company.com",
+          "remove-%@company.com",
+          "last-admin-%@company.com",
+        ],
+      });
+    });
+
     test("backfills the current account as a member on first login", async ({
       page,
     }) => {

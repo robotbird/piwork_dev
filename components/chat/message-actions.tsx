@@ -1,4 +1,5 @@
 import equal from "fast-deep-equal";
+import { useTranslations } from "next-intl";
 import { memo, useCallback } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
@@ -24,6 +25,7 @@ export function PureMessageActions({
   isLoading: boolean;
   onEdit?: () => void;
 }) {
+  const t = useTranslations("chat");
   const { mutate } = useSWRConfig();
   const [_, copyToClipboard] = useCopyToClipboard();
 
@@ -35,13 +37,13 @@ export function PureMessageActions({
 
   const handleCopy = useCallback(async () => {
     if (!textFromParts) {
-      toast.error("There's no text to copy!");
+      toast.error(t("noTextToCopy"));
       return;
     }
 
     await copyToClipboard(textFromParts);
-    toast.success("Copied to clipboard!");
-  }, [copyToClipboard, textFromParts]);
+    toast.success(t("copied"));
+  }, [copyToClipboard, t, textFromParts]);
 
   const handleUpvote = useCallback(() => {
     const upvote = fetch(
@@ -57,8 +59,8 @@ export function PureMessageActions({
     );
 
     toast.promise(upvote, {
-      error: "Failed to upvote response.",
-      loading: "Upvoting Response...",
+      error: t("upvoteFailed"),
+      loading: t("upvoting"),
       success: () => {
         mutate<Vote[]>(
           `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/vote?chatId=${chatId}`,
@@ -83,10 +85,10 @@ export function PureMessageActions({
           { revalidate: false }
         );
 
-        return "Upvoted Response!";
+        return t("upvoted");
       },
     });
-  }, [chatId, message.id, mutate]);
+  }, [chatId, message.id, mutate, t]);
 
   const handleDownvote = useCallback(() => {
     const downvote = fetch(
@@ -102,8 +104,8 @@ export function PureMessageActions({
     );
 
     toast.promise(downvote, {
-      error: "Failed to downvote response.",
-      loading: "Downvoting Response...",
+      error: t("downvoteFailed"),
+      loading: t("downvoting"),
       success: () => {
         mutate<Vote[]>(
           `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/vote?chatId=${chatId}`,
@@ -128,10 +130,10 @@ export function PureMessageActions({
           { revalidate: false }
         );
 
-        return "Downvoted Response!";
+        return t("downvoted");
       },
     });
-  }, [chatId, message.id, mutate]);
+  }, [chatId, message.id, mutate, t]);
 
   if (isLoading) {
     return null;
@@ -146,7 +148,7 @@ export function PureMessageActions({
               className="size-7 text-muted-foreground/50 hover:text-foreground"
               data-testid="message-edit-button"
               onClick={onEdit}
-              tooltip="Edit"
+              tooltip={t("edit")}
             >
               <PencilEditIcon />
             </Action>
@@ -154,7 +156,7 @@ export function PureMessageActions({
           <Action
             className="size-7 text-muted-foreground/50 hover:text-foreground"
             onClick={handleCopy}
-            tooltip="Copy"
+            tooltip={t("copy")}
           >
             <CopyIcon />
           </Action>
@@ -168,7 +170,7 @@ export function PureMessageActions({
       <Action
         className="text-muted-foreground/50 hover:text-foreground"
         onClick={handleCopy}
-        tooltip="Copy"
+        tooltip={t("copy")}
       >
         <CopyIcon />
       </Action>
@@ -178,7 +180,7 @@ export function PureMessageActions({
         data-testid="message-upvote"
         disabled={vote?.isUpvoted}
         onClick={handleUpvote}
-        tooltip="Upvote Response"
+        tooltip={t("upvote")}
       >
         <ThumbUpIcon />
       </Action>
@@ -188,7 +190,7 @@ export function PureMessageActions({
         data-testid="message-downvote"
         disabled={vote && !vote.isUpvoted}
         onClick={handleDownvote}
-        tooltip="Downvote Response"
+        tooltip={t("downvote")}
       >
         <ThumbDownIcon />
       </Action>

@@ -6,7 +6,7 @@ import { ImageEditor } from "@/components/chat/image-editor";
 export const imageArtifact = new Artifact({
   actions: [
     {
-      description: "View Previous version",
+      description: "viewPreviousVersion",
       icon: <UndoIcon size={18} />,
       isDisabled: ({ currentVersionIndex }) => {
         if (currentVersionIndex === 0) {
@@ -20,7 +20,7 @@ export const imageArtifact = new Artifact({
       },
     },
     {
-      description: "View Next version",
+      description: "viewNextVersion",
       icon: <RedoIcon size={18} />,
       isDisabled: ({ isCurrentVersion }) => {
         if (isCurrentVersion) {
@@ -34,9 +34,9 @@ export const imageArtifact = new Artifact({
       },
     },
     {
-      description: "Copy image to clipboard",
+      description: "copyImageToClipboard",
       icon: <CopyIcon size={18} />,
-      onClick: ({ content }) => {
+      onClick: ({ content, translate }) => {
         const img = new Image();
         img.src = `data:image/png;base64,${content}`;
 
@@ -55,12 +55,12 @@ export const imageArtifact = new Artifact({
           }, "image/png");
         };
 
-        toast.success("Copied image to clipboard!");
+        toast.success(translate("imageCopied"));
       },
     },
   ],
   content: ImageEditor,
-  description: "Useful for image generation",
+  description: "imageDescription",
   kind: "image",
   onStreamPart: ({ streamPart, setArtifact }) => {
     if (streamPart.type === "data-imageDelta") {

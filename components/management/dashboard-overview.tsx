@@ -252,7 +252,7 @@ export function DashboardOverview() {
   useEffect(() => setMounted(true), []);
   const localize = useCallback(
     (value: string) =>
-      language === "zh-CN" ? value : (englishDashboardCopy[value] ?? value),
+      language === "zh" ? value : (englishDashboardCopy[value] ?? value),
     [language]
   );
   const { resolvedTheme } = useTheme();

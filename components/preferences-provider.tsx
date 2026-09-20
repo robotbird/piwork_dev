@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import {
   createContext,
   type ReactNode,
@@ -7,19 +9,11 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
 } from "react";
-import {
-  type AppLanguage,
-  DEFAULT_LANGUAGE,
-  getTranslation,
-  isAppLanguage,
-  type TranslationParams,
-} from "@/lib/i18n";
+import type { AppLanguage, TranslationParams } from "@/lib/i18n";
+import { legacyMessageKeys } from "@/lib/i18n/legacy-keys";
 
 export type { AppLanguage } from "@/lib/i18n";
-
-const LANGUAGE_STORAGE_KEY = "piwork-language";
 
 type PreferencesContextValue = {
   language: AppLanguage;
@@ -31,34 +25,35 @@ type PreferencesContextValue = {
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<AppLanguage>(DEFAULT_LANGUAGE);
-
-  useEffect(() => {
-    const storedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    if (isAppLanguage(storedLanguage)) {
-      setLanguageState(storedLanguage);
-    }
-  }, []);
+  const language = useLocale() as AppLanguage;
+  const messages = useTranslations();
+  const router = useRouter();
 
   useEffect(() => {
     document.documentElement.lang = language;
-    document.documentElement.dataset.language = language;
   }, [language]);
 
-  const setLanguage = useCallback((nextLanguage: AppLanguage) => {
-    setLanguageState(nextLanguage);
-    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
-  }, []);
+  const setLanguage = useCallback(
+    (nextLanguage: AppLanguage) => {
+      // biome-ignore lint/suspicious/noDocumentCookie: The locale cookie must be available to the next server request.
+      document.cookie = `NEXT_LOCALE=${nextLanguage}; path=/; SameSite=Lax`;
+      router.refresh();
+    },
+    [router]
+  );
 
   const t = useCallback(
-    (key: string, params?: TranslationParams) =>
-      getTranslation(language, key, params),
-    [language]
+    (key: string, params?: TranslationParams) => {
+      const messageKey =
+        legacyMessageKeys[key as keyof typeof legacyMessageKeys];
+      return messageKey ? messages(messageKey, params) : key;
+    },
+    [messages]
   );
   const translate = useCallback(
     (chinese: string, english: string) =>
-      getTranslation(language, chinese, undefined, english),
-    [language]
+      t(chinese) === chinese && language === "en" ? english : t(chinese),
+    [language, t]
   );
 
   const value = useMemo(

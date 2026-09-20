@@ -14,6 +14,7 @@ import {
   PuzzleIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import {
   type ChangeEvent,
@@ -117,6 +118,8 @@ function PureMultimodalInput({
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
   const { translate } = usePreferences();
+  const chatT = useTranslations("chat");
+  const commonT = useTranslations("common");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
   const hasAutoFocused = useRef(false);
@@ -219,7 +222,7 @@ function PureMultimodalInput({
           setMessages(() => []);
           break;
         case "rename":
-          toast("Rename is available from the sidebar chat menu.");
+          toast(chatT("renameFromSidebar"));
           break;
         case "model": {
           const modelBtn = document.querySelector<HTMLButtonElement>(
@@ -232,24 +235,24 @@ function PureMultimodalInput({
           setTheme(resolvedTheme === "dark" ? "light" : "dark");
           break;
         case "delete":
-          toast("Delete this chat?", {
+          toast(chatT("deleteChatConfirm"), {
             action: {
-              label: "Delete",
+              label: chatT("delete"),
               onClick: () => {
                 fetch(
                   `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat?id=${chatId}`,
                   { method: "DELETE" }
                 );
                 router.push("/");
-                toast.success("Chat deleted");
+                toast.success(chatT("chatDeleted"));
               },
             },
           });
           break;
         case "purge":
-          toast("Delete all chats?", {
+          toast(chatT("deleteAllChatsConfirm"), {
             action: {
-              label: "Delete all",
+              label: chatT("deleteAll"),
               onClick: () => {
                 fetch(
                   `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/history`,
@@ -258,7 +261,7 @@ function PureMultimodalInput({
                   }
                 );
                 router.push("/");
-                toast.success("All chats deleted");
+                toast.success(chatT("allChatsDeleted"));
               },
             },
           });
@@ -267,7 +270,7 @@ function PureMultimodalInput({
           break;
       }
     },
-    [chatId, resolvedTheme, router, setInput, setMessages, setTheme]
+    [chatId, chatT, resolvedTheme, router, setInput, setMessages, setTheme]
   );
 
   const submitForm = useCallback(() => {
@@ -323,35 +326,38 @@ function PureMultimodalInput({
     chatId,
   ]);
 
-  const uploadFile = useCallback(async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
+  const uploadFile = useCallback(
+    async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
 
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/files/upload`,
-        {
-          body: formData,
-          method: "POST",
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/files/upload`,
+          {
+            body: formData,
+            method: "POST",
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const { url, pathname, contentType, name } = data;
+
+          return {
+            contentType,
+            name: name ?? pathname,
+            url,
+          };
         }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        const { url, pathname, contentType, name } = data;
-
-        return {
-          contentType,
-          name: name ?? pathname,
-          url,
-        };
+        const { error } = await response.json();
+        toast.error(error);
+      } catch {
+        toast.error(commonT("uploadFailed"));
       }
-      const { error } = await response.json();
-      toast.error(error);
-    } catch {
-      toast.error("Failed to upload file, please try again!");
-    }
-  }, []);
+    },
+    [commonT]
+  );
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -363,7 +369,9 @@ function PureMultimodalInput({
       const files = selectedFiles.slice(0, availableSlots);
 
       if (selectedFiles.length > availableSlots) {
-        toast.error(`每条消息最多上传 ${MAX_CHAT_ATTACHMENT_COUNT} 个附件`);
+        toast.error(
+          commonT("attachmentLimit", { count: MAX_CHAT_ATTACHMENT_COUNT })
+        );
       }
       if (files.length === 0) {
         event.target.value = "";
@@ -384,13 +392,13 @@ function PureMultimodalInput({
           ...successfullyUploadedAttachments,
         ]);
       } catch {
-        toast.error("Failed to upload files");
+        toast.error(commonT("uploadFailed"));
       } finally {
         setUploadQueue([]);
         event.target.value = "";
       }
     },
-    [attachments.length, setAttachments, uploadFile]
+    [attachments.length, commonT, setAttachments, uploadFile]
   );
 
   const handlePaste = useCallback(
@@ -413,16 +421,20 @@ function PureMultimodalInput({
         return;
       }
       if (acceptedImageItems.length === 0) {
-        toast.error(`每条消息最多上传 ${MAX_CHAT_ATTACHMENT_COUNT} 个附件`);
+        toast.error(
+          commonT("attachmentLimit", { count: MAX_CHAT_ATTACHMENT_COUNT })
+        );
         return;
       }
       if (acceptedImageItems.length < imageItems.length) {
-        toast.error(`每条消息最多上传 ${MAX_CHAT_ATTACHMENT_COUNT} 个附件`);
+        toast.error(
+          commonT("attachmentLimit", { count: MAX_CHAT_ATTACHMENT_COUNT })
+        );
       }
 
       event.preventDefault();
 
-      setUploadQueue((prev) => [...prev, "Pasted image"]);
+      setUploadQueue((prev) => [...prev, commonT("pastedImage")]);
 
       try {
         const uploadPromises = acceptedImageItems
@@ -443,12 +455,12 @@ function PureMultimodalInput({
           ...(successfullyUploadedAttachments as Attachment[]),
         ]);
       } catch {
-        toast.error("Failed to upload pasted image(s)");
+        toast.error(commonT("uploadFailed"));
       } finally {
         setUploadQueue([]);
       }
     },
-    [attachments.length, setAttachments, uploadFile]
+    [attachments.length, commonT, setAttachments, uploadFile]
   );
 
   useEffect(() => {
@@ -504,10 +516,11 @@ function PureMultimodalInput({
     if (status === "ready" || status === "error") {
       submitForm();
     } else {
-      toast.error("Please wait for the model to finish its response!");
+      toast.error(chatT("waitForModel"));
     }
   }, [
     attachments.length,
+    chatT,
     handleSlashSelect,
     input,
     selectedSkill,
@@ -582,13 +595,13 @@ function PureMultimodalInput({
     <div className={cn("relative flex w-full flex-col gap-3", className)}>
       {editingMessage && onCancelEdit ? (
         <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-          <span>Editing message</span>
+          <span>{translate("正在编辑消息", "Editing message")}</span>
           <button
             className="rounded px-1.5 py-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
             onMouseDown={handleCancelEditMouseDown}
             type="button"
           >
-            Cancel
+            {commonT("cancel")}
           </button>
         </div>
       ) : null}
@@ -927,6 +940,7 @@ function ModelSelectorOption({
   selectedModelId: string;
   setOpen: Dispatch<SetStateAction<boolean>>;
 }) {
+  const t = useTranslations("chat");
   const [logoProvider] = model.id.split("/");
   const isSelected = model.id === selectedModelId;
 
@@ -981,7 +995,7 @@ function ModelSelectorOption({
         <div className="w-full cursor-not-allowed">{option}</div>
       </TooltipTrigger>
       <TooltipContent side="right" sideOffset={8}>
-        This model is not available in the demo.
+        {t("modelUnavailableInDemo")}
       </TooltipContent>
     </Tooltip>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import type { UIMessage } from "ai";
+import { useTranslations } from "next-intl";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -257,11 +258,12 @@ export const MessageBranchPrevious = ({
   children,
   ...props
 }: MessageBranchPreviousProps) => {
+  const t = useTranslations("common");
   const { goToPrevious, totalBranches } = useMessageBranch();
 
   return (
     <Button
-      aria-label="Previous branch"
+      aria-label={t("previousBranch")}
       disabled={totalBranches <= 1}
       onClick={goToPrevious}
       size="icon-sm"
@@ -280,11 +282,12 @@ export const MessageBranchNext = ({
   children,
   ...props
 }: MessageBranchNextProps) => {
+  const t = useTranslations("common");
   const { goToNext, totalBranches } = useMessageBranch();
 
   return (
     <Button
-      aria-label="Next branch"
+      aria-label={t("nextBranch")}
       disabled={totalBranches <= 1}
       onClick={goToNext}
       size="icon-sm"
@@ -303,6 +306,7 @@ export const MessageBranchPage = ({
   className,
   ...props
 }: MessageBranchPageProps) => {
+  const t = useTranslations("common");
   const { currentBranch, totalBranches } = useMessageBranch();
 
   return (
@@ -313,7 +317,10 @@ export const MessageBranchPage = ({
       )}
       {...props}
     >
-      {currentBranch + 1} of {totalBranches}
+      {t("positionOfTotal", {
+        current: currentBranch + 1,
+        total: totalBranches,
+      })}
     </ButtonGroupText>
   );
 };

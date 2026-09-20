@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { memo, type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -34,17 +35,19 @@ function ArtifactActionButton({
   isActive: boolean;
   setIsLoading: (isLoading: boolean) => void;
 }) {
+  const chatT = useTranslations("chat");
+  const t = useTranslations("artifactActions");
   const handleClick = useCallback(async () => {
     setIsLoading(true);
 
     try {
       await Promise.resolve(action.onClick(actionContext));
     } catch {
-      toast.error("Failed to execute action");
+      toast.error(chatT("failedExecuteAction"));
     } finally {
       setIsLoading(false);
     }
-  }, [action, actionContext, setIsLoading]);
+  }, [action, actionContext, chatT, setIsLoading]);
 
   return (
     <Tooltip>
@@ -67,7 +70,7 @@ function ArtifactActionButton({
         </button>
       </TooltipTrigger>
       <TooltipContent side="left" sideOffset={8}>
-        {action.description}
+        {t(action.description as "viewChanges")}
       </TooltipContent>
     </Tooltip>
   );
@@ -82,6 +85,7 @@ function PureArtifactActions({
   metadata,
   setMetadata,
 }: ArtifactActionsProps) {
+  const t = useTranslations("artifactActions");
   const [isLoading, setIsLoading] = useState(false);
 
   const artifactDefinition = artifactDefinitions.find(
@@ -100,6 +104,7 @@ function PureArtifactActions({
     metadata,
     mode,
     setMetadata,
+    translate: (key) => t(key as "copied"),
   };
 
   return (
@@ -117,7 +122,7 @@ function PureArtifactActions({
             action={action}
             actionContext={actionContext}
             disabled={disabled}
-            isActive={mode === "diff" && action.description === "View changes"}
+            isActive={mode === "diff" && action.description === "viewChanges"}
             key={action.description}
             setIsLoading={setIsLoading}
           />

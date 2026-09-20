@@ -1,5 +1,6 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { ArrowDownIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
@@ -38,6 +39,7 @@ function PureMessages({
   selectedModelId: _selectedModelId,
   onEditMessage,
 }: MessagesProps) {
+  const t = useTranslations("common");
   const {
     containerRef: messagesContainerRef,
     endRef: messagesEndRef,
@@ -115,7 +117,7 @@ function PureMessages({
       </div>
 
       <button
-        aria-label="Scroll to bottom"
+        aria-label={t("scrollToBottom")}
         className={`absolute bottom-4 left-1/2 z-10 flex h-8 -translate-x-1/2 items-center rounded-full border border-border bg-card/95 px-3.5 text-xs shadow-[var(--shadow-float)] backdrop-blur-lg transition-all duration-150 ${
           isAtBottom
             ? "pointer-events-none scale-90 opacity-0"

@@ -15,7 +15,7 @@ type Metadata = Record<string, never>;
 export const sheetArtifact = new Artifact<"sheet", Metadata>({
   actions: [
     {
-      description: "View Previous version",
+      description: "viewPreviousVersion",
       icon: <UndoIcon size={18} />,
       isDisabled: ({ currentVersionIndex }) => {
         if (currentVersionIndex === 0) {
@@ -29,7 +29,7 @@ export const sheetArtifact = new Artifact<"sheet", Metadata>({
       },
     },
     {
-      description: "View Next version",
+      description: "viewNextVersion",
       icon: <RedoIcon size={18} />,
       isDisabled: ({ isCurrentVersion }) => {
         if (isCurrentVersion) {
@@ -43,9 +43,9 @@ export const sheetArtifact = new Artifact<"sheet", Metadata>({
       },
     },
     {
-      description: "Copy as .csv",
+      description: "copyAsCsv",
       icon: <CopyIcon />,
-      onClick: ({ content }) => {
+      onClick: ({ content, translate }) => {
         const parsed = parse<string[]>(content, { skipEmptyLines: true });
 
         const nonEmptyRows = parsed.data.filter((row) =>
@@ -55,7 +55,7 @@ export const sheetArtifact = new Artifact<"sheet", Metadata>({
         const cleanedCsv = unparse(nonEmptyRows);
 
         navigator.clipboard.writeText(cleanedCsv);
-        toast.success("Copied csv to clipboard!");
+        toast.success(translate("csvCopied"));
       },
     },
   ],
@@ -68,7 +68,7 @@ export const sheetArtifact = new Artifact<"sheet", Metadata>({
       status={status}
     />
   ),
-  description: "Useful for working with spreadsheets",
+  description: "sheetDescription",
   initialize: () => null,
   kind: "sheet",
   onStreamPart: ({ setArtifact, streamPart }) => {
@@ -83,7 +83,7 @@ export const sheetArtifact = new Artifact<"sheet", Metadata>({
   },
   toolbar: [
     {
-      description: "Format and clean data",
+      description: "formatAndCleanData",
       icon: <SparklesIcon />,
       onClick: ({ sendMessage }) => {
         sendMessage({
@@ -95,7 +95,7 @@ export const sheetArtifact = new Artifact<"sheet", Metadata>({
       },
     },
     {
-      description: "Analyze and visualize data",
+      description: "analyzeAndVisualizeData",
       icon: <LineChartIcon />,
       onClick: ({ sendMessage }) => {
         sendMessage({

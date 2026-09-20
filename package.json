@@ -60,6 +60,7 @@
     "nanoid": "^5.1.16",
     "next": "16.2.10",
     "next-auth": "5.0.0-beta.25",
+    "next-intl": "^4.14.5",
     "next-themes": "^0.3.0",
     "officeparser": "7.8.0",
     "orderedmap": "^2.1.1",

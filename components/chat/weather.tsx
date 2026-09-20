@@ -2,6 +2,8 @@
 
 import cx from "classnames";
 import { format, isWithinInterval } from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 const SunIcon = ({ size = 40 }: { size?: number }) => (
@@ -283,6 +285,9 @@ export function Weather({
 }: {
   weatherAtLocation?: WeatherAtLocation;
 }) {
+  const t = useTranslations("weather");
+  const locale = useLocale();
+  const dateLocale = locale === "zh" ? zhCN : enUS;
   const currentHigh = Math.max(
     ...weatherAtLocation.hourly.temperature_2m.slice(0, 24)
   );
@@ -364,17 +369,17 @@ export function Weather({
 
           <div className="text-right">
             <div className="text-xs font-medium text-foreground/90">
-              H: {n(currentHigh)}°
+              {t("high")}: {n(currentHigh)}°
             </div>
             <div className="text-xs text-muted-foreground">
-              L: {n(currentLow)}°
+              {t("low")}: {n(currentLow)}°
             </div>
           </div>
         </div>
 
         <div className="rounded-xl bg-muted p-3">
           <div className="mb-2 text-xs font-medium text-muted-foreground">
-            Hourly Forecast
+            {t("hourlyForecast")}
           </div>
           <div className="flex justify-between gap-1">
             {displayTimes.map((time, index) => {
@@ -393,7 +398,9 @@ export function Weather({
                   key={time}
                 >
                   <div className="text-xs font-medium text-muted-foreground">
-                    {index === 0 ? "Now" : format(hourTime, "ha")}
+                    {index === 0
+                      ? t("now")
+                      : format(hourTime, "ha", { locale: dateLocale })}
                   </div>
 
                   <div className="text-link">
@@ -411,12 +418,16 @@ export function Weather({
 
         <div className="mt-2 flex justify-between text-xs text-muted-foreground">
           <div>
-            Sunrise:{" "}
-            {format(new Date(weatherAtLocation.daily.sunrise[0]), "h:mm a")}
+            {t("sunrise")}:{" "}
+            {format(new Date(weatherAtLocation.daily.sunrise[0]), "h:mm a", {
+              locale: dateLocale,
+            })}
           </div>
           <div>
-            Sunset:{" "}
-            {format(new Date(weatherAtLocation.daily.sunset[0]), "h:mm a")}
+            {t("sunset")}:{" "}
+            {format(new Date(weatherAtLocation.daily.sunset[0]), "h:mm a", {
+              locale: dateLocale,
+            })}
           </div>
         </div>
       </div>
