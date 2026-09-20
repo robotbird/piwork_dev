@@ -18,10 +18,15 @@ test.describe("Chat Page", () => {
     await expect(page.getByTestId("send-button")).toBeVisible();
   });
 
-  test("suggested actions are visible on empty chat", async ({ page }) => {
+  test("shows empty-chat placeholder in input", async ({ page }) => {
     await page.goto("/");
-    const suggestions = page.locator("[data-testid='suggested-actions']");
-    await expect(suggestions).toBeVisible();
+    const input = page.getByTestId("multimodal-input");
+    await expect(input).toBeVisible();
+    // 空对话时输入框展示占位文案（跟随语言偏好，默认中文）
+    await expect(input).toHaveAttribute(
+      "placeholder",
+      /^(处理任何事务|Ask anything)$/
+    );
   });
 
   test("can stop generation with stop button", async ({ page }) => {

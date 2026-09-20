@@ -11,6 +11,7 @@ async function main() {
     viewport: { height: 900, width: 1440 },
   });
 
+  // 注册独立账号（登录时自动补建成员记录），避免依赖数据库既有数据
   const email = `screenshot-${Date.now()}@test.local`;
   await page.goto(`${BASE_URL}/register`);
   // 注册页文案跟随语言偏好（默认中文），用稳定的字段 id 与双语按钮匹配
@@ -25,12 +26,13 @@ async function main() {
     { timeout: 30_000 }
   );
 
+  // 成员管理页列表
   await page.goto(`${BASE_URL}/management/organization?view=members`);
   await page.getByRole("heading", { name: "成员管理" }).waitFor();
+  await page.getByRole("table").waitFor(); // 等待客户端水合完成后再交互
+  await page.screenshot({ path: `${OUT_DIR}/members-list.png` });
 
   // 打开添加成员弹窗，验证表单样式
-  await page.screenshot({ path: `${OUT_DIR}/members-list.png` });
-  await page.getByRole("table").waitFor(); // 等待客户端水合完成后再交互
   await page.getByRole("button", { name: "添加成员" }).first().click();
   // 标题与提交按钮同名，用 heading 角色精确定位弹窗标题
   await page
@@ -40,10 +42,10 @@ async function main() {
   await page.screenshot({ path: `${OUT_DIR}/members-dialog.png` });
   await page.keyboard.press("Escape");
 
-  // 删除行操作确认框
-  await page.getByRole("button", { name: "删除成员 陈七" }).click();
-  await page.getByRole("alertdialog").getByText("删除成员？").waitFor();
-  await page.screenshot({ path: `${OUT_DIR}/members-delete.png` });
+  // 组织架构页
+  await page.goto(`${BASE_URL}/management/organization`);
+  await page.getByRole("heading", { name: "组织架构" }).waitFor();
+  await page.screenshot({ path: `${OUT_DIR}/organization.png` });
 
   await browser.close();
   console.log(`screenshots saved to ${OUT_DIR}/`);

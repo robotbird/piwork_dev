@@ -2,6 +2,7 @@
 
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
+import { Toaster } from "sonner";
 import { SparklesIcon } from "@/components/chat/icons";
 import { Preview } from "@/components/chat/preview";
 import { usePreferences } from "@/components/preferences-provider";
@@ -44,6 +45,16 @@ export default function AuthLayout({
           <Preview />
         </div>
       </div>
+
+      {/* 登录/注册失败等提示（sonner）需要挂载点，否则用户看不到任何反馈 */}
+      <Toaster
+        position="top-center"
+        theme="system"
+        toastOptions={{
+          className:
+            "!bg-card !text-foreground !border-[var(--hairline-strong)] !shadow-none",
+        }}
+      />
     </div>
   );
 }

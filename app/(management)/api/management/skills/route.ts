@@ -1,4 +1,3 @@
-import { auth } from "@/app/(auth)/auth";
 import {
   deleteManagedProjectSkill,
   loadManagedProjectSkillSummaries,
@@ -17,6 +16,7 @@ import {
 } from "@/lib/ai/skills";
 import { getUserById } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { requireManagementAdmin } from "@/lib/management/access";
 
 function apiError(error: unknown, status = 400) {
   return Response.json(
@@ -25,13 +25,8 @@ function apiError(error: unknown, status = 400) {
   );
 }
 
-async function requireAdministrator() {
-  const session = await auth();
-  return session?.user?.type === "regular" ? session : null;
-}
-
 export async function GET() {
-  const session = await requireAdministrator();
+  const session = await requireManagementAdmin();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
@@ -51,7 +46,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await requireAdministrator();
+  const session = await requireManagementAdmin();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
@@ -132,7 +127,7 @@ export async function POST(request: Request) {
       installedName = installed.name;
     }
 
-    const uploader = await getUserById(session.user.id);
+    const uploader = await getUserById(session.userId);
     await registerManagedProjectSkill({
       name: installedName,
       uploadedBy: uploader?.id ?? null,
@@ -149,7 +144,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const session = await requireAdministrator();
+  const session = await requireManagementAdmin();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
@@ -172,7 +167,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const session = await requireAdministrator();
+  const session = await requireManagementAdmin();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }

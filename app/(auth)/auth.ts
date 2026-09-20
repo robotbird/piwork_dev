@@ -3,6 +3,10 @@ import NextAuth, { type DefaultSession } from "next-auth";
 import type { DefaultJWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import { DUMMY_PASSWORD } from "@/lib/constants";
+import {
+  ensureMemberForUser,
+  getMemberByUserId,
+} from "@/lib/db/organization-queries";
 import { createGuestUser, getUser } from "@/lib/db/queries";
 import { authConfig } from "./auth.config";
 
@@ -78,6 +82,16 @@ export const {
 
         if (!passwordsMatch) {
           return null;
+        }
+
+        // 成员被停用后禁止登录
+        const memberRecord = await getMemberByUserId(user.id);
+        if (memberRecord?.status === "disabled") {
+          return null;
+        }
+        // 功能上线前的旧账号没有成员记录，登录时补建（系统首位成员成为管理员）
+        if (!memberRecord) {
+          await ensureMemberForUser(user);
         }
 
         return { ...user, type: "regular" };

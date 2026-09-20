@@ -12,9 +12,10 @@ import {
 import { type ChangeEvent, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  type DepartmentOption,
   MemberDialog,
   type MemberFormValues,
-} from "@/components/management/member-dialog";
+} from "@/components/management/members/member-dialog";
 import { usePreferences } from "@/components/preferences-provider";
 import {
   AlertDialog,
@@ -29,14 +30,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  formatStamp,
   getAvatarInitial,
   getAvatarTone,
   isLastEnabledAdmin,
   type ManagementMember,
   type MemberStatus,
-  nowStamp,
   ROLE_LABELS,
-  SEED_MEMBERS,
   STATUS_LABELS,
 } from "@/lib/management/members";
 import { cn } from "@/lib/utils";
@@ -79,7 +79,13 @@ function StatCard({
   );
 }
 
-function MemberAvatar({ name }: { name: string }) {
+/** 成员展示名：旧账号可能没有姓名，回退到邮箱 */
+function displayName(member: ManagementMember): string {
+  return member.name?.trim() || member.email;
+}
+
+function MemberAvatar({ member }: { member: ManagementMember }) {
+  const name = displayName(member);
   return (
     <span
       aria-hidden="true"
@@ -131,6 +137,7 @@ function StatusBadge({ status }: { status: MemberStatus }) {
 }
 
 type MemberRowProps = {
+  isSelf: boolean;
   member: ManagementMember;
   onDeleteRequest: (member: ManagementMember) => void;
   onEdit: (member: ManagementMember) => void;
@@ -138,6 +145,7 @@ type MemberRowProps = {
 };
 
 function MemberRow({
+  isSelf,
   member,
   onDeleteRequest,
   onEdit,
@@ -160,7 +168,7 @@ function MemberRow({
     <tr className="border-t border-border/70 align-middle">
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <MemberAvatar name={member.name} />
+          <MemberAvatar member={member} />
           <div className="min-w-0">
             <p
               className={cn(
@@ -168,7 +176,12 @@ function MemberRow({
                 isEnabled ? "text-foreground" : "text-muted-foreground"
               )}
             >
-              {member.name}
+              {displayName(member)}
+              {isSelf ? (
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                  （{t("当前登录账号")}）
+                </span>
+              ) : null}
             </p>
             <p className="truncate text-xs leading-4 text-muted-foreground">
               {member.email}
@@ -177,7 +190,7 @@ function MemberRow({
         </div>
       </td>
       <td className="px-4 py-3 whitespace-nowrap text-[14px] text-muted-foreground">
-        {t(member.department)}
+        {member.departmentName ? t(member.departmentName) : t("未分配")}
       </td>
       <td className="px-4 py-3">
         <RoleBadge role={member.role} />
@@ -186,12 +199,12 @@ function MemberRow({
         <StatusBadge status={member.status} />
       </td>
       <td className="px-4 py-3 whitespace-nowrap text-[13px] text-muted-foreground">
-        {member.addedAt}
+        {formatStamp(member.addedAt)}
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1">
           <Button
-            aria-label={`编辑成员 ${member.name}`}
+            aria-label={`编辑成员 ${displayName(member)}`}
             className="h-7 px-2 text-[13px] text-muted-foreground"
             onClick={handleEditClick}
             size="sm"
@@ -201,7 +214,7 @@ function MemberRow({
             {t("编辑")}
           </Button>
           <Button
-            aria-label={`${isEnabled ? "停用" : "启用"}成员 ${member.name}`}
+            aria-label={`${isEnabled ? "停用" : "启用"}成员 ${displayName(member)}`}
             className="h-7 px-2 text-[13px] text-muted-foreground"
             onClick={handleToggleClick}
             size="sm"
@@ -215,7 +228,7 @@ function MemberRow({
             {t(isEnabled ? "停用" : "启用")}
           </Button>
           <Button
-            aria-label={`删除成员 ${member.name}`}
+            aria-label={`删除成员 ${displayName(member)}`}
             className="h-7 px-2 text-[13px] text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={handleDeleteClick}
             size="sm"
@@ -229,9 +242,49 @@ function MemberRow({
   );
 }
 
-export function MemberManager() {
+type MembersData = {
+  departments: DepartmentOption[];
+  members: ManagementMember[];
+};
+
+async function requestJson(
+  url: string,
+  init: RequestInit
+): Promise<{ data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(url, {
+      ...init,
+      headers: { "Content-Type": "application/json", ...init.headers },
+    });
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    if (!response.ok) {
+      return { error: body?.error ?? "操作失败，请稍后重试" };
+    }
+    return { data: body };
+  } catch {
+    return { error: "网络异常，请稍后重试" };
+  }
+}
+
+export function MembersPage({
+  currentUserId,
+  initialData,
+}: {
+  /** 当前登录账号（User 表）id，用于自我保护校验 */
+  currentUserId: string | null;
+  /** 服务端直出的成员列表与部门选项，变更后经接口刷新 */
+  initialData: MembersData;
+}) {
   const { t } = usePreferences();
-  const [members, setMembers] = useState<ManagementMember[]>(SEED_MEMBERS);
+  const [members, setMembers] = useState<ManagementMember[]>(
+    initialData.members
+  );
+  const [departments, setDepartments] = useState<DepartmentOption[]>(
+    initialData.departments
+  );
+  const [loadFailed, setLoadFailed] = useState(false);
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<ManagementMember | null>(
@@ -240,6 +293,30 @@ export function MemberManager() {
   const [deleteTarget, setDeleteTarget] = useState<ManagementMember | null>(
     null
   );
+  const [deleting, setDeleting] = useState(false);
+
+  const refresh = useCallback(async (): Promise<MembersData | null> => {
+    try {
+      const response = await fetch("/api/management/members", {
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error("failed to load members");
+      }
+      const data = (await response.json()) as MembersData;
+      setMembers(data.members);
+      setDepartments(data.departments);
+      setLoadFailed(false);
+      return data;
+    } catch {
+      setLoadFailed(true);
+      return null;
+    }
+  }, []);
+
+  const handleRetry = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
 
   const normalizedQuery = query.trim().toLocaleLowerCase();
 
@@ -255,7 +332,7 @@ export function MemberManager() {
       return members;
     }
     return members.filter((member) =>
-      `${member.name} ${member.email} ${member.department}`
+      `${displayName(member)} ${member.email} ${member.departmentName ?? ""}`
         .toLocaleLowerCase()
         .includes(normalizedQuery)
     );
@@ -280,30 +357,45 @@ export function MemberManager() {
   }, []);
 
   const handleCreateSubmit = useCallback(
-    (values: MemberFormValues) => {
-      const id = crypto.randomUUID();
-      setMembers((current) => [
-        { addedAt: nowStamp(), id, ...values },
-        ...current,
-      ]);
+    async (values: MemberFormValues) => {
+      const { error } = await requestJson("/api/management/members", {
+        body: JSON.stringify(values),
+        method: "POST",
+      });
+      if (error) {
+        toast.error(t(error));
+        return;
+      }
+      await refresh();
       setCreateOpen(false);
       toast.success(t("已添加成员「{name}」", { name: values.name }));
     },
-    [t]
+    [refresh, t]
   );
 
   const handleUpdateSubmit = useCallback(
-    (values: MemberFormValues) => {
+    async (values: MemberFormValues) => {
       if (!editingMember) {
         return;
       }
       const targetId = editingMember.id;
       const statusChanged = values.status !== editingMember.status;
-      setMembers((current) =>
-        current.map((member) =>
-          member.id === targetId ? { ...member, ...values } : member
-        )
-      );
+      const { error } = await requestJson("/api/management/members", {
+        body: JSON.stringify({
+          departmentId: values.departmentId,
+          id: targetId,
+          name: values.name,
+          role: values.role,
+          status: values.status,
+          title: values.title,
+        }),
+        method: "PATCH",
+      });
+      if (error) {
+        toast.error(t(error));
+        return;
+      }
+      await refresh();
       setEditingMember(null);
       toast.success(
         statusChanged
@@ -314,29 +406,44 @@ export function MemberManager() {
           : t("已更新成员「{name}」", { name: values.name })
       );
     },
-    [editingMember, t]
+    [editingMember, refresh, t]
   );
 
   const handleToggleStatus = useCallback(
-    (member: ManagementMember) => {
+    async (member: ManagementMember) => {
       if (member.status === "enabled" && isLastEnabledAdmin(members, member)) {
         toast.error(t("需保留至少一名已启用的管理员，无法停用该成员"));
         return;
       }
+      if (member.status === "enabled" && member.userId === currentUserId) {
+        toast.error(t("不能停用当前登录的账号"));
+        return;
+      }
       const nextStatus: MemberStatus =
         member.status === "enabled" ? "disabled" : "enabled";
-      setMembers((current) =>
-        current.map((item) =>
-          item.id === member.id ? { ...item, status: nextStatus } : item
-        )
-      );
+      const { error } = await requestJson("/api/management/members", {
+        body: JSON.stringify({
+          departmentId: member.departmentId,
+          id: member.id,
+          name: member.name ?? displayName(member),
+          role: member.role,
+          status: nextStatus,
+          title: member.title,
+        }),
+        method: "PATCH",
+      });
+      if (error) {
+        toast.error(t(error));
+        return;
+      }
+      await refresh();
       toast.success(
         nextStatus === "enabled"
-          ? t("已启用「{name}」", { name: member.name })
-          : t("已停用「{name}」", { name: member.name })
+          ? t("已启用「{name}」", { name: displayName(member) })
+          : t("已停用「{name}」", { name: displayName(member) })
       );
     },
-    [members, t]
+    [currentUserId, members, refresh, t]
   );
 
   const handleDeleteRequest = useCallback(
@@ -345,20 +452,45 @@ export function MemberManager() {
         toast.error(t("需保留至少一名已启用的管理员，无法删除该成员"));
         return;
       }
+      if (member.userId === currentUserId) {
+        toast.error(t("不能删除当前登录的账号"));
+        return;
+      }
       setDeleteTarget(member);
     },
-    [members, t]
+    [currentUserId, members, t]
   );
 
-  const handleDeleteConfirm = useCallback(() => {
-    if (!deleteTarget) {
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget || deleting) {
       return;
     }
-    const { id, name } = deleteTarget;
-    setMembers((current) => current.filter((member) => member.id !== id));
+    const target = deleteTarget;
+    const { id } = target;
+    setDeleting(true);
+    const { error } = await requestJson("/api/management/members", {
+      body: JSON.stringify({ id }),
+      method: "DELETE",
+    });
+    setDeleting(false);
+    if (error) {
+      toast.error(t(error));
+      setDeleteTarget(null);
+      return;
+    }
+    await refresh();
     setDeleteTarget(null);
-    toast.success(t("已删除成员「{name}」", { name }));
-  }, [deleteTarget, t]);
+    toast.success(t("已删除成员「{name}」", { name: displayName(target) }));
+  }, [deleteTarget, deleting, refresh, t]);
+
+  const handleDeleteActionClick = useCallback(
+    async (event: React.MouseEvent<HTMLButtonElement>) => {
+      // 阻止 AlertDialog 自动关闭，删除完成后再由状态驱动关闭
+      event.preventDefault();
+      await handleDeleteConfirm();
+    },
+    [handleDeleteConfirm]
+  );
 
   const handleDeleteDialogChange = useCallback((open: boolean) => {
     if (!open) {
@@ -457,9 +589,27 @@ export function MemberManager() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleMembers.length > 0 ? (
+                  {loadFailed ? (
+                    <tr className="border-t border-border/70">
+                      <td
+                        className="px-4 py-10 text-center text-sm text-muted-foreground"
+                        colSpan={6}
+                      >
+                        {t("加载成员数据失败")}
+                        <Button
+                          className="mt-3"
+                          onClick={handleRetry}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {t("重试")}
+                        </Button>
+                      </td>
+                    </tr>
+                  ) : visibleMembers.length > 0 ? (
                     visibleMembers.map((member) => (
                       <MemberRow
+                        isSelf={member.userId === currentUserId}
                         key={member.id}
                         member={member}
                         onDeleteRequest={handleDeleteRequest}
@@ -487,6 +637,8 @@ export function MemberManager() {
       </section>
 
       <MemberDialog
+        currentUserId={currentUserId}
+        departments={departments}
         member={editingMember}
         members={members}
         onClose={handleDialogClose}
@@ -500,24 +652,21 @@ export function MemberManager() {
       >
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("删除成员？")}</AlertDialogTitle>
+            <AlertDialogTitle>删除成员？</AlertDialogTitle>
             <AlertDialogDescription>
-              {t(
-                "将永久移除「{name}」（{email}）及其访问权限，删除后无法恢复。",
-                {
-                  email: deleteTarget?.email ?? "",
-                  name: deleteTarget?.name ?? "",
-                }
-              )}
+              将永久删除「{deleteTarget ? displayName(deleteTarget) : ""}」（
+              {deleteTarget?.email ?? ""}）
+              的登录账号、成员记录及其名下的会话与文档，删除后无法恢复。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("取消")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteConfirm}
+              disabled={deleting}
+              onClick={handleDeleteActionClick}
               variant="destructive"
             >
-              {t("删除")}
+              {deleting ? "删除中…" : "删除"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

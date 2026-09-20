@@ -15,6 +15,13 @@
       "when": 1789872617041,
       "tag": "0001_overjoyed_zaladane",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789874025024,
+      "tag": "0002_organic_ender_wiggin",
+      "breakpoints": true
     }
   ]
 }

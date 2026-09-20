@@ -1,4 +1,5 @@
 import type { InferSelectModel } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   boolean,
   foreignKey,
@@ -24,6 +25,48 @@ export const user = pgTable("User", {
 });
 
 export type User = InferSelectModel<typeof user>;
+
+export const department = pgTable("Department", {
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  /** 部门负责人（成员 id）；负责人被删除时置空 */
+  leaderId: uuid("leaderId").references((): AnyPgColumn => member.id, {
+    onDelete: "set null",
+  }),
+  name: varchar("name", { length: 128 }).notNull(),
+  /** 上级部门；部门被删除时下级的上级置空（提升为顶级） */
+  parentId: uuid("parentId").references((): AnyPgColumn => department.id, {
+    onDelete: "set null",
+  }),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export type DepartmentRecord = InferSelectModel<typeof department>;
+
+export const member = pgTable("Member", {
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  /** 所属部门；部门被删除时置空（变为未分配） */
+  departmentId: uuid("departmentId").references(
+    (): AnyPgColumn => department.id,
+    { onDelete: "set null" }
+  ),
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  role: varchar("role", { enum: ["admin", "member"] })
+    .notNull()
+    .default("member"),
+  status: varchar("status", { enum: ["enabled", "disabled"] })
+    .notNull()
+    .default("enabled"),
+  title: varchar("title", { length: 128 }),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  /** 关联的登录账号；账号被删除时成员一并删除 */
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" })
+    .unique(),
+});
+
+export type MemberRecord = InferSelectModel<typeof member>;
 
 export const skill = pgTable("Skill", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),

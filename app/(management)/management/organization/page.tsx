@@ -1,7 +1,13 @@
 import Link from "next/link";
-import { MemberManager } from "@/components/management/member-manager";
-import { OrganizationManager } from "@/components/management/organization-manager";
+import { auth } from "@/app/(auth)/auth";
+import { MembersPage } from "@/components/management/members/members-page";
+import { OrganizationPage } from "@/components/management/organization/organization-page";
 import { Badge } from "@/components/ui/badge";
+import {
+  ensureMemberForUserId,
+  loadMembersView,
+  loadOrganizationView,
+} from "@/lib/db/organization-queries";
 
 const PERMISSIONS_VIEW = {
   description: "配置角色与权限，控制成员可访问的管理能力。",
@@ -17,7 +23,18 @@ export default async function OrganizationManagementPage({
   const view = Array.isArray(params.view) ? params.view[0] : params.view;
 
   if (view === "members") {
-    return <MemberManager />;
+    const session = await auth();
+    // 老会话不经过登录流程，加载数据前先兜底补建成员记录，否则当前账号不会出现在列表中
+    if (session?.user?.type === "regular") {
+      await ensureMemberForUserId(session.user.id);
+    }
+    const membersView = await loadMembersView();
+    return (
+      <MembersPage
+        currentUserId={session?.user?.id ?? null}
+        initialData={membersView}
+      />
+    );
   }
 
   if (view === "permissions") {
@@ -51,5 +68,11 @@ export default async function OrganizationManagementPage({
     );
   }
 
-  return <OrganizationManager />;
+  // 组织视图的负责人候选来自成员列表，同样先兜底补建当前账号
+  const session = await auth();
+  if (session?.user?.type === "regular") {
+    await ensureMemberForUserId(session.user.id);
+  }
+  const organizationView = await loadOrganizationView();
+  return <OrganizationPage initialData={organizationView} />;
 }

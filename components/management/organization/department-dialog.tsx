@@ -32,13 +32,18 @@ import {
   type Department,
   type DepartmentNode,
   getDescendantIds,
+  getMemberDisplayName,
+  type MemberSummary,
 } from "@/lib/management/organization";
 
 export type DepartmentFormValues = {
-  leader: string | null;
+  leaderId: string | null;
   name: string;
   parentId: string | null;
 };
+
+/** Select 组件不接受空字符串值，未设置负责人 / 未分配部门用哨兵值表示 */
+const NONE_OPTION = "__none__";
 
 type DepartmentDialogProps = {
   /** 新建时默认选中的上级部门（通常为当前选中部门） */
@@ -46,6 +51,7 @@ type DepartmentDialogProps = {
   departments: Department[];
   /** 待编辑部门；null 表示新建 */
   department: Department | null;
+  members: readonly MemberSummary[];
   onClose: () => void;
   /** 编辑态请求删除，由父级弹出确认框 */
   onDeleteRequest: (department: Department) => void;
@@ -61,6 +67,7 @@ export function DepartmentDialog({
   defaultParentId = null,
   departments,
   department,
+  members,
   onClose,
   onDeleteRequest,
   onSubmit,
@@ -69,7 +76,7 @@ export function DepartmentDialog({
   const isEdit = department !== null;
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState<string | null>(null);
-  const [leader, setLeader] = useState("");
+  const [leaderId, setLeaderId] = useState<string>(NONE_OPTION);
   const [error, setError] = useState<{
     field: "name" | "parent";
     message: string;
@@ -85,7 +92,7 @@ export function DepartmentDialog({
           ? department.parentId
           : (defaultParentId ?? departments[0]?.id ?? null)
       );
-      setLeader(department?.leader ?? "");
+      setLeaderId(department?.leaderId ?? NONE_OPTION);
       setError(null);
     }
   }, [defaultParentId, department, departments, open]);
@@ -108,14 +115,20 @@ export function DepartmentDialog({
     return getDescendantIds(departments, department.id).size;
   }, [departments, department]);
 
-  const directMemberCount = department?.members.length ?? 0;
+  const directMemberCount = useMemo(
+    () =>
+      department
+        ? members.filter((item) => item.departmentId === department.id).length
+        : 0,
+    [department, members]
+  );
   const isRoot = department !== null && department.parentId === null;
+  const hasDepartments = departments.length > 0;
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       const trimmedName = name.trim();
-      const trimmedLeader = leader.trim();
 
       if (!trimmedName) {
         setError({ field: "name", message: "请输入部门名称" });
@@ -146,12 +159,12 @@ export function DepartmentDialog({
       }
 
       onSubmit({
-        leader: trimmedLeader || null,
+        leaderId: leaderId === NONE_OPTION ? null : leaderId,
         name: trimmedName,
         parentId,
       });
     },
-    [departments, department, leader, name, onSubmit, parentId]
+    [departments, department, leaderId, name, onSubmit, parentId]
   );
 
   const handleNameChange = useCallback(
@@ -174,11 +187,9 @@ export function DepartmentDialog({
     [error]
   );
 
-  const handleLeaderChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) =>
-      setLeader(event.currentTarget.value),
-    []
-  );
+  const handleLeaderChange = useCallback((value: string) => {
+    setLeaderId(value);
+  }, []);
 
   const handleOpenChange = useCallback(
     (next: boolean) => {
@@ -232,36 +243,40 @@ export function DepartmentDialog({
 
           <div className="grid gap-2">
             <Label htmlFor="department-parent">上级部门</Label>
-            {isRoot ? (
-              <Input disabled id="department-parent" value="顶级组织" />
-            ) : (
-              <Select
-                onValueChange={handleParentChange}
-                value={parentId ?? undefined}
-              >
-                <SelectTrigger
-                  aria-describedby={
-                    error?.field === "parent"
-                      ? "department-parent-error"
-                      : undefined
-                  }
-                  aria-invalid={error?.field === "parent" ? true : undefined}
-                  className="w-full"
-                  id="department-parent"
+            {hasDepartments ? (
+              isRoot ? (
+                <Input disabled id="department-parent" value="顶级组织" />
+              ) : (
+                <Select
+                  onValueChange={handleParentChange}
+                  value={parentId ?? undefined}
                 >
-                  <SelectValue placeholder="选择上级部门" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {selectableDepartments.map((node) => (
-                    <SelectItem
-                      key={node.department.id}
-                      value={node.department.id}
-                    >
-                      {"　".repeat(node.depth) + node.department.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  <SelectTrigger
+                    aria-describedby={
+                      error?.field === "parent"
+                        ? "department-parent-error"
+                        : undefined
+                    }
+                    aria-invalid={error?.field === "parent" ? true : undefined}
+                    className="w-full"
+                    id="department-parent"
+                  >
+                    <SelectValue placeholder="选择上级部门" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {selectableDepartments.map((node) => (
+                      <SelectItem
+                        key={node.department.id}
+                        value={node.department.id}
+                      >
+                        {"　".repeat(node.depth) + node.department.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            ) : (
+              <Input disabled id="department-parent" value="顶级组织" />
             )}
             {isRoot ? (
               <p className="text-[12px] leading-5 text-muted-foreground">
@@ -280,12 +295,22 @@ export function DepartmentDialog({
 
           <div className="grid gap-2">
             <Label htmlFor="department-leader">负责人</Label>
-            <Input
-              id="department-leader"
-              onChange={handleLeaderChange}
-              placeholder="选填，输入负责人姓名"
-              value={leader}
-            />
+            <Select onValueChange={handleLeaderChange} value={leaderId}>
+              <SelectTrigger className="w-full" id="department-leader">
+                <SelectValue placeholder="选择负责人" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value={NONE_OPTION}>未设置</SelectItem>
+                {members.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {getMemberDisplayName(item)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[12px] leading-5 text-muted-foreground">
+              从成员列表中选择部门负责人
+            </p>
           </div>
 
           {isEdit && department ? (
@@ -299,7 +324,7 @@ export function DepartmentDialog({
                     {childCount > 0
                       ? `该部门下还有 ${childCount} 个下级部门，需先删除或转移下级部门。`
                       : directMemberCount > 0
-                        ? `将同时移除该部门的 ${directMemberCount} 名直属成员。`
+                        ? `该部门的 ${directMemberCount} 名直属成员将变为未分配部门。`
                         : "删除后无法恢复。"}
                   </p>
                 </div>

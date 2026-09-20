@@ -1,6 +1,6 @@
-import { auth } from "@/app/(auth)/auth";
 import { listProjectSkillFiles, readProjectSkillFile } from "@/lib/ai/skills";
 import { ChatbotError } from "@/lib/errors";
+import { requireManagementAdmin } from "@/lib/management/access";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
@@ -8,8 +8,8 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ name: string }> }
 ) {
-  const session = await auth();
-  if (session?.user?.type !== "regular") {
+  const session = await requireManagementAdmin();
+  if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
 
