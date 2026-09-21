@@ -56,6 +56,7 @@ const MODEL_SECTION: ManagementSection = {
   features: ["多模型接入", "私有模型", "接入配置"],
   href: "/management/models",
   icon: BrainIcon,
+  ready: true,
   tagline: "多模型接入 · 企业私有模型",
   title: "模型管理",
 };
