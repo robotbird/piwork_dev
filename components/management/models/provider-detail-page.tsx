@@ -46,9 +46,6 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import {
   formatStamp,
-  getProviderInitial,
-  getProviderTone,
-  MODEL_TYPE_LABELS,
   maskApiKey,
   PROVIDER_PROTOCOL_LABELS,
   type ProviderDetailView,
@@ -131,24 +128,6 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-/** 基本配置卡片的单行定义 */
-function ConfigRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="grid grid-cols-[128px_minmax(0,1fr)] gap-4 border-t border-border/60 px-4 py-3 first:border-t-0 sm:grid-cols-[160px_minmax(0,1fr)] sm:px-5">
-      <dt className="text-[13px] leading-6 text-muted-foreground">{label}</dt>
-      <dd className="flex min-w-0 items-center gap-2 text-[14px] leading-6 text-foreground">
-        {children}
-      </dd>
-    </div>
-  );
-}
-
 type ModelRowProps = {
   model: ProviderModelItem;
   onDeleteRequest: (model: ProviderModelItem) => void;
@@ -193,12 +172,6 @@ function ModelRow({
       </td>
       <td className="px-4 py-3 font-mono text-[13px] leading-5 whitespace-nowrap text-muted-foreground">
         {model.modelId}
-      </td>
-      <td className="px-4 py-3 text-[13px] leading-5 whitespace-nowrap text-muted-foreground">
-        {translate(
-          MODEL_TYPE_LABELS[model.type],
-          model.type === "chat" ? "Chat" : "Multimodal"
-        )}
       </td>
       <td className="px-4 py-3">
         <StatusDot enabled={model.enabled} />
@@ -587,37 +560,26 @@ export function ProviderDetailPage({
           </nav>
 
           <header className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex min-w-0 items-start gap-4">
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "grid size-12 shrink-0 place-items-center rounded-[12px] text-lg font-semibold",
-                  getProviderTone(detail.name)
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-2xl font-semibold tracking-[-0.025em]">
+                  {detail.name}
+                </h1>
+                {detail.enabled ? (
+                  <span className="inline-flex items-center rounded-full bg-link-soft px-2 py-0.5 text-xs leading-4 font-medium text-link-deep">
+                    {translate("已启用", "Enabled")}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs leading-4 font-medium text-muted-foreground">
+                    {translate("已停用", "Disabled")}
+                  </span>
                 )}
-              >
-                {getProviderInitial(detail.name)}
-              </span>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-                    {detail.name}
-                  </h1>
-                  {detail.enabled ? (
-                    <span className="inline-flex items-center rounded-full bg-link-soft px-2 py-0.5 text-xs leading-4 font-medium text-link-deep">
-                      {translate("已启用", "Enabled")}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs leading-4 font-medium text-muted-foreground">
-                      {translate("已停用", "Disabled")}
-                    </span>
-                  )}
-                </div>
-                {detail.description ? (
-                  <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
-                    {detail.description}
-                  </p>
-                ) : null}
               </div>
+              {detail.description ? (
+                <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+                  {detail.description}
+                </p>
+              ) : null}
             </div>
             <Button
               className="shrink-0"
@@ -644,89 +606,76 @@ export function ProviderDetailPage({
           ) : (
             <>
               <div className="mt-8 overflow-hidden rounded-[14px] border border-border bg-card">
-                <div className="border-b border-border/70 bg-muted/40 px-4 py-3 sm:px-5">
-                  <h2 className="text-[14px] leading-5 font-medium">
-                    {translate("基本配置", "Basic configuration")}
-                  </h2>
-                </div>
-                <dl>
-                  <ConfigRow label={translate("协议", "Protocol")}>
-                    <span className="truncate">
+                <dl className="grid grid-cols-1 divide-y divide-border/60 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                  <div className="px-4 py-4 sm:px-5">
+                    <dt className="text-[13px] leading-5 text-muted-foreground">
+                      {translate("协议", "Protocol")}
+                    </dt>
+                    <dd className="mt-1 text-[14px] leading-6 font-medium text-foreground">
                       {PROVIDER_PROTOCOL_LABELS[detail.protocol]}
-                    </span>
-                  </ConfigRow>
-                  <ConfigRow label="Base URL">
-                    <span className="truncate font-mono text-[13px]">
-                      {detail.baseUrl}
-                    </span>
-                    <CopyButton value={detail.baseUrl} />
-                  </ConfigRow>
-                  <ConfigRow label="API Key">
-                    <span className="truncate font-mono text-[13px]">
-                      {apiKeyVisible
-                        ? detail.apiKey
-                        : maskApiKey(detail.apiKey)}
-                    </span>
-                    <button
-                      aria-label={
-                        apiKeyVisible
-                          ? translate("隐藏 API Key", "Hide API key")
-                          : translate("显示 API Key", "Reveal API key")
-                      }
-                      className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      onClick={handleApiKeyVisibilityToggle}
-                      type="button"
-                    >
-                      {apiKeyVisible ? (
-                        <EyeOffIcon className="size-3.5" />
-                      ) : (
-                        <EyeIcon className="size-3.5" />
-                      )}
-                    </button>
-                    <CopyButton value={detail.apiKey} />
-                  </ConfigRow>
-                  <ConfigRow label={translate("状态", "Status")}>
-                    <StatusDot enabled={detail.enabled} />
-                  </ConfigRow>
-                  <ConfigRow label={translate("创建时间", "Created")}>
-                    <span className="tabular-nums">
-                      {formatStamp(detail.createdAt)}
-                    </span>
-                  </ConfigRow>
-                  <ConfigRow label={translate("更新时间", "Updated")}>
-                    <span className="tabular-nums">
-                      {formatStamp(detail.updatedAt)}
-                    </span>
-                  </ConfigRow>
+                    </dd>
+                  </div>
+                  <div className="px-4 py-4 sm:px-5">
+                    <dt className="text-[13px] leading-5 text-muted-foreground">
+                      Base URL
+                    </dt>
+                    <dd className="mt-1 flex min-w-0 items-center gap-1.5">
+                      <span className="truncate font-mono text-[13px] leading-6 text-foreground">
+                        {detail.baseUrl}
+                      </span>
+                      <CopyButton value={detail.baseUrl} />
+                    </dd>
+                  </div>
+                  <div className="px-4 py-4 sm:px-5">
+                    <dt className="text-[13px] leading-5 text-muted-foreground">
+                      API Key
+                    </dt>
+                    <dd className="mt-1 flex min-w-0 items-center gap-1.5">
+                      <span className="truncate font-mono text-[13px] leading-6 text-foreground">
+                        {apiKeyVisible
+                          ? detail.apiKey
+                          : maskApiKey(detail.apiKey)}
+                      </span>
+                      <button
+                        aria-label={
+                          apiKeyVisible
+                            ? translate("隐藏 API Key", "Hide API key")
+                            : translate("显示 API Key", "Reveal API key")
+                        }
+                        className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        onClick={handleApiKeyVisibilityToggle}
+                        type="button"
+                      >
+                        {apiKeyVisible ? (
+                          <EyeOffIcon className="size-3.5" />
+                        ) : (
+                          <EyeIcon className="size-3.5" />
+                        )}
+                      </button>
+                      <CopyButton value={detail.apiKey} />
+                    </dd>
+                  </div>
                 </dl>
               </div>
 
-              <div className="mt-8 overflow-hidden rounded-[14px] border border-border bg-card">
-                <div className="flex flex-col gap-3 border-b border-border/70 bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                  <div>
-                    <h2 className="text-[14px] leading-5 font-medium">
-                      {translate("模型列表", "Model list")}
-                    </h2>
-                    <p className="mt-0.5 text-[12px] leading-4 text-muted-foreground">
-                      {translate(
-                        "在该供应商下管理可用的模型",
-                        "Manage the models available under this provider"
-                      )}
-                    </p>
-                  </div>
-                  <Button
-                    className="shrink-0"
-                    onClick={handleCreateModelOpen}
-                    size="sm"
-                  >
-                    <PlusIcon data-icon="inline-start" />
-                    {translate("添加模型", "Add model")}
-                  </Button>
-                </div>
+              <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-[15px] leading-6 font-semibold text-foreground">
+                  {translate("模型列表", "Model list")}
+                </h2>
+                <Button
+                  className="shrink-0"
+                  onClick={handleCreateModelOpen}
+                  size="sm"
+                >
+                  <PlusIcon data-icon="inline-start" />
+                  {translate("添加模型", "Add model")}
+                </Button>
+              </div>
+              <div className="mt-3 overflow-hidden rounded-[14px] border border-border bg-card">
                 <div className="overflow-x-auto">
                   <table
                     aria-label={translate("模型列表", "Model list")}
-                    className="w-full min-w-[820px] text-left text-sm"
+                    className="w-full min-w-[760px] text-left text-sm"
                   >
                     <thead className="bg-muted/50 text-[13px] text-muted-foreground">
                       <tr>
@@ -737,13 +686,10 @@ export function ProviderDetailPage({
                           Model ID
                         </th>
                         <th className="h-10 px-4 font-medium" scope="col">
-                          {translate("类型", "Type")}
-                        </th>
-                        <th className="h-10 px-4 font-medium" scope="col">
                           {translate("状态", "Status")}
                         </th>
                         <th className="h-10 px-4 font-medium" scope="col">
-                          {translate("是否默认", "Default")}
+                          {translate("默认", "Default")}
                         </th>
                         <th className="h-10 px-4 font-medium" scope="col">
                           {translate("添加时间", "Added")}
@@ -774,7 +720,7 @@ export function ProviderDetailPage({
                         <tr className="border-t border-border/70">
                           <td
                             className="px-4 py-10 text-center text-sm text-muted-foreground"
-                            colSpan={7}
+                            colSpan={6}
                           >
                             {translate(
                               "该供应商下还没有模型，点击「添加模型」创建",

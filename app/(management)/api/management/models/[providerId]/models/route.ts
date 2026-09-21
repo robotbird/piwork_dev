@@ -32,9 +32,9 @@ type ParsedModelFields =
       fields: { modelId: string; name: string; type: ProviderModelType };
     };
 
-/** 解析模型名称 / Model ID / 类型公共字段 */
+/** 解析模型名称 / Model ID 公共字段；type 可选，缺省按对话模型处理 */
 function parseModelFields(body: Record<string, unknown>): ParsedModelFields {
-  const { type } = body;
+  const type = typeof body.type === "string" ? body.type : "chat";
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const modelId = typeof body.modelId === "string" ? body.modelId.trim() : "";
 
@@ -50,10 +50,7 @@ function parseModelFields(body: Record<string, unknown>): ParsedModelFields {
   if (modelId.length > MODEL_ID_MAX_LENGTH) {
     return { errorCode: "modelIdTooLong" };
   }
-  if (
-    typeof type !== "string" ||
-    !MODEL_TYPES.includes(type as ProviderModelType)
-  ) {
+  if (!MODEL_TYPES.includes(type as ProviderModelType)) {
     return { errorCode: "modelTypeInvalid" };
   }
   return { fields: { modelId, name, type: type as ProviderModelType } };
@@ -164,7 +161,9 @@ export async function PATCH(
       }
       update.modelId = parsed.fields.modelId;
       update.name = parsed.fields.name;
-      update.type = parsed.fields.type;
+      if (body.type !== undefined) {
+        update.type = parsed.fields.type;
+      }
     }
 
     if (typeof body.enabled === "boolean" && body.enabled !== target.enabled) {

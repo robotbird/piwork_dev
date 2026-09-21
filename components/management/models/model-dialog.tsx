@@ -22,23 +22,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   MODEL_ID_MAX_LENGTH,
   MODEL_NAME_MAX_LENGTH,
   type ProviderModelItem,
-  type ProviderModelType,
 } from "@/lib/management/models";
 
 export type ModelFormValues = {
   modelId: string;
   name: string;
-  type: ProviderModelType;
 };
 
 type FieldName = "name" | "modelId";
@@ -65,7 +56,6 @@ export function ModelDialog({
   const isEdit = model !== null;
   const [name, setName] = useState("");
   const [modelId, setModelId] = useState("");
-  const [type, setType] = useState<ProviderModelType>("chat");
   const [error, setError] = useState<{
     field: FieldName;
     message: string;
@@ -75,7 +65,6 @@ export function ModelDialog({
     if (open) {
       setName(model?.name ?? "");
       setModelId(model?.modelId ?? "");
-      setType(model?.type ?? "chat");
       setError(null);
     }
   }, [model, open]);
@@ -148,9 +137,9 @@ export function ModelDialog({
         return;
       }
 
-      onSubmit({ modelId: trimmedModelId, name: trimmedName, type });
+      onSubmit({ modelId: trimmedModelId, name: trimmedName });
     },
-    [intl, model?.id, modelId, models, name, onSubmit, translate, type]
+    [intl, model?.id, modelId, models, name, onSubmit, translate]
   );
 
   const handleOpenChange = useCallback(
@@ -161,10 +150,6 @@ export function ModelDialog({
     },
     [onClose]
   );
-
-  const handleTypeChange = useCallback((value: string) => {
-    setType(value as ProviderModelType);
-  }, []);
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
@@ -178,8 +163,8 @@ export function ModelDialog({
           <DialogDescription>
             {isEdit
               ? translate(
-                  "调整模型展示名称、Model ID 与类型。",
-                  "Update the model name, ID and type."
+                  "调整模型展示名称与 Model ID。",
+                  "Update the model name and ID."
                 )
               : translate(
                   "填写供应商侧的模型标识，添加后可测试连通性。",
@@ -236,23 +221,6 @@ export function ModelDialog({
                 {error.message}
               </p>
             ) : null}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="model-type">{translate("类型", "Type")}</Label>
-            <Select onValueChange={handleTypeChange} value={type}>
-              <SelectTrigger className="w-full" id="model-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="chat">
-                  {translate("对话", "Chat")}
-                </SelectItem>
-                <SelectItem value="multimodal">
-                  {translate("多模态", "Multimodal")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           <DialogFooter className="mt-1">

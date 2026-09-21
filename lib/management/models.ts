@@ -61,11 +61,6 @@ export const PROVIDER_PROTOCOL_LABELS: Record<ProviderProtocol, string> = {
   "openai-compatible": "OpenAI Compatible",
 };
 
-export const MODEL_TYPE_LABELS: Record<ProviderModelType, string> = {
-  chat: "对话",
-  multimodal: "多模态",
-};
-
 /** 校验 Base URL：必须是 http(s) 地址且不带查询串与锚点 */
 export function isValidBaseUrl(value: string): boolean {
   try {
@@ -90,32 +85,6 @@ export function maskApiKey(apiKey: string): string {
 
 /** 测试连通性的采样请求体（OpenAI 兼容协议） */
 export const MODEL_TEST_PROMPT = "ping";
-
-const PROVIDER_TONES = [
-  "bg-blue-500/10 text-blue-700 dark:bg-blue-400/15 dark:text-blue-300",
-  "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300",
-  "bg-amber-500/10 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300",
-  "bg-violet-500/10 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300",
-  "bg-rose-500/10 text-rose-700 dark:bg-rose-400/15 dark:text-rose-300",
-] as const;
-
-/** 供应商名散列到固定标识配色，刷新后保持不变 */
-export function getProviderTone(name: string): string {
-  let hash = 0;
-  for (let index = 0; index < name.length; index += 1) {
-    hash = (hash * 31 + name.charCodeAt(index)) >>> 0;
-  }
-  return PROVIDER_TONES[hash % PROVIDER_TONES.length];
-}
-
-/** 供应商标识展示字：名称首字符（中文或拉丁首字母，取大写） */
-export function getProviderInitial(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return "?";
-  }
-  return [...trimmed][0].toUpperCase();
-}
 
 /** 列表页时间列格式：YYYY-MM-DD HH:mm（本地时区） */
 export function formatStamp(iso: string): string {

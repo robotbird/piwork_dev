@@ -96,7 +96,6 @@ export const legacyMessageKeys = {
   创建后成员即可使用邮箱与该密码登录: "members.theMemberCanSignInWithTheir",
   "创建和管理角色，并为角色选择成员；系统角色由系统维护":
     "management.createAndManageRolesAndAssignMembers",
-  创建时间: "management.createdAt",
   创建第一个部门后即可查看详情:
     "organization.createTheFirstDepartmentToViewIts",
   "创建自定义角色后，可在角色详情中为其添加成员。":
@@ -166,8 +165,6 @@ export const legacyMessageKeys = {
   "在所选上级部门下创建新部门，创建后可在组织树中查看。":
     "organization.createADepartmentUnderTheSelectedParent",
   在系统管理功能之间切换: "management.navigateSystemManagementFeatures",
-  在该供应商下管理可用的模型: "management.manageModelsUnderProvider",
-  基本配置: "management.basicConfig",
   "填写供应商侧的模型标识，添加后可测试连通性。":
     "management.enterProviderModelId",
   "处理中…": "skills.working",
@@ -175,7 +172,6 @@ export const legacyMessageKeys = {
   "处理任何事务...": "chat.askAnythingAction",
   复制: "common.copy",
   复制失败: "management.copyFailed",
-  多模态: "management.multimodalType",
   失败: "dashboard.failed",
   姓名: "members.name",
   安装: "skills.install",
@@ -184,7 +180,6 @@ export const legacyMessageKeys = {
   官方目录: "skills.officialCatalog",
   官方认证: "skills.official",
   密码: "auth.password",
-  对话: "management.chatType",
   对话设置: "chat.conversationSettings",
   "将从项目中永久删除“{name}”及其所有附加文件。":
     "skills.thisWillPermanentlyRemoveAndAllAttached",
@@ -301,7 +296,6 @@ export const legacyMessageKeys = {
   "无法刷新 Skill 列表": "skills.failedToRefreshTheSkillList",
   无法刷新技能列表: "skills.failedToRefreshTheSkillList",
   时长: "dashboard.duration",
-  是否默认: "management.isDefault",
   "显示 API Key": "management.revealApiKey",
   普通成员: "members.member",
   智能助手: "chat.chatbot",
@@ -310,7 +304,6 @@ export const legacyMessageKeys = {
   暂无部门成员: "members.noDepartmentMembers",
   更多: "chat.more",
   更多操作: "common.moreActions",
-  更新时间: "management.updatedAt",
   "最后一名已启用的管理员，无法停用":
     "members.theLastEnabledAdministratorCannotBeDisabled",
   最新动态: "dashboard.latestActivity",
@@ -460,7 +453,7 @@ export const legacyMessageKeys = {
     "management.updateProviderInfoAndCredentials",
   "调整成员信息。部门与角色的变化会同步影响其可访问的管理能力。":
     "members.updateMemberDetailsDepartmentAndRoleChanges",
-  "调整模型展示名称、Model ID 与类型。": "management.updateModelNameIdAndType",
+  "调整模型展示名称与 Model ID。": "management.updateModelNameAndId",
   "调整自定义角色的名称与描述。":
     "management.updateTheNameAndDescriptionOfThis",
   "调整部门信息。修改会同步到组织树与成员归属。":
