@@ -12,3 +12,20 @@ __pycache__/
 .uploads/
 .pi/workspace/
 .pi/skill-state.json
+
+# piwork model provider plugin workspace (staging/artifacts)
+.piwork/
+
+# macOS
+.DS_Store
+
+# Dify vendor packages (migration reference only)
+/llm/
+
+# Design QA artifacts
+/design-qa-*.png
+/model-provider-*.png
+/public/design-qa-*
+
+# Build output
+packages/model-provider-sdk/dist/

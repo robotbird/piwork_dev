@@ -72,6 +72,7 @@ export const legacyMessageKeys = {
   停用供应商: "management.disableProvider",
   "停用后其下模型暂不可用，默认标记也会取消":
     "management.disablingClearsDefault",
+  "停用成员 {name}": "members.disableMemberWithName",
   "停用成员？": "members.confirmDisableMember",
   停用模型: "management.disableModel",
   允许: "chat.allow",
@@ -155,6 +156,7 @@ export const legacyMessageKeys = {
   含下级部门的成员总数: "organization.totalMembersIncludingChildDepartments",
   启用: "common.enable",
   启用供应商: "management.enableProvider",
+  "启用成员 {name}": "members.enableMemberWithName",
   "启用成员？": "members.confirmEnableMember",
   "启用或停用 {name}": "skills.enableOrDisable",
   启用模型: "management.enableModel",

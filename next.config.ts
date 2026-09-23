@@ -52,7 +52,7 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   reactCompiler: true,
-  serverExternalPackages: ["officeparser"],
+  serverExternalPackages: ["officeparser", "esbuild"],
 };
 
 export default withNextIntl(withBotId(nextConfig));

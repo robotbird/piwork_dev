@@ -3,20 +3,23 @@ import {
   type AssistantMessage,
   type Context,
   createModels,
-  createProvider,
-  envApiKeyAuth,
   fauxAssistantMessage,
   fauxProvider,
   type Message,
   type Model,
   type SimpleStreamOptions,
 } from "@earendil-works/pi-ai";
-import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+import {
+  type ActiveModelCatalog,
+  getActiveModelCatalog,
+  getPreferredModelId,
+} from "@/lib/ai/active-models";
+import { chatModels } from "@/lib/ai/models";
+import { loadPluginInstallations } from "@/lib/model-plugins/registry";
 import type { ChatMessage } from "@/lib/types";
 import { getTextFromMessage } from "@/lib/utils";
 import { isTestEnvironment } from "../constants";
 
-const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const EMPTY_USAGE = {
   cacheRead: 0,
   cacheWrite: 0,
@@ -26,41 +29,15 @@ const EMPTY_USAGE = {
   totalTokens: 0,
 };
 
-const deepseekModels: Model<"openai-completions">[] = [
-  {
-    api: "openai-completions",
-    baseUrl: DEEPSEEK_BASE_URL,
-    contextWindow: 128_000,
-    cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
-    id: "deepseek-flash",
-    input: ["text", "image"],
-    maxTokens: 8192,
-    name: "DeepSeek Flash",
-    provider: "deepseek",
-    reasoning: true,
-  },
-  {
-    api: "openai-completions",
-    baseUrl: DEEPSEEK_BASE_URL,
-    contextWindow: 128_000,
-    cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
-    id: "deepseek-v4-pro",
-    input: ["text"],
-    maxTokens: 8192,
-    name: "DeepSeek V4 Pro",
-    provider: "deepseek",
-    reasoning: true,
-  },
-];
-
 const piModels = createModels();
 
 if (isTestEnvironment) {
+  // e2e 专用 faux 供应商：模型清单与 lib/ai/models 的静态测试目录保持一致
   const faux = fauxProvider({
-    models: deepseekModels.map(({ id, name, reasoning }) => ({
-      id,
-      name,
-      reasoning,
+    models: chatModels.map((model) => ({
+      id: model.id.split("/")[1] ?? model.id,
+      name: model.name,
+      reasoning: true,
     })),
     provider: "deepseek",
     tokensPerSecond: 100,
@@ -93,41 +70,66 @@ if (isTestEnvironment) {
     })
   );
   piModels.setProvider(faux.provider);
-} else {
-  piModels.setProvider(
-    createProvider({
-      api: openAICompletionsApi(),
-      auth: {
-        apiKey: envApiKeyAuth("DeepSeek API key", ["DEEPSEEK_API_KEY"]),
-      },
-      baseUrl: DEEPSEEK_BASE_URL,
-      id: "deepseek",
-      models: deepseekModels,
-      name: "DeepSeek",
-    })
-  );
 }
 
-function apiModelId(modelId: string) {
-  return modelId.startsWith("deepseek/")
-    ? modelId.slice("deepseek/".length)
-    : modelId;
-}
+/** 最近一次注册进 pi 的平台目录；引用一致说明缓存未过期，无需重复注册 */
+let registeredCatalog: ActiveModelCatalog | undefined;
+let registeredPluginProviderIds = new Set<string>();
 
-export function getPiModel(modelId: string) {
-  const model = piModels.getModel("deepseek", apiModelId(modelId));
-  if (!model) {
-    throw new Error(`Unsupported DeepSeek model: ${modelId}`);
+async function ensurePiProviders(): Promise<void> {
+  if (isTestEnvironment) {
+    // 测试环境在模块加载时注册 faux 供应商
+    return;
   }
-  return model;
+  const catalog = await getActiveModelCatalog();
+  if (catalog === registeredCatalog) {
+    return;
+  }
+  const plugins = await loadPluginInstallations();
+  const nextProviderIds = new Set(
+    plugins.map((plugin) => plugin.runtimeProviderId)
+  );
+  for (const providerId of registeredPluginProviderIds) {
+    if (!nextProviderIds.has(providerId)) {
+      piModels.deleteProvider(providerId);
+    }
+  }
+  for (const plugin of plugins) {
+    piModels.setProvider(plugin.provider);
+  }
+  registeredPluginProviderIds = nextProviderIds;
+  registeredCatalog = catalog;
+}
+
+/** 拆分 "{provider}/{modelId}" 复合 id；裸 id 视为 deepseek */
+function splitModelId(modelId: string): { model: string; provider: string } {
+  const separatorIndex = modelId.indexOf("/");
+  if (separatorIndex === -1) {
+    return { model: modelId, provider: "deepseek" };
+  }
+  return {
+    model: modelId.slice(separatorIndex + 1),
+    provider: modelId.slice(0, separatorIndex),
+  };
+}
+
+export async function getPiModel(modelId: string) {
+  await ensurePiProviders();
+  const { model, provider } = splitModelId(modelId);
+  const resolved = piModels.getModel(provider, model);
+  if (!resolved) {
+    throw new Error(`Unsupported chat model: ${modelId}`);
+  }
+  return resolved;
 }
 
 function assistantMessage(text: string, modelId: string): AssistantMessage {
+  const { model, provider } = splitModelId(modelId);
   return {
     api: "openai-completions",
     content: [{ text, type: "text" }],
-    model: apiModelId(modelId),
-    provider: "deepseek",
+    model,
+    provider,
     role: "assistant",
     stopReason: "stop",
     timestamp: Date.now(),
@@ -157,18 +159,6 @@ export function toPiContext(
   return { messages: piMessages, systemPrompt };
 }
 
-export function streamPiAnswer(
-  modelId: string,
-  context: Context,
-  signal?: AbortSignal
-) {
-  return piModels.stream(getPiModel(modelId), context, {
-    maxRetries: 2,
-    signal,
-    timeoutMs: 55_000,
-  });
-}
-
 export function streamPiAgent(
   model: Model<Api>,
   context: Context,
@@ -181,17 +171,26 @@ export function streamPiAgent(
   });
 }
 
+/**
+ * 一次性文本补全（标题生成等）。不传 modelId 时使用平台默认模型；
+ * 平台未配置任何模型时直接抛错（标题生成等调用方自行兜底）。
+ */
 export async function completePiText({
   modelId,
   prompt,
   systemPrompt,
 }: {
-  modelId: string;
+  modelId?: string;
   prompt: string;
   systemPrompt: string;
 }) {
+  const catalog = await getActiveModelCatalog();
+  const target = modelId ?? getPreferredModelId(catalog);
+  if (!target) {
+    throw new Error("No model configured on the model management platform");
+  }
   const result = await piModels.complete(
-    getPiModel(modelId),
+    await getPiModel(target),
     {
       messages: [{ content: prompt, role: "user", timestamp: Date.now() }],
       systemPrompt,
@@ -200,7 +199,7 @@ export async function completePiText({
   );
 
   if (result.stopReason === "error" || result.stopReason === "aborted") {
-    throw new Error(result.errorMessage ?? "DeepSeek request failed");
+    throw new Error(result.errorMessage ?? "Model request failed");
   }
 
   return result.content

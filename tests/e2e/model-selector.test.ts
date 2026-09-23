@@ -5,6 +5,10 @@ import { expect, test } from "@playwright/test";
 test.describe("Model Selector", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
+    // 等模型目录加载（按钮展示模型名）且输入框自动聚焦完成，
+    // 避免挂载初期的焦点转移把刚打开的 Radix 弹层又关掉
+    await expect(page.getByTestId("model-selector")).toContainText(/DeepSeek/);
+    await expect(page.getByTestId("multimodal-input")).toBeFocused();
   });
 
   test("displays a model button", async ({ page }) => {

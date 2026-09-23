@@ -36,6 +36,20 @@
       "when": 1789912496146,
       "tag": "0004_calm_captain_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790133520221,
+      "tag": "0005_light_domino",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790169462035,
+      "tag": "0006_good_luminals",
+      "breakpoints": true
     }
   ]
 }

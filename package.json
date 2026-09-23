@@ -16,6 +16,8 @@
     "db:pull": "drizzle-kit pull",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
+    "plugin:package": "tsx scripts/package-plugin.mts",
+    "plugin:verify": "tsx scripts/verify-plugin-chain.mts",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
   },
   "dependencies": {
@@ -104,6 +106,7 @@
     "@types/react-dom": "^18",
     "babel-plugin-react-compiler": "^1.0.0",
     "drizzle-kit": "^0.31.10",
+    "esbuild": "^0.28.2",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "postcss": "^8",

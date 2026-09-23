@@ -10,6 +10,7 @@ import { after } from "next/server";
 import { getTranslations } from "next-intl/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
+import { getActiveModelCatalog } from "@/lib/ai/active-models";
 import {
   buildExecutionSystemPrompt,
   createDeliverFileTool,
@@ -26,12 +27,7 @@ import {
 } from "@/lib/ai/attachments";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { loadEnabledManagedProjectSkills } from "@/lib/ai/managed-skills";
-import {
-  allowedModelIds,
-  chatModels,
-  DEFAULT_CHAT_MODEL,
-  getModelAvailability,
-} from "@/lib/ai/models";
+import { getModelAvailability } from "@/lib/ai/models";
 import { getPiModel, streamPiAgent, toPiContext } from "@/lib/ai/pi";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import {
@@ -103,9 +99,19 @@ export async function POST(request: Request) {
       return new ChatbotError("unauthorized:chat").toResponse();
     }
 
-    const chatModel = allowedModelIds.has(selectedChatModel)
+    // 模型管理平台未配置任何模型时直接拒绝，不再回退静态模型
+    const modelCatalog = await getActiveModelCatalog();
+    if (modelCatalog.models.length === 0) {
+      return Response.json({ error: t("noModelConfigured") }, { status: 503 });
+    }
+    const activeModelIds = new Set(
+      modelCatalog.models.map((model) => model.id)
+    );
+    const fallbackModelId =
+      modelCatalog.defaultModelId ?? modelCatalog.models[0].id;
+    const chatModel = activeModelIds.has(selectedChatModel)
       ? selectedChatModel
-      : DEFAULT_CHAT_MODEL;
+      : fallbackModelId;
 
     await checkIpRateLimit(ipAddress(request));
 
@@ -212,7 +218,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const modelConfig = chatModels.find((m) => m.id === chatModel);
+    const modelConfig = modelCatalog.models.find((m) => m.id === chatModel);
     const currentUserMessageIndex = uiMessages.findLastIndex(
       (currentMessage) => currentMessage.role === "user"
     );
@@ -244,7 +250,7 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    const piModel = getPiModel(chatModel);
+    const piModel = await getPiModel(chatModel);
     if (
       preparedAttachments.images.length > 0 &&
       !piModel.input.includes("image")

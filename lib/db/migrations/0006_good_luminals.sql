@@ -1,0 +1,1 @@
+ALTER TABLE "ModelProviderPlugin" ADD COLUMN "credentialsConfigured" boolean DEFAULT false NOT NULL;

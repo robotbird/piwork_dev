@@ -64,6 +64,9 @@ async function createMemberViaApi(
 
 test.describe
   .serial("Organization Management", () => {
+    // 语言随 Accept-Language 协商，固定为中文保证文案断言稳定
+    test.use({ locale: "zh-CN" });
+
     // 用例结束后清理本套件注册的账号、创建的成员与部门，保持开发库干净
     test.afterAll(async () => {
       await cleanupTestData({

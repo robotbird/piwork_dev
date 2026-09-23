@@ -1,20 +1,21 @@
-import { getAllGatewayModels, getCapabilities, isDemo } from "@/lib/ai/models";
+import { getActiveModelCatalog } from "@/lib/ai/active-models";
 
+/**
+ * 聊天模型目录：下发模型管理平台配置的启用模型与默认模型（不含访问凭证）。
+ * 平台未配置任何模型时返回空列表，前端据此显示「未配置模型」。
+ */
 export async function GET() {
-  const headers = {
-    "Cache-Control": "public, max-age=86400, s-maxage=86400",
-  };
+  const catalog = await getActiveModelCatalog();
+  const capabilities = Object.fromEntries(
+    catalog.models.map((model) => [model.id, model.capabilities])
+  );
 
-  const curatedCapabilities = await getCapabilities();
-
-  if (isDemo) {
-    const models = await getAllGatewayModels();
-    const capabilities = Object.fromEntries(
-      models.map((m) => [m.id, curatedCapabilities[m.id] ?? m.capabilities])
-    );
-
-    return Response.json({ capabilities, models }, { headers });
-  }
-
-  return Response.json(curatedCapabilities, { headers });
+  return Response.json(
+    {
+      capabilities,
+      defaultModelId: catalog.defaultModelId,
+      models: catalog.models,
+    },
+    { headers: { "Cache-Control": "private, max-age=60" } }
+  );
 }

@@ -16,7 +16,9 @@
       "!components/elements",
       "!components/ui",
       "!lib/utils.ts",
-      "!hooks/use-mobile.ts"
+      "!hooks/use-mobile.ts",
+      "!packages/*/dist",
+      "!.piwork"
     ]
   },
   "linter": {

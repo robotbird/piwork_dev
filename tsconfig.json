@@ -20,7 +20,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@piwork/model-provider-sdk": [
+        "./packages/model-provider-sdk/src/index.ts"
+      ]
     },
     "strictNullChecks": true
   },

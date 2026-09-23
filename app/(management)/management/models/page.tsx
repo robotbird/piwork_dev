@@ -2,8 +2,8 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ModelsPage } from "@/components/management/models/models-page";
 import { Button } from "@/components/ui/button";
-import { loadProvidersView } from "@/lib/db/model-queries";
 import { requireManagementAdmin } from "@/lib/management/access";
+import { loadModelPluginsView } from "@/lib/model-plugins/view";
 
 /** 非管理员可见的占位说明（模型凭证仅管理员可访问） */
 async function PermissionNotice() {
@@ -33,6 +33,6 @@ export default async function ModelsManagementPage() {
     return <PermissionNotice />;
   }
 
-  const view = await loadProvidersView();
+  const view = await loadModelPluginsView();
   return <ModelsPage initialData={view} />;
 }

@@ -9,7 +9,6 @@ import {
   primaryKey,
   text,
   timestamp,
-  unique,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -124,52 +123,46 @@ export const skill = pgTable("Skill", {
 
 export type SkillRecord = InferSelectModel<typeof skill>;
 
-export const modelProvider = pgTable("ModelProvider", {
-  /** 接口凭证；仅管理端可见，列表接口不下发 */
-  apiKey: text("apiKey").notNull(),
-  /** OpenAI 兼容服务地址，如 https://api.example.com/v1 */
-  baseUrl: text("baseUrl").notNull(),
+/**
+ * 已安装的 TypeScript 模型供应商插件。
+ * definition 只包含公开目录；凭据使用应用主密钥加密后保存。
+ */
+export const modelProviderPlugin = pgTable("ModelProviderPlugin", {
+  buildHash: varchar("buildHash", { length: 64 }).notNull(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
-  description: varchar("description", { length: 1024 }),
-  enabled: boolean("enabled").notNull().default(true),
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  name: varchar("name", { length: 128 }).notNull().unique(),
-  /** 接入协议；MVP 仅支持 OpenAI 兼容协议 */
-  protocol: varchar("protocol", { enum: ["openai-compatible"] })
+  createdBy: uuid("createdBy").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  credentialSummary: json("credentialSummary")
+    .$type<Record<string, string>>()
     .notNull()
-    .default("openai-compatible"),
+    .default({}),
+  credentialsConfigured: boolean("credentialsConfigured")
+    .notNull()
+    .default(false),
+  defaultModelId: varchar("defaultModelId", { length: 256 }),
+  definition: json("definition").$type<Record<string, unknown>>().notNull(),
+  description: varchar("description", { length: 1024 }),
+  displayName: varchar("displayName", { length: 128 }).notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  enabledModels: json("enabledModels").$type<string[]>().notNull().default([]),
+  encryptedCredentials: text("encryptedCredentials").notNull(),
+  healthStatus: varchar("healthStatus", {
+    enum: ["unknown", "healthy", "degraded", "failed"],
+  })
+    .notNull()
+    .default("healthy"),
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  packageId: varchar("packageId", { length: 128 }).notNull(),
+  providerKey: varchar("providerKey", { length: 128 }).notNull().unique(),
+  sha256: varchar("sha256", { length: 64 }).notNull(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  version: varchar("version", { length: 64 }).notNull(),
 });
 
-export type ModelProviderRecord = InferSelectModel<typeof modelProvider>;
-
-export const providerModel = pgTable(
-  "ProviderModel",
-  {
-    createdAt: timestamp("createdAt").notNull().defaultNow(),
-    enabled: boolean("enabled").notNull().default(true),
-    id: uuid("id").primaryKey().notNull().defaultRandom(),
-    /** 是否为企业默认模型；全库至多一条为 true，由接口在事务中维护 */
-    isDefault: boolean("isDefault").notNull().default(false),
-    /** 供应商侧的模型标识，如 qwen3-max */
-    modelId: varchar("modelId", { length: 256 }).notNull(),
-    name: varchar("name", { length: 128 }).notNull(),
-    /** 供应商被删除时级联删除其下模型 */
-    providerId: uuid("providerId")
-      .notNull()
-      .references(() => modelProvider.id, { onDelete: "cascade" }),
-    /** 模型类型：对话 / 多模态 */
-    type: varchar("type", { enum: ["chat", "multimodal"] })
-      .notNull()
-      .default("chat"),
-    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
-  },
-  (table) => ({
-    providerModelUnique: unique().on(table.providerId, table.modelId),
-  })
-);
-
-export type ProviderModelRecord = InferSelectModel<typeof providerModel>;
+export type ModelProviderPluginRecord = InferSelectModel<
+  typeof modelProviderPlugin
+>;
 
 export const chat = pgTable("Chat", {
   createdAt: timestamp("createdAt").notNull(),

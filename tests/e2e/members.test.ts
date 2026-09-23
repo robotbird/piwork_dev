@@ -140,14 +140,15 @@ async function fillMemberForm(
     .getByRole("option", { name: values.departmentName ?? "未分配" })
     .click();
   await dialog.locator("#member-role").click();
-  await page
-    .getByRole("option", { name: values.roleName ?? "普通成员" })
-    .click();
+  await page.getByRole("option", { name: values.roleName ?? "成员" }).click();
   await dialog.getByRole("button", { name: "添加成员" }).click();
 }
 
 test.describe
   .serial("Member Management", () => {
+    // 语言随 Accept-Language 协商，固定为中文保证文案断言稳定
+    test.use({ locale: "zh-CN" });
+
     // 用例结束后清理本套件注册的账号、创建的成员与部门，保持开发库干净
     test.afterAll(async () => {
       await cleanupTestData({
@@ -209,7 +210,7 @@ test.describe
         email: memberEmail,
         name: "张小测",
         password: "init-pass-123",
-        roleName: "普通成员",
+        roleName: "成员",
         title: "测试工程师",
       });
 
@@ -219,7 +220,7 @@ test.describe
       const row = memberRowByEmail(page, memberEmail);
       await expect(row).toContainText("张小测");
       await expect(row).toContainText(departmentName);
-      await expect(row).toContainText("普通成员");
+      await expect(row).toContainText("成员");
       await expect(row).toContainText("已启用");
     });
 
@@ -489,7 +490,7 @@ async function assertLastAdminProtections(page: Page, memberB: MemberView) {
   await row.getByRole("button", { name: "编辑成员 孙管理" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.locator("#member-role").click();
-  await page.getByRole("option", { name: "普通成员" }).click();
+  await page.getByRole("option", { name: "成员" }).click();
   await dialog.getByRole("button", { name: "保存更改" }).click();
   await expect(
     dialog.getByText("需保留至少一名已启用的管理员，无法降级或停用该成员")

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "piwork-llm-deepseek",
+  "provider": "deepseek",
+  "name": "DeepSeek",
+  "version": "1.0.0",
+  "description": {
+    "zh-CN": "DeepSeek 官方模型，支持推理、工具调用和 V4.1 Flash 原生视觉理解",
+    "en": "Official DeepSeek models with reasoning, tool calling, and native vision in V4.1 Flash"
+  },
+  "runtime": {
+    "language": "typescript",
+    "node": ">=22.19.0",
+    "source": "src/index.ts",
+    "entry": "dist/index.js"
+  },
+  "capabilities": ["llm"],
+  "permissions": {
+    "network": ["api.deepseek.com"],
+    "filesystem": "none",
+    "environment": []
+  },
+  "assets": {
+    "icon": "assets/icon.svg"
+  }
+}
