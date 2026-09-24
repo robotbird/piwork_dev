@@ -58,3 +58,61 @@ No actionable P0, P1, or P2 findings remain.
 - P3: The existing product sidebar is slightly narrower than the reference image's proportional sidebar. It is intentionally preserved to stay consistent with the rest of the management system.
 
 final result: passed
+
+---
+
+# Design QA — Model Provider Plugin Installation
+
+**Source visual truth**
+
+- `/var/folders/9b/8y0kwpzj4h1_wzryl7kzmbfm0000gn/T/codex-clipboard-a855fa51-6701-4b15-876d-06364356754f.png`
+- Source pixels: 2380 × 1626, desktop light theme, installed provider requiring an API key, expanded plugin model list.
+
+**Implementation evidence**
+
+- `model-provider-installed-unconfigured-final.png`
+- `model-provider-api-key-dialog-crop.png`
+- `design-qa-comparison-final.png`
+- Browser viewport: 1087 × 964 CSS px at device scale factor 2.
+- Implementation browser crop: 2176 × 2100 physical pixels, including in-app browser chrome.
+- Normalization: source and implementation were scaled proportionally into equal-width columns in the browser-rendered comparison page. The review compared information hierarchy and interaction state rather than asserting pixel identity across different product shells and viewport sizes.
+- State: DeepSeek plugin installed, API Key not configured, four plugin-defined models visible, all model switches disabled.
+
+## Full-view comparison evidence
+
+The final side-by-side comparison confirms the requested structure: installed supplier identity and version, an explicit “需要配置 API Key” status, a prominent “添加 API Key” action, an expanded plugin-provided model directory, capability/context tags, and disabled model switches until credentials are validated. Piwork's existing sidebar, typography, spacing tokens, and restrained card treatment were intentionally preserved.
+
+## Focused-region comparison evidence
+
+The API Key dialog was inspected separately at `model-provider-api-key-dialog-crop.png`. It contains only the plugin-declared API Key field; there is no Base URL field. The dialog explains that the endpoint is supplied by the plugin, disables model controls until credential validation succeeds, and keeps the save action disabled while the required key is empty.
+
+## Required fidelity surfaces
+
+- Fonts and typography: the existing Geist/CJK fallback stack is preserved. Provider status, action, model names, context values, and capability tags remain readable without clipping.
+- Spacing and layout rhythm: provider identity, credential status, action area, and model directory follow the reference hierarchy. The header intentionally stacks below the `xl` breakpoint to prevent action controls from compressing status copy.
+- Colors and visual tokens: neutral borders/surfaces use the existing Piwork tokens; the primary action uses the product foreground treatment and disabled switches remain visibly unavailable.
+- Image quality and asset fidelity: DeepSeek uses the real SVG shipped in `plugins/piwork-llm-deepseek/assets/icon.svg`, copied to the public model-provider asset path. No placeholder glyph or handcrafted logo remains.
+- Copy and content: installation explicitly says credentials are configured afterward; the unconfigured state says “需要配置 API Key”; endpoint, model catalog, context sizes, and capability metadata are represented as plugin-owned information.
+
+## Comparison history
+
+1. Initial browser review found one P1 responsive issue: at the medium-width in-app browser viewport, status text was compressed into one character per line by the action column.
+2. Fix: moved the three-column supplier header breakpoint from `md` to `xl`, using a stacked action row at narrower widths and right alignment only at `xl`.
+3. The fidelity review also identified a P2 asset mismatch: the DeepSeek logo was represented by a “DS” text tile.
+4. Fix: replaced the placeholder tile with the plugin's real DeepSeek SVG asset.
+5. Post-fix browser evidence shows readable status copy, an intact API Key action, aligned model rows, real provider branding, and no browser console errors. No actionable P0, P1, or P2 findings remain.
+
+## Interaction verification
+
+- Installed the provider without entering credentials.
+- Confirmed the installed state reports zero enabled models and requires an API Key.
+- Confirmed all four plugin-defined model switches are disabled before credential configuration.
+- Opened the “添加 API Key” dialog and confirmed Base URL is absent.
+- Confirmed the required empty API Key keeps “验证并保存 API Key” disabled.
+- Browser console errors checked after final reload: none.
+
+## Follow-up polish
+
+- P3: a future multi-provider catalog can load each provider icon through a generic plugin asset route instead of the current built-in public asset mapping.
+
+final result: passed

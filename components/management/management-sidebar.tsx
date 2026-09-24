@@ -66,19 +66,19 @@ const navigationGroups: NavigationGroup[] = [
         href: "/management/skills",
         icon: BlocksIcon,
         keywords: "技能 能力",
-        label: ["企业 Skill 库", "Enterprise Skills"],
+        label: ["Skill管理", "Skill management"],
       },
       {
         href: "/management/tools",
         icon: WrenchIcon,
         keywords: "MCP API 插件 接入",
-        label: ["企业工具", "Enterprise tools"],
+        label: ["工具管理", "Tool management"],
       },
       {
         href: "/management/data",
         icon: DatabaseIcon,
         keywords: "知识库 数据集 文档",
-        label: ["企业数据", "Enterprise data"],
+        label: ["数据管理", "Data management"],
       },
       {
         href: "/management/models",

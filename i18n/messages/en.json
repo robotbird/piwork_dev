@@ -81,7 +81,7 @@
     "source": "Source",
     "browseFiles": "Browse files",
     "noMatchingSkills": "No matching skills",
-    "enterpriseSkills": "Enterprise Skills",
+    "enterpriseSkills": "Skill management",
     "enterpriseSkillList": "Enterprise skill list",
     "enableOrDisable": "Enable or disable {name}",
     "askAnAdministratorToUploadAndEnable": "Ask an administrator to upload and enable a skill",

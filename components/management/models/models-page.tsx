@@ -86,9 +86,7 @@ function ProviderMark({ providerKey }: { providerKey: string }) {
     );
   }
   return (
-    <div
-      className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-foreground"
-    >
+    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-foreground">
       <BrainCircuitIcon className="size-5" />
     </div>
   );

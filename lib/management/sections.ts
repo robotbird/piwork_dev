@@ -30,7 +30,7 @@ const SKILL_SECTION: ManagementSection = {
   icon: BlocksIcon,
   ready: true,
   tagline: "企业技能库 · 沉淀与复用",
-  title: "Skill 管理",
+  title: "Skill管理",
 };
 
 const TOOL_SECTION: ManagementSection = {
@@ -39,7 +39,7 @@ const TOOL_SECTION: ManagementSection = {
   href: "/management/tools",
   icon: WrenchIcon,
   tagline: "MCP / API / 插件 · 接入与管理",
-  title: "企业工具",
+  title: "工具管理",
 };
 
 const DATA_SECTION: ManagementSection = {
@@ -48,7 +48,7 @@ const DATA_SECTION: ManagementSection = {
   href: "/management/data",
   icon: DatabaseIcon,
   tagline: "知识库 / 数据库 / 企业文档",
-  title: "企业数据",
+  title: "数据管理",
 };
 
 const MODEL_SECTION: ManagementSection = {

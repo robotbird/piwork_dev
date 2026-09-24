@@ -81,7 +81,7 @@
     "source": "来源",
     "browseFiles": "浏览内容",
     "noMatchingSkills": "没有匹配的 Skill",
-    "enterpriseSkills": "企业 Skill 库",
+    "enterpriseSkills": "Skill管理",
     "enterpriseSkillList": "企业 Skill 列表",
     "enableOrDisable": "启用或停用 {name}",
     "askAnAdministratorToUploadAndEnable": "请联系管理员上传并启用 Skill",
