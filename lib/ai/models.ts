@@ -22,6 +22,10 @@ export type ChatModel = {
   description: string;
   gatewayOrder?: string[];
   reasoningEffort?: "none" | "minimal" | "low" | "medium" | "high";
+  /** 模型供应商插件 provider key（例如 deepseek），聊天端据此加载插件图标 */
+  providerKey?: string;
+  /** 供应商展示名（例如 DeepSeek），聊天下拉分组标题使用 */
+  providerName?: string;
 };
 
 /**

@@ -32,7 +32,6 @@ import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import {
   ModelSelector,
   ModelSelectorContent,
-  ModelSelectorGroup,
   ModelSelectorItem,
   ModelSelectorList,
   ModelSelectorLogo,
@@ -932,8 +931,14 @@ function ModelSelectorOption({
   selectedModelId: string;
   setOpen: Dispatch<SetStateAction<boolean>>;
 }) {
-  const [logoProvider] = model.id.split("/");
   const isSelected = model.id === selectedModelId;
+
+  // 插件模型：图标从模型插件包内读取（/api/models/icon 按 provider key 下发）
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+  const iconSrc = model.providerKey
+    ? `${basePath}/api/models/icon?provider=${model.providerKey}`
+    : undefined;
+  const logoProvider = model.providerKey ?? model.id.split("/")[0];
 
   const handleSelect = useCallback(() => {
     onModelChange?.(model.id);
@@ -952,8 +957,12 @@ function ModelSelectorOption({
       onSelect={handleSelect}
       value={model.id}
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-border/70 bg-muted/50">
-        <ModelSelectorLogo provider={logoProvider} />
+      <span className="flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-muted ring-1 ring-border/50">
+        <ModelSelectorLogo
+          className={iconSrc ? "size-full" : "size-[18px] dark:invert"}
+          provider={logoProvider}
+          src={iconSrc}
+        />
       </span>
       <span className="min-w-0 flex-1 truncate text-left font-medium">
         {model.name}
@@ -994,7 +1003,7 @@ function PureModelSelectorCompact({
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
         <Button
-          className="h-8 max-w-[180px] gap-1 rounded-full border-0 bg-muted px-3 text-[13px] font-normal text-foreground shadow-none transition-colors hover:bg-secondary aria-expanded:bg-muted dark:bg-transparent dark:hover:bg-white/5 dark:aria-expanded:bg-transparent"
+          className="h-8 max-w-[156px] gap-1 rounded-full border-0 bg-muted px-3 text-[13px] font-normal text-foreground shadow-none transition-colors hover:bg-secondary aria-expanded:bg-muted dark:bg-transparent dark:hover:bg-white/5 dark:aria-expanded:bg-transparent"
           data-testid="model-selector"
           variant="ghost"
         >
@@ -1005,64 +1014,20 @@ function PureModelSelectorCompact({
         </Button>
       </ModelSelectorTrigger>
       <ModelSelectorContent commandDefaultValue={selectedModel?.id ?? ""}>
-        <ModelSelectorList className="max-h-[min(420px,60vh)] p-1.5">
+        <ModelSelectorList className="max-h-[min(410px,60vh)] p-1.5">
           {modelsConfigured ? (
-            (() => {
-              const grouped: Record<string, ChatModel[]> = {};
-              for (const model of activeModels) {
-                if (!grouped[model.provider]) {
-                  grouped[model.provider] = [];
-                }
-                grouped[model.provider].push(model);
-              }
-              const sortedKeys = Object.keys(grouped).sort((a, b) =>
-                a.localeCompare(b)
-              );
-
-              const providerNames: Record<string, string> = {
-                alibaba: "Alibaba",
-                anthropic: "Anthropic",
-                "arcee-ai": "Arcee AI",
-                bytedance: "ByteDance",
-                cohere: "Cohere",
-                deepseek: "DeepSeek",
-                google: "Google",
-                inception: "Inception",
-                kwaipilot: "Kwaipilot",
-                meituan: "Meituan",
-                meta: "Meta",
-                minimax: "MiniMax",
-                mistral: "Mistral",
-                moonshotai: "Moonshot",
-                morph: "Morph",
-                nvidia: "Nvidia",
-                openai: "OpenAI",
-                perplexity: "Perplexity",
-                "prime-intellect": "Prime Intellect",
-                xai: "xAI",
-                xiaomi: "Xiaomi",
-                zai: "Zai",
-              };
-
-              return sortedKeys.map((key) => (
-                <ModelSelectorGroup
-                  heading={providerNames[key] ?? key}
-                  key={key}
-                >
-                  <div className="divide-y divide-border">
-                    {grouped[key].map((model) => (
-                      <ModelSelectorOption
-                        key={model.id}
-                        model={model}
-                        onModelChange={onModelChange}
-                        selectedModelId={selectedModel?.id ?? ""}
-                        setOpen={setOpen}
-                      />
-                    ))}
-                  </div>
-                </ModelSelectorGroup>
-              ));
-            })()
+            // 平铺列表：不展示供应商分组标题，模型之间不加分隔线
+            <div>
+              {activeModels.map((model) => (
+                <ModelSelectorOption
+                  key={model.id}
+                  model={model}
+                  onModelChange={onModelChange}
+                  selectedModelId={selectedModel?.id ?? ""}
+                  setOpen={setOpen}
+                />
+              ))}
+            </div>
           ) : (
             <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">
               {t("noModelsConfiguredHint")}

@@ -45,7 +45,7 @@ export const ModelSelectorContent = ({
   <PopoverContent
     align="end"
     className={cn(
-      "w-[min(232px,calc(100vw-2rem))] p-0 rounded-2xl border border-border/60 bg-card/95 backdrop-blur-xl shadow-[var(--shadow-float)]",
+      "w-[min(288px,calc(100vw-2rem))] rounded-2xl border border-border/60 bg-card/95 p-0 shadow-[var(--shadow-float)] backdrop-blur-xl",
       className
     )}
     side="top"
@@ -53,7 +53,7 @@ export const ModelSelectorContent = ({
     {...props}
   >
     <Command
-      className="**:data-[slot=command-input-wrapper]:h-auto"
+      className="**:data-[slot=command-input-wrapper]:h-auto rounded-2xl bg-transparent"
       defaultValue={commandDefaultValue}
     >
       {children}
@@ -171,19 +171,25 @@ export type ModelSelectorLogoProps = Omit<
     | "cerebras"
     // oxlint-disable-next-line typescript-eslint(ban-types) -- intentional pattern for autocomplete-friendly string union
     | (string & {});
+  /** 自定义图标地址；提供时不再回退到 models.dev logo（插件图标为彩色品牌图，不做暗色反色） */
+  src?: string;
 };
 
 export const ModelSelectorLogo = ({
   provider,
+  src,
   className,
   ...props
 }: ModelSelectorLogoProps) => (
   <img
     {...props}
     alt={`${provider} logo`}
-    className={cn("size-[18px] dark:invert", className)}
+    // className 作为显式尺寸覆盖；未提供时回退到默认 18px（models.dev logo 附加暗色反色）
+    className={cn(
+      className ?? (src ? "size-[18px]" : "size-[18px] dark:invert")
+    )}
     height={18}
-    src={`https://models.dev/logos/${provider}.svg`}
+    src={src ?? `https://models.dev/logos/${provider}.svg`}
     width={18}
   />
 );

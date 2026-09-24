@@ -11,6 +11,8 @@ import { ProviderPluginManager } from "./manager";
 
 export type BuiltinPluginPackage = {
   definition: ProviderDefinition;
+  /** manifest assets.icon 声明的包内路径（例如 assets/icon.svg），未声明时为 null */
+  iconPath: string | null;
   fileName: string;
   packageId: string;
   providerKey: string;
@@ -60,6 +62,7 @@ async function buildCatalog(): Promise<BuiltinPluginPackage[]> {
     packages.push({
       definition,
       fileName,
+      iconPath: installation.inspection.manifest.assets?.icon ?? null,
       packageId: installation.inspection.packageId,
       providerKey: installation.inspection.providerKey,
       version: installation.inspection.version,

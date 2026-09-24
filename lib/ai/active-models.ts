@@ -55,6 +55,8 @@ function buildTestCatalog(): ActiveModelCatalog {
         tools: false,
         vision: false,
       },
+      providerKey: model.provider,
+      providerName: providerDisplayName(model.provider),
     })),
   };
 }
@@ -96,6 +98,8 @@ export function invalidateActiveModelCatalog(): void {
 function pluginCatalogModels(
   plugin: PluginInstallationRuntime
 ): (ChatModel & { capabilities: ModelCapabilities })[] {
+  const providerName =
+    pickLocalizedText(plugin.definition.name) || plugin.displayName;
   return plugin.models
     .filter((model) => model.modelType === "llm")
     .map((model) => ({
@@ -108,5 +112,15 @@ function pluginCatalogModels(
       id: compositeModelId(plugin.runtimeProviderId, model.modelId),
       name: pickLocalizedText(model.label),
       provider: plugin.runtimeProviderId,
+      providerKey: plugin.providerKey,
+      providerName,
     }));
+}
+
+/** 供应商展示名回退：无插件 definition 时按 provider key 标题化 */
+function providerDisplayName(providerKey: string): string {
+  return providerKey
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
