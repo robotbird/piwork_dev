@@ -36,16 +36,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import {
-  type ManagementRole,
-  ROLE_TYPE_LABELS,
-  type RoleMemberOption,
-  type RolesView,
+import type {
+  ManagementRole,
+  RoleMemberOption,
+  RolesView,
 } from "@/lib/management/roles";
 import { cn } from "@/lib/utils";
 
 function RoleTypeBadge({ type }: { type: ManagementRole["type"] }) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   return (
     <span
       className={cn(
@@ -55,9 +54,10 @@ function RoleTypeBadge({ type }: { type: ManagementRole["type"] }) {
           : "bg-link-soft text-link-deep"
       )}
     >
-      {translate(
-        ROLE_TYPE_LABELS[type],
-        type === "system" ? "System" : "Custom"
+      {t(
+        type === "system"
+          ? "management.systemRoleType"
+          : "management.customRoleType"
       )}
     </span>
   );
@@ -72,7 +72,7 @@ type RoleRowProps = {
 
 function RoleRow({ onEdit, onDeleteRequest, onView, role }: RoleRowProps) {
   const intl = useTranslations("management");
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const isSystem = role.type === "system";
 
   const handleViewClick = useCallback(() => onView(role), [onView, role]);
@@ -116,21 +116,21 @@ function RoleRow({ onEdit, onDeleteRequest, onView, role }: RoleRowProps) {
             <DropdownMenuContent align="end" className="min-w-36">
               <DropdownMenuItem onClick={handleViewClick}>
                 <ShieldCheckIcon />
-                {translate("管理成员", "Manage members")}
+                {t("management.manageMembers")}
               </DropdownMenuItem>
               {isSystem ? null : (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleEditClick}>
                     <PencilIcon />
-                    {translate("编辑角色", "Edit role")}
+                    {t("management.editRole")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleDeleteClick}
                     variant="destructive"
                   >
                     <Trash2Icon />
-                    {translate("删除角色", "Delete role")}
+                    {t("management.deleteRole")}
                   </DropdownMenuItem>
                 </>
               )}
@@ -155,11 +155,13 @@ async function requestJson(
       error?: string;
     } | null;
     if (!response.ok) {
-      return { error: body?.error ?? "操作失败，请稍后重试" };
+      return {
+        error: body?.error ?? "management.somethingWentWrongTryAgainLater",
+      };
     }
     return { data: body };
   } catch {
-    return { error: "网络异常，请稍后重试" };
+    return { error: "management.networkErrorTryAgainLater" };
   }
 }
 
@@ -170,7 +172,7 @@ export function RolesPage({
   initialData: RolesView;
 }) {
   const intl = useTranslations("management");
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const [roles, setRoles] = useState<ManagementRole[]>(initialData.roles);
   const [members, setMembers] = useState<RoleMemberOption[]>(
     initialData.members
@@ -258,14 +260,14 @@ export function RolesPage({
         method: "POST",
       });
       if (error) {
-        toast.error(translate(error, error));
+        toast.error(t(error));
         return;
       }
       await refresh();
       setCreateOpen(false);
       toast.success(intl("roleCreated", { name: values.name }));
     },
-    [intl, refresh, translate]
+    [intl, refresh, t]
   );
 
   const handleUpdateSubmit = useCallback(
@@ -279,14 +281,14 @@ export function RolesPage({
         method: "PATCH",
       });
       if (error) {
-        toast.error(translate(error, error));
+        toast.error(t(error));
         return;
       }
       await refresh();
       setEditingRole(null);
       toast.success(intl("roleUpdated", { name: values.name }));
     },
-    [editingRole, intl, refresh, translate]
+    [editingRole, intl, refresh, t]
   );
 
   const handleDeleteConfirm = useCallback(async () => {
@@ -301,14 +303,14 @@ export function RolesPage({
     });
     setDeleting(false);
     if (error) {
-      toast.error(translate(error, error));
+      toast.error(t(error));
       setDeleteTarget(null);
       return;
     }
     await refresh();
     setDeleteTarget(null);
     toast.success(intl("roleDeleted", { name: target.name }));
-  }, [deleteTarget, deleting, intl, refresh, translate]);
+  }, [deleteTarget, deleting, intl, refresh, t]);
 
   const handleDeleteActionClick = useCallback(
     async (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -334,36 +336,30 @@ export function RolesPage({
           <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-                {translate("角色与权限", "Roles & permissions")}
+                {t("management.rolesPermissions")}
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                {translate(
-                  "创建和管理角色，并为角色选择成员；系统角色由系统维护",
-                  "Create and manage roles and assign members to them. System roles are maintained by the system."
-                )}
+                {t("management.createAndManageRolesAndAssignMembers")}
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="relative w-full sm:w-56">
                 <SearchIcon
                   aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/65"
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -t-y-1/2 text-muted-foreground/65"
                 />
                 <Input
-                  aria-label={translate("搜索角色", "Search roles")}
+                  aria-label={t("management.searchRoles")}
                   className="pl-9"
                   onChange={handleQueryChange}
-                  placeholder={translate(
-                    "搜索名称或描述",
-                    "Search name or description"
-                  )}
+                  placeholder={t("management.searchNameOrDescription")}
                   type="search"
                   value={query}
                 />
               </div>
               <Button className="shrink-0" onClick={handleCreateOpen}>
                 <PlusIcon data-icon="inline-start" />
-                {translate("新建角色", "Create role")}
+                {t("management.createRole")}
               </Button>
             </div>
           </header>
@@ -371,28 +367,28 @@ export function RolesPage({
           <div className="mt-8 overflow-hidden rounded-[14px] border border-border bg-card">
             <div className="overflow-x-auto">
               <table
-                aria-label={translate("角色列表", "Role list")}
+                aria-label={t("management.roleList")}
                 className="w-full min-w-[720px] text-left text-sm"
               >
                 <thead className="bg-muted/50 text-[13px] text-muted-foreground">
                   <tr>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {translate("名称", "Name")}
+                      {t("management.name")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {translate("描述", "Description")}
+                      {t("management.description")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {translate("成员数", "Members")}
+                      {t("management.members")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {translate("类型", "Type")}
+                      {t("common.type")}
                     </th>
                     <th
                       className="h-10 px-4 text-right font-medium"
                       scope="col"
                     >
-                      {translate("操作", "Actions")}
+                      {t("common.actions")}
                     </th>
                   </tr>
                 </thead>
@@ -403,14 +399,14 @@ export function RolesPage({
                         className="px-4 py-10 text-center text-sm text-muted-foreground"
                         colSpan={5}
                       >
-                        {translate("加载角色数据失败", "Failed to load roles")}
+                        {t("management.failedToLoadRoles")}
                         <Button
                           className="mt-3"
                           onClick={handleRetry}
                           size="sm"
                           variant="outline"
                         >
-                          {translate("重试", "Retry")}
+                          {t("common.retry")}
                         </Button>
                       </td>
                     </tr>
@@ -431,11 +427,8 @@ export function RolesPage({
                         colSpan={5}
                       >
                         {roles.length > 0
-                          ? translate("没有匹配的角色", "No matching roles")
-                          : translate(
-                              "还没有角色，系统角色会在首次访问时自动创建",
-                              "No roles yet. System roles are created automatically on first visit."
-                            )}
+                          ? t("management.noMatchingRoles")
+                          : t("management.noRolesYetSystemRolesAreCreated")}
                       </td>
                     </tr>
                   )}
@@ -469,7 +462,7 @@ export function RolesPage({
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {translate("删除角色？", "Delete role?")}
+              {t("management.confirmDeleteRole")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {intl("deleteRoleDescription", {
@@ -479,16 +472,14 @@ export function RolesPage({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>
-              {translate("取消", "Cancel")}
+              {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={handleDeleteActionClick}
               variant="destructive"
             >
-              {deleting
-                ? translate("删除中…", "Deleting…")
-                : translate("删除", "Delete")}
+              {deleting ? t("common.deleting") : t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -179,7 +179,7 @@ function MemberRow({
               {displayName(member)}
               {isSelf ? (
                 <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                  （{t("当前登录账号")}）
+                  （{t("members.currentAccount")}）
                 </span>
               ) : null}
             </p>
@@ -190,7 +190,9 @@ function MemberRow({
         </div>
       </td>
       <td className="px-4 py-3 whitespace-nowrap text-[14px] text-muted-foreground">
-        {member.departmentName ? t(member.departmentName) : t("未分配")}
+        {member.departmentName
+          ? t(member.departmentName)
+          : t("members.unassigned")}
       </td>
       <td className="px-4 py-3">
         <RoleBadge role={member.role} />
@@ -204,19 +206,24 @@ function MemberRow({
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1">
           <Button
-            aria-label={t("编辑成员 {name}", { name: displayName(member) })}
+            aria-label={t("members.editMemberWithName", {
+              name: displayName(member),
+            })}
             className="h-7 px-2 text-[13px] text-muted-foreground"
             onClick={handleEditClick}
             size="sm"
             variant="ghost"
           >
             <PencilIcon className="size-3.5" />
-            {t("编辑")}
+            {t("members.edit")}
           </Button>
           <Button
-            aria-label={t(isEnabled ? "停用成员 {name}" : "启用成员 {name}", {
-              name: displayName(member),
-            })}
+            aria-label={t(
+              isEnabled
+                ? "members.disableMemberWithName"
+                : "members.enableMemberWithName",
+              { name: displayName(member) }
+            )}
             className="h-7 px-2 text-[13px] text-muted-foreground"
             onClick={handleToggleClick}
             size="sm"
@@ -227,16 +234,18 @@ function MemberRow({
             ) : (
               <PlayIcon className="size-3.5" />
             )}
-            {t(isEnabled ? "停用" : "启用")}
+            {t(isEnabled ? "common.disable" : "common.enable")}
           </Button>
           <Button
-            aria-label={t("删除成员 {name}", { name: displayName(member) })}
+            aria-label={t("members.deleteMember", {
+              name: displayName(member),
+            })}
             className="h-7 px-2 text-[13px] text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={handleDeleteClick}
             size="sm"
             variant="ghost"
           >
-            {t("删除")}
+            {t("common.delete")}
           </Button>
         </div>
       </td>
@@ -262,11 +271,13 @@ async function requestJson(
       error?: string;
     } | null;
     if (!response.ok) {
-      return { error: body?.error ?? "操作失败，请稍后重试" };
+      return {
+        error: body?.error ?? "management.somethingWentWrongTryAgainLater",
+      };
     }
     return { data: body };
   } catch {
-    return { error: "网络异常，请稍后重试" };
+    return { error: "management.networkErrorTryAgainLater" };
   }
 }
 
@@ -370,7 +381,7 @@ export function MembersPage({
       }
       await refresh();
       setCreateOpen(false);
-      toast.success(t("已添加成员「{name}」", { name: values.name }));
+      toast.success(t("members.memberAdded", { name: values.name }));
     },
     [refresh, t]
   );
@@ -403,11 +414,11 @@ export function MembersPage({
         statusChanged
           ? t(
               values.status === "enabled"
-                ? "已更新成员「{name}」，账号已启用"
-                : "已更新成员「{name}」，账号已停用",
+                ? "members.memberUpdatedAccountEnabled"
+                : "members.memberUpdatedAccountDisabled",
               { name: values.name }
             )
-          : t("已更新成员「{name}」", { name: values.name })
+          : t("members.memberUpdated", { name: values.name })
       );
     },
     [editingMember, refresh, t]
@@ -416,11 +427,13 @@ export function MembersPage({
   const handleToggleStatus = useCallback(
     async (member: ManagementMember) => {
       if (member.status === "enabled" && isLastEnabledAdmin(members, member)) {
-        toast.error(t("需保留至少一名已启用的管理员，无法停用该成员"));
+        toast.error(
+          t("members.atLeastOneEnabledAdministratorIsRequiredMessage")
+        );
         return;
       }
       if (member.status === "enabled" && member.userId === currentUserId) {
-        toast.error(t("不能停用当前登录的账号"));
+        toast.error(t("members.youCannotDisableTheCurrentlySignedIn"));
         return;
       }
       const nextStatus: MemberStatus =
@@ -443,8 +456,8 @@ export function MembersPage({
       await refresh();
       toast.success(
         nextStatus === "enabled"
-          ? t("已启用「{name}」", { name: displayName(member) })
-          : t("已停用「{name}」", { name: displayName(member) })
+          ? t("common.enabledWithName", { name: displayName(member) })
+          : t("common.disabled", { name: displayName(member) })
       );
     },
     [currentUserId, members, refresh, t]
@@ -453,11 +466,13 @@ export function MembersPage({
   const handleDeleteRequest = useCallback(
     (member: ManagementMember) => {
       if (isLastEnabledAdmin(members, member)) {
-        toast.error(t("需保留至少一名已启用的管理员，无法删除该成员"));
+        toast.error(
+          t("members.atLeastOneEnabledAdministratorIsRequiredAction")
+        );
         return;
       }
       if (member.userId === currentUserId) {
-        toast.error(t("不能删除当前登录的账号"));
+        toast.error(t("members.youCannotDeleteTheCurrentlySignedIn"));
         return;
       }
       setDeleteTarget(member);
@@ -484,7 +499,7 @@ export function MembersPage({
     }
     await refresh();
     setDeleteTarget(null);
-    toast.success(t("已删除成员「{name}」", { name: displayName(target) }));
+    toast.success(t("members.memberDeleted", { name: displayName(target) }));
   }, [deleteTarget, deleting, refresh, t]);
 
   const handleDeleteActionClick = useCallback(
@@ -509,10 +524,10 @@ export function MembersPage({
           <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-                {t("成员管理")}
+                {t("members.members")}
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                {t("添加和管理团队成员，控制他们的访问权限")}
+                {t("members.addAndManageTeamMembersAndControl")}
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -522,17 +537,17 @@ export function MembersPage({
                   className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/65"
                 />
                 <Input
-                  aria-label={t("搜索成员")}
+                  aria-label={t("common.searchMembers")}
                   className="pl-9"
                   onChange={handleQueryChange}
-                  placeholder={t("搜索姓名、邮箱或部门")}
+                  placeholder={t("common.searchNameEmailOrDepartment")}
                   type="search"
                   value={query}
                 />
               </div>
               <Button className="shrink-0" onClick={handleCreateOpen}>
                 <PlusIcon data-icon="inline-start" />
-                {t("添加成员")}
+                {t("members.addMember")}
               </Button>
             </div>
           </header>
@@ -541,21 +556,21 @@ export function MembersPage({
             <StatCard
               data-testid="member-count-total"
               icon={UsersRoundIcon}
-              label={t("成员总数")}
+              label={t("members.totalMembers")}
               tone="bg-muted text-foreground"
               value={stats.total}
             />
             <StatCard
               data-testid="member-count-enabled"
               icon={UserRoundIcon}
-              label={t("已启用")}
+              label={t("common.enabled")}
               tone="bg-link-soft text-link-deep"
               value={stats.enabled}
             />
             <StatCard
               data-testid="member-count-disabled"
               icon={UserXIcon}
-              label={t("未启用")}
+              label={t("members.disabled")}
               tone="bg-muted text-muted-foreground"
               value={stats.total - stats.enabled}
             />
@@ -564,31 +579,31 @@ export function MembersPage({
           <div className="mt-5 overflow-hidden rounded-[14px] border border-border bg-card">
             <div className="overflow-x-auto">
               <table
-                aria-label={t("成员列表")}
+                aria-label={t("members.memberList")}
                 className="w-full min-w-[720px] text-left text-sm"
               >
                 <thead className="bg-muted/50 text-[13px] text-muted-foreground">
                   <tr>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {t("成员")}
+                      {t("members.member")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {t("部门")}
+                      {t("members.department")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {t("角色")}
+                      {t("members.role")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {t("状态")}
+                      {t("common.status")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {t("添加时间")}
+                      {t("members.added")}
                     </th>
                     <th
                       className="h-10 px-4 text-right font-medium"
                       scope="col"
                     >
-                      {t("操作")}
+                      {t("common.actions")}
                     </th>
                   </tr>
                 </thead>
@@ -599,14 +614,14 @@ export function MembersPage({
                         className="px-4 py-10 text-center text-sm text-muted-foreground"
                         colSpan={6}
                       >
-                        {t("加载成员数据失败")}
+                        {t("members.failedToLoadMembers")}
                         <Button
                           className="mt-3"
                           onClick={handleRetry}
                           size="sm"
                           variant="outline"
                         >
-                          {t("重试")}
+                          {t("common.retry")}
                         </Button>
                       </td>
                     </tr>
@@ -628,8 +643,8 @@ export function MembersPage({
                         colSpan={6}
                       >
                         {members.length > 0
-                          ? t("没有匹配的成员")
-                          : t("还没有成员，点击「添加成员」创建第一位成员")}
+                          ? t("common.noMatchingMembers")
+                          : t("members.noMembersYetClickAddMemberTo")}
                       </td>
                     </tr>
                   )}
@@ -656,27 +671,26 @@ export function MembersPage({
       >
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("删除成员？")}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("members.confirmDeleteMember")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {t(
-                "将永久删除「{name}」（{email}）的登录账号、成员记录及其名下的会话与文档，删除后无法恢复。",
-                {
-                  email: deleteTarget?.email ?? "",
-                  name: deleteTarget ? displayName(deleteTarget) : "",
-                }
-              )}
+              {t("members.thisPermanentlyDeletesIncludingTheirAccountMember", {
+                email: deleteTarget?.email ?? "",
+                name: deleteTarget ? displayName(deleteTarget) : "",
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>
-              {t("取消")}
+              {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={handleDeleteActionClick}
               variant="destructive"
             >
-              {deleting ? t("删除中…") : t("删除")}
+              {deleting ? t("common.deleting") : t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

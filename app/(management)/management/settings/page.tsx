@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import {
   type ChangeEvent,
@@ -17,13 +18,14 @@ import { localeOptions } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const appearanceOptions = [
-  { label: ["浅色", "Light"], value: "light" },
-  { label: ["深色", "Dark"], value: "dark" },
-  { label: ["跟随系统", "System"], value: "system" },
+  { labelKey: "light", value: "light" },
+  { labelKey: "dark", value: "dark" },
+  { labelKey: "system", value: "system" },
 ] as const;
 
 export default function GeneralSettingsPage() {
-  const { language, setLanguage, translate } = usePreferences();
+  const { language, setLanguage } = usePreferences();
+  const t = useTranslations("settings");
   const { setTheme, theme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -48,36 +50,28 @@ export default function GeneralSettingsPage() {
       <div className="max-w-none">
         <header>
           <h1 className="text-[30px] font-semibold leading-10 tracking-[-0.035em] text-foreground">
-            {translate("通用设置", "General settings")}
+            {t("generalSettings")}
           </h1>
           <p className="mt-1 text-[15px] leading-6 text-muted-foreground">
-            {translate(
-              "配置平台的基础使用体验。",
-              "Configure the platform's core experience."
-            )}
+            {t("configureThePlatformSCoreExperience")}
           </p>
         </header>
 
         <section className="mt-12">
           <h2 className="text-[18px] font-semibold tracking-[-0.02em]">
-            {translate("语言", "Language")}
+            {t("language")}
           </h2>
           <div className="mt-5 flex min-h-[112px] items-center justify-between gap-6 rounded-[14px] border border-border bg-card px-7 py-5">
             <div>
               <h3 className="text-[16px] font-medium text-foreground">
-                {translate("界面语言", "Interface language")}
+                {t("interfaceLanguage")}
               </h3>
               <p className="mt-1 text-[14px] text-muted-foreground">
-                {translate(
-                  "选择平台界面的显示语言",
-                  "Choose the language used across the platform"
-                )}
+                {t("chooseTheLanguageUsedAcrossThePlatform")}
               </p>
             </div>
             <label className="relative shrink-0">
-              <span className="sr-only">
-                {translate("界面语言", "Interface language")}
-              </span>
+              <span className="sr-only">{t("interfaceLanguage")}</span>
               <select
                 className="h-11 min-w-[170px] appearance-none rounded-[10px] border border-border bg-background py-0 pl-4 pr-11 text-[14px] font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40"
                 onChange={handleLanguageChange}
@@ -96,18 +90,15 @@ export default function GeneralSettingsPage() {
 
         <section className="mt-12">
           <h2 className="text-[18px] font-semibold tracking-[-0.02em]">
-            {translate("界面外观", "Appearance")}
+            {t("appearance")}
           </h2>
           <div className="mt-5 flex min-h-[112px] items-center justify-between gap-6 rounded-[14px] border border-border bg-card px-7 py-5">
             <div>
               <h3 className="text-[16px] font-medium text-foreground">
-                {translate("界面外观", "Appearance")}
+                {t("appearance")}
               </h3>
               <p className="mt-1 text-[14px] text-muted-foreground">
-                {translate(
-                  "选择浅色、深色或跟随系统",
-                  "Choose light, dark, or match your system"
-                )}
+                {t("chooseLightDarkOrMatchYourSystem")}
               </p>
             </div>
             <div className="grid shrink-0 grid-cols-3 overflow-hidden rounded-[10px] border border-border bg-background p-0.5">
@@ -128,7 +119,7 @@ export default function GeneralSettingsPage() {
                     value={option.value}
                   >
                     {active ? <CheckIcon className="size-3.5" /> : null}
-                    {translate(option.label[0], option.label[1])}
+                    {t(option.labelKey)}
                   </button>
                 );
               })}

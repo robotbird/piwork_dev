@@ -187,7 +187,7 @@ export function SlashCommandMenu({
   onSelect,
   selectedIndex,
 }: SlashCommandMenuProps) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const menuRef = useRef<HTMLDivElement>(null);
   const filtered = commands.filter((cmd) =>
     cmd.name.startsWith(query.toLowerCase())
@@ -221,7 +221,7 @@ export function SlashCommandMenu({
               heading={
                 <GroupHeading
                   count={skillItems.length}
-                  label={translate("技能", "Skills")}
+                  label={t("chat.skills")}
                 />
               }
             >
@@ -244,7 +244,7 @@ export function SlashCommandMenu({
               heading={
                 <GroupHeading
                   count={commandItems.length}
-                  label={translate("指令", "Commands")}
+                  label={t("chat.commands")}
                 />
               }
             >

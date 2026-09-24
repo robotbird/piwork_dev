@@ -19,7 +19,7 @@ import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 
 export function ChatShell() {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const pathname = usePathname();
   const {
     chatId,
@@ -57,11 +57,11 @@ export function ChatShell() {
       .trim();
 
     if (!text) {
-      return translate("新对话", "New chat");
+      return t("chat.newChat");
     }
 
     return text.length > 28 ? `${text.slice(0, 28)}…` : text;
-  }, [messages, translate]);
+  }, [messages, t]);
 
   const stopRef = useRef(stop);
   stopRef.current = stop;
@@ -168,10 +168,7 @@ export function ChatShell() {
             >
               {messages.length > 0 ? (
                 <p className="text-center text-[12px] leading-5 text-muted-foreground/70">
-                  {translate(
-                    "PiWork 可能会出错，请核查重要信息。",
-                    "PiWork can make mistakes. Check important information."
-                  )}
+                  {t("chat.piworkCanMakeMistakesCheckImportantInformation")}
                 </p>
               ) : null}
               {!isReadonly && (

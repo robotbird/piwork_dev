@@ -27,13 +27,13 @@ function PureChatHeader({
   title: string;
 }) {
   const { toggleSidebar, isMobile } = useSidebar();
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
 
   return (
     <header className="relative flex h-14 shrink-0 items-center bg-background px-4 md:px-6">
       {isMobile ? (
         <Button
-          aria-label={translate("打开侧边栏", "Open sidebar")}
+          aria-label={t("chat.openSidebar")}
           className="text-foreground/70"
           onClick={toggleSidebar}
           size="icon-sm"
@@ -55,28 +55,28 @@ function PureChatHeader({
               {title}
             </span>
             <span className="hidden text-muted-foreground/70 sm:inline">
-              · {translate("工作", "Work")}
+              · {t("chat.work")}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-1 text-muted-foreground">
             <Button
-              aria-label={translate("分享对话", "Share conversation")}
+              aria-label={t("chat.shareConversation")}
               className="hidden gap-2 px-2.5 sm:inline-flex"
               size="sm"
               variant="ghost"
             >
               <Share2Icon className="size-[17px]" />
-              <span>{translate("分享", "Share")}</span>
+              <span>{t("chat.share")}</span>
             </Button>
             <Button
-              aria-label={translate("更多操作", "More actions")}
+              aria-label={t("common.moreActions")}
               size="icon-sm"
               variant="ghost"
             >
               <MoreHorizontalIcon className="size-[18px]" />
             </Button>
             <Button
-              aria-label={translate("对话设置", "Conversation settings")}
+              aria-label={t("chat.conversationSettings")}
               size="icon-sm"
               variant="ghost"
             >

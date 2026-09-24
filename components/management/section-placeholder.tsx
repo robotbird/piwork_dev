@@ -22,7 +22,7 @@ export function SectionPlaceholder({
               {t(section.title)}
             </h1>
             {section.ready ? null : (
-              <Badge variant="secondary">{t("建设中")}</Badge>
+              <Badge variant="secondary">{t("management.comingSoon")}</Badge>
             )}
           </div>
           <p className="mt-2 max-w-2xl text-[14px] leading-6 text-muted-foreground">
@@ -48,7 +48,7 @@ export function SectionPlaceholder({
                     {t(feature)}
                   </span>
                   <span className="mt-0.5 block text-[12px] leading-5 text-muted-foreground">
-                    {t("功能结构已规划，将在后续版本开放配置")}
+                    {t("management.thisFeatureIsPlannedAndWillBe")}
                   </span>
                 </span>
                 <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />

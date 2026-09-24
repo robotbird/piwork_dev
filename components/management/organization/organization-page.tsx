@@ -146,7 +146,7 @@ function MemberChip({ isLeader, member }: MemberChipProps) {
           </span>
           {isLeader ? (
             <span className="shrink-0 rounded-full bg-link-soft px-1.5 py-0.5 text-[10px] leading-4 font-medium text-link-deep">
-              {t("负责人")}
+              {t("organization.manager")}
             </span>
           ) : null}
         </span>
@@ -171,11 +171,13 @@ async function requestJson(
       error?: string;
     } | null;
     if (!response.ok) {
-      return { error: body?.error ?? "操作失败，请稍后重试" };
+      return {
+        error: body?.error ?? "management.somethingWentWrongTryAgainLater",
+      };
     }
     return { data: body };
   } catch {
-    return { error: "网络异常，请稍后重试" };
+    return { error: "management.networkErrorTryAgainLater" };
   }
 }
 
@@ -325,7 +327,9 @@ export function OrganizationPage({
         }
       );
       if (error || !data) {
-        toast.error(t(error ?? "创建部门失败"));
+        toast.error(
+          error ? t(error) : t("managementApi.createDepartmentFailed")
+        );
         return;
       }
       const created = data as Department;
@@ -336,7 +340,7 @@ export function OrganizationPage({
       }
       setSelectedId(created.id);
       setCreateOpen(false);
-      toast.success(t("已创建部门「{name}」", { name: values.name }));
+      toast.success(t("organization.departmentCreated", { name: values.name }));
     },
     [refresh, t]
   );
@@ -361,7 +365,7 @@ export function OrganizationPage({
       }
       await refresh();
       setEditingDepartment(null);
-      toast.success(t("已更新部门「{name}」", { name: values.name }));
+      toast.success(t("organization.departmentUpdated", { name: values.name }));
     },
     [editingDepartment, refresh, t]
   );
@@ -402,7 +406,7 @@ export function OrganizationPage({
       setSelectedId(fallback);
     }
     setDeleteTarget(null);
-    toast.success(t("已删除部门「{name}」", { name }));
+    toast.success(t("organization.departmentDeleted", { name }));
   }, [deleteTarget, deleting, refresh, selectedId, t]);
 
   const handleDeleteActionClick = useCallback(
@@ -523,10 +527,12 @@ export function OrganizationPage({
           <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-                {t("组织架构")}
+                {t("organization.organization")}
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                {t("维护部门层级、负责人与成员信息，为权限分配提供组织依据")}
+                {t(
+                  "organization.maintainDepartmentHierarchyOwnersAndMembersFor"
+                )}
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -536,17 +542,17 @@ export function OrganizationPage({
                   className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/65"
                 />
                 <Input
-                  aria-label={t("搜索部门")}
+                  aria-label={t("organization.searchDepartments")}
                   className="pl-9"
                   onChange={handleQueryChange}
-                  placeholder={t("搜索部门")}
+                  placeholder={t("organization.searchDepartments")}
                   type="search"
                   value={query}
                 />
               </div>
               <Button className="shrink-0" onClick={handleCreateOpen}>
                 <PlusIcon data-icon="inline-start" />
-                {t("新建部门")}
+                {t("organization.newDepartment")}
               </Button>
             </div>
           </header>
@@ -555,28 +561,28 @@ export function OrganizationPage({
             <section className="overflow-hidden rounded-[14px] border border-border bg-card">
               <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
                 <h2 className="text-[15px] leading-6 font-semibold">
-                  {t("企业组织树")}
+                  {t("organization.organizationTree")}
                 </h2>
                 <span className="text-xs text-muted-foreground">
-                  {t("{count} 个部门", { count: departments.length })}
+                  {t("organization.departments", { count: departments.length })}
                 </span>
               </div>
               <div className="max-h-[560px] overflow-y-auto p-2">
                 {loadFailed ? (
                   <div className="px-3 py-10 text-center text-sm text-muted-foreground">
-                    {t("加载组织架构数据失败")}
+                    {t("organization.failedToLoadTheOrganization")}
                     <Button
                       className="mt-3"
                       onClick={handleRetry}
                       size="sm"
                       variant="outline"
                     >
-                      {t("重试")}
+                      {t("common.retry")}
                     </Button>
                   </div>
                 ) : treeRows.length > 0 ? (
                   <div
-                    aria-label={t("企业组织树")}
+                    aria-label={t("organization.organizationTree")}
                     className="flex flex-col gap-0.5"
                     role="tree"
                   >
@@ -585,8 +591,8 @@ export function OrganizationPage({
                 ) : (
                   <div className="px-3 py-10 text-center text-sm text-muted-foreground">
                     {isSearching
-                      ? t("没有匹配的部门")
-                      : t("还没有部门，点击「新建部门」创建第一个部门")}
+                      ? t("organization.noMatchingDepartments")
+                      : t("organization.noDepartmentsYetSelectNewDepartmentTo")}
                   </div>
                 )}
               </div>
@@ -600,26 +606,28 @@ export function OrganizationPage({
                   </h2>
                   <dl className="mt-5 grid grid-cols-2 overflow-hidden rounded-[10px] border border-border/70 bg-muted/40 sm:grid-cols-4 sm:divide-x sm:divide-border/70">
                     <SummaryCell
-                      label={t("部门名称")}
+                      label={t("organization.departmentName")}
                       value={t(selectedDepartment.name)}
                     />
                     <SummaryCell
-                      label={t("上级部门")}
+                      label={t("organization.parentDepartment")}
                       value={parentName ? t(parentName) : "—"}
                     />
                     <SummaryCell
-                      label={t("负责人")}
+                      label={t("organization.manager")}
                       muted={leaderName === undefined}
                       value={
                         leaderName
                           ? t(getMemberDisplayName(leaderName))
-                          : t("未设置")
+                          : t("organization.notSet")
                       }
                     />
                     <SummaryCell
-                      label={t("成员数量")}
-                      labelTitle={t("含下级部门的成员总数")}
-                      value={t("{count} 人", {
+                      label={t("organization.members")}
+                      labelTitle={t(
+                        "organization.totalMembersIncludingChildDepartments"
+                      )}
+                      value={t("organization.people", {
                         count: memberTotals.get(selectedDepartment.id) ?? 0,
                       })}
                     />
@@ -628,10 +636,10 @@ export function OrganizationPage({
                   <section className="mt-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-[15px] leading-6 font-semibold">
-                        {t("部门成员")}
+                        {t("organization.departmentMembers")}
                       </h3>
                       <span className="text-xs text-muted-foreground">
-                        {t("直属 {count} 名成员", {
+                        {t("organization.directMembers", {
                           count: directMemberCount(selectedDepartment.id),
                         })}
                       </span>
@@ -649,8 +657,8 @@ export function OrganizationPage({
                           <button
                             aria-label={
                               showAllMembers
-                                ? t("收起成员列表")
-                                : t("展开全部 {count} 名成员", {
+                                ? t("organization.collapseMemberList")
+                                : t("organization.showAllMembers", {
                                     count: departmentMembers.length,
                                   })
                             }
@@ -674,7 +682,7 @@ export function OrganizationPage({
                       </div>
                     ) : (
                       <p className="mt-3 text-sm text-muted-foreground">
-                        {t("该部门暂无直属成员")}
+                        {t("organization.noDirectMembersInThisDepartment")}
                       </p>
                     )}
                   </section>
@@ -682,15 +690,15 @@ export function OrganizationPage({
                 <footer className="flex items-center justify-end border-t border-border px-5 py-4 sm:px-6">
                   <Button onClick={handleEditOpen} variant="outline">
                     <PencilIcon data-icon="inline-start" />
-                    {t("编辑部门")}
+                    {t("organization.editDepartment")}
                   </Button>
                 </footer>
               </section>
             ) : (
               <section className="flex min-h-40 items-center justify-center rounded-[14px] border border-dashed border-border bg-card text-sm text-muted-foreground">
                 {departments.length > 0
-                  ? t("请在左侧选择一个部门查看详情")
-                  : t("创建第一个部门后即可查看详情")}
+                  ? t("organization.selectADepartmentOnTheLeftTo")
+                  : t("organization.createTheFirstDepartmentToViewIts")}
               </section>
             )}
           </div>
@@ -714,31 +722,30 @@ export function OrganizationPage({
       >
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("删除部门？")}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("organization.confirmDeleteDepartment")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget && directMemberCount(deleteTarget.id) > 0
-                ? t(
-                    "将永久删除「{name}」，其 {count} 名直属成员将变为未分配部门，删除后无法恢复。",
-                    {
-                      count: directMemberCount(deleteTarget.id),
-                      name: deleteTarget.name,
-                    }
-                  )
-                : t("将永久删除「{name}」，删除后无法恢复。", {
+                ? t("organization.thisPermanentlyDeletesItsDirectMembersWill", {
+                    count: directMemberCount(deleteTarget.id),
+                    name: deleteTarget.name,
+                  })
+                : t("organization.thisPermanentlyDeletesThisActionCannotBe", {
                     name: deleteTarget?.name ?? "",
                   })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>
-              {t("取消")}
+              {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={handleDeleteActionClick}
               variant="destructive"
             >
-              {deleting ? t("删除中…") : t("删除")}
+              {deleting ? t("common.deleting") : t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

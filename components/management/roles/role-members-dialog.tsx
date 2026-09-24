@@ -26,7 +26,6 @@ import {
   getRoleAvatarTone,
   getRoleMemberDisplayName,
   type ManagementRole,
-  ROLE_TYPE_LABELS,
   type RoleMemberOption,
   SYSTEM_ROLE_CODES,
 } from "@/lib/management/roles";
@@ -169,7 +168,7 @@ export function RoleMembersDialog({
   role,
 }: RoleMembersDialogProps) {
   const intl = useTranslations("management");
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -266,11 +265,8 @@ export function RoleMembersDialog({
           const error =
             body && "error" in body && body.error
               ? body.error
-              : translate(
-                  "操作失败，请稍后重试",
-                  "Something went wrong. Try again later."
-                );
-          toast.error(error);
+              : t("management.somethingWentWrongTryAgainLater");
+          toast.error(t(error));
           return;
         }
         const updated = body as ManagementRole;
@@ -278,14 +274,12 @@ export function RoleMembersDialog({
         setPickerOpen(false);
         toast.success(intl("roleMembersUpdated", { name: updated.name }));
       } catch {
-        toast.error(
-          translate("网络异常，请稍后重试", "Network error. Try again later.")
-        );
+        toast.error(t("management.networkErrorTryAgainLater"));
       } finally {
         setSaving(false);
       }
     },
-    [intl, onSaved, role, saving, translate]
+    [intl, onSaved, role, saving, t]
   );
 
   const handlePickerSubmit = useCallback(() => {
@@ -329,36 +323,38 @@ export function RoleMembersDialog({
                   : "bg-link-soft text-link-deep"
               )}
             >
-              {translate(
-                ROLE_TYPE_LABELS[role.type],
-                role.type === "system" ? "System" : "Custom"
+              {t(
+                role.type === "system"
+                  ? "management.systemRoleType"
+                  : "management.customRoleType"
               )}
             </span>
           </DialogTitle>
           <DialogDescription>
             {role.description
               ? role.description
-              : translate("暂无角色描述", "No description yet")}
+              : t("management.noDescriptionYet")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-3 overflow-hidden rounded-[10px] border border-border/70 bg-muted/40">
           <InfoCell
-            label={translate("类型", "Type")}
-            value={translate(
-              ROLE_TYPE_LABELS[role.type],
-              role.type === "system" ? "System" : "Custom"
+            label={t("common.type")}
+            value={t(
+              role.type === "system"
+                ? "management.systemRoleType"
+                : "management.customRoleType"
             )}
           />
           <InfoCell
-            label={translate("成员数", "Members")}
+            label={t("management.members")}
             value={intl("memberCount", { count: roleMembers.length })}
           />
           <InfoCell
-            label={translate("成员上限", "Member limit")}
+            label={t("management.memberLimit")}
             value={
               role.memberLimit === null
-                ? translate("不限", "Unlimited")
+                ? t("management.unlimited")
                 : intl("memberCount", { count: role.memberLimit })
             }
           />
@@ -367,7 +363,7 @@ export function RoleMembersDialog({
         <section className="min-w-0">
           <div className="flex items-center justify-between">
             <h3 className="text-[15px] leading-6 font-semibold">
-              {translate("角色成员", "Role members")}
+              {t("management.roleMembers")}
             </h3>
             {pickerOpen ? null : (
               <Button
@@ -376,7 +372,7 @@ export function RoleMembersDialog({
                 size="sm"
                 variant="outline"
               >
-                {translate("选择成员", "Select members")}
+                {t("management.selectMembers")}
               </Button>
             )}
           </div>
@@ -386,25 +382,19 @@ export function RoleMembersDialog({
               <div className="border-b border-border/70 p-2.5">
                 {singleMemberMode ? (
                   <p className="px-1 pb-2 text-[12px] leading-5 text-muted-foreground">
-                    {translate(
-                      "该角色仅可设置 1 名成员，保存后将替换当前成员",
-                      "This role allows exactly one member. Saving replaces the current one."
-                    )}
+                    {t("management.thisRoleAllowsExactlyOneMemberSaving")}
                   </p>
                 ) : null}
                 <div className="relative">
                   <SearchIcon
                     aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/65"
+                    className="pointer-events-none absolute top-1/2 left-3 size-4 -t-y-1/2 text-muted-foreground/65"
                   />
                   <Input
-                    aria-label={translate("搜索成员", "Search members")}
+                    aria-label={t("common.searchMembers")}
                     className="h-9 pl-9"
                     onChange={handleQueryChange}
-                    placeholder={translate(
-                      "搜索姓名、邮箱或部门",
-                      "Search name, email or department"
-                    )}
+                    placeholder={t("common.searchNameEmailOrDepartment")}
                     type="search"
                     value={query}
                   />
@@ -422,7 +412,7 @@ export function RoleMembersDialog({
                   ))
                 ) : (
                   <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-                    {translate("没有匹配的成员", "No matching members")}
+                    {t("common.noMatchingMembers")}
                   </p>
                 )}
               </div>
@@ -430,8 +420,8 @@ export function RoleMembersDialog({
                 <span className="text-[13px] leading-5 text-muted-foreground">
                   {singleMemberMode
                     ? selected.size === 1
-                      ? translate("已选择 1 名成员", "1 member selected")
-                      : translate("尚未选择成员", "No member selected")
+                      ? t("management.oneMemberSelected")
+                      : t("management.noMemberSelected")
                     : intl("selectedMemberCount", { count: selected.size })}
                 </span>
                 <div className="flex items-center gap-2">
@@ -441,16 +431,14 @@ export function RoleMembersDialog({
                     size="sm"
                     variant="outline"
                   >
-                    {translate("取消", "Cancel")}
+                    {t("common.cancel")}
                   </Button>
                   <Button
                     disabled={saving || selected.size === 0}
                     onClick={handlePickerSubmit}
                     size="sm"
                   >
-                    {saving
-                      ? translate("保存中…", "Saving…")
-                      : translate("保存", "Save")}
+                    {saving ? t("management.saving") : t("management.save")}
                   </Button>
                 </div>
               </div>
@@ -471,21 +459,15 @@ export function RoleMembersDialog({
             <div className="mt-3 flex min-h-20 items-center justify-center gap-2 rounded-[10px] border border-dashed border-border bg-card text-sm text-muted-foreground">
               <UserRoundIcon aria-hidden="true" className="size-4" />
               {isSuperAdmin
-                ? translate(
-                    "尚未指派超级管理员，请选择成员",
-                    "No super administrator assigned yet. Select a member."
-                  )
-                : translate(
-                    "该角色暂无成员，点击「选择成员」添加",
-                    "No members yet. Click Select members to add some."
-                  )}
+                ? t("management.noSuperAdministratorAssignedYetSelectA")
+                : t("management.noMembersYetClickSelectMembersTo")}
             </div>
           )}
         </section>
 
         <DialogFooter className="mt-1">
           <Button onClick={onClose} variant="outline">
-            {translate("关闭", "Close")}
+            {t("management.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -163,7 +163,7 @@ export function SkillManager({
   const refreshSkills = useCallback(async () => {
     const response = await fetch(endpoint, { cache: "no-store" });
     if (!response.ok) {
-      throw new Error(t("无法刷新技能列表"));
+      throw new Error(t("skills.failedToRefreshTheSkillList"));
     }
     const data = (await response.json()) as { skills: SkillSummary[] };
     setInstalledSkills(data.skills);
@@ -180,7 +180,7 @@ export function SkillManager({
         });
         const data = (await response.json()) as { error?: string };
         if (!response.ok) {
-          throw new Error(data.error || t("安装失败"));
+          throw new Error(data.error || t("skills.installationFailed"));
         }
         await refreshSkills();
         setSelectedSkill((current) =>
@@ -188,9 +188,15 @@ export function SkillManager({
             ? { ...current, installed: true }
             : current
         );
-        toast.success(t("已安装「{name}」", { name: t(skill.displayName) }));
+        toast.success(
+          t("skills.installedWithName", { name: t(skill.displayName) })
+        );
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : t("安装失败"));
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : t("skills.installationFailed")
+        );
       } finally {
         setPendingName(null);
       }
@@ -209,7 +215,7 @@ export function SkillManager({
         });
         const data = (await response.json()) as { error?: string };
         if (!response.ok) {
-          throw new Error(data.error || t("卸载失败"));
+          throw new Error(data.error || t("skills.uninstallFailed"));
         }
         setInstalledSkills((current) =>
           current.filter((item) => item.name !== skill.name)
@@ -219,9 +225,11 @@ export function SkillManager({
             ? { ...current, installed: false }
             : current
         );
-        toast.success(t("已卸载「{name}」", { name: t(skill.displayName) }));
+        toast.success(t("skills.uninstalled", { name: t(skill.displayName) }));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : t("卸载失败"));
+        toast.error(
+          error instanceof Error ? error.message : t("skills.uninstallFailed")
+        );
       } finally {
         setPendingName(null);
       }
@@ -250,14 +258,16 @@ export function SkillManager({
           name?: string;
         };
         if (!response.ok) {
-          throw new Error(data.error || t("上传失败"));
+          throw new Error(data.error || t("skills.uploadFailed"));
         }
         await refreshSkills();
         setUploadOpen(false);
         setMode("installed");
-        toast.success(t("技能 {name} 已上传", { name: data.name ?? "" }));
+        toast.success(t("skills.skillUploaded", { name: data.name ?? "" }));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : t("上传失败"));
+        toast.error(
+          error instanceof Error ? error.message : t("skills.uploadFailed")
+        );
       } finally {
         setUploading(false);
         if (folderInputRef.current) {
@@ -367,16 +377,16 @@ export function SkillManager({
                 <h1 className="text-heading-lg text-foreground">Skill</h1>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                {t("发现和使用各类 AI 技能，拓展团队的工作能力。")}
+                {t("skills.discoverAndUseAiSkillsToExpand")}
               </p>
             </div>
             <div className="relative w-full xl:max-w-[430px]">
               <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                aria-label={t("搜索 Skill")}
+                aria-label={t("skills.searchSkills")}
                 className="pl-10 text-sm shadow-none"
                 onChange={handleQueryChange}
-                placeholder={t("搜索 Skill、功能或来源")}
+                placeholder={t("skills.searchSkillsFeaturesOrSources")}
                 value={query}
               />
             </div>
@@ -384,7 +394,7 @@ export function SkillManager({
 
           <div className="mt-7 flex items-end justify-between border-b border-border">
             <div
-              aria-label={t("Skill 列表")}
+              aria-label={t("skills.skillList")}
               className="flex gap-7"
               role="tablist"
             >
@@ -409,10 +419,10 @@ export function SkillManager({
                     type="button"
                   >
                     {item === "discover"
-                      ? t("发现 Skill")
+                      ? t("skills.discoverSkills")
                       : readOnly
-                        ? `${t("企业 Skill 列表")} ${installedSkills.length}`
-                        : t("我的 Skill {count}", {
+                        ? `${t("skills.enterpriseSkillList")} ${installedSkills.length}`
+                        : t("skills.mySkillsWithCount", {
                             count: installedSkills.length,
                           })}
                     {active ? (
@@ -430,13 +440,13 @@ export function SkillManager({
                 variant="outline"
               >
                 <UploadCloudIcon data-icon="inline-start" />
-                {t("上传 Skill")}
+                {t("skills.uploadSkill")}
               </Button>
             ) : null}
           </div>
 
           <fieldset className="mt-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            <legend className="sr-only">{t("Skill 分类")}</legend>
+            <legend className="sr-only">{t("skills.skillCategories")}</legend>
             {skillCategories.map((item) => (
               <button
                 aria-pressed={category === item}
@@ -476,16 +486,16 @@ export function SkillManager({
               <p className="mt-4 text-sm font-medium text-foreground">
                 {mode === "installed" && installedSkills.length === 0
                   ? readOnly
-                    ? t("还没有企业 Skill")
-                    : t("还没有安装 Skill")
-                  : t("没有找到匹配的 Skill")}
+                    ? t("skills.noEnterpriseSkillsYet")
+                    : t("skills.noSkillsInstalledYet")
+                  : t("skills.noMatchingSkills")}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {mode === "installed" && installedSkills.length === 0
                   ? readOnly
-                    ? t("请联系管理员上传并启用 Skill")
-                    : t("去发现页挑选一个，或上传企业自建 Skill")
-                  : t("试试其它关键词或分类")}
+                    ? t("skills.askAnAdministratorToUploadAndEnable")
+                    : t("skills.pickOneFromDiscoverOrUploadAn")
+                  : t("skills.tryOtherKeywordsOrCategories")}
               </p>
             </div>
           )}
@@ -503,31 +513,31 @@ export function SkillManager({
         <DialogContent className="gap-5 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg text-foreground">
-              {t("上传企业 Skill")}
+              {t("skills.uploadEnterpriseSkill")}
             </DialogTitle>
             <DialogDescription>
-              {t("选择完整技能文件夹或 .zip 压缩包。根目录需包含 SKILL.md。")}
+              {t("skills.chooseACompleteSkillFolderOrZipAction")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
             <UploadChoice
               disabled={uploading}
               icon={UploadCloudIcon}
-              label={t("选择技能文件夹")}
-              note={t("包含脚本、参考资料与资源")}
+              label={t("skills.chooseSkillFolder")}
+              note={t("skills.includesScriptsReferencesAndAssets")}
               onClick={handleBrowseFolder}
             />
             <UploadChoice
               disabled={uploading}
               icon={FileArchiveIcon}
-              label={t("选择 Skill 压缩包")}
-              note={t("支持 .zip，最大 15 MB")}
+              label={t("skills.chooseSkillArchive")}
+              note={t("skills.supportsZipUpTo15Mb")}
               onClick={handleBrowseZip}
             />
           </div>
           {uploading ? (
             <p className="text-center text-sm text-muted-foreground">
-              {t("正在验证并上传…")}
+              {t("skills.validatingAndUploading")}
             </p>
           ) : null}
           <input
@@ -567,7 +577,7 @@ function SkillCard({
   return (
     <article className="group relative min-h-[174px] rounded-xl border border-border bg-card p-5 transition-colors hover:border-[var(--hairline-strong)]">
       <button
-        aria-label={`${t("查看 {name} 详情", { name: t(skill.displayName) })}`}
+        aria-label={`${t("skills.viewDetails", { name: t(skill.displayName) })}`}
         className="absolute inset-0 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/30"
         data-skill-name={skill.name}
         onClick={onOpen}
@@ -582,7 +592,7 @@ function SkillCard({
             </h2>
             {skill.sourceType === "official" ? (
               <BadgeCheckIcon
-                aria-label={t("官方认证")}
+                aria-label={t("skills.official")}
                 className="size-4 shrink-0 fill-primary/10 text-primary"
               />
             ) : null}
@@ -613,7 +623,11 @@ function SkillCard({
             size="sm"
             variant={skill.installed ? "outline" : "default"}
           >
-            {pending ? t("处理中…") : skill.installed ? t("已安装") : t("安装")}
+            {pending
+              ? t("skills.working")
+              : skill.installed
+                ? t("skills.installed")
+                : t("skills.install")}
           </Button>
         ) : null}
       </div>
@@ -677,12 +691,12 @@ function SkillDetailDialog({
                       {skill.sourceType === "official" ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
                           <BadgeCheckIcon className="size-3.5" />
-                          {t("官方认证")}
+                          {t("skills.official")}
                         </span>
                       ) : null}
                     </div>
                     <DialogDescription className="mt-1.5 text-sm">
-                      {t("由 {source} 提供 · v{version}", {
+                      {t("skills.providedByV", {
                         source: t(skill.source),
                         version: skill.version,
                       })}
@@ -706,17 +720,17 @@ function SkillDetailDialog({
                   variant={skill.installed ? "outline" : "default"}
                 >
                   {pending
-                    ? t("处理中…")
+                    ? t("skills.working")
                     : skill.installed
-                      ? t("卸载 Skill")
-                      : t("一键安装")}
+                      ? t("skills.uninstallSkill")
+                      : t("skills.install")}
                 </Button>
               ) : null}
             </div>
             <div className="space-y-6 px-6 py-6 sm:px-7">
               <section>
                 <h3 className="text-sm font-medium text-foreground">
-                  {t("核心能力")}
+                  {t("skills.keyCapabilities")}
                 </h3>
                 <ul className="mt-3 space-y-2.5">
                   {skill.capabilities.map((capability) => (
@@ -733,8 +747,11 @@ function SkillDetailDialog({
                 </ul>
               </section>
               <section className="grid gap-3 rounded-xl border border-border bg-[var(--canvas-soft)] p-4 text-[12px] sm:grid-cols-3">
-                <Meta label={t("分类")} value={t(skill.category)} />
-                <Meta label={t("安装范围")} value={t("当前项目")} />
+                <Meta label={t("skills.category")} value={t(skill.category)} />
+                <Meta
+                  label={t("skills.scope")}
+                  value={t("skills.currentProject")}
+                />
                 <Meta label="Skill ID" value={skill.name} />
               </section>
             </div>

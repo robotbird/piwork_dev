@@ -232,7 +232,7 @@ export function SkillContentBrowser({
           return;
         }
         if (!response.ok || !data.entries) {
-          throw new Error(data.error || t("加载文件列表失败"));
+          throw new Error(data.error || t("skills.failedToLoadTheFileList"));
         }
         setTree(buildTree(data.entries));
         const manifest = data.entries.find(
@@ -244,7 +244,9 @@ export function SkillContentBrowser({
       } catch (error) {
         if (!request.cancelled) {
           setTreeError(
-            error instanceof Error ? error.message : t("加载文件列表失败")
+            error instanceof Error
+              ? error.message
+              : t("skills.failedToLoadTheFileList")
           );
         }
       }
@@ -294,14 +296,16 @@ export function SkillContentBrowser({
           return;
         }
         if (!response.ok || !data.file) {
-          throw new Error(data.error || t("加载文件失败"));
+          throw new Error(data.error || t("skills.failedToLoadThisFile"));
         }
         fileCache.current.set(selectedPath, data.file);
         setFile(data.file);
       } catch (error) {
         if (!cancelled) {
           setFileError(
-            error instanceof Error ? error.message : t("加载文件失败")
+            error instanceof Error
+              ? error.message
+              : t("skills.failedToLoadThisFile")
           );
         }
       } finally {
@@ -363,13 +367,15 @@ export function SkillContentBrowser({
                 </div>
                 <DialogDescription className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                   <span>
-                    {skill.source === "catalog" ? t("官方目录") : t("上传")}
+                    {skill.source === "catalog"
+                      ? t("skills.officialCatalog")
+                      : t("skills.uploaded")}
                   </span>
                   {skill.version ? (
                     <span className="font-mono">v{skill.version}</span>
                   ) : null}
                   {fileCount > 0 ? (
-                    <span>{t("共 {count} 个文件", { count: fileCount })}</span>
+                    <span>{t("skills.files", { count: fileCount })}</span>
                   ) : null}
                 </DialogDescription>
               </div>
@@ -377,7 +383,7 @@ export function SkillContentBrowser({
 
             <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
               <aside
-                aria-label={t("Skill 文件")}
+                aria-label={t("skills.skillFiles")}
                 className="min-h-0 shrink-0 border-b border-border sm:w-60 sm:border-b-0 sm:border-r"
               >
                 <div className="h-full max-h-48 overflow-y-auto px-2 py-3 sm:max-h-none">
@@ -392,7 +398,7 @@ export function SkillContentBrowser({
                         size="sm"
                         variant="outline"
                       >
-                        {t("重试")}
+                        {t("common.retry")}
                       </Button>
                     </div>
                   ) : tree ? (
@@ -413,7 +419,7 @@ export function SkillContentBrowser({
                   ) : (
                     <div className="flex items-center justify-center gap-2 py-8 text-[13px] text-muted-foreground">
                       <Spinner className="size-3.5" />
-                      {t("加载中...")}
+                      {t("common.loading")}
                     </div>
                   )}
                 </div>
@@ -423,7 +429,7 @@ export function SkillContentBrowser({
                 {loadingFile ? (
                   <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
                     <Spinner className="size-4" />
-                    {t("加载中...")}
+                    {t("common.loading")}
                   </div>
                 ) : fileError ? (
                   <div className="px-6 py-16 text-center text-sm text-muted-foreground">
@@ -433,7 +439,7 @@ export function SkillContentBrowser({
                   <FilePreview file={file} />
                 ) : (
                   <div className="px-6 py-16 text-center text-sm text-muted-foreground">
-                    {t("选择左侧文件查看内容")}
+                    {t("skills.selectAFileToPreviewIt")}
                   </div>
                 )}
               </div>
@@ -550,7 +556,7 @@ function FilePreview({ file }: { file: SkillFileContent }) {
         <div className="px-6 py-5">
           {file.truncated ? (
             <p className="mb-3 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-              {t("文件过大，已截断显示")}
+              {t("skills.thisFileIsLargeAndHasBeen")}
             </p>
           ) : null}
           <MessageResponse className="text-sm">
@@ -564,7 +570,7 @@ function FilePreview({ file }: { file: SkillFileContent }) {
       <div className="px-6 py-5">
         <p className="mb-3 font-mono text-[11px] text-muted-foreground">
           {file.path} · {formatSize(file.size)}
-          {file.truncated ? ` · ${t("文件过大，已截断显示")}` : ""}
+          {file.truncated ? ` · ${t("skills.thisFileIsLargeAndHasBeen")}` : ""}
         </p>
         <pre className="overflow-x-auto rounded-lg border border-border bg-muted/40 p-4 font-mono text-[13px] leading-5 text-foreground">
           {file.content}
@@ -592,7 +598,7 @@ function FilePreview({ file }: { file: SkillFileContent }) {
   return (
     <div className="px-6 py-16 text-center">
       <p className="text-sm text-muted-foreground">
-        {t("该文件类型暂不支持在线预览")}
+        {t("skills.thisFileTypeCanTBePreviewed")}
       </p>
       <p className="mt-1 font-mono text-[11px] text-muted-foreground">
         {file.path} · {formatSize(file.size)}

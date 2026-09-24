@@ -19,7 +19,6 @@ type PreferencesContextValue = {
   language: AppLanguage;
   setLanguage: (language: AppLanguage) => void;
   t: (key: string, params?: TranslationParams) => string;
-  translate: (chinese: string, english: string) => string;
 };
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
@@ -45,20 +44,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const t = useCallback(
     (key: string, params?: TranslationParams) => {
       const messageKey =
-        legacyMessageKeys[key as keyof typeof legacyMessageKeys];
-      return messageKey ? messages(messageKey, params) : key;
+        legacyMessageKeys[key as keyof typeof legacyMessageKeys] ?? key;
+      return messages.has(messageKey) ? messages(messageKey, params) : key;
     },
     [messages]
   );
-  const translate = useCallback(
-    (chinese: string, english: string) =>
-      t(chinese) === chinese && language === "en" ? english : t(chinese),
-    [language, t]
-  );
-
   const value = useMemo(
-    () => ({ language, setLanguage, t, translate }),
-    [language, setLanguage, t, translate]
+    () => ({ language, setLanguage, t }),
+    [language, setLanguage, t]
   );
 
   return (

@@ -67,9 +67,11 @@ async function requestJson(url: string, init?: RequestInit) {
     } | null;
     return response.ok
       ? { data: body }
-      : { error: body?.error ?? "操作失败，请稍后重试" };
+      : {
+          error: body?.error ?? "management.somethingWentWrongTryAgainLater",
+        };
   } catch {
-    return { error: "网络异常，请稍后重试" };
+    return { error: "management.networkErrorTryAgainLater" };
   }
 }
 
@@ -172,7 +174,7 @@ function CredentialFields({
   onChange: (variable: string, value: string) => void;
   values: CredentialValues;
 }) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   return (
     <div className="grid gap-4">
       {fields.map((field) => {
@@ -207,10 +209,7 @@ function CredentialFields({
       })}
       <div className="flex items-start gap-2 rounded-lg bg-muted/70 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
         <ShieldCheckIcon className="mt-0.5 size-4 shrink-0" />
-        {translate(
-          "凭据将在服务端验证并加密保存，不会返回到浏览器。",
-          "Credentials are validated server-side and stored encrypted."
-        )}
+        {t("modelPlugins.credentialsEncrypted")}
       </div>
     </div>
   );
@@ -225,7 +224,7 @@ function InstallDialog({
   onInstalled: () => Promise<void>;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const [installing, setInstalling] = useState(false);
   const install = useCallback(async () => {
     if (!item || installing) {
@@ -238,24 +237,24 @@ function InstallDialog({
     });
     setInstalling(false);
     if (result.error) {
-      toast.error(result.error);
+      toast.error(t(result.error));
       return;
     }
-    toast.success(translate(`${item.name} 已安装`, `${item.name} installed`));
+    toast.success(t("modelPlugins.providerInstalled", { name: item.name }));
     onOpenChange(false);
     await onInstalled();
-  }, [installing, item, onInstalled, onOpenChange, translate]);
+  }, [installing, item, onInstalled, onOpenChange, t]);
 
   return (
     <Dialog onOpenChange={onOpenChange} open={item !== null}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>
-            {translate("安装模型供应商", "Install model provider")}
-          </DialogTitle>
+          <DialogTitle>{t("modelPlugins.installProviderTitle")}</DialogTitle>
           <DialogDescription>
             {item
-              ? `${item.name} ${item.version} · ${item.models.length} 个模型`
+              ? `${item.name} ${item.version} · ${t("modelPlugins.modelCount", {
+                  count: item.models.length,
+                })}`
               : ""}
           </DialogDescription>
         </DialogHeader>
@@ -274,13 +273,10 @@ function InstallDialog({
               </div>
             </div>
             <div className="rounded-xl border border-border bg-muted/25 px-4 py-3 text-sm leading-6 text-muted-foreground">
-              {translate(
-                "安装只会检查并从源码构建插件。安装完成后，再为供应商配置 API Key 并验证连接。模型清单、上下文参数和服务地址均由插件提供。",
-                "Installation inspects and rebuilds the plugin from source. Configure and validate the API key after installation; the endpoint and model catalog come from the plugin."
-              )}
+              {t("modelPlugins.installDescription")}
             </div>
             <p className="text-xs text-muted-foreground">
-              {translate("插件网络权限：", "Plugin network access: ")}
+              {t("modelPlugins.networkAccess")}
               {item.networkHosts.join(", ")}
             </p>
           </div>
@@ -291,13 +287,13 @@ function InstallDialog({
             onClick={() => onOpenChange(false)}
             variant="outline"
           >
-            {translate("取消", "Cancel")}
+            {t("common.cancel")}
           </Button>
           <Button disabled={installing} onClick={install}>
             {installing ? <Spinner /> : null}
             {installing
-              ? translate("正在安装…", "Installing…")
-              : translate("安装供应商", "Install provider")}
+              ? t("modelPlugins.installing")
+              : t("modelPlugins.installProvider")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -314,7 +310,7 @@ function ConfigureDialog({
   onOpenChange: (open: boolean) => void;
   onSaved: () => Promise<void>;
 }) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const [credentials, setCredentials] = useState<CredentialValues>({});
   const [enabledModels, setEnabledModels] = useState<string[]>(
     installation?.enabledModels ?? []
@@ -361,9 +357,9 @@ function ConfigureDialog({
     );
     setSaving(false);
     if (result.error) {
-      return toast.error(result.error);
+      return toast.error(t(result.error));
     }
-    toast.success(translate("供应商配置已更新", "Provider updated"));
+    toast.success(t("modelPlugins.providerUpdated"));
     onOpenChange(false);
     await onSaved();
   }, [
@@ -374,7 +370,7 @@ function ConfigureDialog({
     onOpenChange,
     onSaved,
     saving,
-    translate,
+    t,
   ]);
 
   return (
@@ -384,14 +380,8 @@ function ConfigureDialog({
           <DialogTitle>{installation?.name ?? ""}</DialogTitle>
           <DialogDescription>
             {installation?.credentialsConfigured
-              ? translate(
-                  "轮换 API Key，或调整启用模型和企业默认模型。",
-                  "Rotate the API key or manage enabled and default models."
-                )
-              : translate(
-                  "先添加并验证 API Key，验证通过后才能启用模型。",
-                  "Add and validate the API key before enabling models."
-                )}
+              ? t("modelPlugins.configuredDescription")
+              : t("modelPlugins.unconfiguredDescription")}
           </DialogDescription>
         </DialogHeader>
         {installation ? (
@@ -399,19 +389,13 @@ function ConfigureDialog({
             <section>
               <h3 className="mb-1 text-sm font-medium">
                 {installation.credentialsConfigured
-                  ? translate("轮换 API Key", "Rotate API key")
-                  : translate("添加 API Key", "Add API key")}
+                  ? t("modelPlugins.rotateApiKey")
+                  : t("modelPlugins.addApiKey")}
               </h3>
               <p className="mb-3 text-xs text-muted-foreground">
                 {installation.credentialsConfigured
-                  ? translate(
-                      "留空表示保留当前 API Key；提交新值时会先验证连接。",
-                      "Leave blank to keep the current key. New values are validated first."
-                    )
-                  : translate(
-                      "API 地址由插件固定提供，此处只需要填写供应商 API Key。",
-                      "The API endpoint is provided by the plugin; only the provider API key is required."
-                    )}
+                  ? t("modelPlugins.keepCurrentApiKey")
+                  : t("modelPlugins.apiEndpointProvided")}
               </p>
               <CredentialFields
                 fields={installation.credentialFields}
@@ -421,7 +405,7 @@ function ConfigureDialog({
             </section>
             <section>
               <h3 className="mb-3 text-sm font-medium">
-                {translate("模型目录", "Model catalog")}
+                {t("modelPlugins.modelCatalog")}
               </h3>
               <div className="overflow-hidden rounded-xl border border-border">
                 {installation.models.map((model) => {
@@ -463,7 +447,7 @@ function ConfigureDialog({
                         {defaultModelId === model.modelId ? (
                           <CheckIcon className="size-3.5" />
                         ) : null}
-                        {translate("默认", "Default")}
+                        {t("management.defaultBadge")}
                       </Button>
                     </div>
                   );
@@ -478,7 +462,7 @@ function ConfigureDialog({
             onClick={() => onOpenChange(false)}
             variant="outline"
           >
-            {translate("取消", "Cancel")}
+            {t("common.cancel")}
           </Button>
           <Button
             disabled={
@@ -489,8 +473,8 @@ function ConfigureDialog({
           >
             {saving ? <Spinner /> : null}
             {installation?.credentialsConfigured
-              ? translate("保存配置", "Save")
-              : translate("验证并保存 API Key", "Validate and save API key")}
+              ? t("modelPlugins.saveConfiguration")
+              : t("modelPlugins.validateAndSaveApiKey")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -499,7 +483,7 @@ function ConfigureDialog({
 }
 
 export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const [data, setData] = useState(initialData);
   const [query, setQuery] = useState("");
   const [installTarget, setInstallTarget] =
@@ -515,11 +499,11 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
       cache: "no-store",
     });
     if (!response.ok) {
-      toast.error(translate("加载供应商失败", "Failed to load providers"));
+      toast.error(t("modelPlugins.failedToLoadProviders"));
       return;
     }
     setData((await response.json()) as ModelPluginsView);
-  }, [translate]);
+  }, [t]);
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     return data.available.filter(
@@ -539,11 +523,11 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
       );
       setBusyId(null);
       if (result.error) {
-        return toast.error(result.error);
+        return toast.error(t(result.error));
       }
       await refresh();
     },
-    [refresh]
+    [refresh, t]
   );
   const toggleInstalledModel = useCallback(
     async (
@@ -572,12 +556,12 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
       );
       setBusyId(null);
       if (result.error) {
-        toast.error(result.error);
+        toast.error(t(result.error));
         return;
       }
       await refresh();
     },
-    [refresh]
+    [refresh, t]
   );
   const uninstall = useCallback(async () => {
     if (!deleteTarget) {
@@ -591,12 +575,12 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
     );
     setBusyId(null);
     if (result.error) {
-      return toast.error(result.error);
+      return toast.error(t(result.error));
     }
-    toast.success(translate(`${item.name} 已卸载`, `${item.name} uninstalled`));
+    toast.success(t("modelPlugins.providerUninstalled", { name: item.name }));
     setDeleteTarget(null);
     await refresh();
-  }, [deleteTarget, refresh, translate]);
+  }, [deleteTarget, refresh, t]);
 
   return (
     <>
@@ -604,23 +588,19 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
         <div className="mx-auto max-w-[1120px]">
           <header>
             <h1 className="text-3xl font-semibold tracking-[-0.04em]">
-              {translate("模型供应商", "Model providers")}
+              {t("modelPlugins.modelProviders")}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              {translate(
-                "安装并配置基于 Pi Provider contract 的模型供应商插件。",
-                "Install and configure model providers built on the Pi Provider contract."
-              )}
+              {t("modelPlugins.pageDescription")}
             </p>
           </header>
 
           <section className="mt-7 overflow-hidden rounded-2xl border border-border bg-card">
             <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <h2 className="text-base font-semibold">
-                {translate(
-                  `已安装供应商（${data.installed.length}）`,
-                  `Installed providers (${data.installed.length})`
-                )}
+                {t("modelPlugins.installedProviders", {
+                  count: data.installed.length,
+                })}
               </h2>
               <Button
                 disabled={
@@ -639,7 +619,7 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                 variant="outline"
               >
                 <Settings2Icon />
-                {translate("默认模型设置", "Default model")}
+                {t("modelPlugins.defaultModel")}
               </Button>
             </div>
             {data.installed.length ? (
@@ -664,8 +644,10 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                       <div>
                         <CapabilityTags models={item.models} />
                         <p className="mt-2 text-xs text-muted-foreground">
-                          {item.enabledModels.length} / {item.models.length}{" "}
-                          {translate("个模型已启用", "models enabled")}
+                          {t("modelPlugins.enabledModelCount", {
+                            enabled: item.enabledModels.length,
+                            total: item.models.length,
+                          })}
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 xl:justify-end">
@@ -682,19 +664,13 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                           >
                             {item.credentialsConfigured
                               ? item.enabled
-                                ? translate("运行正常", "Healthy")
-                                : translate("已停用", "Disabled")
-                              : translate(
-                                  "需要配置 API Key",
-                                  "API key required"
-                                )}
+                                ? t("modelPlugins.healthy")
+                                : t("skills.disabled")
+                              : t("modelPlugins.apiKeyRequired")}
                           </p>
                           {item.credentialsConfigured ? null : (
                             <p className="mt-0.5 text-[11px] text-muted-foreground">
-                              {translate(
-                                "配置后才可启用模型",
-                                "Models unlock after setup"
-                              )}
+                              {t("modelPlugins.modelsUnlockAfterSetup")}
                             </p>
                           )}
                         </div>
@@ -707,13 +683,13 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                         >
                           <KeyRoundIcon />
                           {item.credentialsConfigured
-                            ? translate("配置", "Configure")
-                            : translate("添加 API Key", "Add API key")}
+                            ? t("modelPlugins.configure")
+                            : t("modelPlugins.addApiKey")}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
-                              aria-label={translate("更多操作", "More actions")}
+                              aria-label={t("common.moreActions")}
                               disabled={busyId === item.id}
                               size="icon-sm"
                               variant="ghost"
@@ -731,8 +707,8 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                               onClick={() => toggle(item)}
                             >
                               {item.enabled
-                                ? translate("停用", "Disable")
-                                : translate("启用", "Enable")}
+                                ? t("common.disable")
+                                : t("common.enable")}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -740,7 +716,7 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                               variant="destructive"
                             >
                               <Trash2Icon />
-                              {translate("卸载", "Uninstall")}
+                              {t("modelPlugins.uninstall")}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -748,10 +724,9 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                     </div>
                     <div className="border-t border-border/70 bg-muted/15 px-5 py-3">
                       <p className="mb-2 text-xs font-medium text-muted-foreground">
-                        {translate(
-                          `${item.models.length} 个插件模型`,
-                          `${item.models.length} plugin models`
-                        )}
+                        {t("modelPlugins.pluginModels", {
+                          count: item.models.length,
+                        })}
                       </p>
                       <div className="overflow-hidden rounded-xl border border-border bg-background">
                         {item.models.map((model) => {
@@ -774,7 +749,7 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                                   </p>
                                   {item.defaultModelId === model.modelId ? (
                                     <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
-                                      {translate("默认", "Default")}
+                                      {t("management.defaultBadge")}
                                     </span>
                                   ) : null}
                                 </div>
@@ -783,10 +758,9 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                                 </div>
                               </div>
                               <Switch
-                                aria-label={translate(
-                                  `启用 ${model.modelId}`,
-                                  `Enable ${model.modelId}`
-                                )}
+                                aria-label={t("modelPlugins.enableModel", {
+                                  id: model.modelId,
+                                })}
                                 checked={modelEnabled}
                                 disabled={
                                   !item.credentialsConfigured || modelBusy
@@ -811,13 +785,10 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
               <div className="px-6 py-12 text-center">
                 <BrainCircuitIcon className="mx-auto size-7 text-muted-foreground" />
                 <p className="mt-3 text-sm font-medium">
-                  {translate("尚未安装模型供应商", "No providers installed")}
+                  {t("modelPlugins.noProvidersInstalled")}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {translate(
-                    "从下方目录安装供应商并验证凭据。",
-                    "Install a provider from the catalog below."
-                  )}
+                  {t("modelPlugins.installFromCatalog")}
                 </p>
               </div>
             )}
@@ -826,20 +797,17 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
           <section className="mt-5 rounded-2xl border border-border bg-card p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-base font-semibold">
-                {translate("发现更多供应商", "Discover providers")}
+                {t("modelPlugins.discoverProviders")}
               </h2>
               <div className="relative w-full sm:w-72">
-                <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -t-y-1/2 text-muted-foreground" />
                 <Input
-                  aria-label={translate("搜索供应商", "Search providers")}
+                  aria-label={t("management.searchProviders")}
                   className="pl-9"
                   onChange={(event: ChangeEvent<HTMLInputElement>) =>
                     setQuery(event.currentTarget.value)
                   }
-                  placeholder={translate(
-                    "搜索供应商名称或描述",
-                    "Search provider name or description"
-                  )}
+                  placeholder={t("management.searchProviderNameOrDescription")}
                   type="search"
                   value={query}
                 />
@@ -873,10 +841,10 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                       {item.installed ? (
                         <>
                           <CheckIcon />
-                          {translate("已安装", "Installed")}
+                          {t("skills.installed")}
                         </>
                       ) : (
-                        translate("安装", "Install")
+                        t("skills.install")
                       )}
                     </Button>
                   </div>
@@ -916,20 +884,19 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {translate("卸载模型供应商？", "Uninstall model provider?")}
+              {t("modelPlugins.uninstallProviderTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {translate(
-                `卸载 ${deleteTarget?.name ?? ""} 后，其模型会立即从聊天模型列表中移除。`,
-                `Models from ${deleteTarget?.name ?? ""} will be removed from chat immediately.`
-              )}
+              {t("modelPlugins.uninstallProviderDescription", {
+                name: deleteTarget?.name ?? "",
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{translate("取消", "Cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={uninstall} variant="destructive">
               {busyId === deleteTarget?.id ? <Spinner /> : null}
-              {translate("卸载", "Uninstall")}
+              {t("modelPlugins.uninstall")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

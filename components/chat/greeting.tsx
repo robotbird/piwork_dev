@@ -4,11 +4,11 @@ import { motion } from "motion/react";
 import { usePreferences } from "@/components/preferences-provider";
 
 export const Greeting = () => {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
 
   return (
     <div
-      className="flex -translate-y-[164px] flex-col items-center px-4"
+      className="flex -t-y-[164px] flex-col items-center px-4"
       key="overview"
     >
       <motion.div
@@ -17,7 +17,7 @@ export const Greeting = () => {
         initial={{ opacity: 0, y: 10 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        {translate("我们该做什么？", "What should we work on?")}
+        {t("chat.confirmWhatShouldWeWorkOn")}
       </motion.div>
     </div>
   );

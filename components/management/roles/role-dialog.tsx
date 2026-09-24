@@ -52,7 +52,7 @@ export function RoleDialog({
   onSubmit,
   open,
 }: RoleDialogProps) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const intl = useTranslations("management");
   const isEdit = role !== null;
   const [name, setName] = useState("");
@@ -79,7 +79,7 @@ export function RoleDialog({
       if (!trimmedName) {
         setError({
           field: "name",
-          message: translate("请输入角色名称", "Enter a role name"),
+          message: t("management.enterARoleName"),
         });
         return;
       }
@@ -96,10 +96,7 @@ export function RoleDialog({
       if (duplicated) {
         setError({
           field: "name",
-          message: translate(
-            "已存在同名角色",
-            "A role with this name already exists"
-          ),
+          message: t("management.aRoleWithThisNameAlreadyExists"),
         });
         return;
       }
@@ -118,7 +115,7 @@ export function RoleDialog({
         name: trimmedName,
       });
     },
-    [description, intl, name, onSubmit, role?.id, roles, translate]
+    [description, intl, name, onSubmit, role?.id, roles, t]
   );
 
   const handleNameChange = useCallback(
@@ -151,26 +148,18 @@ export function RoleDialog({
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>
-            {isEdit
-              ? translate("编辑角色", "Edit role")
-              : translate("新建角色", "Create role")}
+            {isEdit ? t("management.editRole") : t("management.createRole")}
           </DialogTitle>
           <DialogDescription>
             {isEdit
-              ? translate(
-                  "调整自定义角色的名称与描述。",
-                  "Update the name and description of this custom role."
-                )
-              : translate(
-                  "创建自定义角色后，可在角色详情中为其添加成员。",
-                  "After creating a custom role, add members to it from the role details."
-                )}
+              ? t("management.updateTheNameAndDescriptionOfThis")
+              : t("management.afterCreatingACustomRoleAddMembers")}
           </DialogDescription>
         </DialogHeader>
 
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="grid gap-2">
-            <Label htmlFor="role-name">{translate("名称", "Name")}</Label>
+            <Label htmlFor="role-name">{t("management.name")}</Label>
             <Input
               aria-describedby={
                 error?.field === "name" ? "role-name-error" : undefined
@@ -178,10 +167,7 @@ export function RoleDialog({
               aria-invalid={error?.field === "name" ? true : undefined}
               id="role-name"
               onChange={handleNameChange}
-              placeholder={translate(
-                "例如：Skill 开发者",
-                "For example: Skill developer"
-              )}
+              placeholder={t("management.forExampleSkillDeveloper")}
               value={name}
             />
             {error?.field === "name" ? (
@@ -196,14 +182,13 @@ export function RoleDialog({
 
           <div className="grid gap-2">
             <Label htmlFor="role-description">
-              {translate("描述", "Description")}
+              {t("management.description")}
             </Label>
             <Textarea
               id="role-description"
               onChange={handleDescriptionChange}
-              placeholder={translate(
-                "选填，一句话说明该角色的用途",
-                "Optional. Briefly describe what this role is for"
+              placeholder={t(
+                "management.optionalBrieflyDescribeWhatThisRoleIs"
               )}
               rows={3}
               value={description}
@@ -212,7 +197,7 @@ export function RoleDialog({
 
           <DialogFooter className="mt-1">
             <Button onClick={onClose} type="button" variant="outline">
-              {translate("取消", "Cancel")}
+              {t("common.cancel")}
             </Button>
             <Button type="submit">
               {isEdit ? (
@@ -220,9 +205,7 @@ export function RoleDialog({
               ) : (
                 <PlusIcon data-icon="inline-start" />
               )}
-              {isEdit
-                ? translate("保存更改", "Save changes")
-                : translate("创建角色", "Create role")}
+              {isEdit ? t("common.saveChanges") : t("management.createRole")}
             </Button>
           </DialogFooter>
         </form>

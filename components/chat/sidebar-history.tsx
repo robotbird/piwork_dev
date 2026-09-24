@@ -49,11 +49,11 @@ const previewItems = [
 ];
 
 function RecentLabel() {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
 
   return (
     <SidebarGroupLabel className="mb-0.5 flex h-6 items-center justify-between px-3 text-[13px] font-medium leading-5 text-muted-foreground normal-case tracking-normal">
-      <span>{translate("最近", "Recent")}</span>
+      <span>{t("chat.recent")}</span>
       <ChevronRightIcon className="size-4" />
     </SidebarGroupLabel>
   );
@@ -81,7 +81,7 @@ export function getChatHistoryPaginationKey(
 }
 
 export function SidebarHistory({ user }: { user: User | undefined }) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const id = pathname?.startsWith("/chat/") ? pathname.split("/")[2] : null;
@@ -102,11 +102,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const showPreviewNotice = useCallback(
-    () =>
-      toast.info(
-        translate("登录后可查看任务记录", "Log in to view task history")
-      ),
-    [translate]
+    () => toast.info(t("chat.logInToViewTaskHistory")),
+    [t]
   );
 
   const hasReachedEnd = paginatedChatHistories
@@ -141,8 +138,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
       { method: "DELETE" }
     );
 
-    toast.success(translate("任务已删除", "Chat deleted"));
-  }, [deleteId, mutate, pathname, router, translate]);
+    toast.success(t("chat.chatDeleted"));
+  }, [deleteId, mutate, pathname, router, t]);
 
   const handleShowDeleteDialog = useCallback((chatId: string) => {
     setDeleteId(chatId);
@@ -210,10 +207,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
         <RecentLabel />
         <SidebarGroupContent>
           <div className="px-3 py-2 text-sm text-sidebar-foreground/50">
-            {translate(
-              "开始新任务后，记录会显示在这里",
-              "Your task history will appear here"
-            )}
+            {t("chat.yourTaskHistoryWillAppearHere")}
           </div>
         </SidebarGroupContent>
       </SidebarGroup>
@@ -256,9 +250,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
               <div className="animate-spin">
                 <LoaderIcon />
               </div>
-              <div className="text-[11px]">
-                {translate("加载中...", "Loading...")}
-              </div>
+              <div className="text-[11px]">{t("common.loading")}</div>
             </div>
           )}
         </SidebarGroupContent>
@@ -268,19 +260,16 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {translate("确认删除此任务？", "Delete this task?")}
+              {t("chat.confirmDeleteThisTask")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {translate(
-                "删除后无法恢复，该任务及其对话记录将被永久移除。",
-                "This task and its conversation history will be permanently removed."
-              )}
+              {t("chat.thisTaskAndItsConversationHistoryWill")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{translate("取消", "Cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>
-              {translate("删除", "Delete")}
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

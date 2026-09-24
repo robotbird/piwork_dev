@@ -83,7 +83,7 @@ export function MemberDialog({
   onSubmit,
   open,
 }: MemberDialogProps) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const isEdit = member !== null;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -126,21 +126,21 @@ export function MemberDialog({
       if (!trimmedName) {
         setError({
           field: "name",
-          message: translate("请输入成员姓名", "Enter the member name"),
+          message: t("members.enterTheMemberName"),
         });
         return;
       }
       if (!trimmedEmail) {
         setError({
           field: "email",
-          message: translate("请输入邮箱地址", "Enter an email address"),
+          message: t("members.enterAnEmailAddress"),
         });
         return;
       }
       if (!isValidEmail(trimmedEmail)) {
         setError({
           field: "email",
-          message: translate("邮箱格式不正确", "Enter a valid email address"),
+          message: t("members.enterAValidEmailAddress"),
         });
         return;
       }
@@ -150,40 +150,28 @@ export function MemberDialog({
       if (duplicated) {
         setError({
           field: "email",
-          message: translate(
-            "该邮箱已被其他成员使用",
-            "This email is already in use"
-          ),
+          message: t("members.thisEmailIsAlreadyInUse"),
         });
         return;
       }
       if (!isEdit && password.length < MIN_PASSWORD_LENGTH) {
         setError({
           field: "password",
-          message: translate(
-            "初始密码至少 6 位",
-            "The initial password must be at least 6 characters"
-          ),
+          message: t("members.theInitialPasswordMustBeAtLeast"),
         });
         return;
       }
       if (lockedAsEnabledAdmin && (role !== "admin" || status !== "enabled")) {
         setError({
           field: "role",
-          message: translate(
-            "需保留至少一名已启用的管理员，无法降级或停用该成员",
-            "At least one enabled administrator is required; this member cannot be downgraded or disabled"
-          ),
+          message: t("members.atLeastOneEnabledAdministratorIsRequired"),
         });
         return;
       }
       if (isSelf && status === "disabled") {
         setError({
           field: "role",
-          message: translate(
-            "不能停用当前登录的账号",
-            "You cannot disable the currently signed-in account"
-          ),
+          message: t("members.youCannotDisableTheCurrentlySignedIn"),
         });
         return;
       }
@@ -212,7 +200,7 @@ export function MemberDialog({
       role,
       status,
       title,
-      translate,
+      t,
     ]
   );
 
@@ -280,27 +268,19 @@ export function MemberDialog({
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>
-            {isEdit
-              ? translate("编辑成员", "Edit member")
-              : translate("添加成员", "Add member")}
+            {isEdit ? t("members.editMember") : t("members.addMember")}
           </DialogTitle>
           <DialogDescription>
             {isEdit
-              ? translate(
-                  "调整成员信息。部门与角色的变化会同步影响其可访问的管理能力。",
-                  "Update member details. Department and role changes affect management access."
-                )
-              : translate(
-                  "新增团队成员，创建后成员即可使用邮箱与初始密码登录。",
-                  "Add a team member who can sign in with their email and initial password."
-                )}
+              ? t("members.updateMemberDetailsDepartmentAndRoleChanges")
+              : t("members.addATeamMemberWhoCanSign")}
           </DialogDescription>
         </DialogHeader>
 
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="member-name">{translate("姓名", "Name")}</Label>
+              <Label htmlFor="member-name">{t("members.name")}</Label>
               <Input
                 aria-describedby={
                   error?.field === "name" ? "member-name-error" : undefined
@@ -308,10 +288,7 @@ export function MemberDialog({
                 aria-invalid={error?.field === "name" ? true : undefined}
                 id="member-name"
                 onChange={handleNameChange}
-                placeholder={translate(
-                  "例如：王小明",
-                  "For example: Alex Chen"
-                )}
+                placeholder={t("members.forExampleAlexChen")}
                 value={name}
               />
               {error?.field === "name" ? (
@@ -325,23 +302,18 @@ export function MemberDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="member-title">
-                {translate("职务", "Job title")}
-              </Label>
+              <Label htmlFor="member-title">{t("members.jobTitle")}</Label>
               <Input
                 id="member-title"
                 onChange={handleTitleChange}
-                placeholder={translate(
-                  "选填，例如：产品经理",
-                  "Optional, for example: Product Manager"
-                )}
+                placeholder={t("members.optionalForExampleProductManager")}
                 value={title}
               />
             </div>
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="member-email">{translate("邮箱", "Email")}</Label>
+            <Label htmlFor="member-email">{t("common.email")}</Label>
             <Input
               aria-describedby={
                 error?.field === "email" ? "member-email-error" : undefined
@@ -366,12 +338,12 @@ export function MemberDialog({
           {isEdit ? null : (
             <div className="grid gap-2">
               <Label htmlFor="member-password">
-                {translate("初始密码", "Initial password")}
+                {t("members.initialPassword")}
               </Label>
               <div className="relative">
                 <KeyRoundIcon
                   aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/65"
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -t-y-1/2 text-muted-foreground/65"
                 />
                 <Input
                   aria-describedby={
@@ -384,7 +356,7 @@ export function MemberDialog({
                   id="member-password"
                   minLength={MIN_PASSWORD_LENGTH}
                   onChange={handlePasswordChange}
-                  placeholder={translate("至少 6 位", "At least 6 characters")}
+                  placeholder={t("members.atLeast6Characters")}
                   type="password"
                   value={password}
                 />
@@ -398,10 +370,7 @@ export function MemberDialog({
                 </p>
               ) : (
                 <p className="text-[12px] leading-5 text-muted-foreground">
-                  {translate(
-                    "创建后成员即可使用邮箱与该密码登录",
-                    "The member can sign in with their email and this password"
-                  )}
+                  {t("members.theMemberCanSignInWithTheir")}
                 </p>
               )}
             </div>
@@ -410,17 +379,15 @@ export function MemberDialog({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="member-department">
-                {translate("部门", "Department")}
+                {t("members.department")}
               </Label>
               <Select onValueChange={setDepartmentId} value={departmentId}>
                 <SelectTrigger className="w-full" id="member-department">
-                  <SelectValue
-                    placeholder={translate("选择部门", "Select department")}
-                  />
+                  <SelectValue placeholder={t("members.selectDepartment")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
                   <SelectItem value={NONE_DEPARTMENT}>
-                    {translate("未分配", "Unassigned")}
+                    {t("members.unassigned")}
                   </SelectItem>
                   {departments.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
@@ -432,7 +399,7 @@ export function MemberDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="member-role">{translate("角色", "Role")}</Label>
+              <Label htmlFor="member-role">{t("members.role")}</Label>
               <Select onValueChange={handleRoleChange} value={role}>
                 <SelectTrigger
                   aria-describedby={
@@ -441,16 +408,15 @@ export function MemberDialog({
                   className="w-full"
                   id="member-role"
                 >
-                  <SelectValue
-                    placeholder={translate("选择角色", "Select role")}
-                  />
+                  <SelectValue placeholder={t("members.selectRole")} />
                 </SelectTrigger>
                 <SelectContent>
                   {MEMBER_ROLE_OPTIONS.map((item) => (
                     <SelectItem key={item.value} value={item.value}>
-                      {translate(
-                        item.label,
-                        item.value === "admin" ? "Administrator" : "Member"
+                      {t(
+                        item.value === "admin"
+                          ? "common.administrator"
+                          : "common.user"
                       )}
                     </SelectItem>
                   ))}
@@ -462,7 +428,7 @@ export function MemberDialog({
           {isEdit ? (
             <div className="grid gap-2">
               <Label htmlFor="member-status">
-                {translate("账号状态", "Account status")}
+                {t("members.accountStatus")}
               </Label>
               <Select
                 disabled={lockedAsEnabledAdmin || isSelf}
@@ -470,16 +436,15 @@ export function MemberDialog({
                 value={status}
               >
                 <SelectTrigger className="w-full" id="member-status">
-                  <SelectValue
-                    placeholder={translate("选择状态", "Select status")}
-                  />
+                  <SelectValue placeholder={t("members.selectStatus")} />
                 </SelectTrigger>
                 <SelectContent>
                   {MEMBER_STATUS_OPTIONS.map((item) => (
                     <SelectItem key={item.value} value={item.value}>
-                      {translate(
-                        item.label,
-                        item.value === "enabled" ? "Enabled" : "Disabled"
+                      {t(
+                        item.value === "enabled"
+                          ? "common.enabled"
+                          : "members.disabled"
                       )}
                     </SelectItem>
                   ))}
@@ -487,17 +452,11 @@ export function MemberDialog({
               </Select>
               {lockedAsEnabledAdmin ? (
                 <p className="text-[12px] leading-5 text-muted-foreground">
-                  {translate(
-                    "最后一名已启用的管理员，无法停用",
-                    "The last enabled administrator cannot be disabled"
-                  )}
+                  {t("members.theLastEnabledAdministratorCannotBeDisabled")}
                 </p>
               ) : isSelf ? (
                 <p className="text-[12px] leading-5 text-muted-foreground">
-                  {translate(
-                    "不能停用当前登录的账号",
-                    "You cannot disable the currently signed-in account"
-                  )}
+                  {t("members.youCannotDisableTheCurrentlySignedIn")}
                 </p>
               ) : null}
             </div>
@@ -514,7 +473,7 @@ export function MemberDialog({
 
           <DialogFooter className="mt-1">
             <Button onClick={onClose} type="button" variant="outline">
-              {translate("取消", "Cancel")}
+              {t("common.cancel")}
             </Button>
             <Button type="submit">
               {isEdit ? (
@@ -522,9 +481,7 @@ export function MemberDialog({
               ) : (
                 <PlusIcon data-icon="inline-start" />
               )}
-              {isEdit
-                ? translate("保存更改", "Save changes")
-                : translate("添加成员", "Add member")}
+              {isEdit ? t("common.saveChanges") : t("members.addMember")}
             </Button>
           </DialogFooter>
         </form>

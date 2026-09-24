@@ -25,10 +25,9 @@ import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
 
 function WaitingText() {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const { waitingStatus } = useDataStream();
-  const waitingText =
-    waitingStatus?.message ?? translate("等待中…", "Waiting...");
+  const waitingText = waitingStatus?.message ?? t("chat.waiting");
 
   return (
     <div className="flex min-h-6 min-w-0 items-center text-[15px] leading-6">
@@ -70,7 +69,7 @@ function ToolApprovalActions({
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
   approvalId: string;
 }) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const handleDeny = useCallback(() => {
     addToolApprovalResponse({
       approved: false,
@@ -93,14 +92,14 @@ function ToolApprovalActions({
         onClick={handleDeny}
         type="button"
       >
-        {translate("拒绝", "Deny")}
+        {t("chat.deny")}
       </button>
       <button
         className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground text-sm transition-colors hover:bg-primary/90"
         onClick={handleAllow}
         type="button"
       >
-        {translate("允许", "Allow")}
+        {t("chat.allow")}
       </button>
     </div>
   );

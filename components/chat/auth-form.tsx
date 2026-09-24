@@ -16,13 +16,13 @@ export function AuthForm({
   children: React.ReactNode;
   defaultEmail?: string;
 }) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
 
   return (
     <Form action={action} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label className="font-normal text-muted-foreground" htmlFor="email">
-          {translate("邮箱", "Email")}
+          {t("common.email")}
         </Label>
         <Input
           autoComplete="email"
@@ -39,7 +39,7 @@ export function AuthForm({
 
       <div className="flex flex-col gap-2">
         <Label className="font-normal text-muted-foreground" htmlFor="password">
-          {translate("密码", "Password")}
+          {t("auth.password")}
         </Label>
         <Input
           className="text-sm"

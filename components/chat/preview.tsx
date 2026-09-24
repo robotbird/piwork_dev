@@ -29,7 +29,7 @@ function PreviewSuggestionButton({
 
 export function Preview() {
   const router = useRouter();
-  const { language, translate } = usePreferences();
+  const { language, t } = usePreferences();
   const suggestions =
     language === "zh"
       ? [
@@ -64,20 +64,17 @@ export function Preview() {
           <SparklesIcon size={10} />
         </div>
         <span className="text-sm text-muted-foreground">
-          {translate("智能助手", "Chatbot")}
+          {t("chat.chatbot")}
         </span>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-8 px-8">
         <div className="text-center">
           <h2 className="text-xl font-semibold tracking-tight">
-            {translate("我能为你做什么？", "What can I help with?")}
+            {t("chat.confirmWhatCanIHelpWith")}
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {translate(
-              "提出问题、编写代码或探索想法。",
-              "Ask a question, write code, or explore ideas."
-            )}
+            {t("chat.askAQuestionWriteCodeOrExplore")}
           </p>
         </div>
 
@@ -98,7 +95,7 @@ export function Preview() {
           onClick={handleDefaultAction}
           type="button"
         >
-          {translate("处理任何事务...", "Ask anything...")}
+          {t("chat.askAnythingAction")}
         </button>
       </div>
     </div>

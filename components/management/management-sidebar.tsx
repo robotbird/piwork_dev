@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   type ChangeEvent,
   Fragment,
@@ -25,7 +26,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { usePreferences } from "@/components/preferences-provider";
 import {
   Sheet,
   SheetContent,
@@ -39,12 +39,12 @@ import { cn } from "@/lib/utils";
 type NavigationItem = {
   href: string;
   icon: LucideIcon;
-  label: readonly [string, string];
-  keywords?: string;
+  labelKey: string;
+  searchKeywordsKey: string;
 };
 
 type NavigationGroup = {
-  label: readonly [string, string];
+  labelKey: string;
   items: NavigationItem[];
 };
 
@@ -54,75 +54,74 @@ const navigationGroups: NavigationGroup[] = [
       {
         href: "/management",
         icon: LayoutDashboardIcon,
-        keywords: "工作台 仪表盘",
-        label: ["概览", "Overview"],
+        labelKey: "overview",
+        searchKeywordsKey: "overviewSearchKeywords",
       },
     ],
-    label: ["工作台", "Workspace"],
+    labelKey: "workspace",
   },
   {
     items: [
       {
         href: "/management/skills",
         icon: BlocksIcon,
-        keywords: "技能 能力",
-        label: ["Skill管理", "Skill management"],
+        labelKey: "skillManagement",
+        searchKeywordsKey: "skillManagementSearchKeywords",
       },
       {
         href: "/management/tools",
         icon: WrenchIcon,
-        keywords: "MCP API 插件 接入",
-        label: ["工具管理", "Tool management"],
+        labelKey: "toolManagement",
+        searchKeywordsKey: "toolManagementSearchKeywords",
       },
       {
         href: "/management/data",
         icon: DatabaseIcon,
-        keywords: "知识库 数据集 文档",
-        label: ["数据管理", "Data management"],
+        labelKey: "dataManagement",
+        searchKeywordsKey: "dataManagementSearchKeywords",
       },
       {
         href: "/management/models",
         icon: BrainIcon,
-        keywords: "多模型 私有模型",
-        label: ["模型管理", "Model management"],
+        labelKey: "modelManagement",
+        searchKeywordsKey: "modelManagementSearchKeywords",
       },
     ],
-    label: ["智能体资源", "Agent resources"],
+    labelKey: "agentResources",
   },
   {
     items: [
       {
         href: "/management/organization",
         icon: Building2Icon,
-        keywords: "部门 企业",
-        label: ["组织架构", "Organization"],
+        labelKey: "organization",
+        searchKeywordsKey: "organizationSearchKeywords",
       },
       {
         href: "/management/organization?view=members",
         icon: UsersRoundIcon,
-        keywords: "用户 账号",
-        label: ["成员管理", "Members"],
+        labelKey: "members",
+        searchKeywordsKey: "membersSearchKeywords",
       },
       {
         href: "/management/organization?view=permissions",
         icon: ShieldCheckIcon,
-        keywords: "安全 授权",
-        label: ["角色与权限", "Roles & permissions"],
+        labelKey: "rolesAndPermissions",
+        searchKeywordsKey: "rolesAndPermissionsSearchKeywords",
       },
     ],
-    label: ["组织与权限", "Organization & access"],
+    labelKey: "organizationAndAccess",
   },
   {
     items: [
       {
         href: "/management/settings",
         icon: SettingsIcon,
-        keywords:
-          "系统 通用 设置 语言 外观 system general settings language appearance",
-        label: ["通用设置", "General settings"],
+        labelKey: "generalSettings",
+        searchKeywordsKey: "generalSettingsSearchKeywords",
       },
     ],
-    label: ["系统设置", "System settings"],
+    labelKey: "systemSettings",
   },
 ];
 
@@ -152,7 +151,7 @@ function NavigationLink({
   item: NavigationItem;
   onNavigate?: () => void;
 }) {
-  const { translate } = usePreferences();
+  const t = useTranslations("managementSidebar");
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const active = isItemActive(pathname, searchParams.get("view"), item);
@@ -180,7 +179,7 @@ function NavigationLink({
             : "text-muted-foreground group-hover:text-foreground"
         )}
       />
-      <span className="truncate">{translate(...item.label)}</span>
+      <span className="truncate">{t(item.labelKey)}</span>
     </Link>
   );
 }
@@ -192,7 +191,7 @@ function SidebarBody({
   onNavigate?: () => void;
   user: { email?: string | null; name?: string | null };
 }) {
-  const { translate } = usePreferences();
+  const t = useTranslations("managementSidebar");
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleGroups = useMemo(
@@ -201,13 +200,13 @@ function SidebarBody({
         .map((group) => ({
           ...group,
           items: group.items.filter((item) =>
-            `${item.label.join(" ")} ${item.keywords ?? ""}`
+            `${t(item.labelKey)} ${t(item.searchKeywordsKey)}`
               .toLocaleLowerCase()
               .includes(normalizedQuery)
           ),
         }))
         .filter((group) => group.items.length > 0),
-    [normalizedQuery]
+    [normalizedQuery, t]
   );
   const handleQueryChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) =>
@@ -220,9 +219,7 @@ function SidebarBody({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="px-3 pb-3 pt-1">
         <label className="relative block">
-          <span className="sr-only">
-            {translate("搜索管理功能", "Search management")}
-          </span>
+          <span className="sr-only">{t("searchManagement")}</span>
           <SearchIcon
             aria-hidden="true"
             className="pointer-events-none absolute left-3 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground"
@@ -230,13 +227,13 @@ function SidebarBody({
           <input
             className="h-10 w-full rounded-[12px] border-0 bg-sidebar-accent/75 pl-10 pr-9 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring/45"
             onChange={handleQueryChange}
-            placeholder={translate("搜索设置", "Search settings")}
+            placeholder={t("searchSettings")}
             type="search"
             value={query}
           />
           {query ? (
             <button
-              aria-label={translate("清除搜索", "Clear search")}
+              aria-label={t("clearSearch")}
               className="absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-background/70 hover:text-foreground"
               onClick={handleClearQuery}
               type="button"
@@ -248,19 +245,19 @@ function SidebarBody({
       </div>
 
       <nav
-        aria-label={translate("系统管理导航", "System management navigation")}
+        aria-label={t("systemManagementNavigation")}
         className="min-h-0 flex-1 overflow-y-auto px-3 pb-5"
       >
         {visibleGroups.length > 0 ? (
           visibleGroups.map((group, index) => (
-            <Fragment key={group.label[0]}>
+            <Fragment key={group.labelKey}>
               <section className={cn(index > 0 && "mt-5")}>
                 <h2 className="mb-1.5 px-2 text-[13px] font-medium leading-5 text-muted-foreground">
-                  {translate(...group.label)}
+                  {t(group.labelKey)}
                 </h2>
                 <ul className="space-y-0.5">
                   {group.items.map((item) => (
-                    <li key={`${item.href}-${item.label[0]}`}>
+                    <li key={`${item.href}-${item.labelKey}`}>
                       <NavigationLink item={item} onNavigate={onNavigate} />
                     </li>
                   ))}
@@ -270,7 +267,7 @@ function SidebarBody({
           ))
         ) : (
           <div className="px-3 py-10 text-center text-sm text-muted-foreground">
-            {translate("没有匹配的设置", "No matching settings")}
+            {t("noMatchingSettings")}
           </div>
         )}
       </nav>
@@ -287,7 +284,7 @@ export function ManagementSidebar({
 }: {
   user: { email?: string | null; name?: string | null };
 }) {
-  const { translate } = usePreferences();
+  const t = useTranslations("managementSidebar");
   const [mobileOpen, setMobileOpen] = useState(false);
   const handleOpenMobile = useCallback(() => setMobileOpen(true), []);
   const handleCloseMobile = useCallback(() => setMobileOpen(false), []);
@@ -296,21 +293,19 @@ export function ManagementSidebar({
     <>
       <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur md:hidden">
         <button
-          aria-label={translate("打开管理导航", "Open management navigation")}
+          aria-label={t("openManagementNavigation")}
           className="grid size-9 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted"
           onClick={handleOpenMobile}
           type="button"
         >
           <MenuIcon className="size-5" />
         </button>
-        <span className="text-sm font-medium">
-          {translate("系统管理", "System management")}
-        </span>
+        <span className="text-sm font-medium">{t("systemManagement")}</span>
         <Link
           className="ml-auto rounded-lg px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           href="/"
         >
-          {translate("返回应用", "Back to app")}
+          {t("backToApp")}
         </Link>
       </header>
 
@@ -321,15 +316,8 @@ export function ManagementSidebar({
           side="left"
         >
           <SheetHeader className="sr-only">
-            <SheetTitle>
-              {translate("系统管理导航", "System management navigation")}
-            </SheetTitle>
-            <SheetDescription>
-              {translate(
-                "在系统管理功能之间切换",
-                "Navigate system management features"
-              )}
-            </SheetDescription>
+            <SheetTitle>{t("systemManagementNavigation")}</SheetTitle>
+            <SheetDescription>{t("navigationDescription")}</SheetDescription>
           </SheetHeader>
           <div className="flex h-full flex-col">
             <div className="flex h-14 shrink-0 items-center justify-between px-3">
@@ -339,13 +327,10 @@ export function ManagementSidebar({
                 onClick={handleCloseMobile}
               >
                 <ArrowLeftIcon className="size-[18px] shrink-0 text-muted-foreground transition-all group-hover:-translate-x-0.5 group-hover:text-foreground" />
-                {translate("返回应用", "Back to app")}
+                {t("backToApp")}
               </Link>
               <button
-                aria-label={translate(
-                  "关闭管理导航",
-                  "Close management navigation"
-                )}
+                aria-label={t("closeManagementNavigation")}
                 className="grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                 onClick={handleCloseMobile}
                 type="button"
@@ -364,7 +349,7 @@ export function ManagementSidebar({
           href="/"
         >
           <ArrowLeftIcon className="size-[18px] shrink-0 text-muted-foreground transition-all group-hover:-translate-x-0.5 group-hover:text-foreground" />
-          <span>{translate("返回应用", "Back to app")}</span>
+          <span>{t("backToApp")}</span>
         </Link>
         <SidebarBody user={user} />
       </aside>

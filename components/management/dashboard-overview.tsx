@@ -219,35 +219,33 @@ function PanelHeader({
 }
 
 function ViewAll({ href = "/management" }: { href?: string }) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
 
   return (
     <Link
       className="flex items-center gap-1 text-xs font-medium text-link hover:text-link-deep"
       href={href}
     >
-      {translate("查看全部", "View all")}{" "}
-      <ArrowRightIcon className="size-3.5" />
+      {t("dashboard.viewAll")} <ArrowRightIcon className="size-3.5" />
     </Link>
   );
 }
 
 function RangeButton() {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
 
   return (
     <button
       className="flex h-8 items-center gap-2 rounded-md border border-[var(--hairline-strong)] bg-card px-3 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       type="button"
     >
-      {translate("近 30 天", "Last 30 days")}{" "}
-      <ChevronDownIcon className="size-3.5" />
+      {t("dashboard.last30Days")} <ChevronDownIcon className="size-3.5" />
     </button>
   );
 }
 
 export function DashboardOverview() {
-  const { language, translate } = usePreferences();
+  const { language, t } = usePreferences();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const localize = useCallback(
@@ -272,7 +270,7 @@ export function DashboardOverview() {
           barMaxWidth: 11,
           data: trendSuccess,
           emphasis: { disabled: true },
-          name: translate("成功", "Success"),
+          name: t("dashboard.success"),
           stack: "tasks",
           type: "bar",
         },
@@ -280,7 +278,7 @@ export function DashboardOverview() {
           barMaxWidth: 11,
           data: trendFailed,
           emphasis: { disabled: true },
-          name: translate("失败", "Failed"),
+          name: t("dashboard.failed"),
           stack: "tasks",
           type: "bar",
         },
@@ -308,7 +306,7 @@ export function DashboardOverview() {
         type: "value",
       },
     }),
-    [chart, translate]
+    [chart, t]
   );
 
   const typeOption = useMemo<EChartsCoreOption>(
@@ -327,7 +325,7 @@ export function DashboardOverview() {
             color: chart.donutCenter,
             fontSize: 21,
             fontWeight: 600,
-            formatter: `12,438\n{small|${translate("总任务数", "Total tasks")}}`,
+            formatter: `12,438\n{small|${t("dashboard.totalTasks")}}`,
             lineHeight: 30,
             position: "center",
             rich: {
@@ -352,7 +350,7 @@ export function DashboardOverview() {
         trigger: "item",
       },
     }),
-    [chart, localize, translate, typeColors]
+    [chart, localize, t, typeColors]
   );
 
   return (
@@ -360,13 +358,10 @@ export function DashboardOverview() {
       <div className="mx-auto max-w-[1180px]">
         <header>
           <h1 className="text-2xl font-semibold tracking-[-0.025em] text-foreground">
-            {translate("概览", "Overview")}
+            {t("dashboard.overview")}
           </h1>
           <p className="mt-2 max-w-3xl text-[14px] leading-6 text-muted-foreground">
-            {translate(
-              "统一管理企业的 AI 能力、工具、数据、模型与权限，保障 AI 能力安全、高效、合规运行。",
-              "Manage enterprise AI capabilities, tools, data, models, and access from one place."
-            )}
+            {t("dashboard.manageEnterpriseAiCapabilitiesToolsDataModels")}
           </p>
         </header>
 
@@ -398,7 +393,7 @@ export function DashboardOverview() {
                   <div className="pb-0.5 text-right text-[12px]">
                     <p className="font-semibold text-link">↑ {metric.change}</p>
                     <p className="mt-0.5 text-muted-foreground">
-                      {translate("较上月", "vs. last month")}
+                      {t("dashboard.vsLastMonth")}
                     </p>
                   </div>
                 </div>
@@ -411,7 +406,7 @@ export function DashboardOverview() {
           <article className={cn(panelClass, "xl:col-span-5")}>
             <PanelHeader
               action={<RangeButton />}
-              title={translate("任务趋势", "Task trends")}
+              title={t("dashboard.taskTrends")}
             />
             <div className="flex items-center gap-5 px-5 pt-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-2">
@@ -419,18 +414,15 @@ export function DashboardOverview() {
                   className="size-2.5 rounded-full"
                   style={{ backgroundColor: chart.palette[0] }}
                 />
-                {translate("成功", "Success")}
+                {t("dashboard.success")}
               </span>
               <span className="flex items-center gap-2">
                 <i className="size-2.5 rounded-full bg-border" />
-                {translate("失败", "Failed")}
+                {t("dashboard.failed")}
               </span>
             </div>
             <EChartsChart
-              ariaLabel={translate(
-                "近三十天成功与失败任务趋势柱状图",
-                "Successful and failed tasks over the last 30 days"
-              )}
+              ariaLabel={t("dashboard.successfulAndFailedTasksOverTheLast")}
               className="h-[203px] w-full px-2"
               option={trendOption}
             />
@@ -439,14 +431,11 @@ export function DashboardOverview() {
           <article className={cn(panelClass, "xl:col-span-4")}>
             <PanelHeader
               action={<RangeButton />}
-              title={translate("任务类型分布", "Task distribution")}
+              title={t("dashboard.taskDistribution")}
             />
             <div className="flex min-h-[225px] items-center gap-2 px-4 py-3">
               <EChartsChart
-                ariaLabel={translate(
-                  "任务类型分布环形图",
-                  "Task type distribution chart"
-                )}
+                ariaLabel={t("dashboard.taskTypeDistributionChart")}
                 className="h-[190px] min-w-0 flex-1"
                 option={typeOption}
               />
@@ -477,10 +466,10 @@ export function DashboardOverview() {
               action={
                 <span className="flex items-center gap-2 text-xs font-medium text-link">
                   <i className="size-2.5 rounded-full bg-link" />
-                  {translate("全部正常", "All operational")}
+                  {t("dashboard.allOperational")}
                 </span>
               }
-              title={translate("系统状态", "System status")}
+              title={t("dashboard.systemStatus")}
             />
             <ul className="px-5 py-1">
               {systemServices.map((service) => (
@@ -493,7 +482,7 @@ export function DashboardOverview() {
                     {localize(service)}
                   </span>
                   <span className="font-medium text-link">
-                    {translate("正常", "Operational")}
+                    {t("dashboard.operational")}
                   </span>
                 </li>
               ))}
@@ -505,19 +494,19 @@ export function DashboardOverview() {
           <article className={cn(panelClass, "overflow-hidden xl:col-span-5")}>
             <PanelHeader
               action={<ViewAll />}
-              title={translate("最近任务", "Recent tasks")}
+              title={t("dashboard.recentTasks")}
             />
             <div className="overflow-x-auto">
               <table className="w-full min-w-[580px] text-left text-[11px]">
                 <thead className="bg-[var(--canvas-soft)] text-muted-foreground">
                   <tr>
                     {[
-                      translate("任务名称", "Task"),
-                      translate("用户", "User"),
-                      translate("类型", "Type"),
-                      translate("状态", "Status"),
-                      translate("开始时间", "Started"),
-                      translate("时长", "Duration"),
+                      t("dashboard.task"),
+                      t("common.user"),
+                      t("common.type"),
+                      t("common.status"),
+                      t("dashboard.started"),
+                      t("dashboard.duration"),
                     ].map((label) => (
                       <th className="h-8 px-4 font-medium" key={label}>
                         {label}
@@ -579,7 +568,7 @@ export function DashboardOverview() {
           <article className={cn(panelClass, "xl:col-span-4")}>
             <PanelHeader
               action={<ViewAll href="/management/skills" />}
-              title={translate("热门 Skill", "Popular skills")}
+              title={t("dashboard.popularSkills")}
             />
             <ol className="px-5 py-1">
               {popularSkills.map(
@@ -616,7 +605,7 @@ export function DashboardOverview() {
           <article className={cn(panelClass, "xl:col-span-3")}>
             <PanelHeader
               action={<ViewAll />}
-              title={translate("最新动态", "Latest activity")}
+              title={t("dashboard.latestActivity")}
             />
             <ol className="relative px-5 py-2 before:absolute before:bottom-6 before:left-[23px] before:top-6 before:w-px before:bg-border">
               {activities.map(([title, description, time, color]) => (

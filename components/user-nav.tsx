@@ -30,16 +30,14 @@ type UserNavProps = {
 };
 
 export function UserNav({ area, user }: UserNavProps) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
 
   const isGuest = guestRegex.test(user.email ?? "");
   const displayName = isGuest
     ? "robotbird"
-    : (user.email?.split("@")[0] ??
-      user.name?.trim() ??
-      translate("用户", "User"));
+    : (user.email?.split("@")[0] ?? user.name?.trim() ?? t("common.user"));
   const initial = isGuest
     ? "R"
     : (user.email?.[0] ?? displayName[0] ?? "R").toUpperCase();
@@ -91,7 +89,7 @@ export function UserNav({ area, user }: UserNavProps) {
               <DropdownMenuItem asChild>
                 <Link className="cursor-pointer gap-2 text-sm" href="/">
                   <ArrowLeftIcon className="size-3.5" />
-                  {translate("返回应用", "Back to app")}
+                  {t("common.backToApp")}
                 </Link>
               </DropdownMenuItem>
             ) : isGuest ? null : (
@@ -102,7 +100,7 @@ export function UserNav({ area, user }: UserNavProps) {
                   href="/management/skills"
                 >
                   <Settings2Icon className="size-3.5" />
-                  {translate("管理", "Management")}
+                  {t("chat.management")}
                 </Link>
               </DropdownMenuItem>
             )}
@@ -120,8 +118,8 @@ export function UserNav({ area, user }: UserNavProps) {
                 <SunIcon className="size-3.5" />
               )}
               {resolvedTheme === "light"
-                ? translate("切换到深色模式", "Switch to dark mode")
-                : translate("切换到浅色模式", "Switch to light mode")}
+                ? t("chat.switchToDarkMode")
+                : t("chat.switchToLightMode")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -134,9 +132,7 @@ export function UserNav({ area, user }: UserNavProps) {
               ) : (
                 <LogOutIcon className="size-3.5" />
               )}
-              {isGuest
-                ? translate("登录账户", "Log in to your account")
-                : translate("退出登录", "Sign out")}
+              {isGuest ? t("chat.logInToYourAccount") : t("chat.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

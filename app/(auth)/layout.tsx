@@ -12,7 +12,7 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
 
   return (
     <div className="flex h-dvh w-screen bg-sidebar">
@@ -22,7 +22,7 @@ export default function AuthLayout({
           href="/"
         >
           <ArrowLeftIcon className="size-3.5" />
-          {translate("返回", "Back")}
+          {t("auth.back")}
         </Link>
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-10">
           <div className="flex flex-col gap-2">
@@ -36,7 +36,7 @@ export default function AuthLayout({
 
       <div className="hidden flex-1 flex-col overflow-hidden pl-12 xl:flex">
         <div className="flex items-center gap-1.5 pt-8 text-[13px] text-muted-foreground/50">
-          {translate("技术支持", "Powered by")}
+          {t("auth.poweredBy")}
           <span className="font-medium text-muted-foreground">
             pi + DeepSeek
           </span>

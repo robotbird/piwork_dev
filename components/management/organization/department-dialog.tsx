@@ -75,7 +75,7 @@ export function DepartmentDialog({
   onSubmit,
   open,
 }: DepartmentDialogProps) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const intl = useTranslations("organization");
   const isEdit = department !== null;
   const [name, setName] = useState("");
@@ -137,7 +137,7 @@ export function DepartmentDialog({
       if (!trimmedName) {
         setError({
           field: "name",
-          message: translate("请输入部门名称", "Enter a department name"),
+          message: t("organization.enterADepartmentName"),
         });
         return;
       }
@@ -150,10 +150,7 @@ export function DepartmentDialog({
       ) {
         setError({
           field: "parent",
-          message: translate(
-            "上级部门不能是自身或其下级部门",
-            "A department cannot report to itself or one of its descendants"
-          ),
+          message: t("organization.aDepartmentCannotReportToItselfOr"),
         });
         return;
       }
@@ -166,10 +163,7 @@ export function DepartmentDialog({
       if (duplicated) {
         setError({
           field: "name",
-          message: translate(
-            "同一上级部门下已存在同名部门",
-            "A department with this name already exists under the selected parent"
-          ),
+          message: t("organization.aDepartmentWithThisNameAlreadyExists"),
         });
         return;
       }
@@ -180,7 +174,7 @@ export function DepartmentDialog({
         parentId,
       });
     },
-    [departments, department, leaderId, name, onSubmit, parentId, translate]
+    [departments, department, leaderId, name, onSubmit, parentId, t]
   );
 
   const handleNameChange = useCallback(
@@ -228,26 +222,20 @@ export function DepartmentDialog({
         <DialogHeader>
           <DialogTitle>
             {isEdit
-              ? translate("编辑部门", "Edit department")
-              : translate("新建部门", "New department")}
+              ? t("organization.editDepartment")
+              : t("organization.newDepartment")}
           </DialogTitle>
           <DialogDescription>
             {isEdit
-              ? translate(
-                  "调整部门信息。修改会同步到组织树与成员归属。",
-                  "Update department details. Changes sync to the organization tree and member assignments."
-                )
-              : translate(
-                  "在所选上级部门下创建新部门，创建后可在组织树中查看。",
-                  "Create a department under the selected parent and view it in the organization tree."
-                )}
+              ? t("organization.updateDepartmentDetailsChangesSyncToThe")
+              : t("organization.createADepartmentUnderTheSelectedParent")}
           </DialogDescription>
         </DialogHeader>
 
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="grid gap-2">
             <Label htmlFor="department-name">
-              {translate("部门名称", "Department name")}
+              {t("organization.departmentName")}
             </Label>
             <Input
               aria-describedby={
@@ -256,7 +244,7 @@ export function DepartmentDialog({
               aria-invalid={error?.field === "name" ? true : undefined}
               id="department-name"
               onChange={handleNameChange}
-              placeholder={translate("例如：市场部", "For example: Marketing")}
+              placeholder={t("organization.forExampleMarketing")}
               value={name}
             />
             {error?.field === "name" ? (
@@ -271,14 +259,14 @@ export function DepartmentDialog({
 
           <div className="grid gap-2">
             <Label htmlFor="department-parent">
-              {translate("上级部门", "Parent department")}
+              {t("organization.parentDepartment")}
             </Label>
             {hasDepartments ? (
               isRoot ? (
                 <Input
                   disabled
                   id="department-parent"
-                  value={translate("顶级组织", "Top-level organization")}
+                  value={t("organization.topLevelOrganization")}
                 />
               ) : (
                 <Select
@@ -296,10 +284,7 @@ export function DepartmentDialog({
                     id="department-parent"
                   >
                     <SelectValue
-                      placeholder={translate(
-                        "选择上级部门",
-                        "Select parent department"
-                      )}
+                      placeholder={t("organization.selectParentDepartment")}
                     />
                   </SelectTrigger>
                   <SelectContent className="max-h-72">
@@ -318,15 +303,12 @@ export function DepartmentDialog({
               <Input
                 disabled
                 id="department-parent"
-                value={translate("顶级组织", "Top-level organization")}
+                value={t("organization.topLevelOrganization")}
               />
             )}
             {isRoot ? (
               <p className="text-[12px] leading-5 text-muted-foreground">
-                {translate(
-                  "顶级组织不支持调整上级部门",
-                  "The parent of the top-level organization cannot be changed"
-                )}
+                {t("organization.theParentOfTheTopLevelOrganization")}
               </p>
             ) : null}
             {error?.field === "parent" ? (
@@ -341,17 +323,15 @@ export function DepartmentDialog({
 
           <div className="grid gap-2">
             <Label htmlFor="department-leader">
-              {translate("负责人", "Manager")}
+              {t("organization.manager")}
             </Label>
             <Select onValueChange={handleLeaderChange} value={leaderId}>
               <SelectTrigger className="w-full" id="department-leader">
-                <SelectValue
-                  placeholder={translate("选择负责人", "Select manager")}
-                />
+                <SelectValue placeholder={t("organization.selectManager")} />
               </SelectTrigger>
               <SelectContent className="max-h-72">
                 <SelectItem value={NONE_OPTION}>
-                  {translate("未设置", "Not set")}
+                  {t("organization.notSet")}
                 </SelectItem>
                 {members.map((item) => (
                   <SelectItem key={item.id} value={item.id}>
@@ -361,10 +341,7 @@ export function DepartmentDialog({
               </SelectContent>
             </Select>
             <p className="text-[12px] leading-5 text-muted-foreground">
-              {translate(
-                "从成员列表中选择部门负责人",
-                "Select a department manager from the member list"
-              )}
+              {t("organization.selectADepartmentManagerFromTheMember")}
             </p>
           </div>
 
@@ -373,7 +350,7 @@ export function DepartmentDialog({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[14px] font-medium text-foreground">
-                    {translate("删除部门", "Delete department")}
+                    {t("organization.deleteDepartment")}
                   </p>
                   <p className="mt-1 max-w-[300px] text-[12px] leading-5 text-muted-foreground">
                     {childCount > 0
@@ -382,10 +359,7 @@ export function DepartmentDialog({
                         ? intl("directMembersBecomeUnassigned", {
                             count: directMemberCount,
                           })
-                        : translate(
-                            "删除后无法恢复。",
-                            "This action cannot be undone."
-                          )}
+                        : t("organization.thisActionCannotBeUndone")}
                   </p>
                 </div>
                 <Button
@@ -395,7 +369,7 @@ export function DepartmentDialog({
                   type="button"
                   variant="destructive"
                 >
-                  {translate("删除部门", "Delete department")}
+                  {t("organization.deleteDepartment")}
                 </Button>
               </div>
             </div>
@@ -403,7 +377,7 @@ export function DepartmentDialog({
 
           <DialogFooter className="mt-1">
             <Button onClick={onClose} type="button" variant="outline">
-              {translate("取消", "Cancel")}
+              {t("common.cancel")}
             </Button>
             <Button type="submit">
               {isEdit ? (
@@ -412,8 +386,8 @@ export function DepartmentDialog({
                 <PlusIcon data-icon="inline-start" />
               )}
               {isEdit
-                ? translate("保存更改", "Save changes")
-                : translate("创建部门", "Create department")}
+                ? t("common.saveChanges")
+                : t("organization.createDepartment")}
             </Button>
           </DialogFooter>
         </form>

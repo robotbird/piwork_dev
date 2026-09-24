@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { invalidateActiveModelCatalog } from "@/lib/ai/active-models";
 import {
   createPluginInstallation,
@@ -18,9 +19,10 @@ function unauthorized() {
   return new ChatbotError("unauthorized:chat").toResponse();
 }
 
-function errorResponse(error: unknown, status = 400) {
+async function errorResponse(error: unknown, status = 400) {
+  const t = await getTranslations("managementApi");
   return Response.json(
-    { error: error instanceof Error ? error.message : "操作失败" },
+    { error: error instanceof Error ? error.message : t("operationFailed") },
     { status }
   );
 }
@@ -39,6 +41,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const t = await getTranslations("managementApi");
   const session = await requireManagementAdmin();
   if (!session) {
     return unauthorized();
@@ -48,14 +51,14 @@ export async function POST(request: Request) {
       packageId?: string;
     };
     if (!body.packageId) {
-      return errorResponse(new Error("缺少插件包"));
+      return errorResponse(new Error(t("pluginPackageRequired")));
     }
     const pluginPackage = await getBuiltinPluginPackage(body.packageId);
     if (!pluginPackage) {
-      return errorResponse(new Error("插件包不存在"), 404);
+      return errorResponse(new Error(t("pluginPackageNotFound")), 404);
     }
     if (await getPluginInstallationByProviderKey(pluginPackage.providerKey)) {
-      return errorResponse(new Error("该供应商已安装"), 409);
+      return errorResponse(new Error(t("providerAlreadyInstalled")), 409);
     }
     const manager = new ProviderPluginManager();
     const installation = await manager.install(

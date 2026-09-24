@@ -110,7 +110,7 @@ function PureMultimodalInput({
 }) {
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const chatT = useTranslations("chat");
   const commonT = useTranslations("common");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -475,24 +475,20 @@ function PureMultimodalInput({
   );
 
   const handleProjectSelect = useCallback(() => {
-    toast.info(
-      translate("项目选择即将开放", "Project selection is coming soon")
-    );
-  }, [translate]);
+    toast.info(t("chat.projectSelectionIsComingSoon"));
+  }, [t]);
 
   const handleFileBrowse = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
   const handlePluginSelect = useCallback(() => {
-    toast.info(
-      translate("插件选择即将开放", "Plugin selection is coming soon")
-    );
-  }, [translate]);
+    toast.info(t("chat.pluginSelectionIsComingSoon"));
+  }, [t]);
 
   const handleVoiceInput = useCallback(() => {
-    toast.info(translate("语音输入即将开放", "Voice input is coming soon"));
-  }, [translate]);
+    toast.info(t("chat.voiceInputIsComingSoon"));
+  }, [t]);
 
   const handlePromptSubmit = useCallback(() => {
     if (input.startsWith("/") && !input.includes(" ")) {
@@ -588,7 +584,7 @@ function PureMultimodalInput({
     <div className={cn("relative flex w-full flex-col gap-3", className)}>
       {editingMessage && onCancelEdit ? (
         <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-          <span>{translate("正在编辑消息", "Editing message")}</span>
+          <span>{t("chat.editingMessage")}</span>
           <button
             className="rounded px-1.5 py-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
             onMouseDown={handleCancelEditMouseDown}
@@ -681,10 +677,10 @@ function PureMultimodalInput({
                 onKeyDown={handleTextareaKeyDown}
                 placeholder={
                   editingMessage
-                    ? translate("编辑你的消息...", "Edit your message...")
+                    ? t("chat.editYourMessage")
                     : selectedSkill
-                      ? translate("请完善你的任务...", "Describe your task...")
-                      : translate("处理任何事务", "Ask anything")
+                      ? t("chat.describeYourTask")
+                      : t("chat.askAnything")
                 }
                 ref={textareaRef}
                 value={input}
@@ -703,7 +699,7 @@ function PureMultimodalInput({
                   selectedModelId={selectedModelId}
                 />
                 <Button
-                  aria-label={translate("语音输入", "Voice input")}
+                  aria-label={t("chat.voiceInput")}
                   className="size-10 rounded-full text-foreground hover:bg-muted"
                   onClick={handleVoiceInput}
                   size="icon-sm"
@@ -755,8 +751,8 @@ function PureMultimodalInput({
               onKeyDown={handleTextareaKeyDown}
               placeholder={
                 editingMessage
-                  ? translate("编辑你的消息...", "Edit your message...")
-                  : translate("处理任何事务", "Ask anything")
+                  ? t("chat.editYourMessage")
+                  : t("chat.askAnything")
               }
               ref={textareaRef}
               value={input}
@@ -766,7 +762,7 @@ function PureMultimodalInput({
               selectedModelId={selectedModelId}
             />
             <Button
-              aria-label={translate("语音输入", "Voice input")}
+              aria-label={t("chat.voiceInput")}
               className="size-10 rounded-full text-foreground hover:bg-muted"
               onClick={handleVoiceInput}
               size="icon-sm"
@@ -801,32 +797,32 @@ function PureMultimodalInput({
         <div className="relative z-0 mx-5 -mt-4 flex h-12 items-end rounded-b-2xl bg-[#f7f7f7] px-1.5 pb-1.5 text-sm text-muted-foreground dark:bg-muted">
           <div className="flex min-w-0 items-center gap-2">
             <button
-              aria-label={translate("选择项目", "Choose project")}
+              aria-label={t("chat.chooseProject")}
               className="flex h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground"
               onClick={handleProjectSelect}
               type="button"
             >
               <FolderIcon className="size-[18px] shrink-0" />
-              <span>{translate("项目", "Project")}</span>
+              <span>{t("chat.project")}</span>
             </button>
             <button
-              aria-label={translate("添加文件", "Add files")}
+              aria-label={t("chat.addFiles")}
               className="flex h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
               disabled={status !== "ready"}
               onClick={handleFileBrowse}
               type="button"
             >
               <LibraryBigIcon className="size-[18px] shrink-0" />
-              <span>{translate("文件", "Files")}</span>
+              <span>{t("chat.files")}</span>
             </button>
             <button
-              aria-label={translate("选择插件", "Choose plugins")}
+              aria-label={t("chat.choosePlugins")}
               className="hidden h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground sm:flex"
               onClick={handlePluginSelect}
               type="button"
             >
               <PuzzleIcon className="size-[18px] shrink-0" />
-              <span>{translate("插件", "Plugins")}</span>
+              <span>{t("chat.plugins")}</span>
             </button>
           </div>
         </div>
@@ -1048,7 +1044,7 @@ function PureStopButton({
   stop: () => void;
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 }) {
-  const { translate } = usePreferences();
+  const { t } = usePreferences();
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
@@ -1060,7 +1056,7 @@ function PureStopButton({
 
   return (
     <Button
-      aria-label={translate("停止生成", "Stop generating")}
+      aria-label={t("chat.stopGenerating")}
       className="size-10 rounded-full bg-primary p-1 text-primary-foreground transition-all duration-150 hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground/50"
       data-testid="stop-button"
       onClick={handleClick}

@@ -1,3 +1,4 @@
+import { getLocale, getTranslations } from "next-intl/server";
 import { invalidateActiveModelCatalog } from "@/lib/ai/active-models";
 import {
   deletePluginInstallation,
@@ -23,9 +24,10 @@ function unauthorized() {
   return new ChatbotError("unauthorized:chat").toResponse();
 }
 
-function errorResponse(error: unknown, status = 400) {
+async function errorResponse(error: unknown, status = 400) {
+  const t = await getTranslations("managementApi");
   return Response.json(
-    { error: error instanceof Error ? error.message : "操作失败" },
+    { error: error instanceof Error ? error.message : t("operationFailed") },
     { status }
   );
 }
@@ -39,6 +41,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ installationId: string }> }
 ) {
+  const t = await getTranslations("managementApi");
+  const locale = await getLocale();
   const session = await requireManagementAdmin();
   if (!session) {
     return unauthorized();
@@ -47,7 +51,7 @@ export async function PATCH(
     const { installationId } = await params;
     const record = await getPluginInstallation(installationId);
     if (!record) {
-      return errorResponse(new Error("安装实例不存在"), 404);
+      return errorResponse(new Error(t("pluginInstallationNotFound")), 404);
     }
     const body = (await request.json()) as {
       credentials?: Record<string, unknown>;
@@ -70,10 +74,10 @@ export async function PATCH(
         !record.credentialsConfigured &&
         !body.credentials
       ) {
-        return errorResponse(new Error("请先配置并验证 API Key"));
+        return errorResponse(new Error(t("configureApiKeyFirst")));
       }
       if (body.enabledModels.some((id) => !knownIds.has(id))) {
-        return errorResponse(new Error("模型目录包含未知模型"));
+        return errorResponse(new Error(t("unknownModelInCatalog")));
       }
       update.enabledModels = body.enabledModels;
       if (
@@ -86,18 +90,18 @@ export async function PATCH(
     }
     if (body.defaultModelId !== undefined) {
       if (body.defaultModelId && !knownIds.has(body.defaultModelId)) {
-        return errorResponse(new Error("默认模型不存在"));
+        return errorResponse(new Error(t("defaultModelNotFound")));
       }
       const enabledModels = update.enabledModels ?? record.enabledModels;
       if (body.defaultModelId && !enabledModels.includes(body.defaultModelId)) {
-        return errorResponse(new Error("默认模型必须处于启用状态"));
+        return errorResponse(new Error(t("defaultModelMustBeEnabled")));
       }
       update.defaultModelId = body.defaultModelId;
     }
     if (body.credentials) {
       const pluginPackage = await getBuiltinPluginPackage(record.packageId);
       if (!pluginPackage) {
-        return errorResponse(new Error("插件包不存在"), 404);
+        return errorResponse(new Error(t("pluginPackageNotFound")), 404);
       }
       const manager = new ProviderPluginManager();
       const installation = await manager.install(
@@ -122,7 +126,13 @@ export async function PATCH(
             !String(nextCredentials[field.variable]).trim())
         ) {
           return errorResponse(
-            new Error(`${pickLocalizedText(field.label)}不能为空`)
+            new Error(
+              t("credentialFieldRequired", {
+                field:
+                  field.label[locale === "zh" ? "zh-CN" : "en"] ??
+                  pickLocalizedText(field.label),
+              })
+            )
           );
         }
       }
@@ -144,6 +154,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ installationId: string }> }
 ) {
+  const t = await getTranslations("managementApi");
   const session = await requireManagementAdmin();
   if (!session) {
     return unauthorized();
@@ -151,7 +162,7 @@ export async function DELETE(
   try {
     const { installationId } = await params;
     if (!(await getPluginInstallation(installationId))) {
-      return errorResponse(new Error("安装实例不存在"), 404);
+      return errorResponse(new Error(t("pluginInstallationNotFound")), 404);
     }
     await deletePluginInstallation(installationId);
     invalidate();

@@ -120,7 +120,7 @@ export function AdminSkillManager({
   const refreshSkills = useCallback(async () => {
     const response = await fetch(endpoint, { cache: "no-store" });
     if (!response.ok) {
-      throw new Error(t("无法刷新 Skill 列表"));
+      throw new Error(t("skills.failedToRefreshTheSkillList"));
     }
     const data = (await response.json()) as { skills: SkillSummary[] };
     setSkills(data.skills);
@@ -147,13 +147,15 @@ export function AdminSkillManager({
           name?: string;
         };
         if (!response.ok) {
-          throw new Error(data.error || t("上传失败"));
+          throw new Error(data.error || t("skills.uploadFailed"));
         }
         await refreshSkills();
         setUploadOpen(false);
-        toast.success(t("Skill {name} 已上传", { name: data.name ?? "" }));
+        toast.success(t("skills.skillUploaded", { name: data.name ?? "" }));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : t("上传失败"));
+        toast.error(
+          error instanceof Error ? error.message : t("skills.uploadFailed")
+        );
       } finally {
         setUploading(false);
         if (folderInputRef.current) {
@@ -178,7 +180,7 @@ export function AdminSkillManager({
         });
         const data = (await response.json()) as { error?: string };
         if (!response.ok) {
-          throw new Error(data.error || t("操作失败"));
+          throw new Error(data.error || t("skills.actionFailed"));
         }
         setSkills((current) =>
           current.map((item) =>
@@ -189,11 +191,13 @@ export function AdminSkillManager({
         );
         toast.success(
           skill.enabled
-            ? t("已停用「{name}」", { name: skill.displayName })
-            : t("已启用「{name}」", { name: skill.displayName })
+            ? t("common.disabled", { name: skill.displayName })
+            : t("common.enabledWithName", { name: skill.displayName })
         );
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : t("操作失败"));
+        toast.error(
+          error instanceof Error ? error.message : t("skills.actionFailed")
+        );
       } finally {
         setTogglingName(null);
       }
@@ -214,17 +218,19 @@ export function AdminSkillManager({
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
-        throw new Error(data.error || t("删除失败"));
+        throw new Error(data.error || t("skills.deleteFailed"));
       }
       setSkills((current) =>
         current.filter((skill) => skill.name !== deleteTarget.name)
       );
       toast.success(
-        t("Skill「{name}」已删除", { name: deleteTarget.displayName })
+        t("skills.skillDeleted", { name: deleteTarget.displayName })
       );
       setDeleteTarget(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("删除失败"));
+      toast.error(
+        error instanceof Error ? error.message : t("skills.deleteFailed")
+      );
     } finally {
       setDeleting(false);
     }
@@ -312,9 +318,9 @@ export function AdminSkillManager({
 
   const filterTabs: Array<{ count: number; key: StatusFilter; label: string }> =
     [
-      { count: counts.all, key: "all", label: t("全部") },
-      { count: counts.enabled, key: "enabled", label: t("已启用") },
-      { count: counts.disabled, key: "disabled", label: t("已停用") },
+      { count: counts.all, key: "all", label: t("skills.all") },
+      { count: counts.enabled, key: "enabled", label: t("common.enabled") },
+      { count: counts.disabled, key: "disabled", label: t("skills.disabled") },
     ];
 
   return (
@@ -324,21 +330,21 @@ export function AdminSkillManager({
           <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-                {t("企业 Skill 库")}
+                {t("skills.enterpriseSkills")}
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                {t("上传、检索和管理当前 Pi 项目可用的企业 Skill")}
+                {t("skills.uploadSearchAndManageEnterpriseSkillsAvailable")}
               </p>
             </div>
             <Button className="w-fit px-4" onClick={handleOpenUpload}>
               <UploadCloudIcon data-icon="inline-start" />
-              {t("上传 Skill")}
+              {t("skills.uploadSkill")}
             </Button>
           </header>
 
           <div className="mt-9 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div
-              aria-label={t("Skill 列表")}
+              aria-label={t("skills.skillList")}
               className="flex gap-6"
               role="tablist"
             >
@@ -373,10 +379,10 @@ export function AdminSkillManager({
             <div className="relative w-full sm:max-w-[280px]">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/65" />
               <Input
-                aria-label={t("搜索企业 Skill")}
+                aria-label={t("skills.searchEnterpriseSkills")}
                 className="pl-9"
                 onChange={handleQueryChange}
-                placeholder={t("搜索 Skill")}
+                placeholder={t("skills.searchSkills")}
                 type="search"
                 value={query}
               />
@@ -386,28 +392,28 @@ export function AdminSkillManager({
           <div className="mt-5 overflow-hidden rounded-[14px] border border-border bg-card">
             <div className="overflow-x-auto">
               <table
-                aria-label={t("企业 Skill 列表")}
+                aria-label={t("skills.enterpriseSkillList")}
                 className="w-full min-w-[760px] text-left text-sm"
               >
                 <thead className="bg-muted/50 text-[13px] text-muted-foreground">
                   <tr>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {t("Skill")}
+                      {t("skills.skill")}
                     </th>
                     <th className="h-10 w-24 px-4 font-medium" scope="col">
-                      {t("版本")}
+                      {t("skills.version")}
                     </th>
                     <th className="h-10 w-24 px-4 font-medium" scope="col">
-                      {t("来源")}
+                      {t("skills.source")}
                     </th>
                     <th className="h-10 w-28 px-4 font-medium" scope="col">
-                      {t("状态")}
+                      {t("common.status")}
                     </th>
                     <th
                       className="h-10 w-14 px-4 text-right font-medium"
                       scope="col"
                     >
-                      {t("操作")}
+                      {t("common.actions")}
                     </th>
                   </tr>
                 </thead>
@@ -430,12 +436,12 @@ export function AdminSkillManager({
                         colSpan={5}
                       >
                         {skills.length === 0
-                          ? t("还没有企业 Skill")
-                          : t("没有匹配的 Skill")}
+                          ? t("skills.noEnterpriseSkillsYet")
+                          : t("skills.noMatchingSkills")}
                         <span className="mt-1 block text-[13px]">
                           {skills.length === 0
-                            ? t("上传包含 SKILL.md 的文件夹即可上架")
-                            : t("试试其它关键词")}
+                            ? t("skills.uploadAFolderContainingSkillMdTo")
+                            : t("skills.tryAnotherSearchTerm")}
                         </span>
                       </td>
                     </tr>
@@ -455,32 +461,32 @@ export function AdminSkillManager({
       <Dialog onOpenChange={setUploadOpen} open={uploadOpen}>
         <DialogContent className="gap-5 sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg">{t("上传企业 Skill")}</DialogTitle>
+            <DialogTitle className="text-lg">
+              {t("skills.uploadEnterpriseSkill")}
+            </DialogTitle>
             <DialogDescription>
-              {t(
-                "选择完整 Skill 文件夹或 .zip 压缩包。根目录需包含 SKILL.md。"
-              )}
+              {t("skills.chooseACompleteSkillFolderOrZip")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
             <UploadOption
               disabled={uploading}
               icon={UploadCloudIcon}
-              label={t("选择 Skill 文件夹")}
-              note={t("包含脚本、参考资料与资源")}
+              label={t("skills.chooseSkillFolder")}
+              note={t("skills.includesScriptsReferencesAndAssets")}
               onClick={handleBrowseFolder}
             />
             <UploadOption
               disabled={uploading}
               icon={FileArchiveIcon}
-              label={t("选择 Skill 压缩包")}
-              note={t("支持 .zip，最大 15 MB")}
+              label={t("skills.chooseSkillArchive")}
+              note={t("skills.supportsZipUpTo15Mb")}
               onClick={handleBrowseZip}
             />
           </div>
           {uploading ? (
             <p className="text-center text-sm text-muted-foreground">
-              {t("正在验证并上传…")}
+              {t("skills.validatingAndUploading")}
             </p>
           ) : null}
           <input
@@ -507,23 +513,25 @@ export function AdminSkillManager({
       >
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("删除企业 Skill？")}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("skills.confirmDeleteEnterpriseSkill")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {t("将从项目中永久删除“{name}”及其所有附加文件。", {
+              {t("skills.thisWillPermanentlyRemoveAndAllAttached", {
                 name: deleteTarget?.displayName ?? "",
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>
-              {t("取消")}
+              {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={handleConfirmDelete}
               variant="destructive"
             >
-              {deleting ? t("正在删除…") : t("删除")}
+              {deleting ? t("skills.deleting") : t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -603,12 +611,16 @@ function SkillRow({
         )}
       </td>
       <td className="px-4 py-3.5 whitespace-nowrap text-[13px] text-muted-foreground">
-        {skill.source === "catalog" ? t("官方目录") : t("上传")}
+        {skill.source === "catalog"
+          ? t("skills.officialCatalog")
+          : t("skills.uploaded")}
       </td>
       <td className="px-4 py-3.5">
         <div className="flex items-center gap-2">
           <Switch
-            aria-label={t("启用或停用 {name}", { name: t(skill.displayName) })}
+            aria-label={t("skills.enableOrDisable", {
+              name: t(skill.displayName),
+            })}
             checked={skill.enabled}
             disabled={toggling}
             onCheckedChange={handleToggle}
@@ -619,7 +631,7 @@ function SkillRow({
               skill.enabled ? "text-foreground" : "text-muted-foreground"
             )}
           >
-            {skill.enabled ? t("已启用") : t("已停用")}
+            {skill.enabled ? t("common.enabled") : t("skills.disabled")}
           </span>
         </div>
       </td>
@@ -627,7 +639,7 @@ function SkillRow({
         <DropdownMenu modal>
           <DropdownMenuTrigger asChild>
             <Button
-              aria-label={t("更多操作")}
+              aria-label={t("common.moreActions")}
               className="text-muted-foreground data-[state=open]:bg-muted hover:text-foreground"
               size="icon-sm"
               variant="ghost"
@@ -638,7 +650,7 @@ function SkillRow({
           <DropdownMenuContent align="end" side="bottom">
             <DropdownMenuItem className="cursor-pointer" onClick={handleBrowse}>
               <BookOpenTextIcon />
-              <span>{t("浏览内容")}</span>
+              <span>{t("skills.browseFiles")}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="cursor-pointer"
@@ -646,7 +658,7 @@ function SkillRow({
               variant="destructive"
             >
               <Trash2Icon />
-              <span>{t("删除")}</span>
+              <span>{t("common.delete")}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
