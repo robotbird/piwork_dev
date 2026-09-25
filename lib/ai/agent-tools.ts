@@ -2,12 +2,16 @@ import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   type AgentHarnessTool,
+  type AgentHarnessToolInvocation,
   type AgentTool,
+  BACKGROUND_CONTEXT,
   createBashTool,
   createEditTool,
   createReadTool,
   createWriteTool,
   type ExecutionToolContext,
+  uuidv7,
+  withAbortSignal,
 } from "@earendil-works/pi-agent-core";
 import { NodeExecutionEnv } from "@earendil-works/pi-agent-core/node";
 import { Type } from "@earendil-works/pi-ai";
@@ -56,9 +60,21 @@ export function isInsideWorkspace(workspaceDir: string, target: string) {
   );
 }
 
-// pi-agent-core 的执行类工具是 AgentHarnessTool（execute 需要第 5 个参数
-// context: {env}），而底层 Agent 类按 AgentTool 的 4 参签名调用；
-// 这里闭包注入 context 做适配，否则工具执行时会在 context.env 上崩溃。
+// pi-agent-core 的执行类工具是 AgentHarnessTool（execute 收 toolContext、
+// invocation 与 chord context 三类宿主参数），而底层 Agent 类按 AgentTool 的
+// 4 参签名调用；这里闭包注入做适配，否则工具执行时会在 context.env 上崩溃。
+// pi-agent-core 0.87 起 harness execute 不再收 signal——取消信号改经 chord
+// context 传递（NodeExecutionEnv 读 context.abortSignal），用 withAbortSignal
+// 把 Agent 侧的 signal 桥进去；invocation 的 memo 仅供官方 harness 的 durable
+// replay，内置工具不读取，给 no-op 实现即可。
+const NOOP_INVOCATION: AgentHarnessToolInvocation = {
+  getMemo: async () => undefined,
+  invocationId: uuidv7(),
+  operationId: uuidv7(),
+  setMemo: async () => undefined,
+  turnId: uuidv7(),
+};
+
 function bindToolContext(
   tool: AgentHarnessTool<ExecutionToolContext>,
   context: ExecutionToolContext
@@ -66,7 +82,16 @@ function bindToolContext(
   return {
     ...tool,
     execute: (toolCallId, params, signal, onUpdate) =>
-      tool.execute(toolCallId, params, signal, onUpdate, context),
+      tool.execute(
+        toolCallId,
+        params,
+        onUpdate ?? (() => undefined),
+        context,
+        NOOP_INVOCATION,
+        signal
+          ? withAbortSignal(signal, BACKGROUND_CONTEXT)
+          : BACKGROUND_CONTEXT
+      ),
   };
 }
 
@@ -78,7 +103,11 @@ export function createExecutionTools(workspaceDir: string) {
     bindToolContext(createWriteTool(), { env }),
     bindToolContext(createEditTool(), { env }),
   ];
-  return { cleanup: () => env.cleanup(), env, tools };
+  return {
+    cleanup: () => env.cleanup(BACKGROUND_CONTEXT),
+    env,
+    tools,
+  };
 }
 
 export function createDeliverFileTool({

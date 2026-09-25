@@ -45,7 +45,23 @@ if (isTestEnvironment) {
 
   faux.setResponses(
     Array.from({ length: 200 }, () => (context: Context) => {
-      if (context.systemPrompt?.includes("Generate a short chat title")) {
+      // pi-ai 0.87 起会在流式前把 systemPrompt 规范化成首条 system 消息
+      // （TranscriptContext 不再有 systemPrompt 字段）；两种形态都检查，
+      // 标题判定才不会静默失配。
+      const systemText = [
+        context.systemPrompt ?? "",
+        ...context.messages
+          .filter((message) => message.role === "system")
+          .map((message) =>
+            typeof message.content === "string"
+              ? message.content
+              : message.content
+                  .filter((part) => part.type === "text")
+                  .map((part) => part.text)
+                  .join(" ")
+          ),
+      ].join("\n");
+      if (systemText.includes("Generate a short chat title")) {
         return fauxAssistantMessage("Test Conversation");
       }
 
