@@ -1,6 +1,6 @@
 # pi.dev 插件体系与 piwork 网页安装可行性研究报告
 
-> 状态：调研报告 v1.4（2026-09-25；v1.1 附录 A 抽样与 SDK 接口实测；v1.2 附录 B pi-mcp-adapter 无头 spike 实录——全链路验证通过；v1.3 附录 C 升级评估；v1.4 升级已实施并通过全部回归，见 C.7 执行记录）
+> 状态：调研报告 v1.6（2026-09-25；v1.1 附录 A 抽样与 SDK 接口实测；v1.2 附录 B pi-mcp-adapter 无头 spike 实录——全链路验证通过；v1.3 附录 C 升级评估；v1.4 升级已实施并通过全部回归，见 C.7 执行记录；v1.5 附录 D 第三方 pi-web 宿主调研；v1.6 附录 E 复用性 spike C——官方 pi 插件与 piwork 自有工具/模型层同会话共存实证 + 开放问题 #2 关闭）
 > 调研对象：pi 官方文档 https://pi.dev/docs/latest（latest，2026-09-25 抓取）+ piwork 当前工作区代码（main @ 2c96a59）
 > 核心问题：**pi 的插件能否在 piwork 通过网页进行安装？安装后能否用于 piwork？**
 
@@ -13,9 +13,10 @@
 | pi.dev 官网支持网页一键安装插件吗？ | **不支持**。pi.dev/packages 是纯浏览画廊（5377 个包），每项只提供可复制的 `pi install npm:xxx` 命令，安装动作只能发生在用户终端的 pi CLI 里 |
 | piwork 能实现"网页安装 pi 插件"吗？ | **工程上可行，但需要 piwork 自建**。pi 没有提供网页安装的官方接口；piwork 需要在服务端执行等价动作（npm 拉包 + 安装到受控目录 + 注册表记录）。piwork 已有模型插件网页安装的完整先例链路，模式可以复制 |
 | pi 插件现在能直接用于 piwork 吗？ | **不能**。piwork 只依赖 `pi-agent-core`（agent 循环）和 `pi-ai`（模型流），**没有引入 `@earendil-works/pi-coding-agent`**——而扩展运行时（`ExtensionAPI`、`ResourceLoader`、settings/package 管理）全部在后者里。pi 扩展在 piwork 中没有宿主 |
-| 升级后能用吗？ | **可以，路径明确**。pi SDK 官方为"嵌入式宿主"预留了自定义 `ResourceLoader` 扩展点（宿主完全接管资源存储与发现）；升级评估已完成：0.83.0 → 0.87.1 低风险、约 1 天（附录 C），`pi-coding-agent@0.87.1` 三包共存已实测。但需要正面解决安全模型冲突与架构改造，详见 §4、§5 |
+| 升级后能用吗？ | **可以，且已在 spike 级实证**。pi SDK 官方为"嵌入式宿主"预留了自定义 `ResourceLoader` 扩展点（宿主完全接管资源存储与发现）；升级已完成（0.87.1，附录 C.7）。**附录 E spike C（2026-09-25）**：在同一次 `createAgentSession` 里，官方 npm 包 pi-mcp-adapter（经 `DefaultPackageManager.installAndPersist` 安装）、piwork 形态自定义工具、与 piwork-llm-deepseek 同形的声明式 Provider **三者共存**，官方插件的 MCP 工具与 piwork 工具在同一轮对话里被真实执行（6/6 断言通过）。剩余工作是聊天主链路的工程桥接与安全治理，详见 §4、§5、附录 E |
+| 第三方 pi-web 把网页安装做出来了吗？ | **做出来了，且是我们的路线 A + 附录 B 安装路径的生产级互证**。`@jmfederico/pi-web`（Settings → Pi packages）支持任意 npm/git/URL/本地源的网页安装与卸载，服务端就是 `DefaultPackageManager.installAndPersist()`。但它是**单用户可信模型**（无沙箱、不建议公网暴露），定位与 piwork 的多租户产品不同——可作为参考实现与个人体验工具，不能替代 piwork 自建。详见附录 D |
 
-一句话结论：**"网页安装"是 piwork 自己要建的能力（pi 官方没有）；"安装后可用"取决于 piwork 是否引入 pi 的扩展运行时——今天没有，所以今天不可用；引入的接口和版本对齐条件都已具备，但 pi 扩展"全权限可信代码"模型与 piwork 现有插件沙箱理念存在根本张力，需要分阶段落地。**
+一句话结论：**"网页安装"是 piwork 自己要建的能力（pi 官方没有，安装动作 = 服务端调 `DefaultPackageManager.installAndPersist`，附录 B/E 已两度实证；pi-web 生产级互证，附录 D）；"安装后可用"已在 spike 级实证（附录 E）——官方 pi 插件与 piwork 自有工具、模型插件层可在同一 AgentSession 共存并真实执行；剩余是聊天主链路的工程桥接与安全治理，pi 扩展"全权限可信代码"模型与 piwork 插件沙箱理念的张力仍需分阶段化解。skill 已在 piwork 落地（与 pi 同源 `loadSkills` 装载，格式兼容性经画廊头部包实测确认，附录 E.3）。**
 
 ---
 
@@ -206,11 +207,13 @@ pi 的定制能力是一个"从轻到重"的阶梯（quickstart「Choose how to 
 - `pi-ai`/`pi-agent-core` 0.83.0 → 0.87.1；`loadSkills` 第 3 参、faux context 的 `systemPrompt` 折叠、harness 工具 execute 重排与 `env.*` 方法 context 尾参均已迁移；typecheck / biome / `plugin:verify` 31 项 / e2e 相关面全绿。版本窗口（附录 B.2）已打开。
 
 **Phase A —— 静态资源先行（低风险快赢）**
-- 管理端接入 npm `pi-package` 目录源（浏览/搜索/详情）。
-- 支持网页安装 pi 包中的 **skills/prompts**（跳过 extensions/themes）：piwork 的 skills 已用 pi-agent-core 的 `loadSkills` 装载（格式同源），且已有 skills zip 上传 API/UI 流水线可复用——增量工作是从 npm 安装的 pi 包里提取 `skills/` 资源并纳入现有管理端。
+- 管理端接入 npm `pi-package` 目录源（浏览/搜索/详情）：registry 搜索 API 已实测可用（`https://registry.npmjs.org/-/v1/search?text=keywords:pi-package`，2026-09-25 返回 10638 项，含名称/版本/描述/keywords，与 pi.dev/packages 画廊同源）。
+- 支持网页安装 pi 包中的 **skills/prompts**（跳过 extensions/themes）：piwork 的 skills 已用 pi-agent-core 的 `loadSkills` 装载（格式兼容经实测确认，附录 E.3），且已有 skills zip 上传 API/UI 流水线可复用——增量工作是从 npm 安装的 pi 包里提取 `skills/` 资源并纳入现有管理端（DB `Skill.source` 枚举需从 `catalog|upload` 扩展出 `pi-package` 类目，`lib/db/schema.ts:116`）。
+- 落点：`/management/tools` 管理页（`app/(management)/management/tools/page.tsx` 现为占位页，section 定义已就绪——"MCP / API / 插件 · 接入与管理"，`lib/management/sections.ts:36-43`）。
 
-**Phase B —— 扩展运行时引入（架构升级）**
-- 引入 `@earendil-works/pi-coding-agent@0.87.1`（与升后的两包同代，共存已验证，附录 C.4），评估用 `createAgentSession()` + 自定义 `ResourceLoader` 替换聊天 route 的自建 Agent loop；先把 piwork 现有 customTools/skills 挂进 session 工厂做等价性验证（对照 `pnpm plugin:verify` 的链路验证思路）。
+**Phase B —— 扩展运行时引入（架构升级，可行性已由附录 E spike C 实证）**
+- 引入 `@earendil-works/pi-coding-agent@0.87.1`（与升后的两包同代，共存已验证，附录 C.4），用 `createAgentSession()` + `DefaultResourceLoader`（带 `extensionFactories`/`noSkills` 过滤）替换聊天 route 的自建 Agent loop。spike C 已证明该形态下官方插件 + piwork 工具 + piwork 声明式 Provider 三层共存、全链路执行（附录 E.1）。
+- 工程桥接点（spike C 实测沉淀，附录 E.4）：调用方传入的 resourceLoader 必须先 `await reload()`；扩展身份断言用 `sourceInfo.source`；模型凭据必须经 `CredentialStore`（piwork 用 DB 实现 `read/list/write` 三方法后传 `ModelRuntime.create({credentials})`）或 `<PROVIDER_ID>_API_KEY` 环境变量注入——**provider 对象内联的 auth resolver 过不了会话的 prompt 前置鉴权**；piwork 事件桥接层可直接复用（`tool_execution_start/end` 事件同名）。
 - 网页安装扩展限**管理员手动白名单**（人工审源码后才可装），不开放普通用户。
 
 **Phase C —— 安全治理与规模化**
@@ -222,10 +225,10 @@ pi 的定制能力是一个"从轻到重"的阶梯（quickstart「Choose how to 
 
 ---
 
-## 6. 开放问题（2026-09-25 附录 A 验证后更新）
+## 6. 开放问题（2026-09-25 附录 A/E 验证后更新，原列 5 项已全部关闭）
 
 1. ~~`pi install npm:` 在 0.83.0 的确切落盘布局~~ **已验证**：用户级 `<agentDir>/npm/node_modules/<name>`、项目级 `<cwd>/.pi/npm/node_modules/<name>`、单次试用走临时目录；`agentDir` 可整体自定义 → piwork 用受管目录（如 `.piwork/` 下）即得自包含安装根。见附录 A.2。
-2. pi skill 与 piwork skill 的目录/manifest 字段级差异（Phase A 前置；加载器同源 `loadSkills`，先验兼容性高，抽样确认 pi 包普遍以 `skills/` 约定目录分发。仍需实测比对 zip 上传与包目录两条来源的资源边界）。
+2. ~~pi skill 与 piwork skill 的目录/manifest 字段级差异~~ **已验证兼容**（2026-09-25，附录 E.3）：piwork skill 与 pi skill 本就共用同一个加载器 `loadSkills`（pi-agent-core），格式同源是构造性事实；画廊头部 skills 包 bigpowers（81 个 SKILL.md）实测全部通过 piwork 约束——name 全部匹配 `^[a-z0-9-]+$`、无保留名冲突、frontmatter 同为 `name`+`description`（pi 特有的 `model`/`effort` 字段被加载器安全忽略），description 长度在 piwork DB 1024 上限内。Phase A 的增量工作确认为"从 pi 包提取 skills 资源进现有流水线"，无格式适配层。
 3. ~~`createAgentSession` 与现有工具的兼容性~~ **已验证**：`customTools: ToolDefinition[]` / `resourceLoader` / `sessionManager`（支持 `inMemory()`）/ `settingsManager` / `agentDir` / `model` 全部可注入；session 级无 `NodeExecutionEnv` 参数（SDK bash 工厂收 `env?: NodeJS.ProcessEnv`），piwork 现有工具需薄适配到 `ToolDefinition`。见附录 A.2。
 4. ~~自定义 `ResourceLoader` 的 interface 形状~~ **已验证**：接口仅 7 个 getter + `extendResources` + `reload`；且 `DefaultResourceLoaderOptions` 自带 `additionalExtensionPaths`/`additionalSkillPaths`/`extensionFactories`（inline 工厂）与每类资源的 `*Override` 钩子——**大概率无需自写 ResourceLoader 类**。见附录 A.2。
 5. ~~无 TUI 宿主下的实际行为面~~ **已抽样验证**：10 个头部包中约 4 个无头可用、3 个部分可用（工具可用/对话框与命令不可用）、3 个 TUI 重度不可用；头部作者普遍以 `hasUI`/`ctx.mode` 守卫。见附录 A.1。
@@ -383,6 +386,154 @@ pi 的定制能力是一个"从轻到重"的阶梯（quickstart「Choose how to 
 - 评估漏项 #7/#8 的根因：0.87 的 `.d.ts` diff 集按"piwork 导入符号所在文件"抽样，漏了 `harness/types.d.ts`（FileSystem/Shell/AgentHarnessTool 接口聚合处）；tsc 一轮即全部暴露。
 - e2e `models.test.ts` 的插件安装用例依赖干净库（`piwork-llm-deepseek` 行残留会导致 409），afterAll 兜底清理——与团队"测试后清库"约定一致；注意该用例会删除库里任意来源的同 packageId 行。
 
+## 附录 D：第三方 pi-web 宿主调研（2026-09-25 实测）
+
+> 对象：https://github.com/jmfederico/pi-web（`@jmfederico/pi-web`）。方法：浅克隆 main（对应 1.202609.1，2026-09-22 发布）做源码级审读 + npm registry 元数据核实；与本报告 §4 路线 A/B 及附录 B spike 结论互证。材料：`/tmp/pi-verify/pi-web/`。**本附录为源码审读结论，未在本机实际安装运行 pi-web。**
+
+### D.1 身份与定位
+
+- **第三方项目**（作者 Federico Jaramillo Martinez，MIT），非 earendil/pi 官方出品；站点 pi-web.dev。
+- 定位原文："Web UI for persistent Pi Coding Agent sessions in real workspaces"——让 pi 会话**常驻**在一台机器的真实工作目录里（服务器/台式机/云 VM），浏览器随时接入，而非 piwork 那种每会话独立工作区的多租户 SaaS 形态。
+- 活跃度：npm 首发 2026-05-09，最新 1.202609.1 发布于 2026-09-22（三天前），周下载约 1.1k；changesets 驱动、测试覆盖极重（几乎每个源文件配 `.test.ts`）。
+- 形态：三个 bin（`pi-web`/`pi-web-server`/`pi-web-sessiond`），原生按用户级服务安装（Linux systemd user / macOS launchd 双后端，`src/nativeServices/`），另有 beta Docker（注意：挂载 docker.sock 等宿主等价权限，仅限可信环境）。
+- 版本要求：**peerDependencies 要求 `pi-agent-core`/`pi-ai`/`pi-coding-agent` >= 0.87.0**——与 piwork Phase 0 升级后的 0.87.1 精确同窗。
+
+### D.2 架构：路线 A 的生产级存在证明
+
+pi-web **不是** spawn `pi` CLI 子进程（路线 B），而是把 pi SDK 直接嵌进自家守护进程（路线 A）：
+
+| 层 | 实现 | 证据 |
+| --- | --- | --- |
+| 会话宿主 | 常驻 sessiond（每用户一个服务），内部用 `createAgentSessionServices()` + `createAgentSessionFromServices()` + `createAgentSessionRuntime()` 创建/管理会话 | `src/server/sessions/piSessionService.ts:728,997,1028`（5148 行） |
+| Web 网关 | Fastify + WebSocket（vite/lit 客户端），会话事件与浏览器消息投影 | `src/server/`、`browserMessageProjection.ts` |
+| 组织模型 | Machine（运行端点）→ Project（文件夹）→ Workspace（provider 拥有、git worktree）→ Session（跑在 workspace 里的 pi 会话）；可联邦代理多台远程机器 | README、`src/server/app.machines.test.ts` |
+| 资源装载 | `DefaultResourceLoader` 的覆盖钩子：`resourceLoaderOptions.appendSystemPromptOverride`（追加系统提示段） | `piSessionService.ts`（`piWebResourceLoaderOptions`） |
+| project trust | **Web 版信任解析器**：镜像 SDK 流程——先装载预信任扩展集，回调让扩展经 `project_trust` 事件决定，结果写入 SettingsManager 后才加载项目级资源；无浏览器信任提示时不信任项目的资源直接跳过（与无 UI 的 `pi` 行为一致） | `piSessionService.ts:964-995`（`resolveWebProjectTrusted` + `ProjectTrustStore`） |
+| 模型层 | 全 daemon 共享一个 ModelRuntime；目录刷新只在后台调度，请求路径永不触发 | `docs/config.md`（:327） |
+| agentDir | `PI_CODING_AGENT_DIR`，默认 `~/.pi/agent`——**与用户 pi CLI 完全同源**（auth、models、settings、sessions、Pi packages）；会话里 spawn 的 `pi` CLI 看到同一份状态 | `docs/config.md:291,:220` |
+| 工具定制 | `defineTool` 包装内置 edit 工具计算 diff 预览供 Web UI；`spawn_session` 子会话工具可按需启停 | `piSessionService.ts`（`createPiWebEditToolDefinition` 等） |
+| 随宿主注入的 pi 扩展 | `extensions/pi-web.ts`：注册 `/pi-web` slash 命令（status/logs/restart/doctor…），甚至允许 agent 在用户明确授权下重启宿主 sessiond | `extensions/pi-web.ts:91` |
+| pi 扩展对话框桥接 | confirm/select/input 三种 `ctx.ui` 对话框在网页会话流里**内联呈现**，浏览器刷新后仍可回答、跨标签页首答生效；其余 pi UI 面（自定义编辑器/widget）明确不支持 | `docs/plugins.md`「Pi extension dialogs」 |
+
+**对本报告的直接意义**：§4.3 里列的三大宿主难题——project trust 语义（#4）、`ctx.ui` 依赖（#2）、事件桥接（#5）——pi-web 都给出了生产级解法，且证明 `createAgentSession*` 家族足以承载完整 Web 宿主。路线 A 的可行性从"SDK 文档 + 我们的 spike"升级为"第三方 5 千行级生产实现互证"。
+
+### D.3 Pi 包的网页安装（与附录 B 完全互证）
+
+`Settings → Pi packages` 输入 npm/git/URL/本地源 → 服务端执行安装。实现（`src/server/piPackageService.ts`）：
+
+```ts
+const settingsManager = SettingsManager.create(cwd, agentDir);
+const manager = new DefaultPackageManager({ cwd, agentDir, settingsManager });
+// listConfiguredPackages / installAndPersist / removeAndPersist / update / flush
+```
+
+- **正是附录 B spike 验证的 `DefaultPackageManager.installAndPersist()` 路径**——本报告 Phase A/B 的"安装动作统一收敛为服务端调 PackageManager"设计获得生产级背书。
+- 工程细节可借鉴：变更走**串行 mutation 队列**（`enqueueMutation`，:127-136）；支持 user/project 两个 scope（project 即 `local: true`，:161-169）；装完 `settingsManager.flush()` 落盘；列表项带 `installedPath` 供身份解析。
+- 内置"可装包"运营：Relays（对活跃 profile **自动安装**，用户移除会被记住不再静默重装）、Captain's Log / Workspace Reviews（示例，默认不装）——`knownAutoInstallPiPackages.ts` + dismissal store。
+
+### D.4 生效与治理规则（安装 ≠ 启用）
+
+| 变更 | 生效动作 |
+| --- | --- |
+| 浏览器-only PI WEB 插件 安装/修改 | 刷新页面 |
+| 服务器端插件 安装/更新/启停 | **重启目标 sessiond**，再刷新页面 |
+| 普通 Pi 资源（extensions/skills/prompts）变更 | 每个空闲会话里跑 `/reload` |
+| 注册 model provider 的扩展变更 | 按"provider 重启指引"单独处理 |
+
+配套治理设计（对 piwork Phase C 有直接参考价值）：
+
+- **安装与启用分离**：一个包可同时含 pi 扩展/skills/.prompts 与 PI WEB 插件；禁用 Web 插件不影响包内 pi 扩展。
+- **恢复通道**：`pi-web plugins disable <id> --restart`；safe-start 三档（`bundled-only`/`none`/`clear`）——插件把 daemon 搞挂时的逃生门，编辑配置不加载插件代码。
+- **期望态 vs 活跃态**：daemon 重启前 Settings 会同时展示"期望/活跃"两态，配对浏览器入口在服务端不匹配时被扣留而非跑不兼容代码。
+
+### D.5 PI WEB 插件（第二体系，与 pi 扩展并存）
+
+- 形态：**browser entries**（panels/内容渲染器/action 命令/themes，Lit，跑在页面）+ **server entries**（跑在 sessiond，Node 进程权限）+ package peers（浏览器↔服务端通信，宿主代管 machine/workspace 归属）+ capabilities 声明式依赖（版本化，启动前校验）。
+- 声明：包 `package.json` 的 `piWeb.plugins` 键；`activate()/start()/dispose()` + `lifetimeSignal` 生命周期；安装包限 4096 条目 / 16 MiB（.git、node_modules 除外）；`browserRoot` 之外不公开。
+- API 治理警示：当前 browser API v4 / server API v3，**无兼容垫片**（2026-09 的 1.202609.1 刚破坏性升级）——第三方宿主插件生态同样面临 API churn 治理问题。
+- 工作区 provider 可替换：Git 发现逻辑可被声明式接管（冲突可见报错、失败不静默移交）。
+
+### D.6 安全模型
+
+- 官方口径：**可信用户、可信仓库、可信服务器路径；不是沙箱、不是权限系统、不是多租户平台**。"Server entries run inside the session daemon with its filesystem, environment, and process permissions. They are not sandboxed"（`docs/plugins.md`「Trust and recovery」）。
+- 网络：默认绑 `127.0.0.1`；远程访问要求私网 / SSH 隧道 / 带认证的可信反代 / fleet token 注册；明确"不要暴露公网"。
+- Docker 模式挂载 docker.sock（宿主 root 等价）与宿主路径读写——进一步印证其信任假设。
+- **结论**：pi-web 选择了与 pi 本体一致的"全可信"端，与本报告 §3.3 指出的 piwork 零信任插件模型是两个极端；piwork 不能把 pi-web 当作安全架构参照，但其"安装≠启用、生效矩阵、safe-start、期望/活跃双态"是纯治理层面的好设计，可平移。
+
+### D.7 对 piwork 路线图的增量结论
+
+1. **Phase B（路线 A）风险下修**：session 桥接、project trust、对话框、事件投影、工作区管理全部有了可抄的参考实现（piSessionService.ts 一处即 5148 行，含完整测试）。
+2. **Phase A/B 的安装服务设计定稿**：照抄 `piPackageService.ts` 的骨架（SettingsManager + DefaultPackageManager + 串行队列 + scope + flush + installedPath 暴露），把落点从文件系统 settings.json 换成 piwork 的 DB 注册表即可。
+3. **Phase C 治理清单扩充**：safe-start 恢复通道、期望/活跃双态展示、安装与启用分离三件套值得纳入。
+4. **不可照搬**：单用户 agentDir（`~/.pi/agent` 与 CLI 同源）与 piwork 的多租户受管 agentDir 相反——恰好是附录 B 已验证可切断的点。
+5. 若 piwork 只是想**先体验 pi 插件生态**（MCP、web-access 等），pi-web 是当下最快的个人途径（见 D.8），与 piwork 自建不冲突。
+
+### D.8 直接用 pi-web 跑 pi 插件（操作手册，macOS/Linux）
+
+```sh
+# 1) 前置：Node >= 22.19，pi CLI >= 0.87 且已配置模型（pi 内 /login 或 models.json）
+node -v && pi --version
+
+# 2) 安装 pi-web（全局 npm 包；node-pty 需要跑安装脚本）
+npm install -g @jmfederico/pi-web --allow-scripts=node-pty
+
+# 3) 安装为按用户服务（macOS=launchd，Linux=systemd --user）；也可用 beta Docker
+pi-web install
+pi-web open        # 打开浏览器（默认 http://127.0.0.1:<port>）
+```
+
+然后在 Web UI 里装 pi 插件：
+
+1. **Settings → Pi packages** → 输入源（如 `npm:pi-mcp-adapter`，也支持 git/URL/本地路径）→ Install；
+2. 生效：普通扩展/skills 在空闲会话跑 `/reload` 或开新会话；带 PI WEB 插件的包再走 **Settings → PI WEB plugins** 启用 + 重启 sessiond（`systemctl --user restart pi-web-sessiond` 或 `pi-web restart`）+ 刷新页面；
+3. 工具类扩展（如 pi-mcp-adapter 的 `mcp`/`mcpScript`）注册后即可在会话里被模型调用，`.mcp.json` 放在项目根自动发现。
+
+安全红线：只装可信来源的包（扩展以你的用户权限跑在 sessiond 里）；不要把端口暴露公网，远程用 SSH 隧道或带认证的反代。
+
+## 附录 E：复用性 spike C——官方 pi 插件 × piwork 自有资产同会话共存实证（2026-09-25）
+
+> 目的：回答本报告的核心收束问题——**"官方 pi 插件能否在 piwork 复用"**。附录 B 证明了安装→加载→注册→执行链路（faux 模型驱动）；本 spike 把假设再逼近 piwork 真实形态一层：**用与 `piwork-llm-deepseek` 完全同形的声明式 Provider（`createProvider` + `openAICompletionsApi()`，走真实 openai-client SSE 流式解析）驱动会话**，与 piwork 形态自定义工具（`defineTool`）、官方 npm 包扩展三者放进**同一个** `createAgentSession`，一轮对话里全部真实执行。场地 `/tmp/pi-verify/spike-c/`（独立 npm 项目，三包 0.87.1 直接依赖、受管 agentDir，不碰 piwork 仓库与用户 `~/.pi`）。
+
+### E.1 总结果：6/6 断言通过
+
+| # | 断言 | 结果 |
+| --- | --- | --- |
+| 1 | 无扩展加载错误 | ✅ |
+| 2 | 官方包 pi-mcp-adapter@2.37.0（经 `DefaultPackageManager.installAndPersist` 装入受管 agentDir）加载成功 | ✅ `extensions loaded: 2`（adapter + inline 桥接扩展） |
+| 3 | 官方插件工具 `mcp`/`mcpScript` 与 piwork 工具 `piwork_echo` 并存注册 | ✅ `active tools: bash, edit, mcp, mcpScript, piwork_echo, read, write` |
+| 4 | piwork 自定义工具执行 | ✅ `piwork-echo: hello from piwork custom tool` |
+| 5 | 官方插件 MCP 工具对真实 stdio MCP 服务器执行 | ✅ `echo: hello from official pi plugin`（echo server 由 adapter 按 workspace `.mcp.json` 自动 spawn） |
+| 6 | 最终助手文本经声明式 Provider 流式返回 | ✅ `ALL_TOOLS_DONE` |
+
+mock OpenAI 服务器日志 3 次请求（tool_call → tool_call → 文本）= 完整 agent 循环全部走过 piwork 形态的声明式 Provider。**结论：官方 pi 插件复用不存在技术障碍，剩余是工程桥接。**
+
+### E.2 spike 构成（全部真实组件，零 faux）
+
+- **模型层**：`createProvider({ api: openAICompletionsApi() /* pi-ai/api/openai-completions.lazy */, baseUrl: mock, models: [...] })` —— 与 `plugins/piwork-llm-deepseek/src/index.ts:54-72` 逐字段同形；经 inline extension factory `pi.registerProvider(provider)` 注入 session。
+- **工具层**：`defineTool({ name: "piwork_echo", parameters: Type.Object({...}), execute })` —— piwork `lib/ai/tools/*` 的目标形态。
+- **插件层**：`install-pkg.mjs` 服务端调 `DefaultPackageManager.installAndPersist("npm:pi-mcp-adapter@2.37.0")`（网页安装同路径，pi-web `piPackageService.ts` 同款）+ `DefaultResourceLoader({ cwd, agentDir, extensionFactories, noSkills: true })`。
+- **驱动层**：本地 mock OpenAI SSE 服务器按请求序脚本化返回 tool_calls/文本（openai 官方 client 的标准流式格式），加 stdio echo MCP 服务器。
+
+### E.3 顺带验证：npm 目录源与 skills 兼容性（Phase A 前置）
+
+1. **npm 目录源可用**：`registry.npmjs.org/-/v1/search?text=keywords:pi-package` 返回 10638 项（含 pi-mcp-adapter、pi-web-access、pi-subagents、billion-context 等画廊同款），字段齐全，可直接支撑管理端浏览/搜索 UI。
+2. **skills 格式兼容**（关闭开放问题 #2）：画廊头部 skills 包 **bigpowers@2.88.9**（`pi` 键声明 extensions/skills/prompts，81 个 SKILL.md）实测——name 100% 匹配 piwork `^[a-z0-9-]+$` 模式、无保留名冲突、frontmatter 为 `name`+`description`+pi 特有 `model`/`effort` 字段（同源加载器安全忽略）、description 在 DB 1024 上限内。**无格式适配层需求**。
+
+### E.4 新增机制发现（Phase B 桥接必读）
+
+1. **调用方传入的 resourceLoader 必须自己 `await reload()`**：`createAgentSession` 只对**它自己创建的** loader 调 reload（`dist/core/sdk.js:76-79`）；传入 `options.resourceLoader` 而不先 reload → extensions 静默为 0。这是最容易踩的静默坑。
+2. **扩展身份用 `sourceInfo.source`**：包扩展对象的 `name` 字段为 undefined，身份标识在 `sourceInfo.source`（如 `"npm:pi-mcp-adapter@2.37.0"`）与 `sourceInfo.scope/origin/baseDir`——管理端列表/审计应以此为准。
+3. **凭据注入的真相**：会话 `prompt()` 的前置鉴权查的是 ModelRuntime 的 CredentialStore（auth.json）与环境变量（`<PROVIDER_ID>_API_KEY` 命名约定，实测 `PIWORK_MOCK_API_KEY` 通过），**不认 provider 对象内联的 `auth.apiKey.resolve`**。piwork-llm-* 的 DB 凭据要进 AgentSession，正路是实现 `CredentialStore`（`read/list/write` 三方法，`pi-ai/dist/auth/types.d.ts:57`）后 `ModelRuntime.create({ credentials: store })`——DB AES-GCM 解密在 read 里做，天然延续"凭据只在激活时注入"的现有纪律。
+4. **声明式 Provider 原样可用**：openai-completions 的 SSE 解析、tool_calls 循环、finish 处理全部在 pi-ai 内部消化——piwork 模型插件层迁移是"换注册地点"（`piModels.setProvider` → inline extension `registerProvider` + CredentialStore），不是重写。
+5. **事件层直接复用**：session 事件流含 `tool_execution_start/end`、`message_start/end`——与 piwork 聊天 route 现在订阅的 pi-agent-core 事件同名同义（附录 B.3.4 的结论在高保真度下复证）。
+
+### E.5 对路线图的收束
+
+- **Phase B 的技术不确定性已清零**：三层共存、全链路执行、事件兼容、凭据通道全部有了实测答案；剩余工作是聊天 route 的工程改造（自建 `new Agent()` loop → `createAgentSession`，工具适配 `ToolDefinition`，凭据桥 `CredentialStore`）+ 回归。
+- **Phase A 无格式风险**：npm 目录源可用、skills 无格式适配层，剩余是纯流水线工作（提取/入库/管理 UI）。
+- `/management/tools` 占位页（`app/(management)/management/tools/page.tsx`）+ 已就绪的 section 定义是 Phase A/B 的天然 UI 落点。
+
+
 ---
 
 - pi 文档：[quickstart](https://pi.dev/docs/latest/quickstart) · [extensions](https://pi.dev/docs/latest/extensions) · [packages](https://pi.dev/docs/latest/packages) · [custom-provider](https://pi.dev/docs/latest/custom-provider) · [sdk](https://pi.dev/docs/latest/sdk) · [configuration](https://pi.dev/docs/latest/configuration) · [cli](https://pi.dev/docs/latest/cli)
@@ -390,5 +541,7 @@ pi 的定制能力是一个"从轻到重"的阶梯（quickstart「Choose how to 
 - piwork 代码：`package.json`、`app/(chat)/api/chat/route.ts`、`lib/ai/pi.ts`、`lib/ai/agent-tools.ts`、`packages/model-provider-sdk/src/index.ts`、`lib/model-plugins/*`、`app/(management)/api/management/model-plugins/route.ts`、`docs/model-provider-plugin-architecture.md`
 - npm：`@earendil-works/pi-coding-agent`（latest 0.87.1 / 0.83.0 存在）
 - 附录 A 实测材料：10 个画廊抽样包 + `pi-coding-agent@0.83.0` 的 npm tarball，解压于 `/tmp/pi-verify/`（临时目录，可直接翻看源码复核）
-- 附录 B spike harness：`/tmp/pi-verify/spike-b/`（install-pkg.mjs / verify-headless.mjs / verify-exec.mjs / mcp-echo-server.mjs / workspace/.mcp.json / agent-dir/，可复跑）
-- 附录 C 实测材料：`/tmp/pi-verify/versions/`（两版 tarball 解压 diff 基准）与 `/tmp/pi-verify/coexist/`（三包 0.87.1 共存 + faux context 形状实测脚本 check-faux-context.mjs）
+- 附录 B spike harness：`/tmp/pi-verify/spike-b/`（2026-09-25 晚些时候 /tmp 清理后已失，结论以本报告记载为准；方法可按 B.4 重建）
+- 附录 C 实测材料：`/tmp/pi-verify/versions/` 与 `/tmp/pi-verify/coexist/`（同上已失；升级本身已实施进仓库并通过回归，见 C.7）
+- 附录 D 材料：https://github.com/jmfederico/pi-web · https://pi-web.dev（浅克隆于 `/tmp/pi-verify/pi-web/`，2026-09-25 重新克隆复核 piPackageService 接线，与 D.3 记载一致）
+- 附录 E spike harness：`/tmp/pi-verify/spike-c/`（install-pkg.mjs / mock-openai-server.mjs / mcp-echo-server.mjs / spike.mjs / workspace/ / agent-dir/，三包 0.87.1，可复跑）；bigpowers tarball 与解压于 `/tmp/pi-verify/phase-a/`
