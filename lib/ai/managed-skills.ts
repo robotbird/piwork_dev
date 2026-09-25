@@ -129,6 +129,42 @@ export async function registerManagedProjectSkill({
   });
 }
 
+/**
+ * 注册一个从 pi 包提取的技能。与 registerManagedProjectSkill 的差异:
+ * source 固定为 "pi-package" 并落 sourcePackage 列(卸载联动依据),
+ * 不使用磁盘推导的 source(那里只有 catalog/upload 二值)。
+ */
+export async function registerPiPackageSkill({
+  name,
+  sourcePackage,
+  uploadedBy,
+  cwd = process.cwd(),
+}: {
+  name: string;
+  sourcePackage: string;
+  uploadedBy: string | null;
+  cwd?: string;
+}) {
+  validateSkillName(name);
+  const { skills } = await loadProjectSkillSummaries(cwd);
+  const summary = skills.find((item) => item.name === name);
+  if (!summary) {
+    throw new Error(`Skill "${name}" was not found after installation.`);
+  }
+
+  return await upsertSkillRecord({
+    description: summary.description,
+    displayName: summary.displayName,
+    enabled: true,
+    name: summary.name,
+    relativePath: projectSkillRelativePath(summary.name),
+    source: "pi-package",
+    sourcePackage,
+    uploadedBy,
+    version: summary.version,
+  });
+}
+
 export async function setManagedProjectSkillEnabled(
   name: string,
   enabled: boolean

@@ -25,6 +25,8 @@
     "skillManagementSearchKeywords": "技能 能力",
     "mcpServices": "MCP 服务",
     "mcpServicesSearchKeywords": "MCP 工具 server 接入",
+    "piPlugins": "Pi 插件",
+    "piPluginsSearchKeywords": "pi 官方插件 pi-package 安装 技能提取",
     "dataManagement": "数据管理",
     "dataManagementSearchKeywords": "知识库 数据集 文档",
     "modelManagement": "模型管理",
@@ -216,7 +218,8 @@
     "skillList": "Skill 列表",
     "skillMarketplace": "Skill 市场",
     "skillFiles": "Skill 文件",
-    "skillDeleted": "Skill「{name}」已删除"
+    "skillDeleted": "Skill「{name}」已删除",
+    "piPackage": "Pi 插件"
   },
   "mcpServers": {
     "addServer": "新增服务",
@@ -539,7 +542,9 @@
     "toolsManagementTitle": "工具管理",
     "toolsPermissionRequired": "工具管理仅管理员可用，如需访问请联系管理员调整你的角色。",
     "mcpServicesTitle": "MCP 服务",
-    "mcpServicesDescription": "管理 MCP 服务接入配置；启用的服务会自动同步到聊天工作区。"
+    "mcpServicesDescription": "管理 MCP 服务接入配置；启用的服务会自动同步到聊天工作区。",
+    "piPluginsTitle": "Pi 插件",
+    "piPluginsDescription": "浏览并安装 pi 官方插件（pi.dev/packages 同源）；包内技能自动提取进技能库，立即可用。"
   },
   "members": {
     "edit": "编辑",
@@ -930,6 +935,47 @@
     "mcpInvalidArgs": "参数需为字符串数组",
     "mcpInvalidEnv": "环境变量或请求头格式不合法",
     "mcpDescriptionTooLong": "描述过长",
-    "mcpNotFound": "MCP 服务不存在"
+    "mcpNotFound": "MCP 服务不存在",
+    "piInvalidSource": "无效的安装源",
+    "piAlreadyInstalled": "该插件已安装",
+    "piSystemProtected": "系统插件不可卸载",
+    "piNotFound": "插件不存在",
+    "piInstallFailed": "插件安装失败",
+    "piCatalogFailed": "插件目录暂不可用"
+  },
+  "piPackages": {
+    "badgeSystem": "系统",
+    "badgeSkillsCount": "技能 ×{count}",
+    "badgeExtensionsPending": "扩展 ×{count} · 待运行时",
+    "systemNote": "系统预装 · MCP 服务适配器（不可卸载）",
+    "skillsLabel": "已提取技能",
+    "installedTitle": "已安装插件",
+    "installedEmptyTitle": "暂无已安装插件",
+    "installedEmptyDescription": "从下方目录安装第一个 pi 插件",
+    "discoverTitle": "发现 Pi 插件",
+    "discoverDescription": "来自 npm pi-package 目录（pi.dev/packages 同源），缓存每 5 分钟更新。",
+    "searchPlaceholder": "搜索插件名称…",
+    "installSourcePlaceholder": "npm:package-name 或本地路径",
+    "installFromSource": "从源安装",
+    "sourceRequired": "请输入安装源",
+    "loadMore": "加载更多",
+    "noResults": "没有匹配的插件",
+    "retryCatalog": "重试",
+    "install": "安装",
+    "installedLabel": "已安装",
+    "catalogLoading": "正在加载插件目录…",
+    "installDialogTitle": "安装 {name}",
+    "installDialogDescription": "包内技能将提取进技能库，立即可用；扩展组件仅清点暂存，待扩展运行时接入后启用。",
+    "installConfirm": "安装",
+    "installing": "安装中…",
+    "installSuccess": "已安装 {name}：提取技能 {count} 个",
+    "installSkipped": "{count} 个技能因重名或超限被跳过",
+    "uninstall": "卸载",
+    "uninstalling": "卸载中…",
+    "uninstallDialogTitle": "卸载 {name}",
+    "uninstallDialogDescription": "将卸载 {name} 并同步移除其提取的 {count} 个技能，确认继续？",
+    "uninstallSuccess": "已卸载 {name}，移除技能 {skills} 个",
+    "systemPending": "系统插件（pi-mcp-adapter）尚未安装成功，可重试。",
+    "retrySystem": "重试安装"
   }
 }

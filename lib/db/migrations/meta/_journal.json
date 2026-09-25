@@ -57,6 +57,13 @@
       "when": 1790330314724,
       "tag": "0007_orange_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790331872954,
+      "tag": "0008_steady_vengeance",
+      "breakpoints": true
     }
   ]
 }

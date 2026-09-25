@@ -25,6 +25,8 @@
     "skillManagementSearchKeywords": "skills capabilities",
     "mcpServices": "MCP services",
     "mcpServicesSearchKeywords": "MCP tools server integration",
+    "piPlugins": "Pi packages",
+    "piPluginsSearchKeywords": "pi official plugins pi-package install skills",
     "dataManagement": "Data management",
     "dataManagementSearchKeywords": "knowledge base datasets documents",
     "modelManagement": "Model management",
@@ -216,7 +218,8 @@
     "skillList": "Skill list",
     "skillMarketplace": "Skill marketplace",
     "skillFiles": "Skill files",
-    "skillDeleted": "Skill “{name}” deleted"
+    "skillDeleted": "Skill “{name}” deleted",
+    "piPackage": "Pi package"
   },
   "mcpServers": {
     "addServer": "New server",
@@ -539,7 +542,9 @@
     "toolsManagementTitle": "Tool management",
     "toolsPermissionRequired": "Tool management is admin-only. Ask an administrator to adjust your role if you need access.",
     "mcpServicesTitle": "MCP services",
-    "mcpServicesDescription": "Manage MCP service configurations. Enabled services sync into chat workspaces automatically."
+    "mcpServicesDescription": "Manage MCP service configurations. Enabled services sync into chat workspaces automatically.",
+    "piPluginsTitle": "Pi packages",
+    "piPluginsDescription": "Browse and install official pi packages (same source as pi.dev/packages); skills inside a package are extracted into the skill library and usable immediately."
   },
   "members": {
     "edit": "Edit",
@@ -930,6 +935,47 @@
     "mcpInvalidArgs": "Arguments must be an array of strings",
     "mcpInvalidEnv": "Invalid environment variables or headers",
     "mcpDescriptionTooLong": "Description is too long",
-    "mcpNotFound": "MCP server not found"
+    "mcpNotFound": "MCP server not found",
+    "piInvalidSource": "Invalid package source",
+    "piAlreadyInstalled": "Package already installed",
+    "piSystemProtected": "System packages cannot be uninstalled",
+    "piNotFound": "Package not found",
+    "piInstallFailed": "Package installation failed",
+    "piCatalogFailed": "Package catalog is unavailable"
+  },
+  "piPackages": {
+    "badgeSystem": "System",
+    "badgeSkillsCount": "Skills ×{count}",
+    "badgeExtensionsPending": "Extensions ×{count} · pending runtime",
+    "systemNote": "Preinstalled system package · MCP service adapter (cannot be uninstalled)",
+    "skillsLabel": "Extracted skills",
+    "installedTitle": "Installed packages",
+    "installedEmptyTitle": "No packages installed",
+    "installedEmptyDescription": "Install your first pi package from the catalog below",
+    "discoverTitle": "Discover Pi packages",
+    "discoverDescription": "Sourced from the npm pi-package catalog (same as pi.dev/packages), cached for 5 minutes.",
+    "searchPlaceholder": "Search packages…",
+    "installSourcePlaceholder": "npm:package-name or local path",
+    "installFromSource": "Install from source",
+    "sourceRequired": "Enter an install source",
+    "loadMore": "Load more",
+    "noResults": "No matching packages",
+    "retryCatalog": "Retry",
+    "install": "Install",
+    "installedLabel": "Installed",
+    "catalogLoading": "Loading package catalog…",
+    "installDialogTitle": "Install {name}",
+    "installDialogDescription": "Skills in this package will be extracted into the skill library and become usable immediately; extensions are only inventoried and will activate once the extension runtime lands.",
+    "installConfirm": "Install",
+    "installing": "Installing…",
+    "installSuccess": "Installed {name}: {count} skills extracted",
+    "installSkipped": "{count} skills skipped due to name conflicts or size limits",
+    "uninstall": "Uninstall",
+    "uninstalling": "Uninstalling…",
+    "uninstallDialogTitle": "Uninstall {name}",
+    "uninstallDialogDescription": "This will uninstall {name} and remove its {count} extracted skills. Continue?",
+    "uninstallSuccess": "Uninstalled {name}, removed {skills} skills",
+    "systemPending": "The system package (pi-mcp-adapter) has not been installed yet. You can retry.",
+    "retrySystem": "Retry install"
   }
 }

@@ -15,12 +15,32 @@ export type TestCleanupScope = {
   modelPluginPackageIds?: readonly string[];
   /** 待删除的 MCP 服务名（精确匹配） */
   mcpServerNames?: readonly string[];
+  /** 待删除的 pi 包安装记录 source（精确匹配） */
+  piPackageSources?: readonly string[];
+  /** 待删除的技能来源包标识（按 Skill.sourcePackage 删） */
+  skillSourcePackages?: readonly string[];
 };
 
 /** 删除测试产生的数据，保持开发库干净；账号删除会级联清理成员与角色关系 */
 export async function cleanupTestData(scope: TestCleanupScope): Promise<void> {
   const sql = postgres(process.env.POSTGRES_URL ?? "", { max: 1 });
   try {
+    if (
+      scope.skillSourcePackages !== undefined &&
+      scope.skillSourcePackages.length > 0
+    ) {
+      await sql`DELETE FROM "Skill" WHERE "sourcePackage" = ANY(${[
+        ...scope.skillSourcePackages,
+      ]})`;
+    }
+    if (
+      scope.piPackageSources !== undefined &&
+      scope.piPackageSources.length > 0
+    ) {
+      await sql`DELETE FROM "PiPackage" WHERE "source" = ANY(${[
+        ...scope.piPackageSources,
+      ]})`;
+    }
     if (scope.mcpServerNames !== undefined && scope.mcpServerNames.length > 0) {
       await sql`DELETE FROM "McpServer" WHERE "name" = ANY(${[
         ...scope.mcpServerNames,

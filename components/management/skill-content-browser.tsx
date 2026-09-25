@@ -33,7 +33,7 @@ export type SkillBrowseTarget = {
   description: string;
   displayName: string;
   name: string;
-  source: "catalog" | "upload";
+  source: "catalog" | "pi-package" | "upload";
   version: string;
 };
 
@@ -369,7 +369,9 @@ export function SkillContentBrowser({
                   <span>
                     {skill.source === "catalog"
                       ? t("skills.officialCatalog")
-                      : t("skills.uploaded")}
+                      : skill.source === "pi-package"
+                        ? t("skills.piPackage")
+                        : t("skills.uploaded")}
                   </span>
                   {skill.version ? (
                     <span className="font-mono">v{skill.version}</span>

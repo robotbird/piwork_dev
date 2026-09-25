@@ -48,7 +48,10 @@ export type UpsertSkillRecord = Pick<
   | "source"
   | "uploadedBy"
   | "version"
->;
+> & {
+  /** 来源 pi 包标识；仅 source 为 "pi-package" 时有值,未提供时保留原值 */
+  sourcePackage?: string | null;
+};
 
 export async function getSkillRecords({
   enabledOnly = false,
@@ -77,6 +80,9 @@ export async function upsertSkillRecord(record: UpsertSkillRecord) {
           enabled: record.enabled,
           relativePath: record.relativePath,
           source: record.source,
+          ...(record.sourcePackage === undefined
+            ? {}
+            : { sourcePackage: record.sourcePackage }),
           updatedAt: new Date(),
           uploadedBy: record.uploadedBy,
           version: record.version,
@@ -116,6 +122,21 @@ export async function deleteSkillRecord(name: string) {
       .where(eq(skill.name, name))
       .returning();
     return deleted ?? null;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", { cause: error });
+  }
+}
+
+/** 列出来自指定 pi 包的技能记录（卸载联动依据） */
+export async function getSkillRecordsBySourcePackage(
+  sourcePackage: string
+): Promise<SkillRecord[]> {
+  try {
+    return await db
+      .select()
+      .from(skill)
+      .where(eq(skill.sourcePackage, sourcePackage))
+      .orderBy(asc(skill.name));
   } catch (error) {
     throw new ChatbotError("bad_request:database", { cause: error });
   }

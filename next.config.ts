@@ -52,7 +52,12 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   reactCompiler: true,
-  serverExternalPackages: ["officeparser", "esbuild"],
+  // pi-coding-agent 在服务端 spawn npm CLI 并动态 require 原生模块,不做打包
+  serverExternalPackages: [
+    "@earendil-works/pi-coding-agent",
+    "officeparser",
+    "esbuild",
+  ],
 };
 
 export default withNextIntl(withBotId(nextConfig));

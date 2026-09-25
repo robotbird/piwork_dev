@@ -56,7 +56,7 @@ type SkillSummary = {
   displayName: string;
   enabled: boolean;
   name: string;
-  source: "catalog" | "upload";
+  source: "catalog" | "pi-package" | "upload";
   version: string;
 };
 
@@ -613,7 +613,9 @@ function SkillRow({
       <td className="px-4 py-3.5 whitespace-nowrap text-[13px] text-muted-foreground">
         {skill.source === "catalog"
           ? t("skills.officialCatalog")
-          : t("skills.uploaded")}
+          : skill.source === "pi-package"
+            ? t("skills.piPackage")
+            : t("skills.uploaded")}
       </td>
       <td className="px-4 py-3.5">
         <div className="flex items-center gap-2">

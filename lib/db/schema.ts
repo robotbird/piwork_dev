@@ -113,7 +113,11 @@ export const skill = pgTable("Skill", {
   enabled: boolean("enabled").notNull().default(true),
   name: varchar("name", { length: 64 }).primaryKey().notNull(),
   relativePath: text("relativePath").notNull(),
-  source: varchar("source", { enum: ["catalog", "upload"] }).notNull(),
+  source: varchar("source", {
+    enum: ["catalog", "pi-package", "upload"],
+  }).notNull(),
+  /** 来源 pi 包的 source 标识（如 "npm:foo@1.0.0"）；卸载联动依据 */
+  sourcePackage: varchar("sourcePackage", { length: 256 }),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
   uploadedBy: uuid("uploadedBy").references(() => user.id, {
     onDelete: "set null",
@@ -191,6 +195,45 @@ export const mcpServer = pgTable("McpServer", {
 });
 
 export type McpServerRecord = InferSelectModel<typeof mcpServer>;
+
+/** pi 包资源清点计数（extensions 仅清点待运行时，不执行） */
+export type PiPackageResourceSummary = {
+  extensions: number;
+  prompts: number;
+  skills: number;
+  themes: number;
+};
+
+/**
+ * 已安装的官方 pi 包（pi.dev/packages 画廊同源）。
+ * 安装动作为服务端 DefaultPackageManager.installAndPersist（受管 agentDir）；
+ * 包内 skills 提取进 Skill 表，extensions 仅计数待扩展运行时接入。
+ */
+export const piPackage = pgTable("PiPackage", {
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  createdBy: uuid("createdBy").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  installedPath: text("installedPath").notNull(),
+  /** 提取进技能库的 skill 名单（跳过冲突项不计入） */
+  installedSkills: json("installedSkills")
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+  name: varchar("name", { length: 128 }).notNull(),
+  resourceSummary: json("resourceSummary")
+    .$type<PiPackageResourceSummary>()
+    .notNull(),
+  /** "npm:<name>[@<version>]" 或本地绝对路径（仅开发/测试） */
+  source: varchar("source", { length: 256 }).notNull().unique(),
+  /** 系统插件（pi-mcp-adapter）：默认安装、不可卸载 */
+  system: boolean("system").notNull().default(false),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  version: varchar("version", { length: 64 }).notNull().default(""),
+});
+
+export type PiPackageRecord = InferSelectModel<typeof piPackage>;
 
 export const chat = pgTable("Chat", {
   createdAt: timestamp("createdAt").notNull(),

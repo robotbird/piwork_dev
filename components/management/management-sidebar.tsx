@@ -9,6 +9,7 @@ import {
   LayoutDashboardIcon,
   type LucideIcon,
   MenuIcon,
+  PackageIcon,
   PlugIcon,
   SearchIcon,
   SettingsIcon,
@@ -73,6 +74,12 @@ const navigationGroups: NavigationGroup[] = [
         icon: PlugIcon,
         labelKey: "mcpServices",
         searchKeywordsKey: "mcpServicesSearchKeywords",
+      },
+      {
+        href: "/management/tools?view=pi-plugins",
+        icon: PackageIcon,
+        labelKey: "piPlugins",
+        searchKeywordsKey: "piPluginsSearchKeywords",
       },
       {
         href: "/management/data",

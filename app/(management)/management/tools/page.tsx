@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { McpServersPage } from "@/components/management/tools/mcp-servers-page";
+import { PiPackagesPage } from "@/components/management/tools/pi-packages-page";
 import { Button } from "@/components/ui/button";
 import { listMcpServers } from "@/lib/db/mcp-server-queries";
+import { listPiPackages } from "@/lib/db/pi-package-queries";
 import { requireManagementAdmin } from "@/lib/management/access";
+import { ensureSystemPiPackagesInstalled } from "@/lib/pi-packages/manager";
 
-/** 非管理员可见的占位说明（MCP 服务与插件配置仅管理员可访问） */
+/** 非管理员可见的占位说明(MCP 服务与插件配置仅管理员可访问) */
 async function PermissionNotice() {
   const t = await getTranslations("management");
   return (
@@ -27,14 +30,13 @@ async function PermissionNotice() {
   );
 }
 
-// Task 2 起 ?view=pi-plugins 切换 pi 插件模块；当前默认且唯一的视图是 MCP 服务
-export default async function ToolsManagementPage() {
-  const session = await requireManagementAdmin();
-  if (!session) {
-    return <PermissionNotice />;
-  }
+type ToolsView = "mcp" | "pi-plugins";
 
-  // 默认视图：MCP 服务管理（?view=mcp 可省略）
+function parseView(value: string | undefined): ToolsView {
+  return value === "pi-plugins" ? "pi-plugins" : "mcp";
+}
+
+async function McpView() {
   const records = await listMcpServers();
   const servers = records.map((record) => ({
     args: record.args,
@@ -49,4 +51,41 @@ export default async function ToolsManagementPage() {
     url: record.url,
   }));
   return <McpServersPage initialServers={servers} />;
+}
+
+async function PiPackagesView() {
+  // 懒播种系统插件(pi-mcp-adapter);失败降级为状态条,不阻塞页面
+  const systemPackageStatus = await ensureSystemPiPackagesInstalled();
+  const records = await listPiPackages();
+  const packages = records.map((record) => ({
+    id: record.id,
+    installedSkills: record.installedSkills,
+    name: record.name,
+    resourceSummary: record.resourceSummary,
+    source: record.source,
+    system: record.system,
+    version: record.version,
+  }));
+  return (
+    <PiPackagesPage
+      initialPackages={packages}
+      systemPackageStatus={systemPackageStatus}
+    />
+  );
+}
+
+/** 工具管理:MCP 服务(默认)/ pi 官方插件,`?view=` 切换(organization 先例) */
+export default async function ToolsManagementPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const session = await requireManagementAdmin();
+  if (!session) {
+    return <PermissionNotice />;
+  }
+
+  const params = await searchParams;
+  const rawView = Array.isArray(params.view) ? params.view[0] : params.view;
+  return parseView(rawView) === "pi-plugins" ? <PiPackagesView /> : <McpView />;
 }

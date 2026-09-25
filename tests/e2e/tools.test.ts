@@ -1,3 +1,6 @@
+import { rm } from "node:fs/promises";
+import { resolve } from "node:path";
+
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 
@@ -40,8 +43,11 @@ async function ensureSignedIn(page: Page, email: string): Promise<void> {
   );
 }
 
-async function registerAccount(page: Page): Promise<string> {
-  const email = `tools-e2e-${uniqueSuffix()}@test.local`;
+async function registerAccount(
+  page: Page,
+  prefix = "tools-e2e"
+): Promise<string> {
+  const email = `${prefix}-${uniqueSuffix()}@test.local`;
   await page.goto("/register");
   await page.locator("#email").fill(email);
   await page.locator("#password").fill(DEFAULT_PASSWORD);
@@ -188,5 +194,130 @@ test.describe
         `/api/management/mcp-servers/${stdioId}`
       );
       expect(reDeleted.status()).toBe(404);
+    });
+  });
+
+test.describe
+  .serial("pi package management", () => {
+    test.use({ locale: "zh-CN" });
+
+    // 免网络 fixture:本地绝对路径安装(仅开发/测试环境允许,且须在仓库内)
+    const fixtureSource = resolve("tests/fixtures/pi-fixture-package");
+    const fixtureSkillName = "fixture-echo-skill";
+
+    test.afterAll(async () => {
+      await cleanupTestData({
+        emailPatterns: ["tools-pi-e2e-%@test.local"],
+        piPackageSources: [fixtureSource],
+        skillSourcePackages: [fixtureSource],
+      });
+      // 卸载失败的遗留技能目录也清掉,保持 .pi/skills 干净
+      await rm(resolve(".pi/skills", fixtureSkillName), {
+        force: true,
+        recursive: true,
+      });
+    });
+
+    test("installs a local fixture package, extracts its skill and uninstalls", async ({
+      page,
+    }) => {
+      const email = await registerAccount(page, "tools-pi-e2e");
+      await setMemberRole(email, "admin");
+
+      const invalid = await page.request.post("/api/management/pi-packages", {
+        data: { source: "not-a-valid-source" },
+      });
+      expect(invalid.status()).toBe(400);
+
+      const installed = await page.request.post("/api/management/pi-packages", {
+        data: { source: fixtureSource },
+      });
+      expect(installed.status()).toBe(201);
+      const installBody = (await installed.json()) as {
+        installedSkills: string[];
+        name: string;
+        resourceSummary: { extensions: number; skills: number };
+        version: string;
+      };
+      expect(installBody.name).toBe("piwork-e2e-fixture-package");
+      expect(installBody.version).toBe("1.2.3");
+      expect(installBody.installedSkills).toEqual([fixtureSkillName]);
+      expect(installBody.resourceSummary.extensions).toBe(1);
+      expect(installBody.resourceSummary.skills).toBeGreaterThanOrEqual(1);
+
+      const duplicate = await page.request.post("/api/management/pi-packages", {
+        data: { source: fixtureSource },
+      });
+      expect(duplicate.status()).toBe(409);
+
+      const listResponse = await page.request.get(
+        "/api/management/pi-packages"
+      );
+      expect(listResponse.ok).toBeTruthy();
+      const { packages, systemPackageStatus } = (await listResponse.json()) as {
+        packages: Array<{ name: string; source: string; system: boolean }>;
+        systemPackageStatus: string;
+      };
+      expect(packages.some((item) => item.source === fixtureSource)).toBe(true);
+      // 播种状态取决于 dev server 是否带 playwright 环境变量
+      // (playwright 自起 server → skipped;复用已有 server → 可能真的装上)
+      expect(["failed", "installed", "ready", "skipped"]).toContain(
+        systemPackageStatus
+      );
+
+      // 系统插件(pi-mcp-adapter)已装时:不可卸载
+      const systemPackage = packages.find((item) => item.system);
+      if (systemPackage) {
+        expect(systemPackage.source).toContain("pi-mcp-adapter");
+        const systemDelete = await page.request.delete(
+          "/api/management/pi-packages",
+          { data: { source: systemPackage.source } }
+        );
+        expect(systemDelete.status()).toBe(400);
+      }
+
+      // 插件视图显示已装包
+      await page.goto(`${TOOLS_URL}?view=pi-plugins`);
+      await expect(
+        page.getByRole("heading", { exact: true, name: "Pi 插件" })
+      ).toBeVisible();
+      await expect(
+        page.getByText("piwork-e2e-fixture-package").first()
+      ).toBeVisible();
+      await expect(page.getByText("v1.2.3").first()).toBeVisible();
+
+      // 跨模块断言:提取的技能出现在技能管理页(带 Pi 插件来源)
+      await page.goto("/management/skills");
+      await expect(page.getByText("Fixture Echo Skill").first()).toBeVisible();
+      await expect(page.getByText("Pi 插件").first()).toBeVisible();
+
+      const unknown = await page.request.delete("/api/management/pi-packages", {
+        data: { source: resolve("tests/fixtures/does-not-exist") },
+      });
+      expect(unknown.status()).toBe(404);
+
+      const uninstalled = await page.request.delete(
+        "/api/management/pi-packages",
+        { data: { source: fixtureSource } }
+      );
+      expect(uninstalled.ok).toBeTruthy();
+      const uninstallBody = (await uninstalled.json()) as {
+        removedSkills: string[];
+      };
+      expect(uninstallBody.removedSkills).toEqual([fixtureSkillName]);
+
+      const afterList = await page.request.get("/api/management/pi-packages");
+      const afterBody = (await afterList.json()) as {
+        packages: Array<{ source: string }>;
+      };
+      expect(
+        afterBody.packages.some((item) => item.source === fixtureSource)
+      ).toBe(false);
+
+      // 卸载后技能页不再出现该技能
+      await page.goto("/management/skills");
+      await expect(
+        page.getByText("Fixture Echo Skill").first()
+      ).not.toBeVisible();
     });
   });

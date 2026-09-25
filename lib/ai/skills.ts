@@ -164,7 +164,7 @@ export function validateSkillName(name: string) {
   }
 }
 
-export type ProjectSkillSource = "catalog" | "upload";
+export type ProjectSkillSource = "catalog" | "pi-package" | "upload";
 
 export type ProjectSkillSummary = {
   description: string;
