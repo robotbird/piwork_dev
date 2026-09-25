@@ -164,6 +164,34 @@ export type ModelProviderPluginRecord = InferSelectModel<
   typeof modelProviderPlugin
 >;
 
+/**
+ * 管理端配置的 MCP 服务；启用项会同步进聊天工作区 `.mcp.json`
+ * （pi 官方 cwd 级 MCP 发现格式，pi.dev/docs/latest/packages）。
+ */
+export const mcpServer = pgTable("McpServer", {
+  args: json("args").$type<string[]>().notNull().default([]),
+  command: varchar("command", { length: 512 }),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  createdBy: uuid("createdBy").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  description: varchar("description", { length: 1024 }).notNull().default(""),
+  enabled: boolean("enabled").notNull().default(true),
+  env: json("env").$type<Record<string, string>>().notNull().default({}),
+  headers: json("headers")
+    .$type<Record<string, string>>()
+    .notNull()
+    .default({}),
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  /** 兼作工作区 .mcp.json 的 server key */
+  name: varchar("name", { length: 64 }).notNull().unique(),
+  transport: varchar("transport", { enum: ["stdio", "http"] }).notNull(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  url: varchar("url", { length: 1024 }),
+});
+
+export type McpServerRecord = InferSelectModel<typeof mcpServer>;
+
 export const chat = pgTable("Chat", {
   createdAt: timestamp("createdAt").notNull(),
   id: uuid("id").primaryKey().notNull().defaultRandom(),

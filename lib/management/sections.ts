@@ -38,6 +38,7 @@ const TOOL_SECTION: ManagementSection = {
   features: ["MCP 服务", "API 接入", "插件管理"],
   href: "/management/tools",
   icon: WrenchIcon,
+  ready: true,
   tagline: "MCP / API / 插件 · 接入与管理",
   title: "工具管理",
 };

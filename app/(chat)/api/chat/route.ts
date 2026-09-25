@@ -49,6 +49,7 @@ import {
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
+import { syncWorkspaceMcpConfig } from "@/lib/mcp/workspace-config";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
 import {
@@ -269,6 +270,13 @@ export async function POST(request: Request) {
     const workspaceDir = executionToolsEnabled()
       ? await ensureChatWorkspace(id)
       : null;
+    if (workspaceDir) {
+      // 管理端 MCP 服务配置同步进工作区 .mcp.json（pi 官方发现格式）；
+      // 幂等（内容未变不写盘），失败仅记日志不阻断聊天。
+      await syncWorkspaceMcpConfig(workspaceDir).catch((error) => {
+        console.warn("Failed to sync workspace .mcp.json:", error);
+      });
+    }
     const execution = workspaceDir ? createExecutionTools(workspaceDir) : null;
     let workspaceAttachmentFiles: string[] = [];
     if (workspaceDir && currentUserMessage) {

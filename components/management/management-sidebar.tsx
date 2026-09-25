@@ -9,11 +9,11 @@ import {
   LayoutDashboardIcon,
   type LucideIcon,
   MenuIcon,
+  PlugIcon,
   SearchIcon,
   SettingsIcon,
   ShieldCheckIcon,
   UsersRoundIcon,
-  WrenchIcon,
   XIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -69,10 +69,10 @@ const navigationGroups: NavigationGroup[] = [
         searchKeywordsKey: "skillManagementSearchKeywords",
       },
       {
-        href: "/management/tools",
-        icon: WrenchIcon,
-        labelKey: "toolManagement",
-        searchKeywordsKey: "toolManagementSearchKeywords",
+        href: "/management/tools?view=mcp",
+        icon: PlugIcon,
+        labelKey: "mcpServices",
+        searchKeywordsKey: "mcpServicesSearchKeywords",
       },
       {
         href: "/management/data",
@@ -137,8 +137,18 @@ function isItemActive(
     return pathname === hrefPath;
   }
 
-  if (hrefPath === "/management/organization") {
-    return pathname === hrefPath && currentView === itemView;
+  // 带 view 参数的条目要求 view 精确匹配；tools 的 mcp 是无参数时的默认视图
+  if (itemView) {
+    return (
+      pathname === hrefPath &&
+      (currentView === itemView ||
+        (itemView === "mcp" && (currentView === null || currentView === "")))
+    );
+  }
+
+  // 无 view 的基础条目（如组织架构）在带 view 参数时不激活
+  if (currentView) {
+    return false;
   }
 
   return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);

@@ -13,12 +13,19 @@ export type TestCleanupScope = {
   departmentPatterns?: readonly string[];
   /** 待卸载的模型插件包 id（插件安装不随创建者账号级联删除） */
   modelPluginPackageIds?: readonly string[];
+  /** 待删除的 MCP 服务名（精确匹配） */
+  mcpServerNames?: readonly string[];
 };
 
 /** 删除测试产生的数据，保持开发库干净；账号删除会级联清理成员与角色关系 */
 export async function cleanupTestData(scope: TestCleanupScope): Promise<void> {
   const sql = postgres(process.env.POSTGRES_URL ?? "", { max: 1 });
   try {
+    if (scope.mcpServerNames !== undefined && scope.mcpServerNames.length > 0) {
+      await sql`DELETE FROM "McpServer" WHERE "name" = ANY(${[
+        ...scope.mcpServerNames,
+      ]})`;
+    }
     if (
       scope.modelPluginPackageIds !== undefined &&
       scope.modelPluginPackageIds.length > 0
