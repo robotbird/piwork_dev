@@ -266,7 +266,7 @@ fail-closed 禁止的是"Sandbox 失败后静默回退到 Web 进程执行第三
 - 不采用"Sandbox 内 session 文件为唯一事实"：那是 Step 9（fork/clone/成本统计）的演进选项，不是本阶段前提。
 - 保真度与现状持平（lossy），不倒退；修复保真度同样属于 Step 9。
 
-文本 token delta 可继续通过 Redis/SSE 传输，在 message 完成时落库；数据库只持久化状态、工具、Artifact 和错误等关键 RuntimeEvent。
+文本 token delta 经进程内 SSE 直传（现状不变），在 message 完成时落库；数据库持久化状态、工具、Artifact 和错误等关键 RuntimeEvent，并携带 `(runId, seq)` 单调游标序。跨进程事件分发（Worker 时代）到 Step 8 再评估，首选 Postgres LISTEN/NOTIFY 或短轮询；Redis 仅作为届时证明不够时的可选加速项，MVP 不引入（2026-09-26 决策，与 §12 部署形态一并复核）。
 
 ## 9. 建议代码结构
 
@@ -304,6 +304,7 @@ runtime-worker/
 
 - 建立 AgentRun 状态机、RuntimeLease 和关键 RuntimeEvent。
 - 支持 SSE 按 cursor 恢复与事件幂等。
+- 游标与恢复仅用 Postgres（`seq > cursor` 重放 + 进程内接管活流）；不引入 Redis。
 
 完成标准：刷新或断线后可以恢复执行状态；重复事件不会重复落库。
 
@@ -348,7 +349,7 @@ runtime-worker/
 ### Step 8：迁移生产默认路径
 
 - Web 请求只创建或控制 AgentRun。
-- Worker 领取 lease 并执行，SSE 从持久 cursor/Redis 获取事件。
+- Worker 领取 lease 并执行，SSE 从持久 cursor 获取事件（Postgres LISTEN/NOTIFY 或短轮询；Redis 仅在证明不够时作为可选加速项）。
 - 管理员和单个批准 Package 先灰度，再按组织扩大。
 - 禁止 Sandbox 失败后回退 in-process。
 
@@ -359,7 +360,7 @@ runtime-worker/
 - 按产品需求增加 fork/clone、成本统计、idle suspend/resume 和 warm pool。
 - Desktop 实现 Local Runtime/Sandbox adapter，复用相同 Protocol、Package bundle 和事件。
 
-实施纪律：一次只跨一个 seam。Step 1 不改数据库，Step 2 不引入 RPC，Step 3 不引入 Docker；每一步先通过 Runtime interface 契约测试，再替换调用方。
+实施纪律：一次只跨一个 seam。Step 1 不改数据库，Step 2 不引入 RPC 也不引入 Redis（游标仅 Postgres），Step 3 不引入 Docker；每一步先通过 Runtime interface 契约测试，再替换调用方。
 
 ## 11. 第一条验收链路
 
