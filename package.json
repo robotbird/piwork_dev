@@ -2,6 +2,7 @@
   "name": "chatbot",
   "version": "3.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev --turbo",
     "build": "tsx lib/db/migrate && next build",
@@ -18,6 +19,7 @@
     "db:up": "drizzle-kit up",
     "plugin:package": "tsx scripts/package-plugin.mts",
     "plugin:verify": "tsx scripts/verify-plugin-chain.mts",
+    "test:runtime": "node --conditions=react-server --import tsx --test lib/runtime/backends/backends.test.ts \"app/(chat)/api/chat/stream-mapping.test.ts\"",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
   },
   "dependencies": {

@@ -1,20 +1,18 @@
 import { customProvider, gateway } from "ai";
 import { isTestEnvironment } from "../constants";
 import { titleModel } from "./models";
+import {
+  chatModel as mockChatModel,
+  titleModel as mockTitleModel,
+} from "./models.mock";
 
 export const myProvider = isTestEnvironment
-  ? (() => {
-      const {
-        chatModel,
-        titleModel: mockTitleModel,
-      } = require("./models.mock");
-      return customProvider({
-        languageModels: {
-          "chat-model": chatModel,
-          "title-model": mockTitleModel,
-        },
-      });
-    })()
+  ? customProvider({
+      languageModels: {
+        "chat-model": mockChatModel,
+        "title-model": mockTitleModel,
+      },
+    })
   : null;
 
 export function getLanguageModel(modelId: string) {

@@ -2,6 +2,7 @@ import {
   type AssistantMessage,
   type Context,
   createModels,
+  type FauxProviderHandle,
   fauxAssistantMessage,
   fauxProvider,
   type Message,
@@ -31,6 +32,8 @@ const piModels = createModels();
 
 /** 测试环境的 faux 供应商对象；getActivePiProviders 经它喂给扩展会话 */
 let testFauxProvider: Provider | undefined;
+/** 测试环境的 faux 注册句柄；契约测试经它重排脚本化响应 */
+let testFauxHandle: FauxProviderHandle | undefined;
 
 if (isTestEnvironment) {
   // e2e 专用 faux 供应商：模型清单与 lib/ai/models 的静态测试目录保持一致
@@ -44,6 +47,7 @@ if (isTestEnvironment) {
     tokensPerSecond: 100,
   });
   testFauxProvider = faux.provider;
+  testFauxHandle = faux;
 
   faux.setResponses(
     Array.from({ length: 200 }, () => (context: Context) => {
@@ -88,6 +92,11 @@ if (isTestEnvironment) {
     })
   );
   piModels.setProvider(faux.provider);
+}
+
+/** node:test 契约测试专用：取得 faux 句柄以重排脚本化响应（仅测试环境） */
+export function getTestFauxHandle(): FauxProviderHandle | undefined {
+  return testFauxHandle;
 }
 
 /** 最近一次注册进 pi 的平台目录；引用一致说明缓存未过期，无需重复注册 */

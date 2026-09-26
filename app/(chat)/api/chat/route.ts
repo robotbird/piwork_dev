@@ -10,13 +10,10 @@ import { getTranslations } from "next-intl/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import { getActiveModelCatalog } from "@/lib/ai/active-models";
-import { createPiworkAgentSession } from "@/lib/ai/agent-session";
 import {
   buildExecutionSystemPrompt,
-  createDeliverFileTool,
   ensureChatWorkspace,
   executionToolsEnabled,
-  formatToolStatus,
   removeChatWorkspace,
   writeAttachmentsToWorkspace,
 } from "@/lib/ai/agent-tools";
@@ -49,8 +46,9 @@ import {
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import { syncWorkspaceMcpConfig } from "@/lib/mcp/workspace-config";
-import { MANAGED_AGENT_DIR } from "@/lib/pi-packages/manager";
 import { checkIpRateLimit } from "@/lib/ratelimit";
+import type { RuntimeSession } from "@/lib/runtime";
+import { getRuntimeBackend } from "@/lib/runtime";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
 import {
   convertToUIMessages,
@@ -59,6 +57,7 @@ import {
 } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
+import { runtimeEventToUIMessageChunks } from "./stream-mapping";
 
 export const maxDuration = 60;
 
@@ -390,150 +389,64 @@ export async function POST(request: Request) {
         };
 
         // 提升到 try 外:finally 里要无条件释放(构建中途抛错也安全)
-        let disposeSession: (() => void) | undefined;
+        let runtimeSession: RuntimeSession | undefined;
         try {
-          let assistantSequence = 0;
-          let activeAssistantSequence = 0;
-          // pi 扩展运行时会话(spike C 形态):受管 agentDir 的扩展(含
-          // pi-mcp-adapter 的 mcp/mcpScript)在此加载;bash/read/write/edit
-          // 用会话内建(cwd=工作区);技能与交付文件走 customTools。
-          // 解构更名:外层已有 auth() 的 session,避免遮蔽
-          const { dispose, session: agentSession } =
-            await createPiworkAgentSession({
-              appendSystemPrompt: [
-                buildSkillsSystemPrompt(skills),
-                ...(executionPrompt ? [executionPrompt] : []),
-              ],
-              cwd: workspaceDir ?? MANAGED_AGENT_DIR,
-              disableBuiltinTools: !workspaceDir,
-              historyMessages,
-              model: piModel,
-              systemPrompt: baseSystemPrompt,
-              tools: [
-                ...createSkillTools(skills),
-                ...(workspaceDir
-                  ? [
-                      createDeliverFileTool({
-                        onDelivered: (file) =>
-                          // 非 transient 且无 id：SDK 会将其追加进消息 parts，
-                          // 实时渲染的同时随 onEnd 持久化、刷新后可恢复。
-                          dataStream.write({
-                            data: file,
-                            type: "data-delivered-file",
-                          }),
-                        workspaceDir,
-                      }),
-                    ]
-                  : []),
-              ],
-            });
-          disposeSession = dispose;
-
-          agentSession.subscribe((event) => {
-            if (
-              event.type === "message_start" &&
-              event.message.role === "assistant"
-            ) {
-              assistantSequence += 1;
-              activeAssistantSequence = assistantSequence;
-            }
-
-            if (
-              event.type === "tool_execution_start" ||
-              event.type === "tool_execution_end"
-            ) {
-              const isStart = event.type === "tool_execution_start";
-              const isError =
-                event.type === "tool_execution_end" && event.isError;
-              dataStream.write({
-                data: {
-                  phase: isStart ? "start" : "end",
-                  ...(!isStart && isError ? { isError: true } : {}),
-                  message: formatToolStatus(
-                    isStart ? "start" : "end",
-                    event.toolName,
-                    isStart ? event.args : undefined,
-                    isError
-                  ),
-                  toolName: event.toolName,
-                },
-                transient: true,
-                type: "data-tool-status",
-              });
-              return;
-            }
-
-            if (event.type !== "message_update") {
-              return;
-            }
-
-            const update = event.assistantMessageEvent;
-            if (update.type === "start") {
-              return;
-            }
-
-            markModelActive();
-            const contentIndex =
-              "contentIndex" in update ? update.contentIndex : 0;
-            const textId = `text-${activeAssistantSequence}-${contentIndex}`;
-            const reasoningId = `reasoning-${activeAssistantSequence}-${contentIndex}`;
-
-            if (update.type === "text_start") {
-              dataStream.write({
-                id: textId,
-                type: "text-start",
-              });
-            } else if (update.type === "text_delta") {
-              dataStream.write({
-                delta: update.delta,
-                id: textId,
-                type: "text-delta",
-              });
-            } else if (update.type === "text_end") {
-              dataStream.write({
-                id: textId,
-                type: "text-end",
-              });
-            } else if (update.type === "thinking_start") {
-              dataStream.write({
-                id: reasoningId,
-                type: "reasoning-start",
-              });
-            } else if (update.type === "thinking_delta") {
-              dataStream.write({
-                delta: update.delta,
-                id: reasoningId,
-                type: "reasoning-delta",
-              });
-            } else if (update.type === "thinking_end") {
-              dataStream.write({
-                id: reasoningId,
-                type: "reasoning-end",
-              });
-            }
+          // Runtime seam(v2.0 Step 1):pi 会话构建与事件归一化收进 backend,
+          // route 只做事件→stream chunk 翻译;deliver_file 的交付闭包也由
+          // backend 注入(artifact.created 事件,非 transient,随 onEnd 持久化)
+          runtimeSession = await getRuntimeBackend().open({
+            appendSystemPrompt: [
+              buildSkillsSystemPrompt(skills),
+              ...(executionPrompt ? [executionPrompt] : []),
+            ],
+            chatId: id,
+            historyMessages,
+            model: piModel,
+            systemPrompt: baseSystemPrompt,
+            tools: createSkillTools(skills),
+            workspaceDir,
           });
 
           const abortAgent = () => {
-            agentSession.abort().catch(() => undefined);
+            runtimeSession?.send({ type: "abort" }).catch(() => undefined);
           };
           request.signal.addEventListener("abort", abortAgent, { once: true });
           try {
-            // expandPromptTemplates:false——技能命令已在上方自行展开,
-            // 否则用户消息以 /mcp 等开头会派发扩展命令
-            await agentSession.prompt(agentPrompt, {
+            const ack = await runtimeSession.send({
+              // expandPromptTemplates:false——技能命令已在上方自行展开,
+              // 否则用户消息以 /mcp 等开头会派发扩展命令
               expandPromptTemplates: false,
               images: preparedAttachments.images,
+              text: agentPrompt,
+              type: "prompt",
             });
+            if (!ack.ok) {
+              throw new Error(ack.error);
+            }
+            for await (const event of runtimeSession.events()) {
+              // 任意内容块事件即视为模型活跃(含 tool 通道,与原事件桥一致)
+              if (event.type === "message.delta") {
+                markModelActive();
+              }
+              for (const chunk of runtimeEventToUIMessageChunks(event)) {
+                dataStream.write(chunk);
+              }
+              if (event.type === "run.settled") {
+                break;
+              }
+              // 与原实现等价:aborted 场景由 backend 归一为 run.settled
+              if (event.type === "run.failed") {
+                throw new Error(event.error);
+              }
+            }
           } finally {
             request.signal.removeEventListener("abort", abortAgent);
           }
-
-          if (agentSession.state.errorMessage && !request.signal.aborted) {
-            throw new Error(agentSession.state.errorMessage);
-          }
         } finally {
           stopWaitingStatus();
-          disposeSession?.();
+          await runtimeSession
+            ?.close("request-finished")
+            .catch(() => undefined);
         }
 
         if (titlePromise) {
