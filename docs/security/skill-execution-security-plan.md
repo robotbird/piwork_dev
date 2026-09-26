@@ -1,10 +1,12 @@
 # Skill 安全执行方案（沙箱与依赖管理规划）
 
-**版本**：0.3（规划稿，未实施）
-**日期**：2026-09-19
+**版本**：0.4（接入点被 v2.0 Runtime 架构取代，治理设计并入——见 §10 版本记录；其余仍为规划稿，未实施）
+**日期**：2026-09-19（0.3）/ 2026-09-26（0.4 状态更新）
 **适用范围**：管理端技能上传与分发、员工侧技能执行、agent 执行类工具（bash/read/write/edit/deliver_file）、Python 及其他运行时依赖管理
 **读者**：后续实现本方案的工程同学
 **参考**：[CubePlex 沙箱方案](https://cubeplex.ai/docs/zh-Hans/admin/sandbox)（同类问题域的生产实践，[仓库](https://github.com/cubeplexai/cubeplex)）、[OpenSandbox](https://github.com/opensandbox-group/OpenSandbox)、pi.dev 生态沙箱扩展调研（[pi-extension-opensandbox](https://pi.dev/packages/pi-extension-opensandbox)、[pi-permission-modes](https://pi.dev/packages/pi-permission-modes)、[pi-sandbox](https://pi.dev/packages/pi-sandbox)、[pi-container-sandbox](https://pi.dev/packages/pi-container-sandbox)，均为社区包）。历次吸收与不照搬的决定见 §10 版本记录
+
+> **状态更新（v0.4，2026-09-26）**：本方案的核心接入点——`RemoteSandboxEnv implements ExecutionEnv`（§1.3/§4，仅执行工具进沙箱、agent loop 与扩展留在 Web 进程）——已被 [pi-plugin-support-research.md v2.0](../pi-plugin-support-research.md) 的**完整 Pi 进程沙箱**取代：官方 security 页将"仅内置工具进沙箱"定位为更窄的隔离（narrower form），且无法约束在工具沙箱之外运行的 Extension。以下治理设计仍有效并已并入/引用进 v2.0：§5 依赖预构建与运行时禁装、§6.3 命令 AST 门控与 Confirm 审批、§4.2 网络策略 schema 与 TTL 生命周期、§6.5 密钥占位符与出口代理。§4.1/§8.2 的底座选型作为 v2.0 §7.1 的企业加固层输入；§9 的部署形态决策与 v2.0 §12 合并拍板。
 
 ---
 
@@ -193,6 +195,7 @@
 - **0.1**（2026-09-19）：初版。现状威胁模型、三平面架构、沙箱设计、依赖管理、权限模型、分阶段路线。
 - **0.2**（2026-09-19）：对照 [CubePlex 沙箱方案](https://cubeplex.ai/docs/zh-Hans/admin/sandbox)（同类问题域——组织分发技能、成员触发执行——的生产实践）修订。**吸收 4 项**：网络策略 schema（§4.2）、命令级 Confirm 审批（§6.3）、密钥占位符与出口代理（§6.5）、OpenSandbox 进入选型（§8.2）。**明确 3 项不照搬**：① 运行时 pip/npm install（供应链审查权不能交给一次 LLM 决策）；② 默认网络 Allow 选项（员工场景默认动作固定 Deny）；③ per-workspace 持久沙箱（环境漂移 + 驻留风险，见 §4.2 生命周期）。不照搬的根因是信任模型不同：CubePlex 是开发者工作区 agent（长期共用、可信度较高），我们是员工侧办公技能平台（管理员上传、员工触发、聊天内容不可信）。
 - **0.3**（2026-09-19）：调研 [pi.dev 生态沙箱扩展](https://pi.dev/packages?name=sandbox&type=extension)（35 个，均为社区包，无 pi 官方维护）。**吸收 6 项**：fail-closed 失败降级与"沙箱不可用绝不静默执行"（§4.2）、TTL 周期续期细则（§4.2）、策略窄作用域只能收紧（§4.2）、bash AST 门控替代字符串/正则匹配（§6.3）、授权仅存服务端内存 + 确认超时默认拒绝 + Deny 无绕行口（§6.3）、镜像构建供应链校验（§5）。**确认 1 项选型判断**：Anthropic `@anthropic-ai/sandbox-runtime` 定位单用户开发机，不改变 gVisor/Firecracker 档位（§4.1）。**新增参考实现** pi-extension-opensandbox（§8.2）。
+- **0.4**（2026-09-26）：**接入点被取代**——`RemoteSandboxEnv`（仅执行工具进沙箱）由 [pi-plugin-support-research.md](../pi-plugin-support-research.md) v2.0 的完整 Pi 进程沙箱取代（官方 security 页将"仅工具进沙箱"定位为更窄隔离，且无法约束未委托执行的 Extension）。**四块治理设计仍有效并已并入/引用进 v2.0**：§5 依赖预构建、§6.3 命令 AST 门控、§4.2 网络策略/TTL、§6.5 密钥占位符。§4.1/§8.2 底座选型转为 v2.0 §7.1 的企业加固层输入；§9 部署形态决策并入 v2.0 §12。
 
 ---
 

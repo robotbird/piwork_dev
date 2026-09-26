@@ -2,7 +2,8 @@
 
 > 状态：架构草案 v2，待评审后实施  
 > 基线：piwork 当前工作区；`@earendil-works/pi-ai` / `@earendil-works/pi-agent-core` 0.83.0  
-> 强制约束：插件实现语言仅限 TypeScript；安装包名必须符合 `piwork-llm-<provider>.zip`
+> 强制约束：插件实现语言仅限 TypeScript；安装包名必须符合 `piwork-llm-<provider>.zip`  
+> 运行时收敛（2026-09-26）：Phase 2 规划的 `RemotePluginHost` 定位更新为 Runtime 架构（[pi-plugin-support-research.md](pi-plugin-support-research.md) §7.2）中 **Inference Proxy 的上游执行器**——Sandbox 内 Pi 只见统一 openai-compatible 代理端点，插件代码留在控制面执行，真实凭据只存在于代理侧。插件契约、构建、审批与数据模型不受影响。
 
 ## 1. 结论
 
