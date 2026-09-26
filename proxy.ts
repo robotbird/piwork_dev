@@ -21,10 +21,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // secureCookie 按请求协议而非 NODE_ENV 推导：authjs 服务端依协议决定
+  // cookie 名（https → __Secure- 前缀）；本地 HTTP 下跑 next start 时两者
+  // 若不一致，会话 cookie 永远对不上号，全站陷入 guest 重定向环。
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
-    secureCookie: !isDevelopmentEnvironment,
+    secureCookie: request.nextUrl.protocol === "https:",
   });
 
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";

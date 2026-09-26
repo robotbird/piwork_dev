@@ -140,7 +140,7 @@ async function fillMemberForm(
     .getByRole("option", { name: values.departmentName ?? "未分配" })
     .click();
   await dialog.locator("#member-role").click();
-  await page.getByRole("option", { name: values.roleName ?? "成员" }).click();
+  await page.getByRole("option", { name: values.roleName ?? "用户" }).click();
   await dialog.getByRole("button", { name: "添加成员" }).click();
 }
 
@@ -210,7 +210,7 @@ test.describe
         email: memberEmail,
         name: "张小测",
         password: "init-pass-123",
-        roleName: "成员",
+        roleName: "用户",
         title: "测试工程师",
       });
 
@@ -490,7 +490,7 @@ async function assertLastAdminProtections(page: Page, memberB: MemberView) {
   await row.getByRole("button", { name: "编辑成员 孙管理" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.locator("#member-role").click();
-  await page.getByRole("option", { name: "成员" }).click();
+  await page.getByRole("option", { name: "用户" }).click();
   await dialog.getByRole("button", { name: "保存更改" }).click();
   await expect(
     dialog.getByText("需保留至少一名已启用的管理员，无法降级或停用该成员")

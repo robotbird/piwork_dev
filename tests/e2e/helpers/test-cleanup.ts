@@ -50,9 +50,16 @@ export async function cleanupTestData(scope: TestCleanupScope): Promise<void> {
       scope.modelPluginPackageIds !== undefined &&
       scope.modelPluginPackageIds.length > 0
     ) {
-      await sql`DELETE FROM "ModelProviderPlugin" WHERE "packageId" = ANY(${[
-        ...scope.modelPluginPackageIds,
-      ]})`;
+      // 仅删测试账号创建的安装:开发库与真实使用共享,按 packageId 无差别
+      // 删除会误杀管理员手动配置的真实插件(2026-09-26 实际发生过)。
+      // createdBy 是 set null 外键,不在用户删除时级联,须在删用户前处理。
+      await sql`DELETE FROM "ModelProviderPlugin"
+        WHERE "packageId" = ANY(${[...scope.modelPluginPackageIds]})
+        AND "createdBy" IN (
+          SELECT "id" FROM "User" WHERE "email" LIKE ANY(${[
+            ...scope.emailPatterns,
+          ]})
+        )`;
     }
     await sql`DELETE FROM "User" WHERE "email" LIKE ANY(${[
       ...scope.emailPatterns,
