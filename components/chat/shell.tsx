@@ -63,6 +63,8 @@ export function ChatShell() {
     return text.length > 28 ? `${text.slice(0, 28)}…` : text;
   }, [messages, t]);
 
+  // stopRef（v2.0 Step 2 语义）：切走 chat 只断本地订阅（原 stop），run 在
+  // 服务端继续；切回时 useAutoResume → resumeStream 从游标接上活流。
   const stopRef = useRef(stop);
   stopRef.current = stop;
 

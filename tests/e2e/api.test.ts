@@ -12,7 +12,10 @@ test.describe("Chat API Integration", () => {
     await page.getByTestId("send-button").click();
 
     // Wait for assistant response to appear
-    const assistantMessage = page.locator("[data-role='assistant']").first();
+    // （强断言：真实消息 testid；[data-role] 会同时命中 loading 占位符）
+    const assistantMessage = page
+      .locator("[data-testid='message-assistant']")
+      .first();
     await expect(assistantMessage).toBeVisible({ timeout: 30_000 });
 
     // Verify it has some text content

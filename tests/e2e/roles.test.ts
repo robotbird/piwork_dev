@@ -26,6 +26,23 @@ function uniqueSuffix() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** 凭据重登：全新 dev server 可能在注册后立刻轮换匿名引导 token，重走
+ * 凭据流拿到稳定会话（模式同 models.test.ts / chat-resume.test.ts） */
+async function ensureSignedIn(page: Page, email: string): Promise<void> {
+  await page.goto("/login");
+  if (new URL(page.url()).pathname === "/") {
+    return;
+  }
+  await page.locator("#email").fill(email);
+  await page.locator("#password").fill(DEFAULT_PASSWORD);
+  await page.getByRole("button", { name: /^(登录|Sign in)$/ }).click();
+  await page.waitForFunction(
+    () => window.location.pathname === "/",
+    undefined,
+    { timeout: 30_000 }
+  );
+}
+
 /** 注册独立账号并等待跳转到应用首页；返回邮箱 */
 async function registerAccount(page: Page): Promise<string> {
   const email = `roles-e2e-${uniqueSuffix()}@test.local`;
@@ -38,6 +55,7 @@ async function registerAccount(page: Page): Promise<string> {
     undefined,
     { timeout: 30_000 }
   );
+  await ensureSignedIn(page, email);
   return email;
 }
 

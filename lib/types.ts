@@ -64,6 +64,13 @@ export type CustomUIDataTypes = {
   "waiting-status": WaitingStatusData;
   "tool-status": ToolStatusData;
   "delivered-file": DeliveredFileData;
+  /** (runId, seq) 游标：transient 直传，客户端存内存 ref 供断线重连 */
+  "runtime-cursor": RuntimeCursorData;
+};
+
+export type RuntimeCursorData = {
+  runId: string;
+  seq: number;
 };
 
 export type ChatMessage = UIMessage<

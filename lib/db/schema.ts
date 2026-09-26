@@ -3,12 +3,14 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   boolean,
   foreignKey,
+  index,
   integer,
   json,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -327,20 +329,101 @@ export const suggestion = pgTable(
 
 export type Suggestion = InferSelectModel<typeof suggestion>;
 
-export const stream = pgTable(
-  "Stream",
+/**
+ * 一次 Agent Runtime 执行尝试（v2.0 §8）：chat 级逻辑 runtime key 的执行实例。
+ * 状态机 queued → starting → running ↔ waiting_user └→ settled | failed | aborted；
+ * waiting_user 为 Step 3+ RPC 双向交互预留，当前不写入（工具审批等待由前端
+ * tool part state 表达，服务端无事件源）。
+ */
+export const agentRun = pgTable(
+  "AgentRun",
   {
-    chatId: uuid("chatId").notNull(),
-    createdAt: timestamp("createdAt").notNull(),
-    id: uuid("id").notNull().defaultRandom(),
+    /** 执行后端：in_process（MVP）| sandbox_rpc（Step 3+） */
+    backend: varchar("backend", {
+      enum: ["in_process", "sandbox_rpc"],
+    })
+      .notNull()
+      .default("in_process"),
+    /** 聊天被删除时连同执行记录一并删除 */
+    chatId: uuid("chatId")
+      .notNull()
+      .references(() => chat.id, { onDelete: "cascade" }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    endedAt: timestamp("endedAt"),
+    errorMessage: text("errorMessage"),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    startedAt: timestamp("startedAt"),
+    status: varchar("status", {
+      enum: [
+        "queued",
+        "starting",
+        "running",
+        "waiting_user",
+        "settled",
+        "failed",
+        "aborted",
+      ],
+    })
+      .notNull()
+      .default("queued"),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
   },
   (table) => ({
-    chatRef: foreignKey({
-      columns: [table.chatId],
-      foreignColumns: [chat.id],
-    }),
-    pk: primaryKey({ columns: [table.id] }),
+    /** 活跃 run 查询 + 终态时间线 */
+    chatIdx: index("AgentRun_chatId_idx").on(table.chatId, table.createdAt),
   })
 );
 
-export type Stream = InferSelectModel<typeof stream>;
+export type AgentRunRecord = InferSelectModel<typeof agentRun>;
+
+/**
+ * 关键 RuntimeEvent 持久化（v2.0 §8.2）：状态、工具、Artifact、错误等事件带
+ * (runId, seq) 单调游标序，支撑 SSE 按 cursor 恢复与审计；message.delta 经
+ * 进程内 SSE 直传不入库（message 完成时随消息落库）。data 为规范化事件负载
+ * （去掉 runId 冗余后的形状）；唯一 (runId, seq) 是事件幂等的基石。
+ */
+export const runtimeEvent = pgTable(
+  "RuntimeEvent",
+  {
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    data: json("data").$type<Record<string, unknown>>().notNull(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    /** run 被删除（含 chat 级联）时一并删除 */
+    runId: uuid("runId")
+      .notNull()
+      .references(() => agentRun.id, { onDelete: "cascade" }),
+    seq: integer("seq").notNull(),
+    type: varchar("type", { length: 64 }).notNull(),
+  },
+  (table) => ({
+    runSeq: uniqueIndex("RuntimeEvent_runId_seq_key").on(
+      table.runId,
+      table.seq
+    ),
+  })
+);
+
+export type RuntimeEventRecord = InferSelectModel<typeof runtimeEvent>;
+
+/**
+ * RuntimeLease：run 的临时归属与心跳（v2.0 §8）。MVP 单进程：acquire 即写、
+ * 周期心跳、终态 release；stale 由惰性检测收敛为 failed。Step 5 起演进为
+ * chat 级 lease 复用（TTL 续期），本表结构不变。
+ */
+export const runtimeLease = pgTable("RuntimeLease", {
+  acquiredAt: timestamp("acquiredAt").notNull().defaultNow(),
+  heartbeatAt: timestamp("heartbeatAt").notNull().defaultNow(),
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  /** 与 AgentRun 一一对应；run 删除时一并删除 */
+  runId: uuid("runId")
+    .notNull()
+    .references(() => agentRun.id, { onDelete: "cascade" })
+    .unique(),
+  /** 持有者标识：进程实例 id（MVP）；Step 8 起为 worker id */
+  workerId: varchar("workerId", { length: 128 }).notNull(),
+});
+
+export type RuntimeLeaseRecord = InferSelectModel<typeof runtimeLease>;

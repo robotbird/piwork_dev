@@ -188,12 +188,6 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
-      redis:
-        specifier: ^6.1.0
-        version: 6.1.0(@opentelemetry/api@1.9.1)
-      resumable-stream:
-        specifier: ^2.2.12
-        version: 2.2.12
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
@@ -2505,42 +2499,6 @@ packages:
   '@radix-ui/rect@1.1.2':
     resolution: {integrity: sha512-xnXE7wG13PI+cxieVssYXlQJuYVRhH9NBoxt3KNwzghDIA69GMm7d4wXRouHIYjE+KvS6U/MsMO73NdS2MH9ZA==}
 
-  '@redis/bloom@6.1.0':
-    resolution: {integrity: sha512-Rzascjd9J9bJsM45T/Z9CTg1QY/B63B6YO8QorLVMeXnbBDsKiSCVR/+GQ061hYPk8FpTzWmPY8tAv2sT+JEtQ==}
-    engines: {node: '>= 20.0.0'}
-    peerDependencies:
-      '@redis/client': ^6.1.0
-
-  '@redis/client@6.1.0':
-    resolution: {integrity: sha512-7u1LefkezJF0HESlhO7ZFLEPfyY+NejP3SGv+Z4pGaT3oM5GVVLa0u3f4rDLUrcw+SRo8IlX9Y8JAONeDdg1Ag==}
-    engines: {node: '>= 20.0.0'}
-    peerDependencies:
-      '@node-rs/xxhash': ^1.1.0
-      '@opentelemetry/api': '>=1 <2'
-    peerDependenciesMeta:
-      '@node-rs/xxhash':
-        optional: true
-      '@opentelemetry/api':
-        optional: true
-
-  '@redis/json@6.1.0':
-    resolution: {integrity: sha512-/GFjQA6bu5pG9ClCJAI5Xx4bNXe7UTpxBBlIupBNTrn1+nY860apGnYJuaSCDV2BmEbTidpa7O2qa28oxKx+rg==}
-    engines: {node: '>= 20.0.0'}
-    peerDependencies:
-      '@redis/client': ^6.1.0
-
-  '@redis/search@6.1.0':
-    resolution: {integrity: sha512-kS5agg+3yZbrdrt8omrew7FLCD8eOm7tarG1CROekPBRe+QGDR9aOpnHIQaYsYi6wPRTH70nQiF06AIjgURefQ==}
-    engines: {node: '>= 20.0.0'}
-    peerDependencies:
-      '@redis/client': ^6.1.0
-
-  '@redis/time-series@6.1.0':
-    resolution: {integrity: sha512-uIDBtV8MmG/xpJsRqbGSO4iX6ryj37MLMP82lRpFvI7ykAVe5GyqgxigEbU+uZNv9kDPNMKw3dvI/S/J1BNBzA==}
-    engines: {node: '>= 20.0.0'}
-    peerDependencies:
-      '@redis/client': ^6.1.0
-
   '@schummar/icu-type-parser@1.21.5':
     resolution: {integrity: sha512-bXHSaW5jRTmke9Vd0h5P7BtWZG9Znqb8gSDxZnxaGSJnGwPLDPfS+3g0BKzeWqzgZPsIVZkM7m2tbo18cm5HBw==}
 
@@ -3298,10 +3256,6 @@ packages:
   clsx@2.1.1:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
-
-  cluster-key-slot@1.1.2:
-    resolution: {integrity: sha512-RMr0FhtfXemyinomL4hrWcYJxmX6deFdCxpJzhDttxgO1+bcCnkk+9drydLVDmAMG7NE6aN/fl4F7ucU/90gAA==}
-    engines: {node: '>=0.10.0'}
 
   cmdk@1.1.1:
     resolution: {integrity: sha512-Vsv7kFaXm+ptHDMZ7izaRsP70GgrW9NBNGswt9OZaVBLlE0SNpDq8eu/VGXyF9r7M0azK3Wy7OlYXsuyYLFzHg==}
@@ -5000,10 +4954,6 @@ packages:
     resolution: {integrity: sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ==}
     engines: {node: '>=0.10.0'}
 
-  redis@6.1.0:
-    resolution: {integrity: sha512-0kvUPM8RHP/ZMa0xYaDTcG5e8tIGW6kz6MToVT0V8iOnk6bkXp2jncGRGe2bZEk41lZwiDspUqjZCSk5ohjcKw==}
-    engines: {node: '>= 20.0.0'}
-
   regenerator-runtime@0.13.11:
     resolution: {integrity: sha512-kY1AZVr2Ra+t+piVaJ4gxaFaReZVH40AKNo7UCX6W+dEwBo/2oZJzqfuN1qLq1oL45o56cPaTXELwrTh8Fpggg==}
 
@@ -5081,9 +5031,6 @@ packages:
   restore-cursor@5.1.0:
     resolution: {integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==}
     engines: {node: '>=18'}
-
-  resumable-stream@2.2.12:
-    resolution: {integrity: sha512-e6boHekmb72MdWDn7vSV9kiuRb9K3CepcDj+3Z0NNhdAfld7uHbVU8+NKlHRf3LO2Chtj4cXuWL88StLg64eIw==}
 
   retry@0.12.0:
     resolution: {integrity: sha512-9LkiTwjUh6rT555DtE9rTX+BKByPfrMzEAtnlEtdEwr3Nkffwiihqe2bWADg+OQRjt9gl6ICdmB/ZFDCGAtSow==}
@@ -6281,7 +6228,7 @@ snapshots:
     dependencies:
       '@eslint/object-schema': 3.0.5
       debug: 4.4.3
-      minimatch: 10.2.5
+      minimatch: 10.2.6
     transitivePeerDependencies:
       - supports-color
 
@@ -6614,7 +6561,7 @@ snapshots:
       '@types/shimmer': 1.2.0
       import-in-the-middle: 1.15.0
       require-in-the-middle: 7.5.2
-      semver: 7.7.3
+      semver: 7.8.5
       shimmer: 1.2.1
     transitivePeerDependencies:
       - supports-color
@@ -7616,28 +7563,6 @@ snapshots:
 
   '@radix-ui/rect@1.1.2': {}
 
-  '@redis/bloom@6.1.0(@redis/client@6.1.0(@opentelemetry/api@1.9.1))':
-    dependencies:
-      '@redis/client': 6.1.0(@opentelemetry/api@1.9.1)
-
-  '@redis/client@6.1.0(@opentelemetry/api@1.9.1)':
-    dependencies:
-      cluster-key-slot: 1.1.2
-    optionalDependencies:
-      '@opentelemetry/api': 1.9.1
-
-  '@redis/json@6.1.0(@redis/client@6.1.0(@opentelemetry/api@1.9.1))':
-    dependencies:
-      '@redis/client': 6.1.0(@opentelemetry/api@1.9.1)
-
-  '@redis/search@6.1.0(@redis/client@6.1.0(@opentelemetry/api@1.9.1))':
-    dependencies:
-      '@redis/client': 6.1.0(@opentelemetry/api@1.9.1)
-
-  '@redis/time-series@6.1.0(@redis/client@6.1.0(@opentelemetry/api@1.9.1))':
-    dependencies:
-      '@redis/client': 6.1.0(@opentelemetry/api@1.9.1)
-
   '@schummar/icu-type-parser@1.21.5': {}
 
   '@shikijs/core@3.21.0':
@@ -8347,8 +8272,6 @@ snapshots:
 
   clsx@2.1.1: {}
 
-  cluster-key-slot@1.1.2: {}
-
   cmdk@1.1.1(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:
       '@radix-ui/react-compose-refs': 1.1.2(@types/react@18.3.31)(react@19.2.7)
@@ -8799,7 +8722,7 @@ snapshots:
       imurmurhash: 0.1.4
       is-glob: 4.0.3
       json-stable-stringify-without-jsonify: 1.0.1
-      minimatch: 10.2.5
+      minimatch: 10.2.6
       natural-compare: 1.4.0
       optionator: 0.9.4
     optionalDependencies:
@@ -10426,17 +10349,6 @@ snapshots:
 
   react@19.2.7: {}
 
-  redis@6.1.0(@opentelemetry/api@1.9.1):
-    dependencies:
-      '@redis/bloom': 6.1.0(@redis/client@6.1.0(@opentelemetry/api@1.9.1))
-      '@redis/client': 6.1.0(@opentelemetry/api@1.9.1)
-      '@redis/json': 6.1.0(@redis/client@6.1.0(@opentelemetry/api@1.9.1))
-      '@redis/search': 6.1.0(@redis/client@6.1.0(@opentelemetry/api@1.9.1))
-      '@redis/time-series': 6.1.0(@redis/client@6.1.0(@opentelemetry/api@1.9.1))
-    transitivePeerDependencies:
-      - '@node-rs/xxhash'
-      - '@opentelemetry/api'
-
   regenerator-runtime@0.13.11: {}
 
   regex-recursion@6.0.2:
@@ -10562,8 +10474,6 @@ snapshots:
     dependencies:
       onetime: 7.0.0
       signal-exit: 4.1.0
-
-  resumable-stream@2.2.12: {}
 
   retry@0.12.0: {}
 

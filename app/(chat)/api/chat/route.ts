@@ -1,13 +1,7 @@
-import { geolocation, ipAddress } from "@vercel/functions";
-import {
-  createUIMessageStream,
-  createUIMessageStreamResponse,
-  generateId,
-} from "ai";
+import { geolocation } from "@vercel/functions";
+import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { checkBotId } from "botid/server";
-import { after } from "next/server";
 import { getTranslations } from "next-intl/server";
-import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import { getActiveModelCatalog } from "@/lib/ai/active-models";
 import {
@@ -33,7 +27,6 @@ import {
   parseSkillCommand,
 } from "@/lib/ai/skills";
 import {
-  createStreamId,
   deleteChatById,
   getChatById,
   getMessageCountByUserId,
@@ -41,14 +34,12 @@ import {
   saveChat,
   saveMessages,
   updateChatTitleById,
-  updateMessage,
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import { syncWorkspaceMcpConfig } from "@/lib/mcp/workspace-config";
-import { checkIpRateLimit } from "@/lib/ratelimit";
-import type { RuntimeSession } from "@/lib/runtime";
-import { getRuntimeBackend } from "@/lib/runtime";
+import { getRunManager } from "@/lib/runtime/run";
+import type { RunSubscription } from "@/lib/runtime/run/run-manager";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
 import {
   convertToUIMessages,
@@ -57,19 +48,11 @@ import {
 } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
-import { runtimeEventToUIMessageChunks } from "./stream-mapping";
+import { pumpRunSubscription } from "./stream-mapping";
 
 export const maxDuration = 60;
 
 const HEALTH_CHECK_DELAY_MS = 9000;
-
-function getStreamContext() {
-  try {
-    return createResumableStreamContext({ waitUntil: after });
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(request: Request) {
   const t = await getTranslations("api");
@@ -112,8 +95,6 @@ export async function POST(request: Request) {
     const chatModel = activeModelIds.has(selectedChatModel)
       ? selectedChatModel
       : fallbackModelId;
-
-    await checkIpRateLimit(ipAddress(request));
 
     const userType: UserType = session.user.type;
 
@@ -192,6 +173,21 @@ export async function POST(request: Request) {
         ...convertToUIMessages(messagesFromDb),
         message as ChatMessage,
       ];
+    }
+
+    // 审批续跑（v2.0 §2.1-8）：既有 assistant 消息的 parts（含审批状态
+    // 覆盖）与 id 作为 run 的 base——RunManager 终态 upsert 前置合并，
+    // 只落 run 事件 parts 会丢前轮内容/审批态。
+    let baseAssistantMessageId: string | undefined;
+    let baseParts: readonly unknown[] | undefined;
+    if (isToolApprovalFlow) {
+      const lastAssistant = uiMessages.findLast(
+        (currentMessage) => currentMessage.role === "assistant"
+      );
+      if (lastAssistant) {
+        baseAssistantMessageId = lastAssistant.id;
+        baseParts = lastAssistant.parts;
+      }
     }
 
     const { longitude, latitude, city, country } = geolocation(request);
@@ -388,65 +384,63 @@ export async function POST(request: Request) {
           clearHealthCheckTimer();
         };
 
-        // 提升到 try 外:finally 里要无条件释放(构建中途抛错也安全)
-        let runtimeSession: RuntimeSession | undefined;
+        // RunManager（v2.0 Step 2）：run 生命周期独立于本请求——start 落
+        // AgentRun/lease 并启动唯一消费循环，route 只 attach 订阅；断线仅
+        // detach（run 进程内继续），消息在终态由 RunManager 幂等 upsert。
+        let subscription: RunSubscription | undefined;
         try {
-          // Runtime seam(v2.0 Step 1):pi 会话构建与事件归一化收进 backend,
-          // route 只做事件→stream chunk 翻译;deliver_file 的交付闭包也由
-          // backend 注入(artifact.created 事件,非 transient,随 onEnd 持久化)
-          runtimeSession = await getRuntimeBackend().open({
-            appendSystemPrompt: [
-              buildSkillsSystemPrompt(skills),
-              ...(executionPrompt ? [executionPrompt] : []),
-            ],
-            chatId: id,
-            historyMessages,
-            model: piModel,
-            systemPrompt: baseSystemPrompt,
-            tools: createSkillTools(skills),
-            workspaceDir,
-          });
-
-          const abortAgent = () => {
-            runtimeSession?.send({ type: "abort" }).catch(() => undefined);
-          };
-          request.signal.addEventListener("abort", abortAgent, { once: true });
-          try {
-            const ack = await runtimeSession.send({
+          const run = await getRunManager().start({
+            baseAssistantMessageId,
+            baseParts,
+            prompt: {
               // expandPromptTemplates:false——技能命令已在上方自行展开,
               // 否则用户消息以 /mcp 等开头会派发扩展命令
               expandPromptTemplates: false,
               images: preparedAttachments.images,
               text: agentPrompt,
               type: "prompt",
-            });
-            if (!ack.ok) {
-              throw new Error(ack.error);
-            }
-            for await (const event of runtimeSession.events()) {
+            },
+            spec: {
+              appendSystemPrompt: [
+                buildSkillsSystemPrompt(skills),
+                ...(executionPrompt ? [executionPrompt] : []),
+              ],
+              chatId: id,
+              historyMessages,
+              model: piModel,
+              systemPrompt: baseSystemPrompt,
+              tools: createSkillTools(skills),
+              workspaceDir,
+            },
+            userId: session.user.id,
+          });
+
+          const attached = run.attach();
+          if (!attached) {
+            // start 返回后 LiveRun 必在，仅防御性兜底
+            throw new Error("run detached before attach");
+          }
+          subscription = attached;
+          // 显式 start：客户端/DB/重放共用同一确定性消息 id（§2.5）
+          dataStream.write({ messageId: attached.messageId, type: "start" });
+
+          const detach = () => subscription?.close();
+          request.signal.addEventListener("abort", detach, { once: true });
+          try {
+            await pumpRunSubscription(dataStream, subscription, {
               // 任意内容块事件即视为模型活跃(含 tool 通道,与原事件桥一致)
-              if (event.type === "message.delta") {
-                markModelActive();
-              }
-              for (const chunk of runtimeEventToUIMessageChunks(event)) {
-                dataStream.write(chunk);
-              }
-              if (event.type === "run.settled") {
-                break;
-              }
-              // 与原实现等价:aborted 场景由 backend 归一为 run.settled
-              if (event.type === "run.failed") {
-                throw new Error(event.error);
-              }
-            }
+              onEvent: (event) => {
+                if (event.type === "message.delta") {
+                  markModelActive();
+                }
+              },
+            });
           } finally {
-            request.signal.removeEventListener("abort", abortAgent);
+            request.signal.removeEventListener("abort", detach);
           }
         } finally {
           stopWaitingStatus();
-          await runtimeSession
-            ?.close("request-finished")
-            .catch(() => undefined);
+          subscription?.close();
         }
 
         if (titlePromise) {
@@ -460,73 +454,10 @@ export async function POST(request: Request) {
         }
       },
       generateId: generateUUID,
-      onEnd: async ({ messages: finishedMessages }) => {
-        if (isToolApprovalFlow) {
-          await Promise.all(
-            finishedMessages.map(async (finishedMsg) => {
-              const existingMsg = uiMessages.find(
-                (m) => m.id === finishedMsg.id
-              );
-              if (existingMsg) {
-                await updateMessage({
-                  id: finishedMsg.id,
-                  parts: finishedMsg.parts,
-                });
-                return;
-              }
-
-              await saveMessages({
-                messages: [
-                  {
-                    attachments: [],
-                    chatId: id,
-                    createdAt: new Date(),
-                    id: finishedMsg.id,
-                    parts: finishedMsg.parts,
-                    role: finishedMsg.role,
-                  },
-                ],
-              });
-            })
-          );
-        } else if (finishedMessages.length > 0) {
-          await saveMessages({
-            messages: finishedMessages.map((currentMessage) => ({
-              attachments: [],
-              chatId: id,
-              createdAt: new Date(),
-              id: currentMessage.id,
-              parts: currentMessage.parts,
-              role: currentMessage.role,
-            })),
-          });
-        }
-      },
       onError: () => t("modelUnavailable"),
-      originalMessages: isToolApprovalFlow ? uiMessages : undefined,
     });
 
-    return createUIMessageStreamResponse({
-      async consumeSseStream({ stream: sseStream }) {
-        if (!process.env.REDIS_URL) {
-          return;
-        }
-        try {
-          const streamContext = getStreamContext();
-          if (streamContext) {
-            const streamId = generateId();
-            await createStreamId({ chatId: id, streamId });
-            await streamContext.createNewResumableStream(
-              streamId,
-              () => sseStream
-            );
-          }
-        } catch {
-          /* non-critical */
-        }
-      },
-      stream,
-    });
+    return createUIMessageStreamResponse({ stream });
   } catch (error) {
     const vercelId = request.headers.get("x-vercel-id");
 
@@ -558,6 +489,11 @@ export async function DELETE(request: Request) {
   if (chat?.userId !== session.user.id) {
     return new ChatbotError("forbidden:chat").toResponse();
   }
+
+  // 先停活跃 run 再删（best-effort）：避免删除后 run 继续向已删 chat 落消息
+  await getRunManager()
+    .abortByChat(id)
+    .catch(() => undefined);
 
   const deletedChat = await deleteChatById({ id });
 

@@ -73,6 +73,14 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
 
   const chatId = chatIdFromUrl ?? newChatIdRef.current;
 
+  // (runId, seq) 游标（§2.5）：wire transient part 写入、断线重连经 query
+  // 回传。只存内存——刷新后为空即全量重放，本就正确。
+  const runtimeCursorRef = useRef<{
+    chatId: string;
+    runId: string;
+    seq: number;
+  } | null>(null);
+
   const [currentModelId, setCurrentModelId] = useState(DEFAULT_CHAT_MODEL);
   const currentModelIdRef = useRef(currentModelId);
   useEffect(() => {
@@ -126,6 +134,14 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
         // 不进入全局 dataStream 数组。
         return;
       }
+      if (dataPart.type === "data-runtime-cursor") {
+        runtimeCursorRef.current = {
+          chatId,
+          runId: dataPart.data.runId,
+          seq: dataPart.data.seq,
+        };
+        return;
+      }
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
     onError: (error) => {
@@ -158,6 +174,21 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     transport: new DefaultChatTransport({
       api: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat`,
       fetch: fetchWithErrorHandlers,
+      // 断线重连（未刷新）：带上最近游标，服务端按 seq > cursor 续传；
+      // 无游标或 chatId 不符则走默认 URL（全量重放）
+      prepareReconnectToStreamRequest(request) {
+        const cursor = runtimeCursorRef.current;
+        if (!cursor || cursor.chatId !== request.id) {
+          return {};
+        }
+        const params = new URLSearchParams({
+          cursor: String(cursor.seq),
+          runId: cursor.runId,
+        });
+        return {
+          api: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat/${request.id}/stream?${params.toString()}`,
+        };
+      },
       prepareSendMessagesRequest(request) {
         const lastMessage = request.messages.at(-1);
         const isToolApprovalContinuation =
@@ -213,6 +244,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (prevChatIdRef.current !== chatId) {
       prevChatIdRef.current = chatId;
+      runtimeCursorRef.current = null;
       if (isNewChat) {
         setMessages([]);
       }

@@ -416,6 +416,11 @@ for (const harness of harnesses) {
         "message.completed:1",
         "run.settled",
       ]);
+      assert.equal(
+        (events.at(-1) as Extract<RuntimeEvent, { type: "run.settled" }>)
+          .reason,
+        "completed"
+      );
       assert.equal(concatDeltas(events, "reasoning"), "思考内容");
       assert.equal(concatDeltas(events, "text"), "你好，世界");
       assert.ok(
@@ -515,6 +520,10 @@ for (const harness of harnesses) {
       const events = await collect(session);
       const terminal = events.at(-1);
       assert.equal(terminal?.type, "run.settled");
+      assert.equal(
+        (terminal as Extract<RuntimeEvent, { type: "run.settled" }>).reason,
+        "aborted"
+      );
       assert.ok(
         !events.some((event) => event.type === "run.failed"),
         "abort 后不得出现 run.failed"

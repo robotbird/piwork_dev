@@ -35,7 +35,7 @@ function newRunId(): string {
  */
 export class InProcessBackend implements RuntimeBackend {
   async open(spec: RuntimeSpec): Promise<RuntimeSession> {
-    const queue = new AsyncEventQueue();
+    const queue = new AsyncEventQueue<RuntimeEvent>();
     // deliver_file 的交付闭包在此收口：onDelivered 与 pi 事件走同一队列保序
     // （onDelivered 在工具 execute 内、tool_execution_end 前同步触发）。
     // Step 4 将其替换为 Artifact Gateway 调用时只改本 backend。
@@ -68,7 +68,7 @@ export class InProcessBackend implements RuntimeBackend {
 }
 
 class InProcessRuntimeSession implements RuntimeSession {
-  private readonly queue: AsyncEventQueue;
+  private readonly queue: AsyncEventQueue<RuntimeEvent>;
   private readonly unsubscribe: () => void;
   private readonly agentSession: AgentSession;
   private readonly dispose: () => void;
@@ -84,7 +84,7 @@ class InProcessRuntimeSession implements RuntimeSession {
   constructor(
     dispose: () => void,
     agentSession: AgentSession,
-    queue: AsyncEventQueue
+    queue: AsyncEventQueue<RuntimeEvent>
   ) {
     this.dispose = dispose;
     this.agentSession = agentSession;
@@ -337,7 +337,11 @@ class InProcessRuntimeSession implements RuntimeSession {
       this.lastError = errorMessage;
       this.queue.push({ error: errorMessage, runId, type: "run.failed" });
     } else {
-      this.queue.push({ runId, type: "run.settled" });
+      this.queue.push(
+        this.aborted
+          ? { reason: "aborted", runId, type: "run.settled" }
+          : { reason: "completed", runId, type: "run.settled" }
+      );
     }
   }
 }

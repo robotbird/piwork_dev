@@ -15,7 +15,6 @@ import {
   type MemberRecord,
   member,
   message,
-  stream,
   suggestion,
   type User,
   user,
@@ -231,7 +230,6 @@ export async function deleteMemberAccount(memberId: string): Promise<void> {
       if (chatIds.length > 0) {
         await tx.delete(vote).where(inArray(vote.chatId, chatIds));
         await tx.delete(message).where(inArray(message.chatId, chatIds));
-        await tx.delete(stream).where(inArray(stream.chatId, chatIds));
       }
       await tx.delete(chat).where(eq(chat.userId, target.userId));
       await tx.delete(suggestion).where(eq(suggestion.userId, target.userId));

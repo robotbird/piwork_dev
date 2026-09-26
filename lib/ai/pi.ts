@@ -30,6 +30,17 @@ const EMPTY_USAGE = {
 
 const piModels = createModels();
 
+/**
+ * e2e 长流响应（tests/e2e/chat-resume.test.ts 复刻同一文本，逐字相等断言
+ * 恢复的完整性）：600 段 ≈ 4.8k 字符，@100tps ≈ 12s，足够 reload 后续流。
+ */
+function longStreamText(): string {
+  return `${Array.from(
+    { length: 600 },
+    (_, index) => `长流第${String(index + 1).padStart(3, "0")}段`
+  ).join("，")}，长流终章。`;
+}
+
 /** 测试环境的 faux 供应商对象；getActivePiProviders 经它喂给扩展会话 */
 let testFauxProvider: Provider | undefined;
 /** 测试环境的 faux 注册句柄；契约测试经它重排脚本化响应 */
@@ -71,18 +82,25 @@ if (isTestEnvironment) {
         return fauxAssistantMessage("Test Conversation");
       }
 
-      const prompt = context.messages
-        .filter((message) => message.role === "user")
-        .map((message) =>
-          typeof message.content === "string"
-            ? message.content
-            : message.content
-                .filter((part) => part.type === "text")
-                .map((part) => part.text)
-                .join(" ")
-        )
-        .join(" ")
-        .toLowerCase();
+      const prompt =
+        context.messages
+          .filter((message) => message.role === "user")
+          .map((message) =>
+            typeof message.content === "string"
+              ? message.content
+              : message.content
+                  .filter((part) => part.type === "text")
+                  .map((part) => part.text)
+                  .join(" ")
+          )
+          // 只按最后一条 user 消息分发：拼全史会让历史里的关键字
+          // （如 longstream）抢占后续提问（如 hello）的响应
+          .at(-1)
+          ?.toLowerCase() ?? "";
+
+      if (prompt.includes("longstream")) {
+        return fauxAssistantMessage(longStreamText());
+      }
 
       return fauxAssistantMessage(
         prompt.includes("hello") || prompt.includes("hi")

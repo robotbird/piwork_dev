@@ -61,6 +61,28 @@ export async function cleanupTestData(scope: TestCleanupScope): Promise<void> {
           ]})
         )`;
     }
+    // Chat.userId / Vote / Message 外键无级联：先删 chat 依赖链再删账号；
+    // Chat 级联清 AgentRun → RuntimeEvent/RuntimeLease（v2.0 Step 2）。
+    // 无 chat 的账号此三句均为 no-op。
+    await sql`DELETE FROM "Vote_v2" WHERE "chatId" IN (
+      SELECT "id" FROM "Chat" WHERE "userId" IN (
+        SELECT "id" FROM "User" WHERE "email" LIKE ANY(${[
+          ...scope.emailPatterns,
+        ]})
+      )
+    )`;
+    await sql`DELETE FROM "Message_v2" WHERE "chatId" IN (
+      SELECT "id" FROM "Chat" WHERE "userId" IN (
+        SELECT "id" FROM "User" WHERE "email" LIKE ANY(${[
+          ...scope.emailPatterns,
+        ]})
+      )
+    )`;
+    await sql`DELETE FROM "Chat" WHERE "userId" IN (
+      SELECT "id" FROM "User" WHERE "email" LIKE ANY(${[
+        ...scope.emailPatterns,
+      ]})
+    )`;
     await sql`DELETE FROM "User" WHERE "email" LIKE ANY(${[
       ...scope.emailPatterns,
     ]})`;

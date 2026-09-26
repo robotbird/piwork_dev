@@ -25,12 +25,10 @@ export function useAutoResume({
       return;
     }
 
-    const mostRecentMessage = initialMessages.at(-1);
-
-    if (mostRecentMessage?.role === "user") {
-      resumeStream();
-    }
-  }, [autoResume, initialMessages.at, resumeStream]);
+    // 无条件尝试 resume（v2.0 Step 2）：run 活跃 → 重放续流；已终态/无 run
+    // → 服务端 204 静默 no-op（顺带兜底终态落库与客户端加载的竞态）。
+    resumeStream();
+  }, [autoResume, resumeStream]);
 
   useEffect(() => {
     if (!dataStream) {

@@ -54,7 +54,7 @@ export class InMemoryRuntimeSession implements RuntimeSession {
   /** 测试断言用：收到的全部命令（按序） */
   readonly commands: RuntimeCommand[] = [];
   private readonly options: InMemoryBackendOptions;
-  private readonly queue = new AsyncEventQueue();
+  private readonly queue = new AsyncEventQueue<RuntimeEvent>();
   private readonly timers = new Set<ReturnType<typeof setTimeout>>();
   private closed = false;
   private eventsConsumed = false;
@@ -99,6 +99,7 @@ export class InMemoryRuntimeSession implements RuntimeSession {
             // abort 吸收未完成的 run：终态恒为 settled（对齐 InProcess 语义）
             this.runInFlight = false;
             this.queue.push({
+              reason: "aborted",
               runId: this.currentRunId,
               type: "run.settled",
             });
@@ -204,7 +205,7 @@ export class InMemoryRuntimeSession implements RuntimeSession {
       }
       this.runInFlight = false;
       if (!scriptedTerminal) {
-        this.queue.push({ runId, type: "run.settled" });
+        this.queue.push({ reason: "completed", runId, type: "run.settled" });
       }
     }, elapsed + 1);
     this.timers.add(tail);

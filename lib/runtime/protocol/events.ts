@@ -25,7 +25,11 @@ export type RuntimeArtifact = {
 
 export type RuntimeEvent =
   | { type: "run.started"; runId: string }
-  | { type: "run.settled"; runId: string }
+  /**
+   * run 正常收尾。reason 区分自然完成与用户中止（Step 2）：事件流是审计与
+   * 恢复的事实源，aborted 必须可从事件推导——进程内标记在重启后不可考。
+   */
+  | { type: "run.settled"; runId: string; reason?: "completed" | "aborted" }
   | { type: "run.failed"; runId: string; error: string }
   /** 仅 assistant 消息；序号从 1 起，驱动前端 text/reasoning part id */
   | { type: "message.started"; sequence: number }

@@ -27,7 +27,6 @@ import {
   type SkillRecord,
   type Suggestion,
   skill,
-  stream,
   suggestion,
   type User,
   user,
@@ -219,7 +218,6 @@ export async function deleteChatById({ id }: { id: string }) {
   try {
     await db.delete(vote).where(eq(vote.chatId, id));
     await db.delete(message).where(eq(message.chatId, id));
-    await db.delete(stream).where(eq(stream.chatId, id));
 
     const [chatsDeleted] = await db
       .delete(chat)
@@ -246,7 +244,6 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
 
     await db.delete(vote).where(inArray(vote.chatId, chatIds));
     await db.delete(message).where(inArray(message.chatId, chatIds));
-    await db.delete(stream).where(inArray(stream.chatId, chatIds));
 
     const deletedChats = await db
       .delete(chat)
@@ -366,6 +363,42 @@ export async function updateMessage({
 }) {
   try {
     return await db.update(message).set({ parts }).where(eq(message.id, id));
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", {
+      cause: error,
+    });
+  }
+}
+
+/**
+ * run 终态的 assistant 消息幂等落库（Step 2）：id 为确定性派生
+ * （sha256(runId) 或审批续跑的既有消息 id），冲突时仅更新 parts——
+ * 重复事件/重试不产生第二条消息。createdAt 仅首次插入生效。
+ */
+export async function upsertMessage({
+  chatId,
+  id,
+  parts,
+}: {
+  chatId: string;
+  id: string;
+  parts: DBMessage["parts"];
+}) {
+  try {
+    return await db
+      .insert(message)
+      .values({
+        attachments: [],
+        chatId,
+        createdAt: new Date(),
+        id,
+        parts,
+        role: "assistant",
+      })
+      .onConflictDoUpdate({
+        set: { parts },
+        target: message.id,
+      });
   } catch (error) {
     throw new ChatbotError("bad_request:database", {
       cause: error,
@@ -673,37 +706,6 @@ export async function getMessageCountByUserId({
       .execute();
 
     return stats?.count ?? 0;
-  } catch (error) {
-    throw new ChatbotError("bad_request:database", { cause: error });
-  }
-}
-
-export async function createStreamId({
-  streamId,
-  chatId,
-}: {
-  streamId: string;
-  chatId: string;
-}) {
-  try {
-    await db
-      .insert(stream)
-      .values({ chatId, createdAt: new Date(), id: streamId });
-  } catch (error) {
-    throw new ChatbotError("bad_request:database", { cause: error });
-  }
-}
-
-export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
-  try {
-    const streamIds = await db
-      .select({ id: stream.id })
-      .from(stream)
-      .where(eq(stream.chatId, chatId))
-      .orderBy(asc(stream.createdAt))
-      .execute();
-
-    return streamIds.map(({ id }) => id);
   } catch (error) {
     throw new ChatbotError("bad_request:database", { cause: error });
   }

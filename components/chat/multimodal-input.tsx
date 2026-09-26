@@ -192,6 +192,16 @@ function PureMultimodalInput({
     [setInput]
   );
 
+  // Stop（v2.0 Step 2）：本地 stop() 只断订阅，需另发 fire-and-forget 中止
+  // 端点真正停 run；失败不打断本地停止
+  const stopGeneration = useCallback(() => {
+    fetch(
+      `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat/${chatId}/stop`,
+      { method: "POST" }
+    ).catch(() => undefined);
+    stop();
+  }, [chatId, stop]);
+
   const handleSlashSelect = useCallback(
     (cmd: SlashCommand) => {
       setSlashOpen(false);
@@ -709,7 +719,7 @@ function PureMultimodalInput({
                   <MicIcon className="size-[19px]" />
                 </Button>
                 {isGenerating ? (
-                  <StopButton setMessages={setMessages} stop={stop} />
+                  <StopButton setMessages={setMessages} stop={stopGeneration} />
                 ) : (
                   <PromptInputSubmit
                     className={cn(
@@ -772,7 +782,7 @@ function PureMultimodalInput({
               <MicIcon className="size-[19px]" />
             </Button>
             {isGenerating ? (
-              <StopButton setMessages={setMessages} stop={stop} />
+              <StopButton setMessages={setMessages} stop={stopGeneration} />
             ) : (
               <PromptInputSubmit
                 className={cn(

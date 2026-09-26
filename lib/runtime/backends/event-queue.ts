@@ -1,17 +1,15 @@
-import type { RuntimeEvent } from "../protocol";
-
 /**
  * 单消费者异步事件队列：push 即缓冲，iterate 按序消费；end() 唤醒并终止迭代。
  * Step 1 仅保证 InProcess/InMemory backend 的事件不丢、不乱序；
- * 广播与按 cursor 重放属于 Step 2（AgentRun + 事件游标）。
+ * Step 2 起 RunManager 订阅者队列复用同一实现（元素为 LoggedRuntimeEvent）。
  */
-export class AsyncEventQueue {
-  private readonly buffer: RuntimeEvent[] = [];
+export class AsyncEventQueue<T> {
+  private readonly buffer: T[] = [];
   private readonly waiters: Array<() => void> = [];
   private ended = false;
 
   /** close 之后到达的事件直接丢弃（终态已发，语义完整） */
-  push(event: RuntimeEvent): void {
+  push(event: T): void {
     if (this.ended) {
       return;
     }
@@ -30,10 +28,10 @@ export class AsyncEventQueue {
     }
   }
 
-  async *iterate(): AsyncIterable<RuntimeEvent> {
+  async *iterate(): AsyncIterable<T> {
     for (;;) {
       while (this.buffer.length > 0) {
-        yield this.buffer.shift() as RuntimeEvent;
+        yield this.buffer.shift() as T;
       }
       if (this.ended) {
         return;
