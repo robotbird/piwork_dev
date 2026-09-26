@@ -1,7 +1,7 @@
 # pi.dev 插件体系与 piwork 网页安装可行性研究报告
 
-> 状态：调研报告 v1.6（2026-09-25；v1.1 附录 A 抽样与 SDK 接口实测；v1.2 附录 B pi-mcp-adapter 无头 spike 实录——全链路验证通过；v1.3 附录 C 升级评估；v1.4 升级已实施并通过全部回归，见 C.7 执行记录；v1.5 附录 D 第三方 pi-web 宿主调研；v1.6 附录 E 复用性 spike C——官方 pi 插件与 piwork 自有工具/模型层同会话共存实证 + 开放问题 #2 关闭）
-> 调研对象：pi 官方文档 https://pi.dev/docs/latest（latest，2026-09-25 抓取）+ piwork 当前工作区代码（main @ 2c96a59）
+> 状态：调研报告 v1.7（2026-09-26；v1.1 附录 A 抽样与 SDK 接口实测；v1.2 附录 B pi-mcp-adapter 无头 spike 实录——全链路验证通过；v1.3 附录 C 升级评估；v1.4 升级已实施并通过全部回归，见 C.7 执行记录；v1.5 附录 D 第三方 pi-web 宿主调研；v1.6 附录 E 复用性 spike C——官方 pi 插件与 piwork 自有工具/模型层同会话共存实证 + 开放问题 #2 关闭；v1.7 附录 F pi RPC 模式深度调研——路线 B 评估刷新（官方 RpcClient 就位；架构决策：兼容双执行后端、不全量升级 RPC，见 F.5；Phase C 落地形态具体化；新增开放问题 #6））
+> 调研对象：pi 官方文档 https://pi.dev/docs/latest（latest，2026-09-25 抓取；rpc / rpc-commands 两页 2026-09-26 补抓，见附录 F）+ piwork 当前工作区代码（main @ 2c96a59；附录 F 对照时为 main @ 5b308f2，Phase B 已落地）
 > 核心问题：**pi 的插件能否在 piwork 通过网页进行安装？安装后能否用于 piwork？**
 
 ---
@@ -22,7 +22,7 @@
 
 ## 1. 调研范围与方法
 
-- 文档侧：逐页抓取 pi.dev/docs/latest 的 quickstart、cli、configuration、sdk、extensions、packages、custom-provider 共 7 页，以及 pi.dev/packages 画廊页。
+- 文档侧：逐页抓取 pi.dev/docs/latest 的 quickstart、cli、configuration、sdk、extensions、packages、custom-provider 共 7 页，以及 pi.dev/packages 画廊页；v1.7 补抓 rpc、rpc-commands 两页（附录 F）。
 - 代码侧：交叉验证 piwork 的依赖树（package.json、node_modules）、聊天链路（`app/(chat)/api/chat/route.ts`、`lib/ai/`）、模型插件链路（`lib/model-plugins/`、`packages/model-provider-sdk`、管理 API）。
 - npm 侧：验证 `@earendil-works/pi-coding-agent` 的存在性与版本对齐。
 - 所有代码结论附 `文件:行号`，文档结论附来源页。
@@ -184,10 +184,12 @@ pi 的定制能力是一个"从轻到重"的阶梯（quickstart「Choose how to 
 | 路线 | 做法 | 保真度 | 工程量/风险 |
 | --- | --- | --- | --- |
 | **A. 升级到 pi-coding-agent SDK** | 用 `createAgentSession()` + 自定义 `ResourceLoader` 替换/包裹 `app/(chat)/api/chat/route.ts` 里的自建 `new Agent()` loop | 最高：ExtensionAPI、事件、工具、inline extensions 全部官方语义 | 重构聊天主链路；需把 piwork 现有 customTools/skills/deliver-file 映射进 session 工厂；版本对齐已验证（0.83.0 存在） |
-| **B. pi RPC sidecar** | 每会话/每租户 spawn `pi --mode rpc` 子进程，`PI_CODING_AGENT_DIR` 指向受管目录；网页安装=在该目录执行 `pi install` | 高：连 jiti/TUI 之外的官方行为都原样保留 | 进程管理、生命周期、流式转发成本高；Web 端转 RPC 事件桥接量大 |
+| **B. pi RPC sidecar** | 每会话/每租户 spawn `pi --mode rpc --no-session` 子进程（0.87.1 已随包提供官方 `RpcClient`），`PI_CODING_AGENT_DIR` 指向受管目录；安装仍走服务端 `DefaultPackageManager.installAndPersist`（附录 A.2） | 高：连 jiti/TUI 之外的官方行为都原样保留；且 steer/follow_up 队列、会话树（fork/clone）、`get_session_stats` 是 SDK 内嵌形态之外的**协议级独有能力** | 进程管理/生命周期成本仍在（官方 client 不管池化/健康检查）；但事件桥接成本较 v1.6 评估**下修**（分帧/关联/订阅时序已由官方封装）；与 serverless 60s 窗口冲突，需长驻容器。深度评估见附录 F |
 | **C. 自实现兼容层** | 在现有 pi-agent-core loop 上实现 `ExtensionAPI` 子集（`registerTool`/`on` 事件/`registerProvider`），加载体外 npm 安装的扩展 | 中：只能覆盖子集，官方 API 演进要持续追赶 | 不动主链路，短期 cheapest；长期是自造轮子债 |
 
 **建议：A 为目标态，C 不做或只做一次性验证，B 视隔离需求作为 A 的补充**（对高权限扩展用 sidecar 隔离，对受信扩展用 SDK 内嵌）。
+
+**路线 B 评估刷新（v1.7，附录 F）**：pi 官方已发布 RPC 模式正式文档，且随包提供官方 TS 客户端 `RpcClient`（0.87.1 实测导出 `./rpc-entry`、`./client` 子路径与 `promptAndWait`/`waitForIdle`/`collectEvents` 等封装）。v1.6 对 B 的"Web 端转 RPC 事件桥接量大"评价**下修**——分帧、id 关联、订阅时序、生命周期已由官方 client 承担，piwork 现有事件桥（`app/(chat)/api/chat/route.ts` 的事件映射）逻辑形状不变、仅换数据源。RPC 的价值重心经逐点评估确认为两轴：**进程级隔离**（高权限扩展与执行工具的沙箱边界，Phase C 主战场，可同时替代自研 `RemoteSandboxEnv`）与**长会话语义**（真实 session 状态、fork/clone/steer/follow_up/成本统计——路线 A 因每请求重建会话而结构性给不了，需演进为守护进程形态）。"A 为目标态、B 为补充"的裁决维持不变；落地形态具体化见附录 F.5。
 
 ### 4.3 兼容性与安全风险清单
 
@@ -218,20 +220,21 @@ pi 的定制能力是一个"从轻到重"的阶梯（quickstart「Choose how to 
 
 **Phase C —— 安全治理与规模化**
 - 把 static-scan/worker 隔离/网络白名单扩展到 pi 扩展执行；定义 Web 宿主下的能力降级清单（文件系统视图、凭据注入、`ctx.ui` 缺席时的行为）。
-- 高权限扩展走 sidecar（路线 B）隔离；评估多租户 agent-dir 策略。
-- 决策 `piwork-llm-*` 与 pi provider extension 的收敛方向。
+- 高权限扩展/执行工具走 sidecar（路线 B）隔离——v1.7 决策与形态已具体化（附录 F.5）：**兼容 RPC、不全量升级**（in-process 路线 A 保持默认，sidecar 为 per-chat 可选执行后端）；先做第零步"执行后端接口收窄"（纯重构），再落 `SidecarAgentRunner`（官方 `RpcClient` spawn `pi --mode rpc --no-session`，受限 env、按隔离域的 `PI_CODING_AGENT_DIR`、cwd=chat workspace）双路径灰度；受限容器形态可同时替代 `docs/security/skill-execution-security-plan.md` 规划的自研 `RemoteSandboxEnv`。多租户 agent-dir 策略随 sidecar 按隔离域 spawn 天然落地。
+- 决策 `piwork-llm-*` 与 pi provider extension 的收敛方向（RPC sidecar 与模型插件规划中的 RemotePluginHost 是同一隔离思路在两个插件体系上的应用，进程管理/健康检查/凭据注入基建可共用，见附录 F.3-F）。
 
 **验证成本估计**：Phase A 约为一次中型 feature；Phase B 是一次架构级改造（聊天主链路重构 + 回归）；Phase C 是持续工程。
 
 ---
 
-## 6. 开放问题（2026-09-25 附录 A/E 验证后更新，原列 5 项已全部关闭）
+## 6. 开放问题（2026-09-25 附录 A/E 验证后更新，原列 5 项已全部关闭；2026-09-26 v1.7 新增 #6）
 
 1. ~~`pi install npm:` 在 0.83.0 的确切落盘布局~~ **已验证**：用户级 `<agentDir>/npm/node_modules/<name>`、项目级 `<cwd>/.pi/npm/node_modules/<name>`、单次试用走临时目录；`agentDir` 可整体自定义 → piwork 用受管目录（如 `.piwork/` 下）即得自包含安装根。见附录 A.2。
 2. ~~pi skill 与 piwork skill 的目录/manifest 字段级差异~~ **已验证兼容**（2026-09-25，附录 E.3）：piwork skill 与 pi skill 本就共用同一个加载器 `loadSkills`（pi-agent-core），格式同源是构造性事实；画廊头部 skills 包 bigpowers（81 个 SKILL.md）实测全部通过 piwork 约束——name 全部匹配 `^[a-z0-9-]+$`、无保留名冲突、frontmatter 同为 `name`+`description`（pi 特有的 `model`/`effort` 字段被加载器安全忽略），description 长度在 piwork DB 1024 上限内。Phase A 的增量工作确认为"从 pi 包提取 skills 资源进现有流水线"，无格式适配层。
 3. ~~`createAgentSession` 与现有工具的兼容性~~ **已验证**：`customTools: ToolDefinition[]` / `resourceLoader` / `sessionManager`（支持 `inMemory()`）/ `settingsManager` / `agentDir` / `model` 全部可注入；session 级无 `NodeExecutionEnv` 参数（SDK bash 工厂收 `env?: NodeJS.ProcessEnv`），piwork 现有工具需薄适配到 `ToolDefinition`。见附录 A.2。
 4. ~~自定义 `ResourceLoader` 的 interface 形状~~ **已验证**：接口仅 7 个 getter + `extendResources` + `reload`；且 `DefaultResourceLoaderOptions` 自带 `additionalExtensionPaths`/`additionalSkillPaths`/`extensionFactories`（inline 工厂）与每类资源的 `*Override` 钩子——**大概率无需自写 ResourceLoader 类**。见附录 A.2。
 5. ~~无 TUI 宿主下的实际行为面~~ **已抽样验证**：10 个头部包中约 4 个无头可用、3 个部分可用（工具可用/对话框与命令不可用）、3 个 TUI 重度不可用；头部作者普遍以 `hasUI`/`ctx.mode` 守卫。见附录 A.1。
+6. **sidecar（路线 B）的运行级验证未做**：附录 F 为文档研读 + node_modules 静态验证（`RpcClient` 导出面/方法面已实测枚举），但 `RpcClient` spawn→事件桥→优雅停机的运行级 spike 未做——Phase C 启动时按附录 B.4 方法补（faux 模型驱动即可，零 API key）。
 
 ## 附录 A：第 1 步验证结果（2026-09-25 实测）
 
@@ -533,10 +536,124 @@ mock OpenAI 服务器日志 3 次请求（tool_call → tool_call → 文本）=
 - **Phase A 无格式风险**：npm 目录源可用、skills 无格式适配层，剩余是纯流水线工作（提取/入库/管理 UI）。
 - `/management/tools` 占位页（`app/(management)/management/tools/page.tsx`）+ 已就绪的 section 定义是 Phase A/B 的天然 UI 落点。
 
+## 附录 F：pi RPC 模式深度调研——路线 B 评估刷新（2026-09-26）
+
+> 目的：官方新发布 RPC 模式文档（https://pi.dev/docs/latest/rpc 与 /rpc-commands），对 §4.2 路线 B 的 v1.6 评估做逐点刷新。方法：文档研读 + 本仓库 node_modules 实测（`@earendil-works/pi-coding-agent@0.87.1` 的 exports map 与 `RpcClient` 原型方法逐一枚举，`pi --help` 核对 `--mode` 取值）+ 对照 Phase B 落地后的 piwork 代码（main @ 5b308f2）。**未做运行级 spike**——sidecar 实测留待 Phase C 启动时按附录 B.4 方法补（faux 模型驱动即可，零 API key），已记为开放问题 #6。
+
+### F.1 协议事实（官方文档 + 0.87.1 本地验证）
+
+**启动与形态**：`pi --mode rpc --no-session` 把 pi 变成**长驻子进程**，stdin/stdout 上跑严格 JSONL 协议；标准 CLI flag（`--provider`/`--model`/`--name`/`--session-dir` 等）全部适用（`pi --help` 为准）；唯一限制是 `@file` 形式的 prompt 参数被拒——走 `prompt` 命令发。官方对宿主形态的分工：Node/Bun 进程内用 SDK（= 路线 A）；TS 子进程用官方 `RpcClient`；其他语言/IDE/自定义 UI 手写 JSONL。
+
+**四类记录**：
+
+| 方向 | 记录 | 用途 |
+| --- | --- | --- |
+| stdin | Command | prompt / 查询状态 / 改配置 / 会话管理 |
+| stdout | `response` | 每条命令的成功/失败与数据 |
+| stdout | 会话事件 | run、message、tool、queue、compaction、retry 活动 |
+| 双向 | Extension UI 记录 | 扩展交互转发 |
+
+**关键语义**（与 piwork 现有代码形态最相关的几条）：
+
+1. **`prompt` 的 response ≠ 完成**：response 只表示"已接受/排队/已处理"，`data.disposition` 中 `"handled"` 表示没起 run（此时不该等 `agent_settled`）；`agent_end` 只是一个低层 run 的结束，retry/compaction/steering/follow-up 都可能让它继续动——**"pi 不会再自己动了"的判据是 `agent_settled`**。发 prompt 前必须先订阅事件（官方 `promptAndWait()` 封装了该时序）。
+2. **消息队列是一等公民**：`steer`（运行中插入、工具调用间隙/下次 LLM 调用前送达）、`follow_up`（run 结束后送达）、`clear_queue` + `abort`（Esc 语义，官方明示先 clear 再 abort）、`set_steering_mode`/`set_follow_up_mode`（`all` / `one-at-a-time`）。
+3. **会话即持久树**：`get_entries`（append 序 + `since` 持久游标，**含压缩前历史与废弃分支**）、`get_tree`（数组形态，多根/孤儿可存在）、`fork`/`clone`/`switch_session`（均可被扩展 `session_before_fork`/`session_before_switch` 处理器取消）、`get_fork_messages`（entryId+text）、`get_session_stats`（token/成本/上下文窗口占用）、`export_html`。
+4. **bash 也是命令**：`bash` 流式回 `bash_execution_update`（重复发起命令的 id），输出默认进模型上下文（下一个 prompt 时），`excludeFromContext` 可排除；`abort_bash` 可停。
+5. **生命周期**：关闭子进程 stdin = 优雅停机（pi 在当前命令或 `agent_settled` 后退出）；客户端必须**持续读 stdout**（不读的客户端会靠反压卡死 pi）；stderr 只作诊断**永不解析**。
+6. **分帧纪律**：严格按 LF 分帧；Node `readline` **不安全**（它还会按 U+2028/U+2029 切，而这两个字符可出现在 JSON 字符串内）；malformed JSON 的 response 没有请求 id；命令靠字符串 `id` 关联而非顺序（处理是异步的）。
+
+**0.87.1 本地实测**（本仓库 node_modules，2026-09-26）：
+
+- exports map：`.`、`./rpc-entry`（dist/bundle/rpc-entry.js）、`./client`、`./experimental/plugin`；顶层导出含 `RpcClient`、`runRpcMode`（共 152 个导出）。
+- `RpcClient.prototype` 方法面（逐一枚举）：生命周期 `start`/`stop`/`onEvent`/`getStderr`；命令一等方法 `prompt`/`steer`/`followUp`/`abort`/`clearQueue`/`newSession`/`getState`/`getMessages`/`setModel`/`cycleModel`/`getAvailableModels`/`setThinkingLevel`/`cycleThinkingLevel`/`getAvailableThinkingLevels`/`setSteeringMode`/`setFollowUpMode`/`compact`/`setAutoCompaction`/`setAutoRetry`/`abortRetry`/`bash`/`abortBash`/`getSessionStats`/`exportHtml`/`switchSession`/`fork`/`clone`/`getForkMessages`/`getEntries`/`getTree`/`getLastAssistantText`/`setSessionName`/`getCommands`；高级辅助 `promptAndWait`/`waitForIdle`/`collectEvents`/`handleLine`。
+- `pi --help` 确认 `--mode <mode>`：text（默认）/ json / rpc。
+
+**结论**：v1.6 评估中"Web 端转 RPC 事件桥接量大"的最脏部分（分帧、id 关联、订阅时序、退场）已由官方封装；piwork 若走 sidecar，自写层只剩"RPC 事件 → AI SDK data parts"的映射——而这正是 `app/(chat)/api/chat/route.ts:432-514` 事件桥已在做的事，逻辑形状不变、换数据源而已。
+
+### F.2 对照 piwork 现状（Phase B 落地后）的痛点—能力映射
+
+| piwork 现状痛点 | 证据 | RPC 模式下的形态 |
+| --- | --- | --- |
+| 历史每请求 lossy 重建（纯文本 FileEntry） | `lib/ai/agent-session.ts:54-76`（`buildSessionEntries`）+ `SessionManager.inMemory` | pi 自管 session 文件（`--session-dir` 按 chat 分目录），压缩历史/分支/工具结果全保真；`get_entries` 持久游标 |
+| serverless `maxDuration=60`、retry 被迫压到 55s | `app/(chat)/api/chat/route.ts:63`、`lib/pi-packages/manager.ts`（`ensureManagedAgentSettings`） | 长驻进程不受函数窗口约束 |
+| 无分支/从某条消息重试、无真实 token/成本统计 | 路线 A 每请求重建会话，结构性给不了 | `fork`/`clone`/`get_fork_messages`/`get_tree`/`get_session_stats` 直接变产品功能 |
+| agent 运行中用户再发消息 = 新请求与旧 run 打架 | 每请求一个 AgentSession、流结束即 dispose | `steer`/`follow_up`/`clear_queue` 是协议级语义 |
+| 扩展/执行工具以 web 进程全权限运行 | `lib/ai/agent-session.ts:85-167`（in-process 扩展运行时） | 信任边界画在进程/容器上（F.3-A） |
+| `.piwork/pi-agent` 全租户共享，包的全局爆炸半径 | `lib/pi-packages/manager.ts:40` | sidecar 按隔离域 spawn + 每域 `PI_CODING_AGENT_DIR` |
+| 插件凭据在 web 进程解密后经 CredentialStore 注入 | `lib/model-plugins/pi-credential-store.ts` | 解密可移到 spawn 时刻注入子进程 env，明文不进 web 进程内存 |
+
+### F.3 六个价值点评估
+
+**A. 高权限扩展的进程级隔离（Phase C 主战场，最确定的价值）**：§3.3 已指出的核心矛盾——pi 扩展 = 全信任 in-process 代码，而它现在活在持有 `POSTGRES_URL`/`AUTH_SECRET`/加密密钥的 Next.js 进程里。RPC sidecar 把信任边界画在进程（乃至容器）上：web 进程只交换 JSON，扩展、MCP server、bash/read/write/edit 全部圈在受限子进程里。这是 §5 Phase C 预留槽位的直接答案。
+
+**B. 执行沙箱：可能让自研 `RemoteSandboxEnv` 不必做**：`docs/security/skill-execution-security-plan.md`（v0.3，未实施）规划实现 pi-agent-core `ExecutionEnv` 的 `RemoteSandboxEnv`。但 pi RPC sidecar 本身就是"进程/容器级 ExecutionEnv"：agent 内置工具与 skill 脚本天然跑在 sidecar 里，`bash` 命令还流式回传输出。把 sidecar 跑进受限容器（网络出口、CPU/mem、只读根 + workspace 卷）= 用部署手段拿到自研沙箱想达到的效果，且获得 Node 内沙箱很难做对的网络/文件系统隔离。现有 `PIWORK_DISABLE_EXECUTION_TOOLS` 开关可演化为路由开关：关 = in-process 只读；开 = 走 sidecar。
+
+**C. 长会话语义（架构演进轴，产品驱动再启动）**：F.2 表中前三行的根治都指向同一形态转变——pi 从"每请求一个对象"变成"每 chat/每租户一个守护进程"，web 层退化为薄代理。代价诚实列出：水平扩展需会话亲和或 sidecar 注册表（现有 Redis resumable stream 不解决进程归属）；Postgres 退为列表/搜索镜像，上下文 source of truth 移到 pi session 文件；部署离开 serverless。**建议等产品真要 fork/steer/统计再启动，不为技术完备性提前付。**
+
+**D. 多租户 agentDir 隔离**：sidecar 天然按隔离域 spawn（`PI_CODING_AGENT_DIR` → 每租户目录），配合已落地的 `DefaultPackageManager.installAndPersist` 安装管线（附录 A.2/D.3），"包装在租户目录、只在租户 sidecar 里生效"即得——§4.3 风险 #4 的多租户注册表问题随之收敛。
+
+**E. 凭据边界顺带改善**：现在模型插件凭据在 web 进程解密（`pi-credential-store.ts`）喂给 `ModelRuntime`。sidecar 形态下解密移到 spawn 时刻、以子进程 env（`<PROVIDER_ID>_API_KEY` 命名约定，附录 E.4 实测有效）注入——明文 key 不再出现在持多租户数据访问权的 web 进程内存。
+
+**F. 与模型插件 RemotePluginHost 的关系：互补不重叠**：`docs/model-provider-plugin-architecture.md` 规划的 RemotePluginHost 隔离的是 provider 注册；RPC sidecar 隔离的是扩展+执行工具。同一安全思路在两个插件体系上的应用，进程管理/健康检查/凭据注入基建可共用，但一个吞不掉另一个。
+
+### F.4 成本与"RPC 解决不了"清单
+
+- **语言无关性对 piwork 无意义**（就是 Node，SDK 已在用）；RPC 的增益是隔离与生命周期，不是协议本身。
+- **进程管理是真实成本**：spawn 时机（按 chat / 租户池）、健康检查、崩溃恢复、优雅停机（stdin close → `agent_settled`）、并发上限——官方 client 只管单连接，**不管池化**。
+- **扩展 UI 记录要 web 端接住**：现走 `bindExtensions({ mode: "print" })` 无头形态基本不碰；sidecar 后若有扩展发 UI 请求，需在 web UI 渲染并回 `extension_ui_response`（参考 pi-web 的对话框内联桥接，附录 D.2）。
+- **与 serverless 部署冲突**：sidecar 要求长驻容器，`maxDuration=60` 函数模型装不下——部署层决策，不是代码层。
+- **协议纪律清单**（用官方 `RpcClient` 基本都能躲开）：等 `agent_settled` 而非 `agent_end`；先订阅再 prompt；stdout 持续读；stdin 关闭即停机；stderr 永不解析；别用 `readline` 分帧。
+
+### F.5 架构决策与落地形态（Phase C 具体化）
+
+**决策（2026-09-26）：兼容 RPC——聊天主链路引入"可插拔双执行后端"，不做全量升级到 RPC。** in-process 路线 A 保持默认路径，RPC sidecar 作为 per-chat 可选执行后端按需路由；未来若演进为 daemon 形态（F.3-C），届时是"演进"而非"重写"。
+
+**为什么不是全量升级**——那意味着每个 chat 都付 sidecar 的全部成本，换不到对等收益：
+
+| 代价 | 说明 |
+| --- | --- |
+| 部署形态被绑架 | 长驻容器替代 serverless，`maxDuration=60` 函数模型出局——为少数需要隔离的 chat 让全站买单 |
+| 进程管理变成热路径负担 | per-request 构造/dispose 一个进程内对象 → spawn/健康检查/崩溃恢复/池化全成为每请求问题（官方 client 不管池化，F.4） |
+| Phase B 刚落地的资产作废 | `createPiworkAgentSession` 的 loader/凭据/工具注入管线刚验证落地（附录 E、commit 9cec473），全量切换 = 重写 + 再回归一遍 |
+| 工具注入方式要重造 | `customTools`（skill 工具/`deliver_file`）与 inline provider factory 是进程内直传；sidecar 无此入口，需改造为装进 managed agentDir 的 piwork-bridge 扩展，`deliver_file` 这类回写 DB 的工具还需 sidecar→web 回调通道 |
+
+RPC 的收益（隔离、长会话）只有部分 chat/场景需要——为不需要的场景付全量成本，方向反了。反过来"维持现状不管 RPC"也不对：Phase C 隔离需求真实且已进路线图，长会话能力可能是未来产品方向，现在把缝留好，将来切换成本最低。
+
+**"兼容"的落点（第零步，先于任何 sidecar 代码）**：把聊天 route 对执行后端的依赖收窄到一个接口后面，事件桥消费"规范化事件流"而非 `AgentSession` 本体：
+
+```
+chat route
+   │ 统一执行后端接口（prompt / abort / 事件流）
+   ├── InProcessBackend  = createPiworkAgentSession（现状，默认）
+   └── SidecarBackend    = RpcClient + pi --mode rpc（Phase C，按需路由）
+```
+
+- **共享资产不动**：managed agentDir、`.pi/workspace/<chatId>`、`.mcp.json` 同步、skills、凭据——两条路径同一套。
+- **差异点收敛到四处**：会话构造（进程内 vs spawn）、abort（`request.signal` vs `abort` + `waitForIdle`）、工具注入（`customTools` vs bridge 扩展）、生命周期（per-request dispose vs 长驻 + idle 回收）。
+- **成本依据**：事件桥（`app/(chat)/api/chat/route.ts:432-514`）订阅的 `tool_execution_start/end`、`message_update` 在 RPC 事件流里同名同义（F.1、附录 E.4）——接口两侧天然对得上，第零步是收窄依赖，不是新写桥。
+- **路由开关**：启用执行工具或含高权限扩展的 chat 走 sidecar，其余走 in-process——`PIWORK_DISABLE_EXECUTION_TOOLS` 演化为路由开关（关 = in-process 只读 / 开 = sidecar）。
+
+**落地步骤**：
+
+0. **第零步（依赖收窄，纯重构）**：执行后端接口抽象——route.ts 对 `AgentSession` 的直接依赖收进 `InProcessBackend`，事件桥改消费规范化事件流；无行为变化，可独立回归。
+1. **第一步（隔离 MVP）**：`SidecarAgentRunner`——官方 `RpcClient` spawn `pi --mode rpc --no-session`（或 `node ./rpc-entry`），受限 env、按隔离域的 `PI_CODING_AGENT_DIR`（受控副本）、cwd=chat workspace；piwork 专属工具（skill 工具/`deliver_file`）以 bridge 扩展形态装进受控 agentDir。双路径并存、风险可控地灰度。
+2. **第二步**：sidecar 进受限容器（网络出口、CPU/mem、只读根 + workspace 卷）；同时评估废弃自研 `RemoteSandboxEnv` 计划。
+3. **第三步（可选，产品驱动）**：长驻会话 daemon + 薄 web 代理（fork/steer/统计，`--session-dir` 按 chat 分目录），代价清单见 F.3-C。
+
+**翻转条件（何时答案变成"升级"）**：唯一触发器是产品决定要长会话语义——fork/分支重试、运行中插话（steer）、真实 token/成本统计、会话历史保真（F.2 前三行）。届时架构演进为 daemon + 薄 web 代理，in-process 路径自然萎缩；且"兼容"正是那次升级的前置——web 层接口、事件桥、共享资产全部复用。**技术完备性本身不构成触发理由。**
+
+### F.6 对 v1.6 评估的修正记录
+
+| v1.6 评估 | v1.7 修正 |
+| --- | --- |
+| 路线 B"Web 端转 RPC 事件桥接量大" | **下修**：官方 `RpcClient`（0.87.1 已附）封装了分帧/关联/订阅时序/生命周期；piwork 自写层只剩事件 → AI SDK parts 映射，且现有事件桥形状不变 |
+| 路线 B"进程管理、生命周期成本高" | **维持**：真实成本，且官方 client 不管池化/健康检查 |
+| "B 视隔离需求作为 A 的补充" | **裁决维持**；价值重心确认为进程隔离（Phase C）与长会话语义（可选演进）两轴，Phase C 落地形态具体化为 F.5 |
+
 
 ---
 
-- pi 文档：[quickstart](https://pi.dev/docs/latest/quickstart) · [extensions](https://pi.dev/docs/latest/extensions) · [packages](https://pi.dev/docs/latest/packages) · [custom-provider](https://pi.dev/docs/latest/custom-provider) · [sdk](https://pi.dev/docs/latest/sdk) · [configuration](https://pi.dev/docs/latest/configuration) · [cli](https://pi.dev/docs/latest/cli)
+- pi 文档：[quickstart](https://pi.dev/docs/latest/quickstart) · [extensions](https://pi.dev/docs/latest/extensions) · [packages](https://pi.dev/docs/latest/packages) · [custom-provider](https://pi.dev/docs/latest/custom-provider) · [sdk](https://pi.dev/docs/latest/sdk) · [configuration](https://pi.dev/docs/latest/configuration) · [cli](https://pi.dev/docs/latest/cli) · [rpc](https://pi.dev/docs/latest/rpc) · [rpc-commands](https://pi.dev/docs/latest/rpc-commands)（后两页 v1.7 补研，附录 F）
 - pi 画廊：https://pi.dev/packages
 - piwork 代码：`package.json`、`app/(chat)/api/chat/route.ts`、`lib/ai/pi.ts`、`lib/ai/agent-tools.ts`、`packages/model-provider-sdk/src/index.ts`、`lib/model-plugins/*`、`app/(management)/api/management/model-plugins/route.ts`、`docs/model-provider-plugin-architecture.md`
 - npm：`@earendil-works/pi-coding-agent`（latest 0.87.1 / 0.83.0 存在）
