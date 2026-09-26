@@ -1,20 +1,8 @@
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import {
-  type AgentHarnessTool,
-  type AgentHarnessToolInvocation,
-  type AgentTool,
-  BACKGROUND_CONTEXT,
-  createBashTool,
-  createEditTool,
-  createReadTool,
-  createWriteTool,
-  type ExecutionToolContext,
-  uuidv7,
-  withAbortSignal,
-} from "@earendil-works/pi-agent-core";
-import { NodeExecutionEnv } from "@earendil-works/pi-agent-core/node";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { Type } from "@earendil-works/pi-ai";
+import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { ChatMessage, DeliveredFileData } from "@/lib/types";
 import { getSupportedAttachmentType } from "./attachment-types";
 import { downloadAttachment } from "./attachments";
@@ -58,56 +46,6 @@ export function isInsideWorkspace(workspaceDir: string, target: string) {
     !rel.startsWith(`..${path.sep}`) &&
     !path.isAbsolute(rel)
   );
-}
-
-// pi-agent-core 的执行类工具是 AgentHarnessTool（execute 收 toolContext、
-// invocation 与 chord context 三类宿主参数），而底层 Agent 类按 AgentTool 的
-// 4 参签名调用；这里闭包注入做适配，否则工具执行时会在 context.env 上崩溃。
-// pi-agent-core 0.87 起 harness execute 不再收 signal——取消信号改经 chord
-// context 传递（NodeExecutionEnv 读 context.abortSignal），用 withAbortSignal
-// 把 Agent 侧的 signal 桥进去；invocation 的 memo 仅供官方 harness 的 durable
-// replay，内置工具不读取，给 no-op 实现即可。
-const NOOP_INVOCATION: AgentHarnessToolInvocation = {
-  getMemo: async () => undefined,
-  invocationId: uuidv7(),
-  operationId: uuidv7(),
-  setMemo: async () => undefined,
-  turnId: uuidv7(),
-};
-
-function bindToolContext(
-  tool: AgentHarnessTool<ExecutionToolContext>,
-  context: ExecutionToolContext
-): AgentTool {
-  return {
-    ...tool,
-    execute: (toolCallId, params, signal, onUpdate) =>
-      tool.execute(
-        toolCallId,
-        params,
-        onUpdate ?? (() => undefined),
-        context,
-        NOOP_INVOCATION,
-        signal
-          ? withAbortSignal(signal, BACKGROUND_CONTEXT)
-          : BACKGROUND_CONTEXT
-      ),
-  };
-}
-
-export function createExecutionTools(workspaceDir: string) {
-  const env = new NodeExecutionEnv({ cwd: workspaceDir });
-  const tools = [
-    bindToolContext(createBashTool(), { env }),
-    bindToolContext(createReadTool(), { env }),
-    bindToolContext(createWriteTool(), { env }),
-    bindToolContext(createEditTool(), { env }),
-  ];
-  return {
-    cleanup: () => env.cleanup(BACKGROUND_CONTEXT),
-    env,
-    tools,
-  };
 }
 
 export function createDeliverFileTool({
@@ -174,12 +112,34 @@ export function createDeliverFileTool({
   };
 }
 
+/**
+ * piwork 侧 AgentTool（4 参 execute）适配为 createAgentSession customTools
+ * 需要的 ToolDefinition（5 参，第 5 参 ExtensionContext 在无宿主依赖的
+ * 工具里用不到，丢弃即可）。promptSnippet 必须合成：缺省时 customTools
+ * 不进系统提示的 Available tools 段。
+ */
+export function agentToolToToolDefinition(tool: AgentTool): ToolDefinition {
+  return {
+    ...tool,
+    execute: (toolCallId, params, signal, onUpdate, _ctx) =>
+      tool.execute(toolCallId, params, signal, onUpdate),
+    promptSnippet: promptSnippetFromDescription(tool.description),
+  };
+}
+
+function promptSnippetFromDescription(description: string) {
+  const firstSentence = description.match(/^[^。.!?\n]+[。.]?/)?.[0] ?? "";
+  return firstSentence.trim().slice(0, 120) || description.slice(0, 120);
+}
+
 const TOOL_LABELS: Record<string, string> = {
   bash: "执行命令",
   create_skill: "创建技能",
   deliver_file: "交付文件",
   edit: "编辑文件",
   load_skill: "加载技能",
+  mcp: "MCP 调用",
+  mcpScript: "MCP 脚本",
   read: "读取文件",
   write: "写入文件",
 };
@@ -190,7 +150,12 @@ export function formatToolStatus(
   args?: unknown,
   isError = false
 ) {
-  const label = TOOL_LABELS[toolName] ?? toolName;
+  // mcp 命名空间代理形如 mcp__<server>__<tool>，展示成 <server>/<tool>
+  let label = TOOL_LABELS[toolName] ?? toolName;
+  if (toolName.startsWith("mcp__")) {
+    const segments = toolName.split("__").slice(1);
+    label = segments.length > 1 ? segments.join("/") : toolName;
+  }
   if (phase === "end") {
     return isError ? `${label}失败` : `${label}完成`;
   }
@@ -264,6 +229,7 @@ You have bash, read, write, and edit tools to carry out tasks such as running sk
 - Files uploaded by the user in this turn are saved in the workspace: ${fileList}.
 - Skill script locations given in <skill> blocks are absolute paths outside the workspace; run them from the workspace, e.g.: python3 /abs/path/.pi/skills/<name>/scripts/tool.py input.drawio -o output.pptx
 - Keep commands non-interactive. If a skill needs missing dependencies (e.g. Python packages), install them first (pip install ...).
-- Pass a bash timeout in seconds when a command may run long (max 120).
+- Pass a bash timeout (seconds) when a command may run long.
+- MCP tools (mcp for single calls, mcpScript for multi-call scripts) reach the MCP services configured for this workspace; use them for MCP work instead of hand-writing JSON-RPC.
 - When you produce a final artifact, call deliver_file with its workspace path so the user receives a downloadable attachment card, then briefly confirm in the user's language.`;
 }

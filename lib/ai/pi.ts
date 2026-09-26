@@ -1,13 +1,11 @@
 import {
-  type Api,
   type AssistantMessage,
   type Context,
   createModels,
   fauxAssistantMessage,
   fauxProvider,
   type Message,
-  type Model,
-  type SimpleStreamOptions,
+  type Provider,
 } from "@earendil-works/pi-ai";
 import {
   type ActiveModelCatalog,
@@ -31,6 +29,9 @@ const EMPTY_USAGE = {
 
 const piModels = createModels();
 
+/** 测试环境的 faux 供应商对象；getActivePiProviders 经它喂给扩展会话 */
+let testFauxProvider: Provider | undefined;
+
 if (isTestEnvironment) {
   // e2e 专用 faux 供应商：模型清单与 lib/ai/models 的静态测试目录保持一致
   const faux = fauxProvider({
@@ -42,6 +43,7 @@ if (isTestEnvironment) {
     provider: "deepseek",
     tokensPerSecond: 100,
   });
+  testFauxProvider = faux.provider;
 
   faux.setResponses(
     Array.from({ length: 200 }, () => (context: Context) => {
@@ -153,11 +155,11 @@ function assistantMessage(text: string, modelId: string): AssistantMessage {
   };
 }
 
-export function toPiContext(
+/** 有损重建历史：只保留裁剪文本，工具调用/图片/推理段不回放（与既有行为一致） */
+export function toPiHistoryMessages(
   messages: ChatMessage[],
-  modelId: string,
-  systemPrompt: string
-): Context {
+  modelId: string
+): Message[] {
   const piMessages: Message[] = [];
 
   for (const message of messages) {
@@ -172,19 +174,20 @@ export function toPiContext(
     }
   }
 
-  return { messages: piMessages, systemPrompt };
+  return piMessages;
 }
 
-export function streamPiAgent(
-  model: Model<Api>,
-  context: Context,
-  options?: SimpleStreamOptions
-) {
-  return piModels.streamSimple(model, context, {
-    ...options,
-    maxRetries: options?.maxRetries ?? 2,
-    timeoutMs: options?.timeoutMs ?? 55_000,
-  });
+/**
+ * 平台当前可用 provider 对象列表（测试环境为 faux 供应商）。
+ * createAgentSession 的模型桥（pi.registerProvider）以此注入，
+ * 使会话 runtime 与 piModels 单例持有同一批 provider 实例。
+ */
+export async function getActivePiProviders(): Promise<Provider[]> {
+  if (isTestEnvironment) {
+    return testFauxProvider ? [testFauxProvider] : [];
+  }
+  const plugins = await loadPluginInstallations();
+  return plugins.map((plugin) => plugin.provider);
 }
 
 /**

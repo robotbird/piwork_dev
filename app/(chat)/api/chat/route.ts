@@ -1,4 +1,3 @@
-import { Agent, type AgentMessage } from "@earendil-works/pi-agent-core";
 import { geolocation, ipAddress } from "@vercel/functions";
 import {
   createUIMessageStream,
@@ -11,10 +10,10 @@ import { getTranslations } from "next-intl/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import { getActiveModelCatalog } from "@/lib/ai/active-models";
+import { createPiworkAgentSession } from "@/lib/ai/agent-session";
 import {
   buildExecutionSystemPrompt,
   createDeliverFileTool,
-  createExecutionTools,
   ensureChatWorkspace,
   executionToolsEnabled,
   formatToolStatus,
@@ -28,7 +27,7 @@ import {
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { loadEnabledManagedProjectSkills } from "@/lib/ai/managed-skills";
 import { getModelAvailability } from "@/lib/ai/models";
-import { getPiModel, streamPiAgent, toPiContext } from "@/lib/ai/pi";
+import { getPiModel, toPiHistoryMessages } from "@/lib/ai/pi";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import {
   buildSkillsSystemPrompt,
@@ -50,6 +49,7 @@ import {
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import { syncWorkspaceMcpConfig } from "@/lib/mcp/workspace-config";
+import { MANAGED_AGENT_DIR } from "@/lib/pi-packages/manager";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
 import {
@@ -277,7 +277,6 @@ export async function POST(request: Request) {
         console.warn("Failed to sync workspace .mcp.json:", error);
       });
     }
-    const execution = workspaceDir ? createExecutionTools(workspaceDir) : null;
     let workspaceAttachmentFiles: string[] = [];
     if (workspaceDir && currentUserMessage) {
       try {
@@ -299,13 +298,11 @@ export async function POST(request: Request) {
       supportsTools: false,
     });
     const executionPrompt = workspaceDir
-      ? `\n\n${buildExecutionSystemPrompt(workspaceDir, workspaceAttachmentFiles)}`
+      ? buildExecutionSystemPrompt(workspaceDir, workspaceAttachmentFiles)
       : "";
-    const agentSystemPrompt = `${baseSystemPrompt}\n\n${buildSkillsSystemPrompt(skills)}${executionPrompt}`;
-    const previousPiContext = toPiContext(
+    const historyMessages = toPiHistoryMessages(
       uiMessages.slice(0, currentUserMessageIndex),
-      chatModel,
-      agentSystemPrompt
+      chatModel
     );
     const skillCommand = parseSkillCommand(currentUserText);
 
@@ -392,17 +389,28 @@ export async function POST(request: Request) {
           clearHealthCheckTimer();
         };
 
+        // 提升到 try 外:finally 里要无条件释放(构建中途抛错也安全)
+        let disposeSession: (() => void) | undefined;
         try {
           let assistantSequence = 0;
           let activeAssistantSequence = 0;
-          const agent = new Agent({
-            initialState: {
-              messages: previousPiContext.messages as AgentMessage[],
+          // pi 扩展运行时会话(spike C 形态):受管 agentDir 的扩展(含
+          // pi-mcp-adapter 的 mcp/mcpScript)在此加载;bash/read/write/edit
+          // 用会话内建(cwd=工作区);技能与交付文件走 customTools。
+          // 解构更名:外层已有 auth() 的 session,避免遮蔽
+          const { dispose, session: agentSession } =
+            await createPiworkAgentSession({
+              appendSystemPrompt: [
+                buildSkillsSystemPrompt(skills),
+                ...(executionPrompt ? [executionPrompt] : []),
+              ],
+              cwd: workspaceDir ?? MANAGED_AGENT_DIR,
+              disableBuiltinTools: !workspaceDir,
+              historyMessages,
               model: piModel,
-              systemPrompt: agentSystemPrompt,
+              systemPrompt: baseSystemPrompt,
               tools: [
                 ...createSkillTools(skills),
-                ...(execution?.tools ?? []),
                 ...(workspaceDir
                   ? [
                       createDeliverFileTool({
@@ -418,12 +426,10 @@ export async function POST(request: Request) {
                     ]
                   : []),
               ],
-            },
-            streamFn: streamPiAgent,
-            toolExecution: "sequential",
-          });
+            });
+          disposeSession = dispose;
 
-          agent.subscribe((event) => {
+          agentSession.subscribe((event) => {
             if (
               event.type === "message_start" &&
               event.message.role === "assistant"
@@ -507,20 +513,27 @@ export async function POST(request: Request) {
             }
           });
 
-          const abortAgent = () => agent.abort();
+          const abortAgent = () => {
+            agentSession.abort().catch(() => undefined);
+          };
           request.signal.addEventListener("abort", abortAgent, { once: true });
           try {
-            await agent.prompt(agentPrompt, preparedAttachments.images);
+            // expandPromptTemplates:false——技能命令已在上方自行展开,
+            // 否则用户消息以 /mcp 等开头会派发扩展命令
+            await agentSession.prompt(agentPrompt, {
+              expandPromptTemplates: false,
+              images: preparedAttachments.images,
+            });
           } finally {
             request.signal.removeEventListener("abort", abortAgent);
           }
 
-          if (agent.state.errorMessage && !request.signal.aborted) {
-            throw new Error(agent.state.errorMessage);
+          if (agentSession.state.errorMessage && !request.signal.aborted) {
+            throw new Error(agentSession.state.errorMessage);
           }
         } finally {
           stopWaitingStatus();
-          await execution?.cleanup();
+          disposeSession?.();
         }
 
         if (titlePromise) {

@@ -1,4 +1,4 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, isAbsolute, relative, resolve } from "node:path";
 
 import {
@@ -37,7 +37,7 @@ import {
  * 包内 skills 提取进 piwork 技能流水线,extensions 仅清点待扩展运行时。
  */
 
-const MANAGED_AGENT_DIR = resolve(process.cwd(), ".piwork", "pi-agent");
+export const MANAGED_AGENT_DIR = resolve(process.cwd(), ".piwork", "pi-agent");
 const REPO_ROOT = process.cwd();
 
 /** 系统插件:MCP 服务适配器(Task 1 的 .mcp.json 消费方),spike C 实测版本 */
@@ -350,12 +350,66 @@ export async function uninstallPiPackage(source: string): Promise<{
 
 export type SystemPackageStatus = "failed" | "installed" | "ready" | "skipped";
 
+/** 会话级请求参数默认值(复刻旧直连链路的 maxRetries/timeoutMs 边界,经 settings.json 生效) */
+const MANAGED_SETTINGS_RETRY_DEFAULTS = {
+  enabled: false,
+  provider: { maxRetries: 2, timeoutMs: 55_000 },
+};
+
+let managedSettingsEnsured = false;
+
+/**
+ * 确保受管 agentDir 的 settings.json 带会话级 retry 配置:
+ * provider 块复刻聊天链路原有的 maxRetries/timeoutMs 边界;enabled:false
+ * 关掉会话自动重试(默认 3 次+递增延迟会顶爆 serverless 60s 上限)。
+ * 直接读改写文件(SettingsManager 未暴露 provider retry 的 setter;
+ * persistScopedSettings 带锁且只合并 modified 字段,安装/卸载不会冲掉本块)。
+ * 仅补缺省值,管理员自定义优先。幂等,进程内只真正检查一次。
+ */
+export async function ensureManagedAgentSettings(): Promise<void> {
+  if (managedSettingsEnsured || isTestEnvironment) {
+    return;
+  }
+  managedSettingsEnsured = true;
+  const target = resolve(MANAGED_AGENT_DIR, "settings.json");
+  let current: Record<string, unknown> = {};
+  try {
+    current = JSON.parse(await readFile(target, "utf8"));
+  } catch {
+    // 首次生成或旧文件不可读:按空对象处理
+  }
+  const retry = (current.retry ?? {}) as Record<string, unknown>;
+  const provider = (retry.provider ?? {}) as Record<string, unknown>;
+  const merged = {
+    ...current,
+    retry: {
+      ...retry,
+      enabled: retry.enabled ?? MANAGED_SETTINGS_RETRY_DEFAULTS.enabled,
+      provider: {
+        ...provider,
+        maxRetries:
+          provider.maxRetries ??
+          MANAGED_SETTINGS_RETRY_DEFAULTS.provider.maxRetries,
+        timeoutMs:
+          provider.timeoutMs ??
+          MANAGED_SETTINGS_RETRY_DEFAULTS.provider.timeoutMs,
+      },
+    },
+  };
+  const serialized = `${JSON.stringify(merged, null, 2)}\n`;
+  if (serialized !== `${JSON.stringify(current, null, 2)}\n`) {
+    await mkdir(MANAGED_AGENT_DIR, { recursive: true });
+    await writeFile(target, serialized, "utf8");
+  }
+}
+
 /** 懒播种系统插件(pi-mcp-adapter):幂等,失败降级不抛错,测试环境跳过 */
 export async function ensureSystemPiPackagesInstalled(): Promise<SystemPackageStatus> {
   if (isTestEnvironment) {
     return "skipped";
   }
   try {
+    await ensureManagedAgentSettings();
     if (await getSystemPiPackage()) {
       return "ready";
     }

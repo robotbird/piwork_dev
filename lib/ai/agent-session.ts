@@ -1,0 +1,167 @@
+import "server-only";
+
+import type { AgentTool } from "@earendil-works/pi-agent-core";
+import type { Api, Message, Model } from "@earendil-works/pi-ai";
+import {
+  type AgentSession,
+  CURRENT_SESSION_VERSION,
+  createAgentSession,
+  DefaultResourceLoader,
+  type ExtensionAPI,
+  type FileEntry,
+  type LoadExtensionsResult,
+  ModelRuntime,
+  SessionManager,
+} from "@earendil-works/pi-coding-agent";
+import { createPluginCredentialStore } from "@/lib/model-plugins/pi-credential-store";
+import {
+  ensureManagedAgentSettings,
+  MANAGED_AGENT_DIR,
+} from "@/lib/pi-packages/manager";
+import { isTestEnvironment } from "../constants";
+import { agentToolToToolDefinition } from "./agent-tools";
+import { getActivePiProviders } from "./pi";
+
+// e2e 环境未播种 .piwork/pi-agent:PI_OFFLINE 阻止 loader 网络安装适配器,
+// 聊天照常工作(无 mcp 工具),保证测试确定性。
+if (isTestEnvironment) {
+  process.env.PI_OFFLINE ??= "1";
+}
+
+export type PiworkAgentSessionOptions = {
+  /** 追加在会话自带系统提示之后的段落(skills 段 + 执行段) */
+  appendSystemPrompt: string[];
+  /** 会话 cwd:执行工具开启时为聊天工作区;关闭时为 MANAGED_AGENT_DIR */
+  cwd: string;
+  /** PIWORK_DISABLE_EXECUTION_TOOLS 场景:关内建工具,保留扩展/自定义工具 */
+  disableBuiltinTools?: boolean;
+  /** 既有对话(有损重建的文本消息) */
+  historyMessages: Message[];
+  model: Model<Api>;
+  /** 基础系统提示(替换 pi 默认 persona;<tools> 段由会话自管) */
+  systemPrompt: string;
+  /** piwork 侧 AgentTool(技能工具 + deliver_file),内部适配为 ToolDefinition */
+  tools?: AgentTool[];
+};
+
+export type PiworkAgentSession = {
+  /** 同步释放:abort agent/bash、失效扩展上下文;吞错以便 finally 无条件调用 */
+  dispose: () => void;
+  extensionsResult: LoadExtensionsResult;
+  session: AgentSession;
+};
+
+function buildSessionEntries(cwd: string, messages: Message[]): FileEntry[] {
+  const header: FileEntry = {
+    cwd,
+    id: `piwork-session-${Date.now().toString(36)}`,
+    timestamp: new Date().toISOString(),
+    type: "session",
+    version: CURRENT_SESSION_VERSION,
+  };
+  const entries: FileEntry[] = [header];
+  let parentId = header.id;
+  for (const [index, message] of messages.entries()) {
+    const entry: FileEntry = {
+      id: `piwork-h${index}`,
+      message,
+      parentId,
+      timestamp: new Date(message.timestamp ?? Date.now()).toISOString(),
+      type: "message",
+    };
+    entries.push(entry);
+    parentId = entry.id;
+  }
+  return entries;
+}
+
+/**
+ * 构建接入 pi 扩展运行时的聊天会话(spike C 实证形态,见
+ * docs/pi-plugin-support-research.md 附录 E):
+ * loader(模型桥 + 受管 agentDir 扩展) → 显式 reload → createAgentSession
+ * → bindExtensions(触发 session_start,适配器按 cwd 重读 .mcp.json)。
+ * 每请求新建:cwd 烧进 loader 的资源发现,聊天工作区互不相同,不能共享。
+ */
+export async function createPiworkAgentSession(
+  options: PiworkAgentSessionOptions
+): Promise<PiworkAgentSession> {
+  const startedAt = Date.now();
+  await ensureManagedAgentSettings();
+  const providers = await getActivePiProviders();
+  const modelRuntime = await ModelRuntime.create({
+    credentials: createPluginCredentialStore(),
+  });
+
+  const loader = new DefaultResourceLoader({
+    agentDir: MANAGED_AGENT_DIR,
+    appendSystemPrompt: options.appendSystemPrompt,
+    cwd: options.cwd,
+    extensionFactories: providers.map((provider) => ({
+      factory: (pi: ExtensionAPI) => {
+        pi.registerProvider(provider);
+      },
+      hidden: true,
+      name: `piwork-model-bridge-${provider.id}`,
+    })),
+    // 工作区是隔离沙箱:AGENTS.md 等上下文文件不自动注入(与现状对齐)
+    noContextFiles: true,
+    noPromptTemplates: true,
+    // 切断 ~/.agents/skills 与 ~/.pi 全局技能泄漏;piwork 技能走自有管线
+    noSkills: true,
+    noThemes: true,
+    systemPrompt: options.systemPrompt,
+  });
+  // 自带 loader 必须 reload:createAgentSession 只 reload 自建的,
+  // 跳过则扩展静默为 0(E.4.1)
+  await loader.reload();
+
+  const { session, extensionsResult } = await createAgentSession({
+    agentDir: MANAGED_AGENT_DIR,
+    customTools: (options.tools ?? []).map(agentToolToToolDefinition),
+    cwd: options.cwd,
+    model: options.model,
+    modelRuntime,
+    // 注意:不能传 tools/excludeTools 白名单——isAllowedTool 会把
+    // mcp/mcpScript 等扩展工具一并过滤掉(agent-session.js _refreshToolRegistry)
+    ...(options.disableBuiltinTools ? { noTools: "builtin" as const } : {}),
+    resourceLoader: loader,
+    sessionManager: SessionManager.inMemory(
+      options.cwd,
+      undefined,
+      buildSessionEntries(options.cwd, options.historyMessages)
+    ),
+  });
+
+  // headless 必需:触发 session_start → 适配器初始化/延迟快照
+  await session.bindExtensions({
+    mode: "print",
+    onError: (error) => {
+      console.warn("[piwork-agent-session] extension error:", error);
+    },
+  });
+
+  for (const { error, path } of extensionsResult.errors) {
+    console.warn(
+      `[piwork-agent-session] extension load failed (${path}):`,
+      error
+    );
+  }
+  if (process.env.NODE_ENV === "development") {
+    console.info(
+      `[piwork-agent-session] ready in ${Date.now() - startedAt}ms tools=%j`,
+      session.getActiveToolNames()
+    );
+  }
+
+  return {
+    dispose: () => {
+      try {
+        session.dispose();
+      } catch (error) {
+        console.warn("[piwork-agent-session] dispose failed:", error);
+      }
+    },
+    extensionsResult,
+    session,
+  };
+}
