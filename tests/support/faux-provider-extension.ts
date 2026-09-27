@@ -5,7 +5,7 @@ import {
   fauxProvider,
 } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { chatModels } from "../../../ai/models";
+import { chatModels } from "../../lib/ai/models";
 
 /**
  * 子进程侧 faux provider 扩展（LocalRpc 契约测试专用，v2.0 Step 3 §3.5）。

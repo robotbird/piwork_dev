@@ -1,10 +1,10 @@
 import { customProvider, gateway } from "ai";
-import { isTestEnvironment } from "../constants";
-import { titleModel } from "./models";
 import {
   chatModel as mockChatModel,
   titleModel as mockTitleModel,
-} from "./models.mock";
+} from "@/tests/fixtures/legacy-ai-sdk-models";
+import { isTestEnvironment } from "../constants";
+import { titleModel } from "./models";
 
 export const myProvider = isTestEnvironment
   ? customProvider({

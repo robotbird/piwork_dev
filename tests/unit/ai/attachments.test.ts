@@ -4,8 +4,8 @@ import { deflateSync, strToU8 } from "fflate";
 import {
   getSupportedAttachmentType,
   isVisionAttachment,
-} from "./attachment-types";
-import { extractAttachmentText } from "./attachments";
+} from "../../../lib/ai/attachment-types";
+import { extractAttachmentText } from "../../../lib/ai/attachments";
 
 test("recognizes common office, image, and Draw.io attachments", () => {
   assert.equal(

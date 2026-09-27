@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import type { EventStore, PersistedRuntimeEvent } from "./event-store";
+import type {
+  EventStore,
+  PersistedRuntimeEvent,
+} from "../../lib/runtime/run/event-store";
 
 /**
  * EventStore 契约用例（node:test 断言）：InMemory（封闭）与 Postgres

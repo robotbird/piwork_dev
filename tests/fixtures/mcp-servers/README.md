@@ -21,7 +21,7 @@
 - 参数（每行一个）：
 
 ```
-/Users/robotbird/Works/yepeng/works/piwork/scripts/test-mcp/stdio-server.mjs
+<项目绝对路径>/tests/fixtures/mcp-servers/stdio-server.mjs
 ```
 
 ## http 模式（远程服务）
@@ -29,7 +29,7 @@
 先启动服务（默认 `127.0.0.1:3100`，`--port=` 或 `PORT` 可改）：
 
 ```sh
-node scripts/test-mcp/http-server.mjs
+node tests/fixtures/mcp-servers/http-server.mjs
 ```
 
 「新增 MCP 服务」弹窗填写：

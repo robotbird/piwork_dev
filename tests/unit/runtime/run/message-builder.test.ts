@@ -1,8 +1,11 @@
-import "../backends/test-env";
+import "../../../support/runtime-env";
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { RuntimeEvent } from "../protocol";
-import { buildAssistantMessageParts, deriveMessageId } from "./message-builder";
+import type { RuntimeEvent } from "../../../../lib/runtime/protocol";
+import {
+  buildAssistantMessageParts,
+  deriveMessageId,
+} from "../../../../lib/runtime/run/message-builder";
 
 /** 构造 message.delta 事件的简写 */
 function delta(

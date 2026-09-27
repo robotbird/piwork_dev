@@ -1,16 +1,19 @@
-import "../backends/test-env";
+import "../../../support/runtime-env";
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { RuntimeEvent } from "../protocol";
-import { isPersistedRuntimeEvent, runtimeEventData } from "./event-store";
+import type { RuntimeEvent } from "../../../../lib/runtime/protocol";
+import {
+  isPersistedRuntimeEvent,
+  runtimeEventData,
+} from "../../../../lib/runtime/run/event-store";
+import { InMemoryEventStore } from "../../../../lib/runtime/run/in-memory-event-store";
 import {
   afterSeqFilterCase,
   appendAndReplayCase,
   crossRunIsolationCase,
   duplicateSeqIgnoredCase,
   emptyRunCase,
-} from "./event-store-cases";
-import { InMemoryEventStore } from "./in-memory-event-store";
+} from "../../../support/event-store-cases";
 
 test("InMemoryEventStore：append 后按 seq 升序重放", async () => {
   await appendAndReplayCase(new InMemoryEventStore());

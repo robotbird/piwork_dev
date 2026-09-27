@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { RuntimeEvent } from "@/lib/runtime/protocol";
-import { runtimeEventToUIMessageChunks } from "./stream-mapping";
+import { runtimeEventToUIMessageChunks } from "../../../app/(chat)/api/chat/stream-mapping";
 
 // 断言形状抄自重构前 route 的内联事件桥（wire JSON 深等于，防止回归漂移）
 test("text 通道 delta 映射为 text-* chunk 且 id 规则不变", () => {

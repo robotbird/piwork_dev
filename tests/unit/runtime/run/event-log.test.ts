@@ -1,8 +1,8 @@
-import "../backends/test-env";
+import "../../../support/runtime-env";
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { RuntimeEvent } from "../protocol";
-import { RunEventLog } from "./event-log";
+import type { RuntimeEvent } from "../../../../lib/runtime/protocol";
+import { RunEventLog } from "../../../../lib/runtime/run/event-log";
 
 const started: RuntimeEvent = { runId: "r1", type: "run.started" };
 const deltaA: RuntimeEvent = {

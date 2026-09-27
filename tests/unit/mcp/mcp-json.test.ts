@@ -7,7 +7,7 @@ import {
   buildMcpJsonConfig,
   serializeMcpJsonConfig,
   writeMcpConfigIfChanged,
-} from "./mcp-json.ts";
+} from "../../../lib/mcp/mcp-json.ts";
 
 function stdioServer(overrides = {}) {
   return {

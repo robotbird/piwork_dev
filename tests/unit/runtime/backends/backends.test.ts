@@ -1,4 +1,4 @@
-import "./test-env";
+import "../../../support/runtime-env";
 import assert from "node:assert/strict";
 import { mkdtemp, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -15,10 +15,17 @@ import {
   Type,
 } from "@earendil-works/pi-ai";
 import { getPiModel, getTestFauxHandle } from "@/lib/ai/pi";
-import type { RuntimeEvent, RuntimeSession, RuntimeSpec } from "../protocol";
-import { InMemoryBackend, type InMemoryScriptStep } from "./in-memory/backend";
-import { InProcessBackend } from "./in-process/backend";
-import { LocalRpcBackend } from "./local-rpc/backend";
+import { InProcessBackend } from "../../../../lib/runtime/backends/in-process/backend";
+import { LocalRpcBackend } from "../../../../lib/runtime/backends/local-rpc/backend";
+import type {
+  RuntimeEvent,
+  RuntimeSession,
+  RuntimeSpec,
+} from "../../../../lib/runtime/protocol";
+import {
+  InMemoryBackend,
+  type InMemoryScriptStep,
+} from "../../../support/in-memory-backend";
 
 /**
  * Runtime backend 契约测试（v2.0 §10 Step 1/3）：同一套用例跑 InMemory（脚本
@@ -30,7 +37,7 @@ import { LocalRpcBackend } from "./local-rpc/backend";
 
 /** 子进程侧 faux 扩展按路径传给 -e（父进程永不 import，§3.5） */
 const FAUX_EXTENSION_PATH = fileURLToPath(
-  new URL("local-rpc/faux-provider-extension.ts", import.meta.url)
+  new URL("../../../support/faux-provider-extension.ts", import.meta.url)
 );
 
 const TEST_TIMEOUT_MS = 60_000;

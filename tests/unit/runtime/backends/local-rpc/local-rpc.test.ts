@@ -1,4 +1,4 @@
-import "../test-env";
+import "../../../../support/runtime-env";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
@@ -13,13 +13,19 @@ import {
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { getPiModel } from "@/lib/ai/pi";
 import { MANAGED_AGENT_DIR } from "@/lib/pi-packages/manager";
-import type { RuntimeEvent, RuntimeSpec } from "../../protocol";
-import { LocalRpcBackend, type LocalRpcRuntimeSession } from "./backend";
+import {
+  LocalRpcBackend,
+  type LocalRpcRuntimeSession,
+} from "../../../../../lib/runtime/backends/local-rpc/backend";
 import {
   buildRpcClientOptions,
   resolveDefaultCliPath,
   seedSessionFile,
-} from "./spawn";
+} from "../../../../../lib/runtime/backends/local-rpc/spawn";
+import type {
+  RuntimeEvent,
+  RuntimeSpec,
+} from "../../../../../lib/runtime/protocol";
 
 /**
  * LocalRpcBackend 专属测试（v2.0 Step 3 §3.7）——首个运行级 RPC spike（补
@@ -31,7 +37,7 @@ import {
 const TEST_TIMEOUT_MS = 60_000;
 const TEST_MODEL_ID = "deepseek/deepseek-flash";
 const FAUX_EXTENSION_PATH = fileURLToPath(
-  new URL("faux-provider-extension.ts", import.meta.url)
+  new URL("../../../../support/faux-provider-extension.ts", import.meta.url)
 );
 
 let cachedModel: RuntimeSpec["model"] | undefined;

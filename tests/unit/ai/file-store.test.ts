@@ -4,8 +4,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { chatFileUrl, getChatFileId, isChatFileUrl } from "./attachment-types";
-import { readLocalFile, storeFile } from "./file-store";
+import {
+  chatFileUrl,
+  getChatFileId,
+  isChatFileUrl,
+} from "../../../lib/ai/attachment-types";
+import { readLocalFile, storeFile } from "../../../lib/ai/file-store";
 
 test("chat file URL helpers round-trip and reject traversal", () => {
   const url = chatFileUrl("test.drawio-a1b2c3d4e5");

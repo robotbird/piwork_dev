@@ -18,9 +18,10 @@
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
     "plugin:package": "tsx scripts/package-plugin.mts",
-    "plugin:verify": "tsx scripts/verify-plugin-chain.mts",
-    "test:runtime": "node --conditions=react-server --import tsx --test lib/runtime/backends/backends.test.ts lib/runtime/backends/local-rpc/*.test.ts lib/runtime/run/*.test.ts \"app/(chat)/api/chat/stream-mapping.test.ts\"",
-    "test:runtime:db": "node --conditions=react-server --import tsx --test --test-force-exit lib/db/runtime-event-queries.test.ts lib/db/agent-run-queries.test.ts",
+    "plugin:verify": "tsx tests/integration/plugin-chain.mts",
+    "test:unit": "node --conditions=react-server --import tsx --test tests/unit/ai/*.test.ts tests/unit/mcp/*.test.ts tests/unit/pi-packages/*.test.ts",
+    "test:runtime": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/*.test.ts tests/unit/runtime/backends/local-rpc/*.test.ts tests/unit/runtime/run/*.test.ts tests/unit/chat/*.test.ts",
+    "test:runtime:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/*.test.ts",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
   },
   "dependencies": {

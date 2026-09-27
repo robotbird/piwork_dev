@@ -14,7 +14,7 @@ import {
   loadProjectSkills,
   parseSkillCommand,
   validateSkillName,
-} from "./skills.ts";
+} from "../../../lib/ai/skills.ts";
 
 test("creates and discovers a standard Pi skill", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "piwork-skills-"));

@@ -7,7 +7,7 @@
  * 流式调用（文本 / thinking / abort）。
  *
  * 凭据来源：.env.local 的 DEEPSEEK_API_KEY（临时方案）。
- * 用法：pnpm tsx scripts/verify-plugin-chain.ts
+ * 用法：pnpm tsx tests/integration/plugin-chain.mts
  */
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
@@ -16,13 +16,13 @@ import { createModels } from "@earendil-works/pi-ai";
 import { parse as parseEnv } from "dotenv";
 import { unzipSync, zipSync } from "fflate";
 
-import { buildPluginArtifact } from "../lib/model-plugins/build";
-import { PluginPackageError } from "../lib/model-plugins/contract";
+import { buildPluginArtifact } from "../../lib/model-plugins/build";
+import { PluginPackageError } from "../../lib/model-plugins/contract";
 import {
   HostedPiProviderAdapter,
   WorkerThreadPluginHost,
-} from "../lib/model-plugins/host/worker-host";
-import { inspectPluginZip } from "../lib/model-plugins/inspect";
+} from "../../lib/model-plugins/host/worker-host";
+import { inspectPluginZip } from "../../lib/model-plugins/inspect";
 
 const PLUGIN_DIR = "plugins/piwork-llm-deepseek";
 

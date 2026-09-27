@@ -1,84 +1,36 @@
-<a href="https://chatbot.ai-sdk.dev/demo">
-  <img alt="Chatbot" src="app/(chat)/opengraph-image.png">
-  <h1 align="center">Chatbot</h1>
-</a>
+# Piwork
 
-<p align="center">
-    A Next.js chatbot powered by the pi SDK and DeepSeek API.
-</p>
+Piwork 是基于 Pi Agent 的企业智能体平台，提供聊天、模型供应商插件、Skill、Pi Package、MCP 服务及组织管理。前端使用 Next.js App Router；服务端通过 Pi SDK 驱动 Agent，并使用 PostgreSQL 持久化业务数据与运行事件。
 
-<p align="center">
-  <a href="https://chatbot.ai-sdk.dev/docs"><strong>Read Docs</strong></a> ·
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a> ·
-  <a href="#running-locally"><strong>Running locally</strong></a>
-</p>
-<br/>
+## 文档
 
-## Features
+- [文档导航](docs/README.md)
+- [当前项目架构](docs/architecture.md)：模块职责、聊天运行链路、已实现能力和目标方案边界
+- [开发与测试约定](docs/development.md)：目录位置、验证命令和测试迁移规则
+- [Pi Package 与 Runtime 目标架构](docs/pi-plugin-support-research.md)
+- [后续编码规则](AGENTS.md)
 
-- [Next.js](https://nextjs.org) App Router
-  - Advanced routing for seamless navigation and performance
-  - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
-- [pi SDK](https://github.com/earendil-works/pi)
-  - Streams chat completions directly from DeepSeek
-  - Supports `deepseek-flash` and `deepseek-v4-pro`
-- [shadcn/ui](https://ui.shadcn.com)
-  - Styling with [Tailwind CSS](https://tailwindcss.com)
-  - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
-- Data Persistence
-  - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage
-- [Auth.js](https://authjs.dev)
-  - Simple and secure authentication
+## 本地运行
 
-## Model Providers
-
-The chat and title-generation paths use [`@earendil-works/pi-ai`](https://github.com/earendil-works/pi/tree/main/packages/ai) to call DeepSeek's OpenAI-compatible endpoint directly. Models are configured in `lib/ai/models.ts`, and the pi adapter lives in `lib/ai/pi.ts`.
-
-## Skills
-
-The chat runtime uses `@earendil-works/pi-agent-core` for the Pi agent loop and supports project Skills stored as Agent Skills-compatible files under `.pi/skills/<name>/SKILL.md`.
-
-- Create: ask the assistant to create or save a reusable Skill. It will validate the name and write the standard YAML frontmatter plus Markdown instructions.
-- Automatic execution: when a request matches a discovered Skill description, the agent loads the full Skill on demand and follows it.
-- Explicit execution: type `/` in the composer, select a Skill marked with `🔨` from the dynamic command menu, then send `/<name>` or `/<name> <task arguments>`.
-
-Example:
-
-```text
-Create a reusable skill named weekly-recap that turns a weekly report into three concise bullets covering progress, risks, and next steps.
-
-/weekly-recap Summarize this week's project update.
-```
-
-Skill creation writes to the application server's local filesystem. Use persistent storage for `.pi/skills` when deploying to an ephemeral or serverless runtime.
-
-### DeepSeek Authentication
-
-Set `DEEPSEEK_API_KEY` in `.env.local` for local development and in your deployment environment for production. The key is read on the server and is never sent to the browser.
-
-## Deploy Your Own
-
-You can deploy your own version of Chatbot to Vercel with one click:
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/templates/next.js/chatbot)
-
-## Running locally
-
-You will need to use the environment variables [defined in `.env.example`](.env.example) to run Chatbot. It's recommended you use [Vercel Environment Variables](https://vercel.com/docs/projects/environment-variables) for this, but a `.env` file is all that is necessary.
-
-> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various AI and authentication provider accounts.
-
-1. Install Vercel CLI: `npm i -g vercel`
-2. Link local instance with Vercel and GitHub accounts (creates `.vercel` directory): `vercel link`
-3. Download your environment variables: `vercel env pull`
+使用 `pnpm@10.32.1`。按 [.env.example](.env.example) 配置 `.env.local` 中的数据库、身份认证和模型凭据，然后运行：
 
 ```bash
 pnpm install
-pnpm db:migrate # Setup database or apply latest database changes
+pnpm db:migrate
 pnpm dev
 ```
 
-Your app template should now be running on [localhost:3000](http://localhost:3000).
+默认访问 <http://localhost:3000>。需要可用模型时，请在管理界面配置模型供应商插件及凭据；聊天路径不会在模型目录为空时回退到静态模型。
+
+## 验证
+
+```bash
+pnpm exec tsc --noEmit
+pnpm test:unit
+pnpm test:runtime
+pnpm test:runtime:db # 需本地 PostgreSQL
+pnpm test            # Playwright E2E
+pnpm check
+```
+
+测试统一位于 `tests/`。测试目录、运行前置条件和 Pi 版本核对方式见 [开发与测试约定](docs/development.md) 与 [AGENTS.md](AGENTS.md)。

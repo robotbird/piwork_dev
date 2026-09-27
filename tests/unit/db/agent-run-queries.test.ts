@@ -1,4 +1,4 @@
-import "./test-env";
+import "../../support/db-env";
 import assert from "node:assert/strict";
 import test from "node:test";
 import postgres from "postgres";
@@ -11,7 +11,7 @@ import {
   markRunStatus,
   releaseLease,
   renewLeases,
-} from "./agent-run-queries";
+} from "../../../lib/db/agent-run-queries";
 
 /**
  * AgentRun + RuntimeLease 集成测试（v2.0 §2.9b）：markRunStatus 条件更新、

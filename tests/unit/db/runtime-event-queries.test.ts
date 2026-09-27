@@ -1,6 +1,7 @@
-import "./test-env";
+import "../../support/db-env";
 import test from "node:test";
 import postgres from "postgres";
+import { PostgresEventStore } from "../../../lib/db/runtime-event-queries";
 import {
   afterSeqFilterCase,
   appendAndReplayCase,
@@ -8,8 +9,7 @@ import {
   crossRunIsolationCase,
   duplicateSeqIgnoredCase,
   emptyRunCase,
-} from "../runtime/run/event-store-cases";
-import { PostgresEventStore } from "./runtime-event-queries";
+} from "../../support/event-store-cases";
 
 /**
  * PostgresEventStore 集成测试（v2.0 §2.9b）：与 InMemory 封闭测试（event-store

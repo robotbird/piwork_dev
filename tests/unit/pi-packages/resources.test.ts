@@ -10,7 +10,7 @@ import {
   discoverPackageSkillDirs,
   MAX_PACKAGE_SKILL_FILE_COUNT,
   readPiManifest,
-} from "./resources.ts";
+} from "../../../lib/pi-packages/resources.ts";
 
 async function createFixturePackage(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "piwork-pi-pkg-"));

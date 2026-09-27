@@ -1,5 +1,7 @@
 # piwork TypeScript 模型供应商插件机制架构设计
 
+> 历史设计草案：本文件的 0.83.0 基线和“待实施”阶段描述保留为设计记录，不代表当前实现。当前三个 Pi 主包均为 0.87.1；实际模块和状态见 [项目架构](architecture.md)，精确 API 以当前安装包类型为准。
+
 > 状态：架构草案 v2，待评审后实施  
 > 基线：piwork 当前工作区；`@earendil-works/pi-ai` / `@earendil-works/pi-agent-core` 0.83.0  
 > 强制约束：插件实现语言仅限 TypeScript；安装包名必须符合 `piwork-llm-<provider>.zip`  

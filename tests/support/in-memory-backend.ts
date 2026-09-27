@@ -1,3 +1,4 @@
+import { AsyncEventQueue } from "../../lib/runtime/backends/event-queue";
 import type {
   RuntimeAck,
   RuntimeBackend,
@@ -6,8 +7,7 @@ import type {
   RuntimeSession,
   RuntimeSnapshot,
   RuntimeSpec,
-} from "../../protocol";
-import { AsyncEventQueue } from "../event-queue";
+} from "../../lib/runtime/protocol";
 
 /** 脚本步：事件 + 可选播放延迟（ms，按步累加） */
 export type InMemoryScriptStep = {

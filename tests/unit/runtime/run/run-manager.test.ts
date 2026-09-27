@@ -1,16 +1,12 @@
-import "../backends/test-env";
+import "../../../support/runtime-env";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ChatbotError } from "@/lib/errors";
-import {
-  InMemoryBackend,
-  type InMemoryScriptStep,
-} from "../backends/in-memory/backend";
-import type { RuntimeSpec } from "../protocol";
-import type { LoggedRuntimeEvent } from "./event-log";
-import type { EventStore } from "./event-store";
-import { InMemoryEventStore } from "./in-memory-event-store";
-import { deriveMessageId } from "./message-builder";
+import type { RuntimeSpec } from "../../../../lib/runtime/protocol";
+import type { LoggedRuntimeEvent } from "../../../../lib/runtime/run/event-log";
+import type { EventStore } from "../../../../lib/runtime/run/event-store";
+import { InMemoryEventStore } from "../../../../lib/runtime/run/in-memory-event-store";
+import { deriveMessageId } from "../../../../lib/runtime/run/message-builder";
 import {
   type AgentRunStatus,
   type AgentRunStore,
@@ -18,7 +14,11 @@ import {
   RunManager,
   type RunManagerOptions,
   type RunSubscription,
-} from "./run-manager";
+} from "../../../../lib/runtime/run/run-manager";
+import {
+  InMemoryBackend,
+  type InMemoryScriptStep,
+} from "../../../support/in-memory-backend";
 
 /**
  * RunManager 封闭测试：InMemoryBackend（脚本时序）+ InMemoryEventStore +
