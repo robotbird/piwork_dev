@@ -1,9 +1,6 @@
 import "server-only";
 
-import type {
-  AgentSession,
-  AgentSessionEvent,
-} from "@earendil-works/pi-coding-agent";
+import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { createPiworkAgentSession } from "@/lib/ai/agent-session";
 import { createDeliverFileTool } from "@/lib/ai/agent-tools";
 import { MANAGED_AGENT_DIR } from "@/lib/pi-packages/manager";
@@ -17,6 +14,7 @@ import type {
   RuntimeSpec,
 } from "../../protocol";
 import { AsyncEventQueue } from "../event-queue";
+import { PiEventNormalizer } from "../pi-event-normalizer";
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -72,9 +70,8 @@ class InProcessRuntimeSession implements RuntimeSession {
   private readonly unsubscribe: () => void;
   private readonly agentSession: AgentSession;
   private readonly dispose: () => void;
+  private readonly normalizer = new PiEventNormalizer();
 
-  private assistantSequence = 0;
-  private activeAssistantSequence = 0;
   private closed = false;
   private eventsConsumed = false;
   private aborted = false;
@@ -93,7 +90,9 @@ class InProcessRuntimeSession implements RuntimeSession {
     // subscribe 时点与原 route 一致（bindExtensions 已在 createPiworkAgentSession
     // 内完成）；队列自 open() 起缓冲，观察窗口不小于现状。
     this.unsubscribe = agentSession.subscribe((event) => {
-      this.translate(event);
+      for (const normalized of this.normalizer.feed(event)) {
+        this.queue.push(normalized);
+      }
     });
   }
 
@@ -195,136 +194,10 @@ class InProcessRuntimeSession implements RuntimeSession {
   }
 
   /**
-   * pi AgentSessionEvent → RuntimeEvent 归一化（v2.0 §5.3 映射表）。
-   * 已接受的微差异：message_update 的总 done/error 事件被丢弃——零内容块
-   * 消息（立即 done/error）不再触发前端的“模型活跃”标记；route 的 finally
-   * stopWaitingStatus() 兜底关闭等待 UI。
-   */
-  private translate(event: AgentSessionEvent): void {
-    switch (event.type) {
-      case "message_start": {
-        // message_start 对用户消息同样触发，assistant 过滤是原 route 的承重逻辑
-        if (event.message.role !== "assistant") {
-          return;
-        }
-        this.assistantSequence += 1;
-        this.activeAssistantSequence = this.assistantSequence;
-        this.queue.push({
-          sequence: this.activeAssistantSequence,
-          type: "message.started",
-        });
-        return;
-      }
-      case "message_update": {
-        const update = event.assistantMessageEvent;
-        let channel: "text" | "reasoning" | "tool";
-        let phase: "start" | "delta" | "end";
-        let delta: string | undefined;
-        // biome-ignore lint/style/useDefaultSwitchClause: 联合已穷尽，保留 TS 未覆盖分支检查
-        switch (update.type) {
-          case "start":
-          case "done":
-          case "error":
-            return;
-          case "text_start":
-            channel = "text";
-            phase = "start";
-            break;
-          case "text_delta":
-            channel = "text";
-            phase = "delta";
-            ({ delta } = update);
-            break;
-          case "text_end":
-            channel = "text";
-            phase = "end";
-            break;
-          case "thinking_start":
-            channel = "reasoning";
-            phase = "start";
-            break;
-          case "thinking_delta":
-            channel = "reasoning";
-            phase = "delta";
-            ({ delta } = update);
-            break;
-          case "thinking_end":
-            channel = "reasoning";
-            phase = "end";
-            break;
-          case "toolcall_start":
-            channel = "tool";
-            phase = "start";
-            break;
-          case "toolcall_delta":
-            channel = "tool";
-            phase = "delta";
-            ({ delta } = update);
-            break;
-          case "toolcall_end":
-            channel = "tool";
-            phase = "end";
-            break;
-        }
-        this.queue.push({
-          channel,
-          contentIndex: update.contentIndex,
-          ...(delta === undefined ? {} : { delta }),
-          phase,
-          sequence: this.activeAssistantSequence,
-          type: "message.delta",
-        });
-        return;
-      }
-      case "message_end": {
-        if (event.message.role !== "assistant") {
-          return;
-        }
-        this.queue.push({
-          sequence: this.activeAssistantSequence,
-          type: "message.completed",
-        });
-        return;
-      }
-      case "tool_execution_start": {
-        this.queue.push({
-          args: event.args,
-          toolCallId: event.toolCallId,
-          toolName: event.toolName,
-          type: "tool.started",
-        });
-        return;
-      }
-      case "tool_execution_end": {
-        this.queue.push({
-          isError: event.isError,
-          toolCallId: event.toolCallId,
-          toolName: event.toolName,
-          type: "tool.completed",
-        });
-        return;
-      }
-      case "queue_update": {
-        this.queue.push({
-          followUp: event.followUp,
-          steering: event.steering,
-          type: "queue.changed",
-        });
-        return;
-      }
-      case "bash_execution_update": {
-        this.queue.push({ delta: event.delta, type: "command.output" });
-        return;
-      }
-      default:
-        return;
-    }
-  }
-
-  /**
    * 终态推导：prompt() resolve 时按 errorMessage && !aborted 分类；reject 直接
-   * failed。Step 3 引入 steer/followUp 续跑后，改由 pi 的 agent_settled 事件
-   * 推导终态（单次 prompt 场景两者等价，见类注释）。
+   * failed。流式事件映射见 PiEventNormalizer（与 LocalRpcBackend 共用）。
+   * steer/followUp 续跑的多周期终态由 LocalRpcBackend 的 agent_settled 推导；
+   * in-process 单次 prompt 场景两者等价。
    */
   private emitTerminal(runId: string, thrownError?: unknown): void {
     this.runInFlight = false;

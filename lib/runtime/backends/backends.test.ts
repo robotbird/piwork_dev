@@ -4,6 +4,7 @@ import { mkdtemp, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import {
   type FauxResponseStep,
@@ -17,13 +18,20 @@ import { getPiModel, getTestFauxHandle } from "@/lib/ai/pi";
 import type { RuntimeEvent, RuntimeSession, RuntimeSpec } from "../protocol";
 import { InMemoryBackend, type InMemoryScriptStep } from "./in-memory/backend";
 import { InProcessBackend } from "./in-process/backend";
+import { LocalRpcBackend } from "./local-rpc/backend";
 
 /**
- * Runtime backend 契约测试（v2.0 §10 Step 1）：同一套用例跑 InMemory（脚本
- * 替身）与 InProcess（faux provider 驱动真实 AgentSession），证明 seam 两侧
- * 产出相同的规范化事件流。断言用 outline 投影——丢弃 delta 相位，使断言与
- * faux 的分块粒度（tokenSize 3–5）无关。
+ * Runtime backend 契约测试（v2.0 §10 Step 1/3）：同一套用例跑 InMemory（脚本
+ * 替身）、InProcess（faux provider 驱动真实 AgentSession）与 LocalRpc（官方
+ * RpcClient 驱动本机 `pi --mode rpc` 子进程，faux 经扩展注入），证明 seam
+ * 两侧产出相同的规范化事件流。断言用 outline 投影——丢弃 delta 相位，使断言
+ * 与 faux 的分块粒度（tokenSize 3–5）无关。
  */
+
+/** 子进程侧 faux 扩展按路径传给 -e（父进程永不 import，§3.5） */
+const FAUX_EXTENSION_PATH = fileURLToPath(
+  new URL("local-rpc/faux-provider-extension.ts", import.meta.url)
+);
 
 const TEST_TIMEOUT_MS = 60_000;
 const TEST_MODEL_ID = "deepseek/deepseek-flash";
@@ -39,6 +47,8 @@ type Scenario = {
 
 type Harness = {
   name: string;
+  /** false = 平台侧工具闭包不跨进程，工具用例 skip（Step 4 bridge Package 解锁） */
+  supportsPlatformTools: boolean;
   openSession: (scenario: Scenario) => Promise<RuntimeSession>;
 };
 
@@ -70,6 +80,7 @@ const harnesses: Harness[] = [
       });
       return backend.open(await makeSpec(scenario));
     },
+    supportsPlatformTools: true,
   },
   {
     name: "InProcess",
@@ -80,6 +91,30 @@ const harnesses: Harness[] = [
       const backend = new InProcessBackend();
       return backend.open(await makeSpec(scenario));
     },
+    supportsPlatformTools: true,
+  },
+  {
+    name: "LocalRpc",
+    openSession: async (scenario) => {
+      // spec.tools 平台侧闭包不跨进程（§3.1-9）：强制空工具、无 workspace
+      const spec = await makeSpec({
+        ...scenario,
+        tools: [],
+        workspaceDir: null,
+      });
+      const scriptDir = await mkdtemp(
+        path.join(tmpdir(), "piwork-rpc-contract-")
+      );
+      const scriptPath = path.join(scriptDir, "faux-script.json");
+      // JSON.stringify 自然丢弃函数分支步骤；本 harness 跑的场景全是纯对象步骤
+      await writeFile(scriptPath, JSON.stringify(scenario.fauxSteps ?? []));
+      const backend = new LocalRpcBackend({
+        env: { PIWORK_FAUX_SCRIPT: scriptPath },
+        extensions: [FAUX_EXTENSION_PATH],
+      });
+      return backend.open(spec);
+    },
+    supportsPlatformTools: false,
   },
 ];
 
@@ -379,8 +414,9 @@ async function artifactScenario(): Promise<Scenario> {
 
 function failureScenario(): Scenario {
   return {
-    fauxSteps: Array.from({ length: 5 }, () =>
-      // 重复多条：测试环境未写 retry 配置，容错默认重试耗尽后仍以 boom 失败
+    fauxSteps: Array.from({ length: 10 }, () =>
+      // 重复多条：in-process 测试环境未写 retry 配置，容错默认重试耗尽后仍以
+      // boom 失败；RPC 子进程 retry 配置来源不同，加厚防脚本先耗尽报非 boom 错
       fauxAssistantMessage([], { errorMessage: "boom", stopReason: "error" })
     ),
     inMemorySteps: [
@@ -436,6 +472,9 @@ for (const harness of harnesses) {
   });
 
   test(`[${harness.name}] 工具轮：toolcall → 执行 → 第二轮文本`, {
+    skip: harness.supportsPlatformTools
+      ? false
+      : "平台侧工具闭包不跨进程，Step 4 bridge Package 解锁",
     timeout: TEST_TIMEOUT_MS,
   }, async () => {
     const sawToolResult = { value: false };
@@ -472,6 +511,9 @@ for (const harness of harnesses) {
   });
 
   test(`[${harness.name}] artifact.created 严格位于 tool.started 与 tool.completed 之间`, {
+    skip: harness.supportsPlatformTools
+      ? false
+      : "平台侧工具闭包不跨进程，Step 4 bridge Package 解锁",
     timeout: TEST_TIMEOUT_MS,
   }, async () => {
     const scenario = await artifactScenario();

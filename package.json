@@ -19,7 +19,7 @@
     "db:up": "drizzle-kit up",
     "plugin:package": "tsx scripts/package-plugin.mts",
     "plugin:verify": "tsx scripts/verify-plugin-chain.mts",
-    "test:runtime": "node --conditions=react-server --import tsx --test lib/runtime/backends/backends.test.ts lib/runtime/run/*.test.ts \"app/(chat)/api/chat/stream-mapping.test.ts\"",
+    "test:runtime": "node --conditions=react-server --import tsx --test lib/runtime/backends/backends.test.ts lib/runtime/backends/local-rpc/*.test.ts lib/runtime/run/*.test.ts \"app/(chat)/api/chat/stream-mapping.test.ts\"",
     "test:runtime:db": "node --conditions=react-server --import tsx --test --test-force-exit lib/db/runtime-event-queries.test.ts lib/db/agent-run-queries.test.ts",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
   },
