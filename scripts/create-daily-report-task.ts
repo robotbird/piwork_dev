@@ -50,12 +50,13 @@ async function createDailyReportTask(config: DailyReportTaskConfig = {}) {
       .from(scheduledTask)
       .where(
         eq(scheduledTask.taskType, "daily_digest")
-      )
-      .andWhere(eq(scheduledTask.userId, targetUserId));
+      );
 
-    if (existingTasks.length > 0) {
+    const filteredTasks = existingTasks.filter(task => task.userId === targetUserId);
+
+    if (filteredTasks.length > 0) {
       console.log(`用户 ${targetUserId} 已存在每日日报任务：`);
-      for (const task of existingTasks) {
+      for (const task of filteredTasks) {
         console.log(`  - 任务 ID: ${task.id}, 状态：${task.status}, CRON: ${(task.schedule as any).cron}`);
       }
       console.log("跳过创建，如需重新创建请先删除现有任务");

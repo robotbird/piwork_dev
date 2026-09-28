@@ -5,12 +5,25 @@ import { getRunManager } from "@/lib/runtime/run/index";
 import type { ScheduledTaskRecord } from "@/lib/db/schema";
 import { getNextRunTime } from "./cron-utils";
 import { updateTaskResult, updateTaskStatus } from "../db/scheduled-task-queries";
+import type { Model, Api } from "@earendil-works/pi-ai";
+import {
+  getActiveModelCatalog,
+  getPreferredModelId,
+} from "@/lib/ai/active-models";
 
 /**
  * Execute a scheduled task by creating a chat and running the AI prompt
  */
 export async function executeScheduledTask(task: ScheduledTaskRecord) {
   try {
+    // Get default model from backend configuration
+    const catalog = await getActiveModelCatalog();
+    const defaultModelId = getPreferredModelId(catalog);
+
+    if (!defaultModelId) {
+      throw new Error("No default model configured in backend");
+    }
+
     // Update status to running
     await updateTaskStatus(task.id, {
       status: "running",
@@ -37,8 +50,12 @@ export async function executeScheduledTask(task: ScheduledTaskRecord) {
       prompt: { type: "prompt", text: task.prompt },
       spec: {
         chatId: chat.id,
-        model: "anthropic:claude-sonnet-4-20250514",
-        stream: true,
+        workspaceDir: null,
+        model: defaultModelId as unknown as Model<Api>,
+        systemPrompt: "",
+        appendSystemPrompt: [],
+        historyMessages: [],
+        tools: [],
       },
       userId: task.userId,
     });

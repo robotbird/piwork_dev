@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray, type SQL } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { ChatbotError } from "../errors";
@@ -66,8 +66,7 @@ export async function getDueScheduledTasks() {
       .where(
         and(
           eq(scheduledTask.status, "pending"),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (scheduledTask.nextRunAt as any) <= now
+          sql`${scheduledTask.nextRunAt} <= ${now}`
         )
       );
   });
@@ -82,6 +81,7 @@ export async function updateTaskStatus(
     nextRunAt: Date;
     lastResult: string;
     errorMessage: string;
+    chatId: string | null;
   }>
 ) {
   return wrapDatabase(async () => {
