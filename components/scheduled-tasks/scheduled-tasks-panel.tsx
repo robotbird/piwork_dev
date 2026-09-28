@@ -1,19 +1,21 @@
-// biome-ignore-all lint/performance/noJsxPropsBind: Client component for scheduled tasks
+// biome-ignore-all lint/performance/noJsxPropsBind: small interactive task list uses row-scoped actions
 "use client";
 
-import { CalendarClock, Clock, Copy, CornerDownLeft, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import {
+  ArrowUp,
+  CalendarClock,
+  ChevronRight,
+  Clock3,
+  Filter,
+  Loader2,
+  MoreHorizontal,
+  Plus,
+} from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -31,360 +33,634 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { describeSchedule } from "@/lib/scheduler/display";
 
-interface ScheduledTask {
+type Task = {
   id: string;
   taskType: string;
   prompt: string;
+  enabled: boolean;
   schedule: { cron: string; timezone?: string };
-  status: "pending" | "running" | "succeeded" | "failed" | "cancelled";
-  lastRunAt: string | null;
+  status: string;
   nextRunAt: string | null;
-  lastResult: string | null;
+  lastRunAt: string | null;
   errorMessage: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-const statusStyles = {
-  pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  running: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 animate-pulse",
-  succeeded: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+  chatId: string | null;
 };
-
-const statusLabels = {
-  pending: "待执行",
-  running: "运行中",
-  succeeded: "成功",
+type Run = {
+  id: string;
+  chatId: string | null;
+  status: string;
+  startedAt: string;
+  errorMessage: string | null;
+};
+const labels: Record<string, string> = {
+  cancelled: "已暂停",
   failed: "失败",
-  cancelled: "已取消",
+  pending: "尚未运行",
+  running: "运行中",
+  succeeded: "已完成",
 };
-
-const defaultCronOptions = [
-  { label: "每天早上 9:00", value: "0 9 * * *" },
-  { label: "每周一上午 9:00", value: "0 9 * * 1" },
-  { label: "每周日早上 12:00", value: "0 0 * * 0" },
-  { label: "每小时整点", value: "0 * * * *" },
-  { label: "每 30 分钟", value: "*/30 * * * *" },
-  { label: "每天午夜", value: "0 0 * * *" },
+const templates = [
+  {
+    description: "每天整理 AI、Agent 与大模型领域的重要动态",
+    icon: "📰",
+    query:
+      "请创建定时任务：每天上午 9 点（北京时间）整理 AI、Agent 与大模型领域的重要动态，注明来源；无法联网时请如实说明。",
+    title: "AI 前沿日报",
+  },
+  {
+    description: "每周五，关注 AI 编程、MCP 与 Skill 生态的新进展",
+    icon: "🤖",
+    query:
+      "请创建定时任务：每周五上午 9 点（北京时间）整理 AI 编程、MCP 与 Skill 生态的重要进展，附上可靠来源。",
+    title: "AI 编程研究雷达",
+  },
+  {
+    description: "每天一个可实践的工作方法，让想法变成行动",
+    icon: "💡",
+    query:
+      "请创建定时任务：每天上午 8 点（北京时间）分享一个提升工作效率的方法，附具体例子与当天可以实践的小行动。",
+    title: "每日灵感",
+  },
 ];
 
-export function ScheduledTasksPanel() {
-  const { data: tasks, mutate } = useSWR<ScheduledTask[]>(
-    "/api/scheduled-tasks",
-    fetcher
-  );
-
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<ScheduledTask | null>(null);
-
-  return (
-    <div className="container mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">定时任务</h1>
-          <p className="text-muted-foreground mt-1">
-            管理 AI 自动化任务和定期报告
-          </p>
-        </div>
-        <Button onClick={() => { setEditingTask(null); setIsDialogOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          新建任务
-        </Button>
-      </div>
-
-      {/* Loading state */}
-      {!tasks && (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {tasks && tasks.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="py-12 text-center">
-            <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-1">还没有定时任务</h3>
-            <p className="text-muted-foreground mb-4">
-              点击"新建任务"创建第一个 AI 自动化任务
-            </p>
-            <Button onClick={() => { setEditingTask(null); setIsDialogOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" />
-              新建任务
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Task list */}
-      {tasks && tasks.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onEdit={() => {
-                setEditingTask(task);
-                setIsDialogOpen(true);
-              }}
-              onDelete={async () => {
-                if (!confirm("确定要删除此任务吗？")) return;
-                try {
-                  await fetch(`/api/scheduled-tasks/${task.id}`, {
-                    method: "DELETE",
-                  });
-                  toast.success("任务已删除");
-                  mutate();
-                } catch {
-                  toast.error("删除失败");
-                }
-              }}
-              onRefresh={() => mutate()}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Create/Edit Dialog */}
-      <CreateTaskDialog
-        isOpen={isDialogOpen}
-        onClose={() => {
-          setIsDialogOpen(false);
-          setEditingTask(null);
-        }}
-        task={editingTask}
-        onSuccess={() => {
-          mutate();
-          setIsDialogOpen(false);
-          setEditingTask(null);
-        }}
-      />
-    </div>
-  );
+async function request(url: string, options?: RequestInit) {
+  const response = await fetch(url, options);
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.error || "操作失败");
+  }
+  return body;
 }
+const date = (value: string | null, timezone = "Asia/Shanghai") =>
+  value
+    ? new Date(value).toLocaleString("zh-CN", {
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        month: "numeric",
+        timeZone: timezone,
+      })
+    : "—";
 
-function TaskCard({
-  task,
-  onEdit,
-  onDelete,
-  onRefresh,
-}: {
-  task: ScheduledTask;
-  onEdit: () => void;
-  onDelete: () => void;
-  onRefresh: () => void;
-}) {
-  const formatTime = (dateStr: string | null) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleString("zh-CN");
+export function ScheduledTasksPanel() {
+  const {
+    data: tasks,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR<Task[]>("/api/scheduled-tasks", request, {
+    refreshInterval: 5000,
+  });
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [editing, setEditing] = useState<Task | null>(null);
+  const [details, setDetails] = useState<Task | null>(null);
+  const [deleting, setDeleting] = useState<Task | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [manual, setManual] = useState(false);
+  const startChat = (text: string) => {
+    if (!text.trim()) {
+      return;
+    }
+    window.location.assign(
+      `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/?query=${encodeURIComponent(`请帮我安排周期定时任务：${text.trim()}`)}`
+    );
   };
-
+  const change = async (task: Task, action: string) => {
+    setBusy(task.id);
+    try {
+      await request(
+        `/api/scheduled-tasks/${task.id}`,
+        action === "delete"
+          ? { method: "DELETE" }
+          : {
+              body: JSON.stringify({ action }),
+              headers: { "Content-Type": "application/json" },
+              method: "POST",
+            }
+      );
+      toast.success(
+        action === "run"
+          ? "任务已开始运行"
+          : action === "pause"
+            ? "已暂停后续计划，当前运行会继续完成"
+            : action === "resume"
+              ? "任务已恢复"
+              : "任务已删除"
+      );
+      setDeleting(null);
+      await mutate();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "操作失败");
+    } finally {
+      setBusy(null);
+    }
+  };
+  const visible = tasks?.filter(
+    (task) =>
+      filter === "all" || (filter === "enabled" ? task.enabled : !task.enabled)
+  );
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg">{task.taskType}</CardTitle>
-            <CardDescription className="mt-1 line-clamp-2">
-              {task.prompt.substring(0, 80)}
-              {task.prompt.length > 80 && "..."}
-            </CardDescription>
+    <>
+      <div className="p-3 md:hidden">
+        <SidebarTrigger />
+      </div>
+      <div className="mx-auto max-w-5xl px-6 pb-16 pt-8 md:px-12 md:pt-14">
+        <header className="mb-9 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">任务中心</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">
+              创建和管理定时任务，让 AI 按计划执行工作，持续跟踪更新
+            </p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <MoreHorizontalIcon className="h-4 w-4" />
+              <Button className="rounded-full" variant="secondary">
+                <Filter size={16} />
+                {
+                  { all: "全部任务", enabled: "已开启", paused: "已暂停" }[
+                    filter
+                  ]
+                }
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onEdit}>编辑</DropdownMenuItem>
-              <DropdownMenuItem onClick={onRefresh}>刷新</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-red-600"
-                onClick={onDelete}
-              >
-                删除
-              </DropdownMenuItem>
+              {[
+                ["all", "全部任务"],
+                ["enabled", "已开启"],
+                ["paused", "已暂停"],
+              ].map(([value, label]) => (
+                <DropdownMenuItem key={value} onClick={() => setFilter(value)}>
+                  {label}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </CardHeader>
-      <CardContent className="pb-3">
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">下次运行:</span>
-            <span>{formatTime(task.nextRunAt)}</span>
-          </div>
-          {task.lastRunAt && (
-            <div className="flex items-center gap-2">
-              <CornerDownLeft className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">上次运行:</span>
-              <span>{formatTime(task.lastRunAt)}</span>
+        </header>
+        <form
+          className="flex items-center gap-3 rounded-3xl border bg-background px-3 py-3 shadow-sm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            startChat(query);
+          }}
+        >
+          <Button
+            aria-label="手动创建任务"
+            className="shrink-0 rounded-full"
+            onClick={() => setManual(true)}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <Plus size={22} />
+          </Button>
+          <input
+            aria-label="安排任务"
+            className="min-w-0 flex-1 bg-transparent py-2 text-base outline-none placeholder:text-muted-foreground"
+            maxLength={2000}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="安排任务，例如：每天早上 9 点整理 AI 日报"
+            value={query}
+          />
+          <Button
+            aria-label="通过 AI 安排任务"
+            className="shrink-0 rounded-full"
+            disabled={!query.trim()}
+            size="icon"
+            type="submit"
+          >
+            <ArrowUp size={22} />
+          </Button>
+        </form>
+        <p className="mt-3 px-3 text-xs text-muted-foreground">
+          通过对话安排周期任务 · 默认北京时间 · 运行结果保存在任务对话中
+        </p>
+        <section aria-label="我的任务" className="mt-9">
+          {Boolean(isLoading) && (
+            <p className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+              <Loader2 className="animate-spin" size={18} />
+              正在加载任务…
+            </p>
+          )}
+          {Boolean(error) && (
+            <div className="rounded-xl border p-6 text-sm" role="alert">
+              任务加载失败。
+              <Button onClick={() => mutate()} variant="link">
+                重试
+              </Button>
             </div>
           )}
-          <div className="flex items-center gap-2 pt-2">
-            <span
-              className={cn(
-                "px-2 py-1 rounded-md text-xs font-medium",
-                statusStyles[task.status]
-              )}
+          {!isLoading && !error && visible?.length === 0 && (
+            <div className="py-10 text-center">
+              <CalendarClock
+                className="mx-auto mb-3 text-muted-foreground"
+                size={30}
+              />
+              <p className="font-medium">
+                {tasks?.length
+                  ? "没有符合筛选条件的任务"
+                  : "把重复的工作交给 AI"}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                在上方描述要做的事和执行时间，即可开始安排。
+              </p>
+            </div>
+          )}
+          {visible?.map((task) => (
+            <article
+              className="flex gap-4 border-b py-6 last:border-0"
+              key={task.id}
             >
-              {statusLabels[task.status]}
-            </span>
-            {task.errorMessage && (
-              <span className="text-red-500 text-xs" title={task.errorMessage}>
-                ⚠️ {task.errorMessage.substring(0, 30)}...
+              <div className="mt-1 flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-primary">
+                <CalendarClock size={23} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <button
+                  className="text-left text-lg font-medium hover:underline"
+                  onClick={() => setDetails(task)}
+                  type="button"
+                >
+                  {task.taskType}
+                </button>
+                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                  <span
+                    className={`size-2 rounded-full ${task.enabled ? "bg-blue-500" : "bg-muted-foreground"}`}
+                  />
+                  {task.enabled
+                    ? describeSchedule(task.schedule.cron)
+                    : "已暂停"}
+                  <span>· {task.schedule.timezone || "Asia/Shanghai"}</span>
+                  {Boolean(task.enabled) && (
+                    <span>
+                      · 下次运行：{date(task.nextRunAt, task.schedule.timezone)}
+                    </span>
+                  )}
+                </p>
+                <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                  {task.prompt}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                  <span
+                    className={
+                      task.status === "failed"
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                    }
+                  >
+                    {labels[task.status] || task.status}
+                    {task.lastRunAt
+                      ? ` · ${date(task.lastRunAt, task.schedule.timezone)}`
+                      : ""}
+                  </span>
+                  {Boolean(task.chatId) && (
+                    <Link
+                      className="inline-flex items-center text-primary hover:underline"
+                      href={`/chat/${task.chatId}`}
+                    >
+                      查看结果
+                      <ChevronRight size={13} />
+                    </Link>
+                  )}
+                </div>
+                {Boolean(task.errorMessage) && (
+                  <p className="mt-2 text-xs text-destructive">
+                    {task.errorMessage}
+                  </p>
+                )}
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    aria-label={`管理 ${task.taskType}`}
+                    disabled={busy === task.id}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <MoreHorizontal size={19} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    disabled={task.status === "running"}
+                    onClick={() => change(task, "run")}
+                  >
+                    立即运行
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      change(task, task.enabled ? "pause" : "resume")
+                    }
+                  >
+                    {task.enabled ? "暂停任务" : "恢复任务"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={task.status === "running"}
+                    onClick={() => setEditing(task)}
+                  >
+                    编辑任务
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setDetails(task)}>
+                    运行记录
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    disabled={task.status === "running"}
+                    onClick={() => setDeleting(task)}
+                  >
+                    删除任务
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </article>
+          ))}
+        </section>
+        <section aria-label="推荐任务" className="mt-7 border-t pt-7">
+          <h2 className="mb-2 text-sm text-muted-foreground">从一个想法开始</h2>
+          {templates.map((item) => (
+            <button
+              className="flex w-full items-center gap-4 border-b py-6 text-left transition-colors hover:bg-muted/40 last:border-0"
+              key={item.title}
+              onClick={() => startChat(item.query)}
+              type="button"
+            >
+              <span className="flex size-11 shrink-0 items-center justify-center text-3xl">
+                {item.icon}
               </span>
-            )}
-          </div>
-        </div>
-      </CardContent>
-      <CardFooter>
-        <code className="block w-full overflow-x-auto rounded bg-muted px-3 py-2 text-xs">
-          {task.schedule.cron}
-        </code>
-      </CardFooter>
-    </Card>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium md:text-lg">
+                  {item.title}
+                </span>
+                <span className="mt-1 block text-sm leading-6 text-muted-foreground">
+                  {item.description}
+                </span>
+              </span>
+              <Plus className="shrink-0 text-muted-foreground" size={21} />
+            </button>
+          ))}
+        </section>
+      </div>
+      {Boolean(editing || manual) && (
+        <TaskEditor
+          key={editing?.id || "new"}
+          onClose={() => {
+            setEditing(null);
+            setManual(false);
+          }}
+          onSaved={() => {
+            setEditing(null);
+            setManual(false);
+            mutate().catch(console.error);
+          }}
+          task={editing}
+        />
+      )}
+      {details !== null && (
+        <TaskHistory onClose={() => setDetails(null)} task={details} />
+      )}
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleting(null);
+          }
+        }}
+        open={!!deleting}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>删除“{deleting?.taskType}”？</DialogTitle>
+            <DialogDescription>
+              删除计划与运行记录，已经生成的聊天结果会保留。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setDeleting(null)} variant="outline">
+              取消
+            </Button>
+            <Button
+              disabled={!!busy}
+              onClick={() => deleting && change(deleting, "delete")}
+              variant="destructive"
+            >
+              删除任务
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
-function CreateTaskDialog({
-  isOpen,
-  onClose,
+function TaskEditor({
   task,
-  onSuccess,
+  onClose,
+  onSaved,
 }: {
-  isOpen: boolean;
+  task: Task | null;
   onClose: () => void;
-  task: ScheduledTask | null;
-  onSuccess: () => void;
+  onSaved: () => void;
 }) {
-  const [taskType, setTaskType] = useState(task?.taskType || "");
+  const [title, setTitle] = useState(task?.taskType || "");
   const [prompt, setPrompt] = useState(task?.prompt || "");
-  const [cron, setCron] = useState(task?.schedule?.cron || "0 9 * * *");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!taskType || !prompt) {
-      toast.error("请填写所有必填项");
-      return;
-    }
-
-    setIsLoading(true);
+  const [cron, setCron] = useState(task?.schedule.cron || "0 9 * * *");
+  const [timezone, setTimezone] = useState(
+    task?.schedule.timezone || "Asia/Shanghai"
+  );
+  const [saving, setSaving] = useState(false);
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
     try {
-      const url = "/api/scheduled-tasks";
-      const method = task ? "PUT" : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(task ? { id: task.id } : {}),
-          taskType,
-          prompt,
-          schedule: { cron },
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "操作失败");
-      }
-
+      await request(
+        task ? `/api/scheduled-tasks/${task.id}` : "/api/scheduled-tasks",
+        {
+          body: JSON.stringify({
+            prompt,
+            schedule: { cron, timezone },
+            taskType: title,
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: task ? "PATCH" : "POST",
+        }
+      );
       toast.success(task ? "任务已更新" : "任务已创建");
-      onSuccess();
+      onSaved();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "操作失败");
+      toast.error(error instanceof Error ? error.message : "保存失败");
     } finally {
-      setIsLoading(false);
+      setSaving(false);
     }
   };
-
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+    <Dialog
+      onOpenChange={(open) => {
+        if (!open && !saving) {
+          onClose();
+        }
+      }}
+      open
+    >
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{task ? "编辑任务" : "创建定时任务"}</DialogTitle>
+          <DialogTitle>{task ? "编辑任务" : "手动创建任务"}</DialogTitle>
           <DialogDescription>
-            设置 AI 任务的调度计划和执行提示词
+            设定周期与工作内容，每次运行都会生成独立的结果对话。
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-4 py-4">
+        <form className="space-y-4" onSubmit={save}>
           <div className="space-y-2">
-            <Label htmlFor="taskType">任务名称 *</Label>
+            <Label htmlFor="task-title">任务名称</Label>
             <Input
-              id="taskType"
-              value={taskType}
-              onChange={(e) => setTaskType(e.target.value)}
-              placeholder="例如：每日工作报告"
+              id="task-title"
+              maxLength={64}
+              onChange={(event) => setTitle(event.target.value)}
+              required
+              value={title}
             />
           </div>
-
           <div className="space-y-2">
-            <Label htmlFor="schedule">调度计划</Label>
-            <Select value={cron} onValueChange={setCron}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {defaultCronOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-sm text-muted-foreground">
-              Cron: {cron}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="prompt">AI 提示词 *</Label>
+            <Label htmlFor="task-prompt">执行内容</Label>
             <Textarea
-              id="prompt"
+              id="task-prompt"
+              maxLength={10_000}
+              onChange={(event) => setPrompt(event.target.value)}
+              placeholder="具体描述 AI 每次需要完成的工作"
+              required
+              rows={5}
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="输入 AI 将要执行的任务描述..."
-              rows={6}
             />
-            <p className="text-sm text-muted-foreground">
-              AI 将在每个调度时间点执行此提示词
-            </p>
           </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            取消
-          </Button>
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? "保存中..." : task ? "更新" : "创建"}
-          </Button>
-        </DialogFooter>
+          <div className="space-y-2">
+            <Label htmlFor="task-preset">执行计划</Label>
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              id="task-preset"
+              onChange={(event) => {
+                if (event.target.value !== "custom") {
+                  setCron(event.target.value);
+                }
+              }}
+              value={
+                ["0 9 * * *", "0 9 * * 1-5", "0 9 * * 1", "0 * * * *"].includes(
+                  cron
+                )
+                  ? cron
+                  : "custom"
+              }
+            >
+              <option value="0 9 * * *">每天 09:00</option>
+              <option value="0 9 * * 1-5">工作日 09:00</option>
+              <option value="0 9 * * 1">每周一 09:00</option>
+              <option value="0 * * * *">每小时整点</option>
+              <option value="custom">自定义计划</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="task-cron">Cron 表达式</Label>
+              <Input
+                id="task-cron"
+                onChange={(event) => setCron(event.target.value)}
+                required
+                value={cron}
+              />
+              <p className="text-xs text-muted-foreground">
+                分钟 小时 日 月 星期
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="task-zone">时区</Label>
+              <Input
+                id="task-zone"
+                onChange={(event) => setTimezone(event.target.value)}
+                required
+                value={timezone}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={saving}
+              onClick={onClose}
+              type="button"
+              variant="outline"
+            >
+              取消
+            </Button>
+            <Button disabled={saving} type="submit">
+              {saving ? "保存中…" : "保存任务"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
 }
 
-// Icons that were imported but might not be available
-function MoreHorizontalIcon(props: React.SVGProps<SVGSVGElement>) {
-  return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>;
+function TaskHistory({ task, onClose }: { task: Task; onClose: () => void }) {
+  const { data, error, isLoading } = useSWR<{ runs: Run[] }>(
+    `/api/scheduled-tasks/${task.id}`,
+    request,
+    { refreshInterval: 5000 }
+  );
+  return (
+    <Dialog
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+      open
+    >
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{task.taskType}</DialogTitle>
+          <DialogDescription>
+            最近 20 次运行 · {task.schedule.timezone || "Asia/Shanghai"}
+          </DialogDescription>
+        </DialogHeader>
+        {Boolean(isLoading) && (
+          <p className="text-sm text-muted-foreground">正在加载…</p>
+        )}
+        {Boolean(error) && (
+          <p className="text-sm text-destructive" role="alert">
+            记录加载失败，请稍后重试。
+          </p>
+        )}
+        {data?.runs.length === 0 && (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            尚无运行记录，可从任务菜单立即运行。
+          </p>
+        )}
+        {data?.runs.map((run) => (
+          <div className="border-b py-3 last:border-0" key={run.id}>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="flex items-center gap-2">
+                <Clock3 size={15} />
+                {date(run.startedAt, task.schedule.timezone)}
+              </span>
+              <span>{labels[run.status]}</span>
+            </div>
+            {Boolean(run.errorMessage) && (
+              <p className="mt-2 text-xs text-destructive">
+                {run.errorMessage}
+              </p>
+            )}
+            {Boolean(run.chatId) && (
+              <Link
+                className="mt-2 inline-block text-sm text-primary hover:underline"
+                href={`/chat/${run.chatId}`}
+              >
+                打开结果对话 →
+              </Link>
+            )}
+          </div>
+        ))}
+      </DialogContent>
+    </Dialog>
+  );
 }

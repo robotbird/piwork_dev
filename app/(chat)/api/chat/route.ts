@@ -21,6 +21,7 @@ import { loadEnabledManagedProjectSkills } from "@/lib/ai/managed-skills";
 import { getModelAvailability } from "@/lib/ai/models";
 import { getPiModel, toPiHistoryMessages } from "@/lib/ai/pi";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
+import { schedulingPrompt } from "@/lib/ai/scheduled-task-tools";
 import {
   buildSkillsSystemPrompt,
   createSkillTools,
@@ -42,6 +43,7 @@ import { ChatbotError } from "@/lib/errors";
 import { syncWorkspaceMcpConfig } from "@/lib/mcp/workspace-config";
 import { getRunManager } from "@/lib/runtime/run";
 import type { RunSubscription } from "@/lib/runtime/run/run-manager";
+import { scheduledTaskTools } from "@/lib/scheduler/service";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
 import {
   convertToUIMessages,
@@ -417,13 +419,17 @@ export async function POST(request: Request) {
             spec: {
               appendSystemPrompt: [
                 buildSkillsSystemPrompt(skills),
+                schedulingPrompt + new Date().toISOString(),
                 ...(executionPrompt ? [executionPrompt] : []),
               ],
               chatId: id,
               historyMessages,
               model: piModel,
               systemPrompt: baseSystemPrompt,
-              tools: createSkillTools(skills),
+              tools: [
+                ...createSkillTools(skills),
+                ...scheduledTaskTools(session.user.id, currentUserMessage.id),
+              ],
               workspaceDir,
             },
             userId: session.user.id,

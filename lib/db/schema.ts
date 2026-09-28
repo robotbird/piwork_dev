@@ -437,6 +437,7 @@ export const scheduledTask = pgTable(
       onDelete: "set null",
     }),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
+    enabled: boolean("enabled").notNull().default(true),
     /** 错误信息（失败时） */
     errorMessage: text("errorMessage"),
     id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -444,6 +445,8 @@ export const scheduledTask = pgTable(
     lastResult: text("lastResult"),
     /** 上次运行时间 */
     lastRunAt: timestamp("lastRunAt"),
+    leaseToken: uuid("leaseToken"),
+    lockedUntil: timestamp("lockedUntil"),
     /** 下次计划运行时间 */
     nextRunAt: timestamp("nextRunAt"),
     /** AI 执行提示词 */
@@ -477,6 +480,26 @@ export const scheduledTask = pgTable(
 );
 
 export type ScheduledTaskRecord = InferSelectModel<typeof scheduledTask>;
+
+export const scheduledTaskRun = pgTable(
+  "ScheduledTaskRun",
+  {
+    chatId: uuid("chatId").references(() => chat.id, { onDelete: "set null" }),
+    errorMessage: text("errorMessage"),
+    finishedAt: timestamp("finishedAt"),
+    id: uuid("id").primaryKey().notNull(),
+    startedAt: timestamp("startedAt").notNull().defaultNow(),
+    status: varchar("status", {
+      enum: ["running", "succeeded", "failed"],
+    }).notNull(),
+    taskId: uuid("taskId")
+      .notNull()
+      .references(() => scheduledTask.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("ScheduledTaskRun_task_idx").on(table.taskId, table.startedAt),
+  ]
+);
 
 /** User-owned catalog; bytes stay in the existing file store or Document versions. */
 export const libraryItem = pgTable(

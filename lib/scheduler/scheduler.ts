@@ -1,57 +1,52 @@
-/** Scheduled task manager - finds and executes due tasks */
+import "server-only";
+import {
+  claimScheduledTask,
+  getDueScheduledTasks,
+  recoverExpiredTasks,
+} from "@/lib/db/scheduled-task-queries";
+import { executeScheduledTask } from "./executor";
 
-import { getDueScheduledTasks } from "../db/scheduled-task-queries";
-import type { ScheduledTaskRecord } from "../db/schema";
-
-/** Process all due scheduled tasks */
 export async function processDueTasks() {
-  const dueTasks = await getDueScheduledTasks();
-
-  const results = await Promise.allSettled(
-    dueTasks.map((task) => executeTaskWithRetry(task))
+  await recoverExpiredTasks();
+  const due = await getDueScheduledTasks();
+  return Promise.allSettled(
+    due.map(async (task) => {
+      const claimed = await claimScheduledTask(task.userId, task.id);
+      return claimed
+        ? executeScheduledTask(claimed)
+        : { skipped: true, taskId: task.id };
+    })
   );
-
-  return results;
 }
 
-async function executeTaskWithRetry(task: ScheduledTaskRecord): Promise<{
-  taskId: string;
-  success: boolean;
-  error?: string;
-}> {
-  try {
-    // Don't execute cancelled tasks
-    if (task.status === "cancelled") {
-      return { taskId: task.id, success: false, error: "Task cancelled" };
-    }
+const key = Symbol.for("piwork.scheduler");
+const scope = globalThis as Record<
+  symbol,
+  { timer: ReturnType<typeof setInterval>; busy: boolean } | undefined
+>;
 
-    // Import executor dynamically to avoid circular dependencies
-    const { executeScheduledTask } = await import("./executor");
-    const result = await executeScheduledTask(task);
-
-    return { taskId: task.id, success: result.success, error: result.error };
-  } catch (error) {
-    return {
-      taskId: task.id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
+/** MVP runs in one long-lived Node server alongside RunManager (not a separate worker). */
+export function startScheduler() {
+  if (scope[key]) {
+    return;
   }
-}
-
-/**
- * Calculate next run time and update task
- * This should be called after a task completes successfully
- */
-export async function scheduleNextRun(
-  taskId: string,
-  currentTime = new Date()
-): Promise<Date | null> {
-  // Import dynamically to avoid circular dependencies
-  const { getNextRunTime } = await import("./cron-utils");
-  const { updateTaskStatus } = await import("../db/scheduled-task-queries");
-
-  // Calculate next run time (we need to get the task's cron from somewhere else)
-  // This function is simplified - in real usage, we'd need to pass the task or cron
-  return null;
+  const tick = async () => {
+    const state = scope[key];
+    if (!state || state.busy) {
+      return;
+    }
+    state.busy = true;
+    try {
+      await processDueTasks();
+    } catch (error) {
+      console.error("[scheduler] tick failed", error);
+    } finally {
+      state.busy = false;
+    }
+  };
+  const timer = setInterval(() => {
+    tick().catch(console.error);
+  }, 30_000);
+  timer.unref();
+  scope[key] = { busy: false, timer };
 }

@@ -1,100 +1,92 @@
-/** Task executor - runs AI tasks for scheduled tasks */
-
-import { saveChat } from "@/lib/db/queries";
-import { getRunManager } from "@/lib/runtime/run/index";
-import type { ScheduledTaskRecord } from "@/lib/db/schema";
-import { getNextRunTime } from "./cron-utils";
-import { updateTaskResult, updateTaskStatus } from "../db/scheduled-task-queries";
-import type { Model, Api } from "@earendil-works/pi-ai";
+import "server-only";
 import {
   getActiveModelCatalog,
   getPreferredModelId,
 } from "@/lib/ai/active-models";
+import {
+  buildExecutionSystemPrompt,
+  ensureChatWorkspace,
+  executionToolsEnabled,
+} from "@/lib/ai/agent-tools";
+import { loadEnabledManagedProjectSkills } from "@/lib/ai/managed-skills";
+import { getPiModel } from "@/lib/ai/pi";
+import { regularPrompt } from "@/lib/ai/prompts";
+import { buildSkillsSystemPrompt, createSkillTools } from "@/lib/ai/skills";
+import { saveChat, saveMessages } from "@/lib/db/queries";
+import {
+  finishScheduledTask,
+  linkTaskChat,
+} from "@/lib/db/scheduled-task-queries";
+import type { ScheduledTaskRecord } from "@/lib/db/schema";
+import { syncWorkspaceMcpConfig } from "@/lib/mcp/workspace-config";
+import { getRunManager } from "@/lib/runtime/run";
+import { waitForTaskCompletion } from "./completion";
 
-/**
- * Execute a scheduled task by creating a chat and running the AI prompt
- */
+/** Accept only atomically claimed tasks. The scheduler never implements an agent loop. */
 export async function executeScheduledTask(task: ScheduledTaskRecord) {
+  if (!task.leaseToken) {
+    throw new Error("Task must be claimed before execution");
+  }
+  const chatId = crypto.randomUUID();
+  let errorMessage: string | null = null;
+  const manager = getRunManager();
   try {
-    // Get default model from backend configuration
-    const catalog = await getActiveModelCatalog();
-    const defaultModelId = getPreferredModelId(catalog);
-
-    if (!defaultModelId) {
-      throw new Error("No default model configured in backend");
+    const modelId = getPreferredModelId(await getActiveModelCatalog());
+    if (!modelId) {
+      throw new Error("请先在管理后台配置可用模型");
     }
-
-    // Update status to running
-    await updateTaskStatus(task.id, {
-      status: "running",
-    });
-
-    // Create a new chat for this task execution
-    const chat = await saveChat({
-      id: generateUUID(),
+    const model = await getPiModel(modelId);
+    const workspaceDir = executionToolsEnabled()
+      ? await ensureChatWorkspace(chatId)
+      : null;
+    if (workspaceDir) {
+      await syncWorkspaceMcpConfig(workspaceDir);
+    }
+    const { skills } = await loadEnabledManagedProjectSkills();
+    await saveChat({
+      id: chatId,
       title: `[任务] ${task.taskType}`,
       userId: task.userId,
       visibility: "private",
     });
-
-    // Update task with chatId
-    await updateTaskStatus(task.id, {
-      chatId: chat.id,
+    await linkTaskChat(task, chatId);
+    await saveMessages({
+      messages: [
+        {
+          attachments: [],
+          chatId,
+          createdAt: new Date(),
+          id: crypto.randomUUID(),
+          parts: [{ text: task.prompt, type: "text" }],
+          role: "user",
+        },
+      ],
     });
-
-    // Start the AI run
-    const runManager = getRunManager();
-
-    // This will execute the prompt in the background
-    const runPromise = runManager.start({
-      prompt: { type: "prompt", text: task.prompt },
+    const handle = await manager.start({
+      prompt: { text: task.prompt, type: "prompt" },
       spec: {
-        chatId: chat.id,
-        workspaceDir: null,
-        model: defaultModelId as unknown as Model<Api>,
-        systemPrompt: "",
-        appendSystemPrompt: [],
+        appendSystemPrompt: [
+          buildSkillsSystemPrompt(skills),
+          ...(workspaceDir
+            ? [buildExecutionSystemPrompt(workspaceDir, [])]
+            : []),
+          `这是定时执行的任务。当前时间 ${new Date().toISOString()}。直接完成工作，不要创建新的定时任务。无法获取所需信息时如实说明，不编造实时信息或声称已发送通知。`,
+        ],
+        chatId,
         historyMessages: [],
-        tools: [],
+        model,
+        systemPrompt: regularPrompt,
+        tools: createSkillTools(skills),
+        workspaceDir,
       },
       userId: task.userId,
     });
-
-    // Wait for completion (with timeout)
-    const result = await Promise.race([
-      runPromise,
-      timeoutPromise(300000, "Task execution timeout"), // 5 minute timeout
-    ]);
-
-    // Calculate next run time
-    const schedule = task.schedule as { cron: string; timezone?: string };
-    const nextRunAt = getNextRunTime(schedule.cron, new Date());
-
-    // Update task status to succeeded and set next run time
-    await updateTaskStatus(task.id, {
-      status: "succeeded",
-      lastRunAt: new Date(),
-      nextRunAt: nextRunAt || undefined,
-      lastResult: JSON.stringify({ success: true, runId: result?.runId }),
-    });
-
-    return { success: true, runId: result?.runId };
+    await waitForTaskCompletion(handle);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
-    // Update task status to failed
-    await updateTaskResult(task.id, "", "failed", errorMessage);
-
-    return { success: false, error: errorMessage };
+    errorMessage = error instanceof Error ? error.message : "执行失败";
+    await manager.abortByChat(chatId).catch(() => undefined);
+  } finally {
+    await finishScheduledTask(task, errorMessage);
   }
-}
-
-function generateUUID(): string {
-  return crypto.randomUUID();
-}
-
-function timeoutPromise(ms: number, message: string): Promise<never> {
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error(message)), ms);
-  });
+  return { error: errorMessage, success: !errorMessage, taskId: task.id };
 }

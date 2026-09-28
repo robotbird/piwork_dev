@@ -85,6 +85,13 @@
       "when": 1790579659928,
       "tag": "0011_stale_magneto",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790598693876,
+      "tag": "0012_bumpy_silver_surfer",
+      "breakpoints": true
     }
   ]
 }

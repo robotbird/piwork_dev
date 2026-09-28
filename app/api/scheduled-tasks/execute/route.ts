@@ -1,41 +1,22 @@
-/** API route: trigger scheduled tasks (called by cron job or manually) */
-
-import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
+import { taskApiError } from "@/lib/scheduler/http";
 import { processDueTasks } from "@/lib/scheduler/scheduler";
+export const maxDuration = 360;
 
-/**
- * This endpoint is called periodically to check and execute due tasks
- * Can be triggered by:
- * - Vercel Cron Jobs
- * - External cron service
- * - Manual call for testing
- */
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
+  const key = process.env.SCHEDULED_TASKS_API_KEY;
+  const given = Buffer.from(request.headers.get("authorization") ?? "");
+  const expected = Buffer.from(`Bearer ${key ?? ""}`);
+  if (
+    !key ||
+    given.length !== expected.length ||
+    !timingSafeEqual(given, expected)
+  ) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
-    // Verify authorization (simple API key check for now)
-    const authHeader = req.headers.get("authorization");
-    const apiKey = process.env.SCHEDULED_TASKS_API_KEY;
-
-    if (apiKey && authHeader !== `Bearer ${apiKey}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const results = await processDueTasks();
-
-    return NextResponse.json({
-      success: true,
-      results: results.map((r, i) => {
-        if (r.status === "fulfilled") {
-          return { index: i, status: "fulfilled", value: r.value };
-        }
-        return { index: i, status: "rejected", reason: String(r.reason) };
-      }),
-    });
+    return Response.json({ results: await processDueTasks() });
   } catch (error) {
-    console.error("Process due tasks error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return taskApiError(error);
   }
 }

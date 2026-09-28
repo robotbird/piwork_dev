@@ -54,3 +54,7 @@
 ## 文档库边界
 
 `components/documents` 与 `lib/documents` 持有文档库界面及可共享类型；`lib/db/library-queries.ts` 持有归档、文件夹和所有权查询。上传入口必须登记 LibraryItem；生产 Runtime 在组装处注入归档回调，Pi `deliver_file` 完成归档后才发送 `artifact.created`。不要将数据库访问或用户身份判断写入 Pi 通用工具。文件夹为用户目录，当前不是项目权限模型。
+
+## 定时任务边界
+
+`lib/scheduler` 持有周期计划校验、调度与执行编排；`lib/db/scheduled-task-queries.ts` 持有归属查询、事务领取和运行记录。AI 创建工具通过回调注入平台身份，不接收模型提供的 userId。执行保持 `scheduler → RunManager → RuntimeBackend → Pi AgentSession`，等待 settled 后才写入结果；enabled 与运行 status 分离。MVP 只支持单个常驻 Node 实例，不能作为已部署分布式 Worker/Sandbox 能力描述。测试放在 tests/unit/scheduler 和 tests/unit/db。
