@@ -1,16 +1,5 @@
-/** Cron expression parser and next run time calculator */
+/** Cron expression utilities for scheduled tasks */
 
-/**
- * Parse cron expression and return next run times
- * Supported format: minute hour dayOfMonth month dayOfWeek
- * Special values: * (any), ? (no specific value), - (range), , (list), / (step)
- *
- * Examples:
- * - "0 9 * * *" - 每天早上 9 点
- * - "0 9 * * 1" - 每周一早上 9 点
- * - "*/5 * * * *" - Run every 5 minutes
- * - "0 0 * * 0" - 每周日早上 12 点
- */
 type ParseCronResult = {
   isValid: boolean;
   error?: string;
@@ -37,7 +26,6 @@ export function parseCron(cronExpression: string): ParseCronResult {
 
   const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
 
-  // Basic validation for each field
   const validators = [
     validateMinute,
     validateHour,
@@ -64,30 +52,37 @@ export function parseCron(cronExpression: string): ParseCronResult {
   return { isValid: true, minute, hour, dayOfMonth, month, dayOfWeek };
 }
 
-function validateMinute(value: string): { isValid: boolean; error?: string } {
+type FieldValidationResult = {
+  isValid: boolean;
+  error?: string;
+};
+
+function validateMinute(value: string): FieldValidationResult {
   return validateField(value, 0, 59, ["*"]);
 }
 
-function validateHour(value: string): { isValid: boolean; error?: string } {
+function validateHour(value: string): FieldValidationResult {
   return validateField(value, 0, 23, ["*"]);
 }
 
-function validateDayOfMonth(value: string): {
-  isValid: boolean;
-  error?: string;
-} {
+function validateDayOfMonth(value: string): FieldValidationResult {
   return validateField(value, 1, 31, ["*", "?"]);
 }
 
-function validateMonth(value: string): { isValid: boolean; error?: string } {
+function validateMonth(value: string): FieldValidationResult {
   return validateField(value, 1, 12, ["*"]);
 }
 
-function validateDayOfWeek(value: string): {
-  isValid: boolean;
-  error?: string;
-} {
-  return validateField(value, 0, 7, ["*", "?"], ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
+function validateDayOfWeek(value: string): FieldValidationResult {
+  return validateField(value, 0, 7, ["*", "?"], [
+    "Sun",
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+  ]);
 }
 
 function validateField(
@@ -95,19 +90,16 @@ function validateField(
   min: number,
   max: number,
   specials: string[],
-  aliases: string[] = []
-): { isValid: boolean; error?: string } {
-  // Check for special values
+  aliases: string[] = [],
+): FieldValidationResult {
   if (specials.includes(value)) {
     return { isValid: true };
   }
 
-  // Check for comma-separated values
   const parts = value.split(",");
   for (const part of parts) {
     const trimmed = part.trim();
 
-    // Check for range (e.g., "1-5")
     if (trimmed.includes("-")) {
       const rangeParts = trimmed.split("-");
       if (rangeParts.length !== 2) {
@@ -124,7 +116,6 @@ function validateField(
       continue;
     }
 
-    // Check for step (e.g., "*/5" or "1-10/2")
     if (trimmed.includes("/")) {
       const stepParts = trimmed.split("/");
       if (stepParts.length !== 2) {
@@ -135,16 +126,9 @@ function validateField(
       if (isNaN(step) || step <= 0) {
         return { isValid: false, error: `Invalid step value: ${trimmed}` };
       }
-      if (!["*", ...aliases.map((a) => a.toLowerCase()), ...aliases].includes(base)) {
-        const baseNum = parsePart(base);
-        if (baseNum === null || baseNum < min || baseNum > max) {
-          return { isValid: false, error: `Invalid base value: ${trimmed}` };
-        }
-      }
       continue;
     }
 
-    // Check for single value or alias
     const num = parsePart(trimmed);
     if (num === null || num < min || num > max) {
       return { isValid: false, error: `Value out of range: ${trimmed}` };
@@ -155,7 +139,6 @@ function validateField(
 }
 
 function parsePart(value: string): number | null {
-  // Handle numeric values
   const num = parseInt(value, 10);
   if (!isNaN(num)) {
     return num;
@@ -163,27 +146,17 @@ function parsePart(value: string): number | null {
   return null;
 }
 
-/**
- * Calculate next run time from a cron expression
- * @param cron - Cron expression (e.g., "0 9 * * *")
- * @param from - Starting date (defaults to now)
- * @returns Next run time or null if cannot calculate
- */
-export function getNextRunTime(
-  cron: string,
-  from: Date = new Date()
-): Date | null {
+/** Calculate next run time from a cron expression */
+export function getNextRunTime(cron: string, from: Date = new Date()): Date | null {
   const parts = cron.trim().split(/\s+/);
   if (parts.length !== 5) return null;
 
   const [minuteExpr, hourExpr, domExpr, monthExpr, dowExpr] = parts;
 
-  // Start from the next minute
-  let date = new Date(from);
+  const date = new Date(from);
   date.setSeconds(0, 0);
   date.setMinutes(date.getMinutes() + 1);
 
-  // Try for 8 years to account for leap years
   const maxAttempts = 8 * 366 * 24 * 60;
   let attempts = 0;
 
@@ -193,10 +166,9 @@ export function getNextRunTime(
     const minute = date.getMinutes();
     const hour = date.getHours();
     const dayOfMonth = date.getDate();
-    const month = date.getMonth() + 1; // 1-12
-    const dayOfWeek = date.getDay(); // 0-6 (Sun-Sat)
+    const month = date.getMonth() + 1;
+    const dayOfWeek = date.getDay();
 
-    // Check if current time matches all fields
     if (
       matches(minuteExpr, String(minute), 0, 59) &&
       matches(hourExpr, String(hour), 0, 23) &&
@@ -207,7 +179,6 @@ export function getNextRunTime(
       return new Date(date);
     }
 
-    // Increment by one minute
     date.setMinutes(date.getMinutes() + 1);
   }
 
@@ -219,19 +190,16 @@ function matches(
   value: string,
   min: number,
   max: number,
-  acceptWildcard = false
+  acceptWildcard = false,
 ): boolean {
   const num = parseInt(value, 10);
 
-  // Wildcard matches everything
   if (expr === "*") return acceptWildcard || true;
 
-  // Comma-separated list
   if (expr.includes(",")) {
     return expr.split(",").some((part) => matches(part.trim(), value, min, max, acceptWildcard));
   }
 
-  // Step values
   if (expr.includes("/")) {
     const [base, stepStr] = expr.split("/");
     const step = parseInt(stepStr, 10);
@@ -240,31 +208,26 @@ function matches(
       return num % step === 0;
     }
 
-    // Range with step
     if (base.includes("-")) {
       const [start, end] = base.split("-").map(Number);
       return num >= start && num <= end && (num - start) % step === 0;
     }
 
-    // Single value with step
     const baseNum = parseInt(base, 10);
     return num >= baseNum && (num - baseNum) % step === 0;
   }
 
-  // Range
   if (expr.includes("-")) {
     const [start, end] = expr.split("-").map(Number);
     return num >= start && num <= end;
   }
 
-  // Single value
   return num === parseInt(expr, 10);
 }
 
 function matchesDow(expr: string, dayOfWeek: number): boolean {
   if (expr === "*" || expr === "?") return true;
 
-  // Map day names to numbers (Sun=0, Mon=1, ..., Sat=6)
   const dayMap: Record<string, number> = {
     sun: 0,
     mon: 1,
@@ -277,7 +240,6 @@ function matchesDow(expr: string, dayOfWeek: number): boolean {
 
   const normalized = expr.toLowerCase();
 
-  // Handle comma-separated list with day names
   if (normalized.includes(",")) {
     return normalized.split(",").some((part) => {
       const trimmed = part.trim();
@@ -288,10 +250,53 @@ function matchesDow(expr: string, dayOfWeek: number): boolean {
     });
   }
 
-  // Handle day name aliases
   if (dayMap[normalized] !== undefined) {
     return dayMap[normalized] === dayOfWeek;
   }
 
   return matches(expr, String(dayOfWeek), 0, 7);
+}
+
+/** Get human-readable description of schedule */
+export function describeSchedule(cron: string): string {
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length !== 5) return cron;
+
+  const [minute, hour, dom, month, dow] = parts;
+
+  if (minute === "0" && hour === "9" && dom === "*" && month === "*" && dow === "*") {
+    return "Daily at 9:00 AM";
+  }
+
+  if (minute === "0" && hour === "9" && dom === "*" && month === "*" && (dow === "1" || dow.toLowerCase() === "mon")) {
+    return "Every Monday at 9:00 AM";
+  }
+
+  if (dom === "*" && month === "*" && dow === "0") {
+    return "Every Sunday at 12:00 AM";
+  }
+
+  const descriptions: string[] = [];
+
+  if (minute !== "*") {
+    descriptions.push(`minute ${minute}`);
+  }
+
+  if (hour !== "*") {
+    descriptions.push(`hour ${hour}`);
+  }
+
+  if (dom !== "*" && dom !== "?") {
+    descriptions.push(`day ${dom}`);
+  }
+
+  if (month !== "*") {
+    descriptions.push(`month ${month}`);
+  }
+
+  if (dow !== "*" && dow !== "?") {
+    descriptions.push(`day of week ${dow}`);
+  }
+
+  return descriptions.length > 0 ? descriptions.join(", ") : cron;
 }
