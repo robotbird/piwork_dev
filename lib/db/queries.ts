@@ -537,11 +537,25 @@ export async function updateDocumentContent({
       throw new ChatbotError("not_found:database", "Document not found");
     }
 
-    return await db
-      .update(document)
-      .set({ content })
-      .where(and(eq(document.id, id), eq(document.createdAt, latest.createdAt)))
-      .returning();
+    return await db.transaction(async (tx) => {
+      const result = await tx
+        .update(document)
+        .set({ content })
+        .where(
+          and(eq(document.id, id), eq(document.createdAt, latest.createdAt))
+        )
+        .returning();
+      await tx
+        .update(libraryItem)
+        .set({ size: Buffer.byteLength(content), updatedAt: new Date() })
+        .where(
+          and(
+            eq(libraryItem.documentId, id),
+            eq(libraryItem.userId, latest.userId)
+          )
+        );
+      return result;
+    });
   } catch (error) {
     if (error instanceof ChatbotError) {
       throw error;

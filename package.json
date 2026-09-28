@@ -22,7 +22,9 @@
     "test:unit": "node --conditions=react-server --import tsx --test tests/unit/ai/*.test.ts tests/unit/mcp/*.test.ts tests/unit/pi-packages/*.test.ts",
     "test:runtime": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/*.test.ts tests/unit/runtime/backends/local-rpc/*.test.ts tests/unit/runtime/run/*.test.ts tests/unit/chat/*.test.ts",
     "test:runtime:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/*.test.ts",
-    "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
+    "test": "export PLAYWRIGHT=True && pnpm exec playwright test",
+    "test:documents:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/library-queries.test.ts",
+    "test:documents:http": "node --import tsx tests/e2e/library-http.mts"
   },
   "dependencies": {
     "@ai-sdk/provider": "^4.0.2",

@@ -14,12 +14,13 @@ import {
   createLibraryFolder,
   getLibraryItem,
   listLibraryItems,
+  moveLibraryFile,
   readLibraryDocument,
   registerGeneratedFile,
   registerLibraryFile,
   renameLibraryItem,
 } from "../../../lib/db/library-queries";
-import { saveDocument } from "../../../lib/db/queries";
+import { saveDocument, updateDocumentContent } from "../../../lib/db/queries";
 
 const sql = postgres(process.env.POSTGRES_URL ?? "", { max: 1 });
 const dbTest = process.env.POSTGRES_URL ? test : test.skip;
@@ -87,6 +88,12 @@ dbTest("folders and file reads/renames are scoped to their owner", async () => {
     userId: owner,
   });
   assert.equal(await getLibraryItem(other, item.id), undefined);
+  await assert.rejects(moveLibraryFile(other, item.id, folder.id));
+  assert.equal((await moveLibraryFile(owner, item.id, null))?.parentId, null);
+  assert.equal(
+    (await moveLibraryFile(owner, item.id, folder.id))?.parentId,
+    folder.id
+  );
   assert.equal(await renameLibraryItem(other, item.id, "stolen"), undefined);
   assert.equal(await canReadStoredFile(other, file.url), false);
   assert.equal(await canReadStoredFile(owner, file.url), true);
@@ -113,7 +120,9 @@ dbTest("Pi deliver_file archives bytes before notifying the user", async () => {
     },
     onStored: async (file, size) => {
       await registerGeneratedFile(chatId, file, size);
-      const bytes = await readLocalFile(getChatFileId(file.url)!);
+      const fileId = getChatFileId(file.url);
+      assert.ok(fileId);
+      const bytes = await readLocalFile(fileId);
       assert.equal(bytes?.content.toString(), "AI output");
       archived = true;
     },
@@ -171,5 +180,14 @@ dbTest(
       "version two"
     );
     assert.equal(await readLibraryDocument(other, id), undefined);
+    await updateDocumentContent({ content: "manual edit", id });
+    assert.equal(
+      (await readLibraryDocument(owner, id))?.content,
+      "manual edit"
+    );
+    assert.equal(
+      (await getLibraryItem(owner, id))?.size,
+      Buffer.byteLength("manual edit")
+    );
   }
 );

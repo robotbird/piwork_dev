@@ -11,6 +11,7 @@ import {
   removeChatWorkspace,
   writeAttachmentsToWorkspace,
 } from "@/lib/ai/agent-tools";
+import { isChatFileUrl } from "@/lib/ai/attachment-types";
 import {
   type PreparedChatAttachments,
   prepareChatAttachments,
@@ -26,6 +27,7 @@ import {
   invokeSkill,
   parseSkillCommand,
 } from "@/lib/ai/skills";
+import { canReadStoredFile } from "@/lib/db/library-queries";
 import {
   deleteChatById,
   getChatById,
@@ -200,6 +202,18 @@ export async function POST(request: Request) {
     };
 
     if (message?.role === "user") {
+      const fileAccess = await Promise.all(
+        message.parts
+          .filter((part) => part.type === "file" && isChatFileUrl(part.url))
+          .map((part) =>
+            part.type === "file"
+              ? canReadStoredFile(session.user.id, part.url)
+              : true
+          )
+      );
+      if (fileAccess.some((allowed) => !allowed)) {
+        return new ChatbotError("forbidden:chat").toResponse();
+      }
       await saveMessages({
         messages: [
           {

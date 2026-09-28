@@ -139,3 +139,23 @@ export async function canReadStoredFile(userId: string, url: string) {
     .limit(1);
   return Boolean(item);
 }
+
+export async function moveLibraryFile(
+  userId: string,
+  id: string,
+  parentId: string | null
+) {
+  await assertLibraryFolder(userId, parentId);
+  const [item] = await db
+    .update(libraryItem)
+    .set({ parentId, updatedAt: new Date() })
+    .where(
+      and(
+        eq(libraryItem.userId, userId),
+        eq(libraryItem.id, id),
+        eq(libraryItem.kind, "file")
+      )
+    )
+    .returning();
+  return item;
+}

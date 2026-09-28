@@ -112,10 +112,11 @@ export function DocumentLibrary() {
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [dialog, setDialog] = useState<{
-    mode: "folder" | "rename" | "note";
+    mode: "folder" | "rename" | "note" | "move";
     item?: LibraryItem;
   } | null>(null);
   const [name, setName] = useState("");
+  const [destination, setDestination] = useState("");
   const [content, setContent] = useState("");
   const [preview, setPreview] = useState<LibraryItem | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -146,9 +147,13 @@ export function DocumentLibrary() {
     setSearch("");
     setTab("全部");
   }
-  function openDialog(mode: "folder" | "rename" | "note", item?: LibraryItem) {
+  function openDialog(
+    mode: "folder" | "rename" | "note" | "move",
+    item?: LibraryItem
+  ) {
     setName(item?.name ?? "");
     setContent("");
+    setDestination(item?.parentId ?? "");
     setDialog({ item, mode });
   }
   async function upload(file: File) {
@@ -204,7 +209,13 @@ export function DocumentLibrary() {
             ? "/api/library"
             : `/api/library/${dialog.item?.id}`,
           {
-            body: JSON.stringify({ name: name.trim(), parentId }),
+            body: JSON.stringify(
+              dialog.mode === "move"
+                ? { parentId: destination || null }
+                : dialog.mode === "folder"
+                  ? { name: name.trim(), parentId }
+                  : { name: name.trim() }
+            ),
             headers: { "Content-Type": "application/json" },
             method: dialog.mode === "folder" ? "POST" : "PATCH",
           }
@@ -236,6 +247,11 @@ export function DocumentLibrary() {
           <DropdownMenuItem onClick={() => openDialog("rename", item)}>
             重命名
           </DropdownMenuItem>
+          {item.kind === "file" && (
+            <DropdownMenuItem onClick={() => openDialog("move", item)}>
+              移动到文件夹
+            </DropdownMenuItem>
+          )}
           {item.kind === "file" && (
             <DropdownMenuItem asChild>
               <a download href={`/api/library/${item.id}`}>
@@ -638,11 +654,13 @@ export function DocumentLibrary() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {dialog?.mode === "rename"
-                ? "重命名"
-                : dialog?.mode === "note"
-                  ? "新建笔记"
-                  : "新建文件夹"}
+              {dialog?.mode === "move"
+                ? "移动到文件夹"
+                : dialog?.mode === "rename"
+                  ? "重命名"
+                  : dialog?.mode === "note"
+                    ? "新建笔记"
+                    : "新建文件夹"}
             </DialogTitle>
             <DialogDescription>
               {dialog?.mode === "note"
@@ -657,17 +675,37 @@ export function DocumentLibrary() {
               submit();
             }}
           >
-            <label className="block text-sm">
-              名称
-              <input
-                autoFocus
-                className="mt-2 w-full rounded-lg border bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
-                maxLength={180}
-                onChange={(event) => setName(event.target.value)}
-                required
-                value={name}
-              />
-            </label>
+            {dialog?.mode === "move" ? (
+              <label className="block text-sm">
+                目标文件夹
+                <select
+                  className="mt-2 w-full rounded-lg border bg-background p-2"
+                  onChange={(event) => setDestination(event.target.value)}
+                  value={destination}
+                >
+                  <option value="">我的文档（根目录）</option>
+                  {items
+                    .filter((item) => item.kind === "folder")
+                    .map((folder) => (
+                      <option key={folder.id} value={folder.id}>
+                        {folder.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            ) : (
+              <label className="block text-sm">
+                名称
+                <input
+                  autoFocus
+                  className="mt-2 w-full rounded-lg border bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
+                  maxLength={180}
+                  onChange={(event) => setName(event.target.value)}
+                  required
+                  value={name}
+                />
+              </label>
+            )}
             {dialog?.mode === "note" && (
               <label className="block text-sm">
                 内容

@@ -50,3 +50,7 @@
 变更聊天链路时保持 `route → RunManager → RuntimeBackend → Pi AgentSession` 的职责方向，并通过 `RuntimeEvent → stream-mapping` 向前端输出。新后端先满足 `lib/runtime/protocol` 契约。数据访问留在 `lib/db` 查询层，路由负责鉴权和编排。跨模块边界、运行状态或目录发生变化时，同步更新 `docs/architecture.md`、`docs/development.md` 和本文件。
 
 测试文件放在 `tests/unit` 或 `tests/e2e`；测试专用环境、替身和 fixture 分别放 `tests/support`、`tests/fixtures`。更新运行脚本并执行相关测试，不要在 `app/` 或 `lib/` 中就地新建 `*.test.*`、`*.spec.*` 或测试专用代码。
+
+## 文档库边界
+
+`components/documents` 与 `lib/documents` 持有文档库界面及可共享类型；`lib/db/library-queries.ts` 持有归档、文件夹和所有权查询。上传入口必须登记 LibraryItem；生产 Runtime 在组装处注入归档回调，Pi `deliver_file` 完成归档后才发送 `artifact.created`。不要将数据库访问或用户身份判断写入 Pi 通用工具。文件夹为用户目录，当前不是项目权限模型。

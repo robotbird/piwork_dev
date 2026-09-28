@@ -4,6 +4,7 @@ import { getChatFileId } from "@/lib/ai/attachment-types";
 import { readLocalFile } from "@/lib/ai/file-store";
 import {
   getLibraryItem,
+  moveLibraryFile,
   readLibraryDocument,
   renameLibraryItem,
 } from "@/lib/db/library-queries";
@@ -84,11 +85,21 @@ export async function PATCH(request: Request, context: Context) {
   }
   const { id } = await context.params;
   const parsed = z
-    .object({ name: z.string().trim().min(1).max(180) })
+    .union([
+      z.object({ name: z.string().trim().min(1).max(180) }).strict(),
+      z.object({ parentId: z.uuid().nullable() }).strict(),
+    ])
     .safeParse(await request.json().catch(() => null));
   if (!z.uuid().safeParse(id).success || !parsed.success) {
     return Response.json({ error: "名称无效" }, { status: 400 });
   }
-  const item = await renameLibraryItem(session.user.id, id, parsed.data.name);
-  return item ? Response.json(item) : new Response(null, { status: 404 });
+  try {
+    const item =
+      "name" in parsed.data
+        ? await renameLibraryItem(session.user.id, id, parsed.data.name)
+        : await moveLibraryFile(session.user.id, id, parsed.data.parentId);
+    return item ? Response.json(item) : new Response(null, { status: 404 });
+  } catch {
+    return Response.json({ error: "目标文件夹不存在" }, { status: 400 });
+  }
 }

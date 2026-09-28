@@ -48,7 +48,7 @@ import { cn } from "@/lib/utils";
 
 const primaryItems = [
   { href: "/documents", icon: FileTextIcon, labelKey: "myDocuments" },
-  { icon: Clock3Icon, labelKey: "scheduledTasks" },
+  { href: "/scheduled-tasks", icon: Clock3Icon, labelKey: "scheduledTasks" },
   { href: "/skills", icon: Grid2X2Icon, labelKey: "skills" },
   { icon: CompassIcon, labelKey: "explore" },
 ];

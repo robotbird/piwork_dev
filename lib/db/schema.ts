@@ -428,6 +428,56 @@ export const runtimeLease = pgTable("RuntimeLease", {
 
 export type RuntimeLeaseRecord = InferSelectModel<typeof runtimeLease>;
 
+/** Scheduled tasks with cron-based execution */
+export const scheduledTask = pgTable(
+  "ScheduledTask",
+  {
+    /** 关联的聊天会话（任务执行时的对话上下文） */
+    chatId: uuid("chatId").references(() => chat.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    /** 错误信息（失败时） */
+    errorMessage: text("errorMessage"),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    /** 最近一次运行的结果摘要 */
+    lastResult: text("lastResult"),
+    /** 上次运行时间 */
+    lastRunAt: timestamp("lastRunAt"),
+    /** 下次计划运行时间 */
+    nextRunAt: timestamp("nextRunAt"),
+    /** AI 执行提示词 */
+    prompt: text("prompt").notNull(),
+    /** 调度配置：{ cron: string, timezone?: string } */
+    schedule: json("schedule")
+      .$type<{
+        cron: string;
+        timezone?: string;
+      }>()
+      .notNull(),
+    /** 任务状态 */
+    status: varchar("status", {
+      enum: ["pending", "running", "succeeded", "failed", "cancelled"],
+    })
+      .notNull()
+      .default("pending"),
+    /** 任务类型：daily_digest, weekly_report, custom 等 */
+    taskType: varchar("taskType", { length: 64 }).notNull(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+    /** 任务所有者 */
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("ScheduledTask_user_idx").on(table.userId),
+    index("ScheduledTask_nextRunAt_idx").on(table.nextRunAt),
+    index("ScheduledTask_status_idx").on(table.status),
+  ]
+);
+
+export type ScheduledTaskRecord = InferSelectModel<typeof scheduledTask>;
+
 /** User-owned catalog; bytes stay in the existing file store or Document versions. */
 export const libraryItem = pgTable(
   "LibraryItem",
