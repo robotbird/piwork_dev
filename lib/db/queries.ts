@@ -201,13 +201,14 @@ export async function saveChat({
   visibility: VisibilityType;
 }) {
   try {
-    return await db.insert(chat).values({
+    const [created] = await db.insert(chat).values({
       createdAt: new Date(),
       id,
       title,
       userId,
       visibility,
-    });
+    }).returning();
+    return created;
   } catch (error) {
     throw new ChatbotError("bad_request:database", {
       cause: error,

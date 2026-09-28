@@ -53,6 +53,9 @@ export async function POST(req: NextRequest) {
       schedule: body.schedule,
       status: "pending",
       nextRunAt,
+      errorMessage: null,
+      lastResult: null,
+      lastRunAt: null,
     });
 
     return NextResponse.json(task);

@@ -24,11 +24,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      results: results.map((r, i) => ({
-        index: i,
-        status: r.status,
-        reason: r.reason || undefined,
-      })),
+      results: results.map((r, i) => {
+        if (r.status === "fulfilled") {
+          return { index: i, status: "fulfilled", value: r.value };
+        }
+        return { index: i, status: "rejected", reason: String(r.reason) };
+      }),
     });
   } catch (error) {
     console.error("Process due tasks error:", error);
