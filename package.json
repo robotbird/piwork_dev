@@ -17,6 +17,7 @@
     "db:pull": "drizzle-kit pull",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
+    "scripts:create-daily-report": "tsx scripts/create-daily-report-task.ts",
     "plugin:package": "tsx scripts/package-plugin.mts",
     "plugin:verify": "tsx tests/integration/plugin-chain.mts",
     "test:unit": "node --conditions=react-server --import tsx --test tests/unit/ai/*.test.ts tests/unit/mcp/*.test.ts tests/unit/pi-packages/*.test.ts",
