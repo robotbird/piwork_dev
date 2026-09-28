@@ -23,6 +23,7 @@ import {
   chat,
   type DBMessage,
   document,
+  libraryItem,
   message,
   type SkillRecord,
   type Suggestion,
@@ -473,17 +474,42 @@ export async function saveDocument({
   userId: string;
 }) {
   try {
-    return await db
-      .insert(document)
-      .values({
-        content,
-        createdAt: new Date(),
-        id,
-        kind,
-        title,
-        userId,
-      })
-      .returning();
+    return await db.transaction(async (tx) => {
+      const result = await tx
+        .insert(document)
+        .values({ content, createdAt: new Date(), id, kind, title, userId })
+        .returning();
+      const extension =
+        kind === "sheet"
+          ? ".csv"
+          : kind === "code"
+            ? ".txt"
+            : kind === "image"
+              ? ".png"
+              : ".md";
+      await tx
+        .insert(libraryItem)
+        .values({
+          contentType:
+            kind === "sheet"
+              ? "text/csv"
+              : kind === "image"
+                ? "image/png"
+                : "text/plain",
+          documentId: id,
+          id,
+          kind: "file",
+          name: title + extension,
+          size: Buffer.byteLength(content),
+          source: "ai",
+          userId,
+        })
+        .onConflictDoUpdate({
+          set: { size: Buffer.byteLength(content), updatedAt: new Date() },
+          target: libraryItem.id,
+        });
+      return result;
+    });
   } catch (error) {
     throw new ChatbotError("bad_request:database", {
       cause: error,

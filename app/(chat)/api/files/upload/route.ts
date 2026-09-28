@@ -8,6 +8,10 @@ import {
   MAX_CHAT_ATTACHMENT_SIZE,
 } from "@/lib/ai/attachment-types";
 import { storeFile } from "@/lib/ai/file-store";
+import {
+  assertLibraryFolder,
+  registerLibraryFile,
+} from "@/lib/db/library-queries";
 
 export async function POST(request: Request) {
   const t = await getTranslations("api");
@@ -20,7 +24,7 @@ export async function POST(request: Request) {
   });
   const session = await auth();
 
-  if (!session) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: t("unauthorized") }, { status: 401 });
   }
 
@@ -46,9 +50,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
 
+    const parentId = formData.get("parentId");
+    if (
+      parentId &&
+      (typeof parentId !== "string" || !z.uuid().safeParse(parentId).success)
+    ) {
+      return NextResponse.json({ error: "无效的文件夹" }, { status: 400 });
+    }
+    try {
+      await assertLibraryFolder(session.user.id, parentId as string | null);
+    } catch {
+      return NextResponse.json({ error: "文件夹不存在" }, { status: 400 });
+    }
+    const isLibraryUpload = formData.get("library") === "true";
     const filename = (formData.get("file") as File).name;
     const attachmentType = getSupportedAttachmentType(filename);
-    if (!attachmentType) {
+    if (!attachmentType && !isLibraryUpload) {
       return NextResponse.json(
         { error: t("unsupportedFile") },
         { status: 400 }
@@ -58,10 +75,17 @@ export async function POST(request: Request) {
     try {
       const data = await storeFile({
         buffer: await file.arrayBuffer(),
-        contentType: attachmentType.mediaType,
+        contentType: attachmentType?.mediaType ?? "application/octet-stream",
         filename,
       });
 
+      await registerLibraryFile({
+        file: data,
+        parentId: parentId as string | null,
+        size: file.size,
+        source: "upload",
+        userId: session.user.id,
+      });
       return NextResponse.json(data);
     } catch (error) {
       console.error("[files/upload] failed to store file", error);

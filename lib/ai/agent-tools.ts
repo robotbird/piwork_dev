@@ -6,7 +6,7 @@ import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { ChatMessage, DeliveredFileData } from "@/lib/types";
 import { getSupportedAttachmentType } from "./attachment-types";
 import { downloadAttachment } from "./attachments";
-import { storeFile } from "./file-store";
+import { type StoredFile, storeFile } from "./file-store";
 
 export const MAX_DELIVER_FILE_SIZE = 50 * 1024 * 1024;
 
@@ -51,9 +51,11 @@ export function isInsideWorkspace(workspaceDir: string, target: string) {
 export function createDeliverFileTool({
   workspaceDir,
   onDelivered,
+  onStored,
 }: {
   workspaceDir: string;
   onDelivered: (file: DeliveredFileData) => void;
+  onStored?: (file: StoredFile, size: number) => Promise<void>;
 }): AgentTool {
   return {
     description:
@@ -83,6 +85,8 @@ export function createDeliverFileTool({
         contentType,
         filename,
       });
+
+      await onStored?.(stored, content.byteLength);
 
       onDelivered({
         contentType,

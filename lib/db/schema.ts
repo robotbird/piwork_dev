@@ -427,3 +427,28 @@ export const runtimeLease = pgTable("RuntimeLease", {
 });
 
 export type RuntimeLeaseRecord = InferSelectModel<typeof runtimeLease>;
+
+/** User-owned catalog; bytes stay in the existing file store or Document versions. */
+export const libraryItem = pgTable(
+  "LibraryItem",
+  {
+    contentType: text("contentType"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    documentId: uuid("documentId"),
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: varchar("kind", { enum: ["folder", "file"] }).notNull(),
+    name: text("name").notNull(),
+    parentId: uuid("parentId").references((): AnyPgColumn => libraryItem.id),
+    size: integer("size").notNull().default(0),
+    source: varchar("source", { enum: ["upload", "ai", "manual"] }).notNull(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+    url: text("url"),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+  },
+  (table) => [
+    index("LibraryItem_user_parent_idx").on(table.userId, table.parentId),
+    uniqueIndex("LibraryItem_user_url_idx").on(table.userId, table.url),
+  ]
+);

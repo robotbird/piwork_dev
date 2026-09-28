@@ -3,6 +3,7 @@ import "server-only";
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { createPiworkAgentSession } from "@/lib/ai/agent-session";
 import { createDeliverFileTool } from "@/lib/ai/agent-tools";
+import type { StoredFile } from "@/lib/ai/file-store";
 import { MANAGED_AGENT_DIR } from "@/lib/pi-packages/manager";
 import type {
   RuntimeAck,
@@ -32,6 +33,22 @@ function newRunId(): string {
  * route 只做 RuntimeEvent → stream part 的机械翻译。
  */
 export class InProcessBackend implements RuntimeBackend {
+  private readonly archiveFile?: (
+    chatId: string,
+    file: StoredFile,
+    size: number
+  ) => Promise<void>;
+
+  constructor(
+    archiveFile?: (
+      chatId: string,
+      file: StoredFile,
+      size: number
+    ) => Promise<void>
+  ) {
+    this.archiveFile = archiveFile;
+  }
+
   async open(spec: RuntimeSpec): Promise<RuntimeSession> {
     const queue = new AsyncEventQueue<RuntimeEvent>();
     // deliver_file 的交付闭包在此收口：onDelivered 与 pi 事件走同一队列保序
@@ -45,6 +62,9 @@ export class InProcessBackend implements RuntimeBackend {
               onDelivered: (file) => {
                 queue.push({ file, type: "artifact.created" });
               },
+              onStored: (file, size) =>
+                this.archiveFile?.(spec.chatId, file, size) ??
+                Promise.resolve(),
               workspaceDir: spec.workspaceDir,
             }),
           ]

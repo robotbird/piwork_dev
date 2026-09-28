@@ -1,6 +1,7 @@
 import "server-only";
 
 import { postgresAgentRunStore } from "@/lib/db/agent-run-queries";
+import { registerGeneratedFile } from "@/lib/db/library-queries";
 import { upsertMessage } from "@/lib/db/queries";
 import { PostgresEventStore } from "@/lib/db/runtime-event-queries";
 import { InProcessBackend } from "../backends/in-process/backend";
@@ -25,7 +26,7 @@ const runtimeGlobal = globalScope[RUN_MANAGER_KEY];
 
 runtimeGlobal.workerId ??= globalThis.crypto.randomUUID();
 runtimeGlobal.manager ??= new RunManager({
-  backend: new InProcessBackend(),
+  backend: new InProcessBackend(registerGeneratedFile),
   eventStore: new PostgresEventStore(),
   messageStore: {
     upsertAssistantMessage: async ({ chatId, id, parts }) => {

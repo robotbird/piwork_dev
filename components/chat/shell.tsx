@@ -112,7 +112,7 @@ export function ChatShell() {
     setInput("");
   }, [editingMessage, input, regenerate, setInput, setMessages]);
 
-  if (pathname === "/skills") {
+  if (pathname === "/skills" || pathname.startsWith("/documents")) {
     return null;
   }
 
