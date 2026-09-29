@@ -202,7 +202,7 @@ export function ScheduledTasksPanel() {
           </DropdownMenu>
         </header>
         <form
-          className="flex items-center gap-3 rounded-3xl border bg-background px-3 py-3 shadow-sm"
+          className="composer-plain flex items-center gap-3 rounded-3xl border bg-background px-3 py-3 shadow-sm"
           onSubmit={(event) => {
             event.preventDefault();
             startChat(query);

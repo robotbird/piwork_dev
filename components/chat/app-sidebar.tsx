@@ -1,14 +1,10 @@
 "use client";
 
 import {
-  BarChart3Icon,
   Clock3Icon,
-  CompassIcon,
-  FileCheck2Icon,
   FileTextIcon,
   FolderIcon,
   Grid2X2Icon,
-  HomeIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   PlusIcon,
@@ -20,10 +16,16 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { useTranslations } from "next-intl";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import useSWR from "swr";
 import { BrandMark } from "@/components/chat/brand-mark";
 import { SidebarHistory } from "@/components/chat/sidebar-history";
+import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
+import {
+  type ProjectSummary,
+  request as projectRequest,
+} from "@/components/projects/shared";
 import {
   Sidebar,
   SidebarContent,
@@ -50,21 +52,22 @@ const primaryItems = [
   { href: "/documents", icon: FileTextIcon, labelKey: "myDocuments" },
   { href: "/scheduled-tasks", icon: Clock3Icon, labelKey: "scheduledTasks" },
   { href: "/skills", icon: Grid2X2Icon, labelKey: "skills" },
-  { icon: CompassIcon, labelKey: "explore" },
-];
-
-const workspaceItems = [
-  { icon: HomeIcon, labelKey: "myProjects" },
-  { icon: BarChart3Icon, labelKey: "businessAnalysis" },
-  { icon: FileCheck2Icon, labelKey: "contractReview" },
-  { icon: FolderIcon, labelKey: "marketResearch" },
 ];
 
 export function AppSidebar({ user }: { user: User | undefined }) {
   const t = useTranslations("appSidebar");
+  const _tp = useTranslations("projects");
   const pathname = usePathname();
   const router = useRouter();
   const { setOpenMobile, toggleSidebar } = useSidebar();
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const { data: projectsData, mutate: mutateProjects } = useSWR<{
+    projects: ProjectSummary[];
+  }>(user ? "/api/projects" : null, projectRequest, {
+    revalidateOnFocus: false,
+  });
+  const projects = projectsData?.projects ?? [];
 
   const handleNewChat = useCallback(() => {
     setOpenMobile(false);
@@ -74,6 +77,17 @@ export function AppSidebar({ user }: { user: User | undefined }) {
   const handleCloseMobile = useCallback(
     () => setOpenMobile(false),
     [setOpenMobile]
+  );
+
+  const handleOpenCreate = useCallback(() => setCreateOpen(true), []);
+
+  const handleProjectCreated = useCallback(
+    (project: ProjectSummary) => {
+      mutateProjects();
+      setOpenMobile(false);
+      router.push(`/projects/${project.id}`);
+    },
+    [mutateProjects, router, setOpenMobile]
   );
 
   const handleComingSoon = useCallback(
@@ -176,36 +190,24 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               </SidebarMenuItem>
               {primaryItems.map(({ href, icon: Icon, labelKey }) => (
                 <SidebarMenuItem key={labelKey}>
-                  {href ? (
-                    <SidebarMenuButton
-                      asChild
-                      className="h-10 rounded-[10px] px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent group-data-[collapsible=icon]:justify-center [&_svg]:size-[18px]"
-                      isActive={pathname === href}
-                      tooltip={t(labelKey)}
-                    >
-                      <Link href={href} onClick={handleCloseMobile}>
-                        <Icon
-                          className={cn(
-                            "shrink-0 transition-colors",
-                            pathname === href
-                              ? "text-foreground"
-                              : "text-muted-foreground group-hover/menu-button:text-foreground"
-                          )}
-                        />
-                        <span>{t(labelKey)}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  ) : (
-                    <SidebarMenuButton
-                      className="h-10 rounded-[10px] px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center [&_svg]:size-[18px]"
-                      data-label={t(labelKey)}
-                      onClick={handleComingSoon}
-                      tooltip={t(labelKey)}
-                    >
-                      <Icon className="shrink-0 text-muted-foreground transition-colors group-hover/menu-button:text-foreground" />
+                  <SidebarMenuButton
+                    asChild
+                    className="h-10 rounded-[10px] px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent group-data-[collapsible=icon]:justify-center [&_svg]:size-[18px]"
+                    isActive={pathname === href}
+                    tooltip={t(labelKey)}
+                  >
+                    <Link href={href} onClick={handleCloseMobile}>
+                      <Icon
+                        className={cn(
+                          "shrink-0 transition-colors",
+                          pathname === href
+                            ? "text-foreground"
+                            : "text-muted-foreground group-hover/menu-button:text-foreground"
+                        )}
+                      />
                       <span>{t(labelKey)}</span>
-                    </SidebarMenuButton>
-                  )}
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -218,8 +220,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             <button
               aria-label={t("addProject")}
               className="grid size-7 place-items-center rounded-md transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              data-label={t("newProject")}
-              onClick={handleComingSoon}
+              onClick={handleOpenCreate}
               type="button"
             >
               <PlusIcon className="size-4" />
@@ -227,18 +228,33 @@ export function AppSidebar({ user }: { user: User | undefined }) {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
-              {workspaceItems.map(({ icon: Icon, labelKey }) => (
-                <SidebarMenuItem key={labelKey}>
-                  <SidebarMenuButton
-                    className="h-9 rounded-lg px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground [&_svg]:size-[18px]"
-                    data-label={t(labelKey)}
-                    onClick={handleComingSoon}
-                  >
-                    <Icon className="shrink-0 text-muted-foreground transition-colors group-hover/menu-button:text-foreground" />
-                    <span>{t(labelKey)}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {projects.map((project) => {
+                const href = `/projects/${project.id}`;
+                return (
+                  <SidebarMenuItem key={project.id}>
+                    <SidebarMenuButton
+                      asChild
+                      className="h-9 rounded-lg px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent [&_svg]:size-[18px]"
+                      isActive={
+                        pathname === href || pathname.startsWith(`${href}/`)
+                      }
+                      tooltip={project.name}
+                    >
+                      <Link href={href} onClick={handleCloseMobile}>
+                        <FolderIcon
+                          className={cn(
+                            "shrink-0 transition-colors",
+                            pathname === href || pathname.startsWith(`${href}/`)
+                              ? "text-foreground"
+                              : "text-muted-foreground group-hover/menu-button:text-foreground"
+                          )}
+                        />
+                        <span className="truncate">{project.name}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -263,6 +279,11 @@ export function AppSidebar({ user }: { user: User | undefined }) {
           </Link>
         )}
       </SidebarFooter>
+      <CreateProjectDialog
+        onCreated={handleProjectCreated}
+        onOpenChange={setCreateOpen}
+        open={createOpen}
+      />
       <SidebarRail />
     </Sidebar>
   );

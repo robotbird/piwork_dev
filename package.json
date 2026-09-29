@@ -27,7 +27,8 @@
     "test:documents:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/library-queries.test.ts",
     "test:documents:http": "node --import tsx tests/e2e/library-http.mts",
     "test:scheduler": "node --conditions=react-server --import tsx --test tests/unit/scheduler/*.test.ts",
-    "test:scheduler:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/scheduled-task-queries.test.ts"
+    "test:scheduler:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/scheduled-task-queries.test.ts",
+    "test:scheduler:http": "node --import tsx tests/e2e/scheduled-tasks-http.mts"
   },
   "dependencies": {
     "@ai-sdk/provider": "^4.0.2",

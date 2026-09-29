@@ -9,6 +9,7 @@ import {
   gt,
   gte,
   inArray,
+  isNull,
   lt,
   type SQL,
 } from "drizzle-orm";
@@ -201,13 +202,16 @@ export async function saveChat({
   visibility: VisibilityType;
 }) {
   try {
-    const [created] = await db.insert(chat).values({
-      createdAt: new Date(),
-      id,
-      title,
-      userId,
-      visibility,
-    }).returning();
+    const [created] = await db
+      .insert(chat)
+      .values({
+        createdAt: new Date(),
+        id,
+        title,
+        userId,
+        visibility,
+      })
+      .returning();
     return created;
   } catch (error) {
     throw new ChatbotError("bad_request:database", {
@@ -233,10 +237,11 @@ export async function deleteChatById({ id }: { id: string }) {
 
 export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
   try {
+    // 只清理无项目归属的聊天；项目聊天随项目删除
     const userChats = await db
       .select({ id: chat.id })
       .from(chat)
-      .where(eq(chat.userId, userId));
+      .where(and(eq(chat.userId, userId), isNull(chat.projectId)));
 
     if (userChats.length === 0) {
       return { deletedCount: 0 };
@@ -249,7 +254,7 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
 
     const deletedChats = await db
       .delete(chat)
-      .where(eq(chat.userId, userId))
+      .where(and(eq(chat.userId, userId), isNull(chat.projectId)))
       .returning();
 
     return { deletedCount: deletedChats.length };
@@ -278,8 +283,8 @@ export async function getChatsByUserId({
         .from(chat)
         .where(
           whereCondition
-            ? and(whereCondition, eq(chat.userId, id))
-            : eq(chat.userId, id)
+            ? and(whereCondition, eq(chat.userId, id), isNull(chat.projectId))
+            : and(eq(chat.userId, id), isNull(chat.projectId))
         )
         .orderBy(desc(chat.createdAt))
         .limit(extendedLimit);
@@ -348,12 +353,26 @@ export async function getChatById({ id }: { id: string }) {
 
 export async function saveMessages({ messages }: { messages: DBMessage[] }) {
   try {
-    return await db.insert(message).values(messages);
+    const result = await db.insert(message).values(messages);
+    await touchChatsUpdatedAt(messages.map((current) => current.chatId));
+    return result;
   } catch (error) {
     throw new ChatbotError("bad_request:database", {
       cause: error,
     });
   }
+}
+
+/** 消息写入后刷新所属聊天的 updatedAt（项目聊天列表按它排序） */
+async function touchChatsUpdatedAt(chatIds: string[]) {
+  const uniqueIds = [...new Set(chatIds)];
+  if (uniqueIds.length === 0) {
+    return;
+  }
+  await db
+    .update(chat)
+    .set({ updatedAt: new Date() })
+    .where(inArray(chat.id, uniqueIds));
 }
 
 export async function updateMessage({
@@ -387,7 +406,7 @@ export async function upsertMessage({
   parts: DBMessage["parts"];
 }) {
   try {
-    return await db
+    const result = await db
       .insert(message)
       .values({
         attachments: [],
@@ -401,6 +420,8 @@ export async function upsertMessage({
         set: { parts },
         target: message.id,
       });
+    await touchChatsUpdatedAt([chatId]);
+    return result;
   } catch (error) {
     throw new ChatbotError("bad_request:database", {
       cause: error,

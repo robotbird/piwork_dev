@@ -240,7 +240,12 @@ export type PiPackageRecord = InferSelectModel<typeof piPackage>;
 export const chat = pgTable("Chat", {
   createdAt: timestamp("createdAt").notNull(),
   id: uuid("id").primaryKey().notNull().defaultRandom(),
+  /** 所属项目；null 表示普通聊天。项目删除时聊天一并删除 */
+  projectId: uuid("projectId").references((): AnyPgColumn => project.id, {
+    onDelete: "cascade",
+  }),
   title: text("title").notNull(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
   userId: uuid("userId")
     .notNull()
     .references(() => user.id),
@@ -250,6 +255,42 @@ export const chat = pgTable("Chat", {
 });
 
 export type Chat = InferSelectModel<typeof chat>;
+
+/** 项目 Workspace：聚合聊天与资料；归属到创建用户，不做成员协作（MVP） */
+export const project = pgTable(
+  "Project",
+  {
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    name: varchar("name", { length: 128 }).notNull(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [index("Project_user_idx").on(table.userId, table.updatedAt)]
+);
+
+export type Project = InferSelectModel<typeof project>;
+
+/** 项目上传的资料；content 为提取出的纯文本，聊天时作为上下文注入（MVP 不做检索） */
+export const source = pgTable(
+  "Source",
+  {
+    content: text("content").notNull().default(""),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    name: text("name").notNull(),
+    projectId: uuid("projectId")
+      .notNull()
+      .references((): AnyPgColumn => project.id, { onDelete: "cascade" }),
+    /** 文件类型：pdf | txt | markdown */
+    type: varchar("type", { enum: ["pdf", "txt", "markdown"] }).notNull(),
+  },
+  (table) => [index("Source_project_idx").on(table.projectId)]
+);
+
+export type Source = InferSelectModel<typeof source>;
 
 export const message = pgTable("Message_v2", {
   attachments: json("attachments").notNull(),

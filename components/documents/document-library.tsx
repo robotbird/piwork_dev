@@ -47,6 +47,7 @@ import {
   type LibraryItem,
 } from "@/lib/documents/types";
 import { cn } from "@/lib/utils";
+import styles from "./document-library.module.css";
 
 const tabs = ["全部", "文件夹", "文档", "图片", "表格", "演示", "AI 生成"];
 const dateLabel = (value: string) =>
@@ -267,7 +268,7 @@ export function DocumentLibrary() {
   return (
     // biome-ignore lint/a11y/noNoninteractiveElementInteractions: drag/drop supplements the keyboard-accessible upload button.
     <main
-      className="relative min-h-dvh w-full bg-background px-5 py-7 md:px-10 xl:px-12"
+      className={cn("relative", styles.page)}
       onDragLeave={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node)) {
           setDragging(false);
@@ -285,20 +286,20 @@ export function DocumentLibrary() {
         uploadFiles(Array.from(event.dataTransfer.files));
       }}
     >
-      <header className="flex flex-wrap items-start justify-between gap-6">
+      <header className={styles.header}>
         <div>
           <div className="flex items-center gap-3">
             <SidebarTrigger className="md:hidden" />
-            <h1 className="text-[30px] font-semibold tracking-tight">
+            <h1 className={styles.heading}>
               我的文档
             </h1>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className={styles.subtitle}>
             上传的各类文件，以及 AI 生成的文档和图片，统一存储与管理。
           </p>
         </div>
-        <div className="flex w-full items-center gap-3 sm:w-auto">
-          <div className="hidden items-center gap-1 sm:flex">
+        <div className={styles.toolbar}>
+          <div className="flex shrink-0 items-center gap-1">
             <Button
               aria-label="网格视图"
               aria-pressed={view === "grid"}
@@ -320,7 +321,7 @@ export function DocumentLibrary() {
               <List className="size-5" />
             </Button>
           </div>
-          <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full border px-4 sm:w-56">
+          <label className={styles.search}>
             <Search className="size-4 shrink-0 text-muted-foreground" />
             <input
               aria-label="搜索文档"
@@ -332,13 +333,13 @@ export function DocumentLibrary() {
           </label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="rounded-full px-5" disabled={busy}>
+              <Button className="h-[42px] shrink-0 rounded-full px-5 text-[13px] shadow-none" disabled={busy}>
                 {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                 {busy ? "上传中" : "新建"}
                 <ChevronDown className="ml-2 size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 rounded-2xl p-2">
+            <DropdownMenuContent align="end" className="w-56 rounded-2xl border-border bg-card p-2.5 shadow-lg [&_[role=menuitem]]:gap-2 [&_[role=menuitem]]:rounded-lg [&_[role=menuitem]]:px-3 [&_[role=menuitem]]:py-2.5">
               <DropdownMenuItem onClick={() => openDialog("note")}>
                 <FileText className="mr-2 size-4" />
                 笔记
@@ -369,13 +370,13 @@ export function DocumentLibrary() {
       </header>
       <nav
         aria-label="文档分类"
-        className="mt-8 flex gap-2 overflow-x-auto pb-2"
+        className={styles.tabs}
       >
         {tabs.map((label) => (
           <button
             aria-pressed={tab === label}
             className={cn(
-              "shrink-0 rounded-full px-5 py-2 text-sm transition-colors",
+              "shrink-0 rounded-full px-[18px] py-2 text-[14px] leading-5 transition-colors",
               tab === label
                 ? "bg-muted font-medium text-foreground"
                 : "text-muted-foreground hover:bg-muted/60"
@@ -426,17 +427,17 @@ export function DocumentLibrary() {
       ) : (
         <>
           {folders.length > 0 && (
-            <section className="mt-8">
-              <h2 className="mb-4 text-lg font-semibold">
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>
                 文件夹{" "}
                 <span className="ml-1 font-normal text-muted-foreground">
                   ({folders.length})
                 </span>
               </h2>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              <div className={styles.folderGrid}>
                 {folders.map((folder, index) => (
                   <div
-                    className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
+                    className={styles.folderCard}
                     key={folder.id}
                   >
                     <button
@@ -446,7 +447,7 @@ export function DocumentLibrary() {
                     >
                       <Folder
                         className={cn(
-                          "size-12 shrink-0 stroke-[1.2]",
+                          "size-11 shrink-0 stroke-[1.2]",
                           [
                             "fill-blue-400 text-blue-500",
                             "fill-violet-400 text-violet-500",
@@ -485,8 +486,8 @@ export function DocumentLibrary() {
             </section>
           )}
           {files.length > 0 && (
-            <section className="mt-9">
-              <h2 className="mb-4 text-lg font-semibold">
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>
                 {search ? "搜索结果" : "最近文件"}{" "}
                 <span className="ml-1 font-normal text-muted-foreground">
                   ({files.length})
@@ -495,10 +496,11 @@ export function DocumentLibrary() {
               <div
                 className={
                   view === "grid"
-                    ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-                    : "overflow-hidden rounded-2xl border"
+                    ? styles.fileGrid
+                    : styles.fileList
                 }
               >
+                {view === "list" && <div className={styles.listHeader} aria-hidden="true"><span>文件名称</span><span>大小</span><span>更新时间</span><span>来源</span><span /></div>}
                 {files.map((item) => {
                   const { Icon, color, label } = fileStyle(item);
                   const image = [
@@ -510,10 +512,10 @@ export function DocumentLibrary() {
                   return (
                     <article
                       className={cn(
-                        "group bg-card",
+                        "group",
                         view === "grid"
-                          ? "rounded-2xl border border-border/70 p-3.5 shadow-sm transition-shadow hover:shadow-md"
-                          : "flex items-center gap-4 border-b p-4 last:border-0"
+                          ? styles.card
+                          : styles.row
                       )}
                       key={item.id}
                     >
@@ -523,7 +525,7 @@ export function DocumentLibrary() {
                             image ? `预览 ${item.name}` : `下载 ${item.name}`
                           }
                           className={cn(
-                            "relative mb-3 flex aspect-[1.55] w-full items-center justify-center overflow-hidden rounded-lg",
+                            styles.preview,
                             color
                           )}
                           onClick={() => {
@@ -546,56 +548,45 @@ export function DocumentLibrary() {
                               width={1000}
                             />
                           ) : (
-                            <div className="flex h-[85%] w-[77%] flex-col items-start justify-between rounded-t-md border border-border/30 bg-background p-5 text-left shadow-sm">
-                              <Icon className="size-8" />
-                              <span className="line-clamp-2 text-sm font-medium text-foreground">
-                                {item.name.replace(/\.[^.]+$/, "")}
-                              </span>
-                              <span className="text-[10px] font-semibold tracking-widest opacity-60">
-                                {label}
-                              </span>
+                            <div className={styles.cover}>
+                              <Icon className={styles.coverIcon} />
+                              <span className={styles.coverLabel}>{label}</span>
                             </div>
                           )}
                           {item.source === "ai" && (
-                            <span className="absolute right-2 top-2 rounded-full bg-background/95 px-2 py-1 text-[11px] font-medium text-indigo-500">
+                            <span className={styles.aiBadge}>
                               AI 生成
                             </span>
                           )}
                         </button>
                       )}
                       <div
-                        className={cn(
-                          "flex min-w-0 items-start gap-2",
-                          view === "list" && "flex-1 items-center"
-                        )}
+                        className={styles.fileInfo}
                       >
                         <span
                           className={cn(
-                            "grid size-7 shrink-0 place-items-center rounded-md",
+                            "mt-0.5 grid size-[22px] shrink-0 place-items-center rounded-[5px]",
                             color
                           )}
                         >
                           <Icon className="size-4" />
                         </span>
-                        <div className="min-w-0 flex-1">
+                        <div className={styles.fileDetails}>
                           <a
-                            className="block truncate text-[13px] font-medium hover:underline"
+                            className={cn(styles.fileName, "hover:underline")}
                             download
                             href={`/api/library/${item.id}`}
                             title={item.name}
                           >
                             {item.name}
                           </a>
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            {item.size ? formatFileSize(item.size) : "—"} ·{" "}
-                            {dateLabel(item.updatedAt)}
+                          <p className={styles.meta}>
+                            <span>{item.size ? formatFileSize(item.size) : "—"}</span>
+                            <span className={styles.metaDot}>·</span>
+                            <span>{dateLabel(item.updatedAt)}</span>
                           </p>
                         </div>
-                        {view === "list" && item.source === "ai" && (
-                          <span className="hidden text-xs text-indigo-500 sm:block">
-                            AI 生成
-                          </span>
-                        )}
+                        {view === "list" && <span className={cn(styles.listSource, item.source === "ai" && styles.listSourceAi)}>{item.source === "ai" ? "AI 生成" : "我的文件"}</span>}
                         {actions(item)}
                       </div>
                     </article>
@@ -631,7 +622,7 @@ export function DocumentLibrary() {
           )}
         </>
       )}
-      <p className="mt-10 flex items-center gap-2 text-xs text-muted-foreground">
+      <p className={styles.hint}>
         <Sparkles className="size-3.5" />
         支持任意类型文件，单个文件最大 20 MB；AI 交付文件最大 50 MB。
       </p>

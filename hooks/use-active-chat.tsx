@@ -267,18 +267,26 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const query = params.get("query");
-    if (query && !hasAppendedQueryRef.current) {
-      hasAppendedQueryRef.current = true;
-      window.history.replaceState(
-        {},
-        "",
-        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
-      );
-      sendMessage({
-        parts: [{ text: query, type: "text" }],
-        role: "user" as const,
-      });
+    if (!query) {
+      hasAppendedQueryRef.current = false;
+      return;
     }
+    if (hasAppendedQueryRef.current) {
+      return;
+    }
+    hasAppendedQueryRef.current = true;
+    // 项目聊天页 (/projects/:id/chat/:cid?query=) 就地消费 query；
+    // 其他入口（如 /?query=）进入后需要把客户端生成的 chatId 写进 URL
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+    const currentPath = window.location.pathname;
+    const target = /\/chat\/[^/]+/.test(currentPath)
+      ? currentPath
+      : `${basePath}/chat/${chatId}`;
+    window.history.replaceState({}, "", target);
+    sendMessage({
+      parts: [{ text: query, type: "text" }],
+      role: "user" as const,
+    });
   }, [sendMessage, chatId]);
 
   useAutoResume({

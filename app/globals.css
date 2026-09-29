@@ -545,7 +545,10 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
-.openai-composer textarea:focus-visible {
+.openai-composer textarea:focus-visible,
+/* 简化输入器（任务中心、项目主页）：光标即焦点指示，不显示描边 */
+.composer-plain input:focus-visible,
+.composer-plain textarea:focus-visible {
   outline: none;
 }
 

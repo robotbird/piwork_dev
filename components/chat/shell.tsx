@@ -112,10 +112,16 @@ export function ChatShell() {
     setInput("");
   }, [editingMessage, input, regenerate, setInput, setMessages]);
 
+  // 项目列表/项目主页是独立页面（自带输入框与 Tab），不渲染聊天 Shell；
+  // 项目内聊天页 /projects/:id/chat/:chatId 仍走标准聊天界面。
+  const isProjectPageRoute =
+    pathname === "/projects" ||
+    (pathname.startsWith("/projects/") && !/\/chat\//.test(pathname));
   if (
     pathname === "/skills" ||
     pathname.startsWith("/documents") ||
-    pathname === "/scheduled-tasks"
+    pathname === "/scheduled-tasks" ||
+    isProjectPageRoute
   ) {
     return null;
   }

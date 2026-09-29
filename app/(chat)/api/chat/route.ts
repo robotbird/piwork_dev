@@ -29,6 +29,7 @@ import {
   parseSkillCommand,
 } from "@/lib/ai/skills";
 import { canReadStoredFile } from "@/lib/db/library-queries";
+import { getProject } from "@/lib/db/project-queries";
 import {
   deleteChatById,
   getChatById,
@@ -41,6 +42,7 @@ import {
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import { syncWorkspaceMcpConfig } from "@/lib/mcp/workspace-config";
+import { buildProjectSourcesContext } from "@/lib/projects/context";
 import { getRunManager } from "@/lib/runtime/run";
 import type { RunSubscription } from "@/lib/runtime/run/run-manager";
 import { scheduledTaskTools } from "@/lib/scheduler/service";
@@ -122,6 +124,15 @@ export async function POST(request: Request) {
         return new ChatbotError("forbidden:chat").toResponse();
       }
       messagesFromDb = await getMessagesByChatId({ id });
+      // 项目聊天在发起页已预建（标题为占位）：首条用户消息发出后生成标题
+      if (
+        chat.projectId &&
+        messagesFromDb.length === 0 &&
+        message?.role === "user" &&
+        message.parts.some((part) => part.type === "text" && part.text.trim())
+      ) {
+        titlePromise = generateTitleFromUserMessage({ message });
+      }
     } else if (message?.role === "user") {
       await saveChat({
         id,
@@ -334,6 +345,25 @@ export async function POST(request: Request) {
     }
     if (preparedAttachments.text) {
       agentPrompt = `${agentPrompt}\n\n${preparedAttachments.text}`;
+    }
+
+    // 项目资料上下文（无检索最简方案）：聊天归属项目时，把该项目全部
+    // 资料的提取文本注入提示词；组装失败只降级为普通聊天，不阻断消息。
+    if (chat?.projectId) {
+      try {
+        const projectRecord = await getProject(session.user.id, chat.projectId);
+        if (projectRecord) {
+          const context = await buildProjectSourcesContext({
+            projectId: projectRecord.id,
+            projectName: projectRecord.name,
+          });
+          if (context) {
+            agentPrompt = `${context.block}\n\n---\n\n用户问题：${agentPrompt}`;
+          }
+        }
+      } catch (error) {
+        console.warn("Project sources context failed:", error);
+      }
     }
 
     const stream = createUIMessageStream({

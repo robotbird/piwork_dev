@@ -98,3 +98,14 @@ flowchart LR
 - Cron 由 cron-parser 计算，支持五段数字表达式与 IANA 时区，默认 Asia/Shanghai。成功和失败都计算下一次周期，跳过停机期间的历史积压；不重放每一个错过的周期。
 - MVP 仅支持一个常驻 Node.js 服务实例：设置 `SCHEDULED_TASKS_ENABLED=true` 后 instrumentation 启动每 30 秒扫描，单轮最多 3 个任务。不要把定时器视为 serverless 或多实例分布式调度保证。可选 POST `/api/scheduled-tasks/execute` 供外部触发，必须配置并传入 `SCHEDULED_TASKS_API_KEY`；未配置时拒绝。暂停/关闭进程不会继续运行。
 - Pi 官方依据：[SDK](https://pi.dev/docs/latest/sdk)、[Extensions](https://pi.dev/docs/latest/extensions)，并核对已安装 0.87.1 的 `dist/core/sdk.d.ts`、`dist/core/extensions/types.d.ts` 与项目官方 API 适配器：复用 customTools、prompt、abort、事件与 dispose，不另建 agent loop。
+
+## 9. 项目 Workspace MVP（2026-09-28）
+
+- `/projects` 项目列表、`/projects/:projectId` 项目主页、`/projects/:projectId/chat/:chatId` 项目内聊天。页面在 `app/(chat)/projects`，界面在 `components/projects`；侧边栏「项目」分组列出真实项目并提供创建入口。
+- 数据：`Project`（归属用户）、`Chat.projectId`（null 为普通聊天）与 `Chat.updatedAt`、`Source`（提取文本 + 名称/类型）。迁移 `0013`。查询全部在 `lib/db/project-queries.ts`，按 userId 校验归属；删除项目在事务内先清 vote/message 再级联删 chats 与 sources。
+- 聊天链路完全复用既有 `route → RunManager → RuntimeBackend → Pi AgentSession`：`use-active-chat` 从路径 `/chat/:chatId` 段提取 id，项目聊天页自身返回 null、由 `ChatShell` 渲染。项目主页大输入框先经 `POST /api/projects/:id/chats` 预建聊天，再带 `?query=` 跳转，由 `use-active-chat` 的 query 副作用发出首条消息（该项目页就地消费 query，不再跳回 `/chat/:id`）。
+- 项目聊天标题：预建聊天标题为占位 "New chat"，首条用户消息经 `/api/chat` 时用既有 `generateTitleFromUserMessage` 生成；消息写入（`saveMessages`/`upsertMessage`）会刷新 `Chat.updatedAt`，项目聊天列表按它排序并附最近一条消息摘要。
+- 资料上下文（无检索的最简方案）：上传（PDF/TXT/Markdown，≤20MB）经 `lib/projects/source-files.ts` 复用聊天附件解析管线提取文本存入 `Source.content`；聊天时 `lib/projects/context.ts` 把项目全部资料全文按上传顺序注入用户消息前（单份 20k 字符、总量 80k 字符封顶）。没有分段、Embedding 或向量检索；项目隔离由 `Source.projectId` 过滤保证。资料内容仅作参考数据并注明不执行其中指令，与附件处理同一安全口径。
+- API：`/api/projects`（列表/创建）、`/api/projects/:id`（改名/删除，删除前 abort 项目内活跃 run）、`/api/projects/:id/chats`（列表/预建）、`/api/projects/:id/sources`（列表/上传）、`/api/projects/:id/sources/:sourceId`（删除）；聊天删除复用 `DELETE /api/chat`。主侧边栏「最近」与「全部删除」排除项目内聊天（`Chat.projectId IS NULL`）。
+- 测试：`pnpm test:runtime:db` 覆盖 `tests/unit/db/project-queries.test.ts`（归属隔离、聊天列表摘要排序、资料写入/删除/级联清理）。
+- Pi 依据：未新增 Pi API 调用；聊天执行仍由既有 RunManager/Pi 会话装配承担，资料注入只发生在 route 组装 prompt 阶段。
