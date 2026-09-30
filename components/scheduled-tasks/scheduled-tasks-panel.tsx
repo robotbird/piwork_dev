@@ -3,13 +3,21 @@
 
 import {
   ArrowUp,
-  CalendarClock,
+  Bot,
   ChevronRight,
   Clock3,
   Filter,
+  Lightbulb,
   Loader2,
+  Mic,
   MoreHorizontal,
+  Newspaper,
+  PauseCircle,
+  Pencil,
+  Play,
   Plus,
+  Share,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -35,6 +43,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { describeSchedule } from "@/lib/scheduler/display";
 
 type Task = {
@@ -66,21 +79,21 @@ const labels: Record<string, string> = {
 const templates = [
   {
     description: "每天整理 AI、Agent 与大模型领域的重要动态",
-    icon: "📰",
+    icon: Newspaper,
     query:
       "请创建定时任务：每天上午 9 点（北京时间）整理 AI、Agent 与大模型领域的重要动态，注明来源；无法联网时请如实说明。",
     title: "AI 前沿日报",
   },
   {
     description: "每周五，关注 AI 编程、MCP 与 Skill 生态的新进展",
-    icon: "🤖",
+    icon: Bot,
     query:
       "请创建定时任务：每周五上午 9 点（北京时间）整理 AI 编程、MCP 与 Skill 生态的重要进展，附上可靠来源。",
     title: "AI 编程研究雷达",
   },
   {
     description: "每天一个可实践的工作方法，让想法变成行动",
-    icon: "💡",
+    icon: Lightbulb,
     query:
       "请创建定时任务：每天上午 8 点（北京时间）分享一个提升工作效率的方法，附具体例子与当天可以实践的小行动。",
     title: "每日灵感",
@@ -105,6 +118,22 @@ const date = (value: string | null, timezone = "Asia/Shanghai") =>
         timeZone: timezone,
       })
     : "—";
+
+const relativeTime = (value: string | null) => {
+  if (!value) {
+    return "尚未安排";
+  }
+  const milliseconds = new Date(value).getTime() - Date.now();
+  if (milliseconds <= 0) {
+    return "即将运行";
+  }
+  const hours = Math.max(1, Math.round(milliseconds / 3_600_000));
+  if (hours < 24) {
+    return `${hours}小时后`;
+  }
+  const days = Math.round(hours / 24);
+  return `${days}天后`;
+};
 
 export function ScheduledTasksPanel() {
   const {
@@ -160,6 +189,28 @@ export function ScheduledTasksPanel() {
       setBusy(null);
     }
   };
+  const shareTask = async (task: Task) => {
+    const shareData = {
+      text: `${task.prompt}\n${describeSchedule(task.schedule.cron)} · ${task.schedule.timezone || "Asia/Shanghai"}`,
+      title: task.taskType,
+      url: window.location.href,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(
+          `${shareData.title}\n${shareData.text}\n${shareData.url}`
+        );
+        toast.success("任务信息已复制");
+      }
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === "AbortError") {
+        return;
+      }
+      toast.error("分享失败，请稍后重试");
+    }
+  };
   const visible = tasks?.filter(
     (task) =>
       filter === "all" || (filter === "enabled" ? task.enabled : !task.enabled)
@@ -169,18 +220,21 @@ export function ScheduledTasksPanel() {
       <div className="p-3 md:hidden">
         <SidebarTrigger />
       </div>
-      <div className="mx-auto max-w-5xl px-6 pb-16 pt-8 md:px-12 md:pt-14">
-        <header className="mb-9 flex items-start justify-between gap-4">
+      <div className="mx-auto max-w-[920px] px-4 pb-16 pt-8 md:px-8 md:pt-16">
+        <header className="mb-12 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">任务中心</h1>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">
-              创建和管理定时任务，让 AI 按计划执行工作，持续跟踪更新
+            <h1 className="text-heading-lg">定时任务</h1>
+            <p className="mt-1 text-body-lg text-muted-foreground">
+              询问 PiWork，让其安排任务、设置提醒或监控更新
             </p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="rounded-full" variant="secondary">
-                <Filter size={16} />
+              <Button
+                className="h-9 rounded-md bg-muted px-3 text-label-sm shadow-none transition-colors duration-150 hover:bg-accent"
+                variant="secondary"
+              >
+                <Filter className="size-4" />
                 {
                   { all: "全部任务", enabled: "已开启", paused: "已暂停" }[
                     filter
@@ -202,47 +256,69 @@ export function ScheduledTasksPanel() {
           </DropdownMenu>
         </header>
         <form
-          className="composer-plain flex items-center gap-3 rounded-3xl border bg-background px-3 py-3 shadow-sm"
+          className="composer-plain flex min-h-16 items-center gap-2 rounded-xl border border-[var(--hairline-strong)] bg-card px-3 shadow-[var(--shadow-float)]"
           onSubmit={(event) => {
             event.preventDefault();
             startChat(query);
           }}
         >
-          <Button
-            aria-label="手动创建任务"
-            className="shrink-0 rounded-full"
-            onClick={() => setManual(true)}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <Plus size={22} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="手动创建任务"
+                className="size-10 shrink-0 rounded-full text-foreground transition-colors duration-150 hover:bg-muted"
+                onClick={() => setManual(true)}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Plus className="size-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>手动创建任务</TooltipContent>
+          </Tooltip>
           <input
             aria-label="安排任务"
-            className="min-w-0 flex-1 bg-transparent py-2 text-base outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent py-3 text-body-lg outline-none placeholder:text-muted-foreground"
             maxLength={2000}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="安排任务，例如：每天早上 9 点整理 AI 日报"
+            placeholder="安排任务"
             value={query}
           />
-          <Button
-            aria-label="通过 AI 安排任务"
-            className="shrink-0 rounded-full"
-            disabled={!query.trim()}
-            size="icon"
-            type="submit"
-          >
-            <ArrowUp size={22} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="语音输入"
+                className="size-10 shrink-0 rounded-full text-foreground transition-colors duration-150 hover:bg-muted"
+                onClick={() => toast.info("语音输入功能正在准备中")}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Mic className="size-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>语音输入</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="通过 AI 安排任务"
+                className="size-10 shrink-0 rounded-full bg-primary text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                disabled={!query.trim()}
+                size="icon"
+                type="submit"
+              >
+                <ArrowUp className="size-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>通过 AI 安排任务</TooltipContent>
+          </Tooltip>
         </form>
-        <p className="mt-3 px-3 text-xs text-muted-foreground">
-          通过对话安排周期任务 · 默认北京时间 · 运行结果保存在任务对话中
-        </p>
-        <section aria-label="我的任务" className="mt-9">
+        <section aria-label="我的任务" className="mt-10">
           {Boolean(isLoading) && (
             <p className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-              <Loader2 className="animate-spin" size={18} />
+              <Loader2 className="size-4 animate-spin" />
               正在加载任务…
             </p>
           )}
@@ -256,10 +332,7 @@ export function ScheduledTasksPanel() {
           )}
           {!isLoading && !error && visible?.length === 0 && (
             <div className="py-10 text-center">
-              <CalendarClock
-                className="mx-auto mb-3 text-muted-foreground"
-                size={30}
-              />
+              <Clock3 className="mx-auto mb-3 size-5 text-muted-foreground" />
               <p className="font-medium">
                 {tasks?.length
                   ? "没有符合筛选条件的任务"
@@ -272,38 +345,32 @@ export function ScheduledTasksPanel() {
           )}
           {visible?.map((task) => (
             <article
-              className="flex gap-4 border-b py-6 last:border-0"
+              className="group relative flex min-h-24 items-center gap-3 rounded-md px-4 py-4 transition-colors duration-150 hover:bg-muted"
               key={task.id}
             >
-              <div className="mt-1 flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-primary">
-                <CalendarClock size={23} />
+              <div className="flex size-10 shrink-0 items-center justify-center text-muted-foreground">
+                <PauseCircle className="size-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <button
-                  className="text-left text-lg font-medium hover:underline"
+                  className="max-w-full truncate text-left text-base font-medium leading-6 hover:underline"
                   onClick={() => setDetails(task)}
                   type="button"
                 >
                   {task.taskType}
                 </button>
-                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-                  <span
-                    className={`size-2 rounded-full ${task.enabled ? "bg-blue-500" : "bg-muted-foreground"}`}
-                  />
+                <p className="flex flex-wrap items-center gap-x-1.5 text-sm leading-5 text-muted-foreground">
                   {task.enabled
                     ? describeSchedule(task.schedule.cron)
                     : "已暂停"}
-                  <span>· {task.schedule.timezone || "Asia/Shanghai"}</span>
                   {Boolean(task.enabled) && (
-                    <span>
-                      · 下次运行：{date(task.nextRunAt, task.schedule.timezone)}
-                    </span>
+                    <span>· 下次运行：{relativeTime(task.nextRunAt)}</span>
                   )}
                 </p>
-                <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                <p className="mt-1 line-clamp-1 pr-24 text-sm leading-5 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
                   {task.prompt}
                 </p>
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                <div className="mt-1 flex flex-wrap items-center gap-3 text-xs">
                   <span
                     className={
                       task.status === "failed"
@@ -318,11 +385,11 @@ export function ScheduledTasksPanel() {
                   </span>
                   {Boolean(task.chatId) && (
                     <Link
-                      className="inline-flex items-center text-primary hover:underline"
+                      className="inline-flex items-center text-link hover:text-link-deep hover:underline"
                       href={`/chat/${task.chatId}`}
                     >
                       查看结果
-                      <ChevronRight size={13} />
+                      <ChevronRight className="size-3" />
                     </Link>
                   )}
                 </div>
@@ -332,74 +399,97 @@ export function ScheduledTasksPanel() {
                   </p>
                 )}
               </div>
+              <Button
+                aria-label={`编辑 ${task.taskType}`}
+                className="absolute right-14 top-1/2 size-10 -translate-y-1/2 rounded-md text-muted-foreground opacity-0 transition-opacity duration-150 hover:bg-card hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
+                disabled={task.status === "running"}
+                onClick={() => setEditing(task)}
+                size="icon"
+                title="编辑任务"
+                variant="ghost"
+              >
+                <Pencil className="size-4" />
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     aria-label={`管理 ${task.taskType}`}
+                    className="absolute right-3 top-1/2 size-10 -translate-y-1/2 rounded-md text-foreground opacity-0 transition-colors duration-150 hover:bg-card group-hover:opacity-100 group-focus-within:opacity-100 data-[state=open]:bg-card data-[state=open]:opacity-100"
                     disabled={busy === task.id}
                     size="icon"
+                    title="更多操作"
                     variant="ghost"
                   >
-                    <MoreHorizontal size={19} />
+                    <MoreHorizontal className="size-5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent
+                  align="end"
+                  className="w-48 rounded-md border-border p-1.5 shadow-[var(--shadow-float)]"
+                  sideOffset={4}
+                >
                   <DropdownMenuItem
+                    className="h-10 gap-3 rounded-sm px-3 text-sm"
                     disabled={task.status === "running"}
                     onClick={() => change(task, "run")}
                   >
+                    <Play className="size-4" />
                     立即运行
                   </DropdownMenuItem>
                   <DropdownMenuItem
+                    className="h-10 gap-3 rounded-sm px-3 text-sm"
+                    onClick={() => shareTask(task)}
+                  >
+                    <Share className="size-4" />
+                    分享
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="h-10 gap-3 rounded-sm px-3 text-sm"
                     onClick={() =>
                       change(task, task.enabled ? "pause" : "resume")
                     }
                   >
-                    {task.enabled ? "暂停任务" : "恢复任务"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={task.status === "running"}
-                    onClick={() => setEditing(task)}
-                  >
-                    编辑任务
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setDetails(task)}>
-                    运行记录
+                    <PauseCircle className="size-4" />
+                    {task.enabled ? "暂停" : "恢复"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    className="text-destructive"
+                    className="h-10 gap-3 rounded-sm px-3 text-sm text-destructive focus:text-destructive"
                     disabled={task.status === "running"}
                     onClick={() => setDeleting(task)}
                   >
-                    删除任务
+                    <Trash2 className="size-4" />
+                    删除
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </article>
           ))}
         </section>
-        <section aria-label="推荐任务" className="mt-7 border-t pt-7">
-          <h2 className="mb-2 text-sm text-muted-foreground">从一个想法开始</h2>
+        <div className="mx-4 my-5 border-t border-dashed border-border" />
+        <section aria-label="推荐任务" className="pt-2">
+          <h2 className="mb-2 px-4 text-base font-medium text-muted-foreground">
+            推荐
+          </h2>
           {templates.map((item) => (
             <button
-              className="flex w-full items-center gap-4 border-b py-6 text-left transition-colors hover:bg-muted/40 last:border-0"
+              className="group flex min-h-20 w-full items-center gap-3 rounded-md px-4 py-3 text-left transition-colors duration-150 hover:bg-muted"
               key={item.title}
               onClick={() => startChat(item.query)}
               type="button"
             >
-              <span className="flex size-11 shrink-0 items-center justify-center text-3xl">
-                {item.icon}
+              <span className="flex size-10 shrink-0 items-center justify-center text-muted-foreground">
+                <item.icon className="size-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block font-medium md:text-lg">
+                <span className="block text-base font-medium leading-6">
                   {item.title}
                 </span>
-                <span className="mt-1 block text-sm leading-6 text-muted-foreground">
+                <span className="block text-sm leading-5 text-muted-foreground">
                   {item.description}
                 </span>
               </span>
-              <Plus className="shrink-0 text-muted-foreground" size={21} />
+              <Plus className="size-5 shrink-0 text-muted-foreground transition-colors duration-150 group-hover:text-foreground" />
             </button>
           ))}
         </section>

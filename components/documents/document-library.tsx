@@ -290,9 +290,7 @@ export function DocumentLibrary() {
         <div>
           <div className="flex items-center gap-3">
             <SidebarTrigger className="md:hidden" />
-            <h1 className={styles.heading}>
-              我的文档
-            </h1>
+            <h1 className={styles.heading}>我的文档</h1>
           </div>
           <p className={styles.subtitle}>
             上传的各类文件，以及 AI 生成的文档和图片，统一存储与管理。
@@ -333,13 +331,19 @@ export function DocumentLibrary() {
           </label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="h-[42px] shrink-0 rounded-full px-5 text-[13px] shadow-none" disabled={busy}>
+              <Button
+                className="h-[42px] shrink-0 rounded-full px-5 text-[13px] shadow-none"
+                disabled={busy}
+              >
                 {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                 {busy ? "上传中" : "新建"}
                 <ChevronDown className="ml-2 size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 rounded-2xl border-border bg-card p-2.5 shadow-lg [&_[role=menuitem]]:gap-2 [&_[role=menuitem]]:rounded-lg [&_[role=menuitem]]:px-3 [&_[role=menuitem]]:py-2.5">
+            <DropdownMenuContent
+              align="end"
+              className="w-56 rounded-2xl border-border bg-card p-2.5 shadow-lg [&_[role=menuitem]]:gap-2 [&_[role=menuitem]]:rounded-lg [&_[role=menuitem]]:px-3 [&_[role=menuitem]]:py-2.5"
+            >
               <DropdownMenuItem onClick={() => openDialog("note")}>
                 <FileText className="mr-2 size-4" />
                 笔记
@@ -368,10 +372,7 @@ export function DocumentLibrary() {
           />
         </div>
       </header>
-      <nav
-        aria-label="文档分类"
-        className={styles.tabs}
-      >
+      <nav aria-label="文档分类" className={styles.tabs}>
         {tabs.map((label) => (
           <button
             aria-pressed={tab === label}
@@ -436,10 +437,7 @@ export function DocumentLibrary() {
               </h2>
               <div className={styles.folderGrid}>
                 {folders.map((folder, index) => (
-                  <div
-                    className={styles.folderCard}
-                    key={folder.id}
-                  >
+                  <div className={styles.folderCard} key={folder.id}>
                     <button
                       className="flex min-w-0 flex-1 items-center gap-4 text-left"
                       onClick={() => navigate(folder.id)}
@@ -494,13 +492,17 @@ export function DocumentLibrary() {
                 </span>
               </h2>
               <div
-                className={
-                  view === "grid"
-                    ? styles.fileGrid
-                    : styles.fileList
-                }
+                className={view === "grid" ? styles.fileGrid : styles.fileList}
               >
-                {view === "list" && <div className={styles.listHeader} aria-hidden="true"><span>文件名称</span><span>大小</span><span>更新时间</span><span>来源</span><span /></div>}
+                {view === "list" && (
+                  <div aria-hidden="true" className={styles.listHeader}>
+                    <span>文件名称</span>
+                    <span>大小</span>
+                    <span>更新时间</span>
+                    <span>来源</span>
+                    <span />
+                  </div>
+                )}
                 {files.map((item) => {
                   const { Icon, color, label } = fileStyle(item);
                   const image = [
@@ -513,9 +515,7 @@ export function DocumentLibrary() {
                     <article
                       className={cn(
                         "group",
-                        view === "grid"
-                          ? styles.card
-                          : styles.row
+                        view === "grid" ? styles.card : styles.row
                       )}
                       key={item.id}
                     >
@@ -524,10 +524,7 @@ export function DocumentLibrary() {
                           aria-label={
                             image ? `预览 ${item.name}` : `下载 ${item.name}`
                           }
-                          className={cn(
-                            styles.preview,
-                            color
-                          )}
+                          className={cn(styles.preview, color)}
                           onClick={() => {
                             if (image) {
                               setPreview(item);
@@ -554,15 +551,11 @@ export function DocumentLibrary() {
                             </div>
                           )}
                           {item.source === "ai" && (
-                            <span className={styles.aiBadge}>
-                              AI 生成
-                            </span>
+                            <span className={styles.aiBadge}>AI 生成</span>
                           )}
                         </button>
                       )}
-                      <div
-                        className={styles.fileInfo}
-                      >
+                      <div className={styles.fileInfo}>
                         <span
                           className={cn(
                             "mt-0.5 grid size-[22px] shrink-0 place-items-center rounded-[5px]",
@@ -581,12 +574,23 @@ export function DocumentLibrary() {
                             {item.name}
                           </a>
                           <p className={styles.meta}>
-                            <span>{item.size ? formatFileSize(item.size) : "—"}</span>
+                            <span>
+                              {item.size ? formatFileSize(item.size) : "—"}
+                            </span>
                             <span className={styles.metaDot}>·</span>
                             <span>{dateLabel(item.updatedAt)}</span>
                           </p>
                         </div>
-                        {view === "list" && <span className={cn(styles.listSource, item.source === "ai" && styles.listSourceAi)}>{item.source === "ai" ? "AI 生成" : "我的文件"}</span>}
+                        {view === "list" && (
+                          <span
+                            className={cn(
+                              styles.listSource,
+                              item.source === "ai" && styles.listSourceAi
+                            )}
+                          >
+                            {item.source === "ai" ? "AI 生成" : "我的文件"}
+                          </span>
+                        )}
                         {actions(item)}
                       </div>
                     </article>

@@ -61,6 +61,92 @@ final result: passed
 
 ---
 
+# Design QA — 定时任务输入框与任务清单
+
+**Source visual truth**
+
+- `/var/folders/9b/8y0kwpzj4h1_wzryl7kzmbfm0000gn/T/codex-clipboard-21baa75b-c7c2-4614-b74b-1a38fe876231.png`
+- `/var/folders/9b/8y0kwpzj4h1_wzryl7kzmbfm0000gn/T/codex-clipboard-ce215606-e47d-4e34-bd02-9f426ac54a36.png`
+- Source role: visual reference for task composer, list hover state, and row action menu. Text and sample task content were treated as illustrative material.
+
+**Implementation evidence**
+
+- `http://localhost:3000/scheduled-tasks`
+- Browser-rendered empty/recommendation state inspected in the in-app browser.
+- Component implementation reviewed for populated task rows, hover-revealed edit/more controls, and the opened action menu state.
+- Local account did not contain existing scheduled tasks, and manual create did not complete in this browser session, so the populated row state was verified from component behavior and type-checked code rather than persisted sample data.
+
+## Required fidelity surfaces
+
+- Fonts and typography: the page title uses `text-heading-lg`, subtitle and composer input use `text-body-lg`, task titles use 16/24 medium text, and metadata/menu labels stay at 14/20 or smaller. No new hand-rolled pixel font sizes were added.
+- Spacing and layout rhythm: content is constrained to 920 px, the composer uses a 64 px minimum height, row touch/action targets are 40 px, and hover actions remain absolutely positioned to avoid layout shift.
+- Radius and shadows: composer uses `rounded-xl` with `--shadow-float`; task rows and menu trigger buttons use `rounded-md`; menu items use `rounded-sm`; icon-only composer buttons remain circular.
+- Colors and visual tokens: neutral semantic tokens drive surfaces, text, borders, hover states, destructive action, and link states. Blue is not used for ordinary emphasis.
+- Interaction: plus opens manual create, typing and submit routes to AI task creation, mic shows an explicit pending-feature toast, row hover/focus reveals edit and `...`, and the `...` menu exposes run, share, pause/resume, and delete actions.
+- Accessibility: icon-only buttons have accessible names; primary composer icon buttons use project Tooltip primitives; destructive delete remains behind the existing confirmation dialog.
+
+## Findings
+
+No actionable P0, P1, or P2 findings remain.
+
+## Follow-up polish
+
+- P3: when local seed data or a stable test account is available, capture a persisted populated-row screenshot with the menu open for visual regression evidence.
+
+final result: passed
+
+---
+
+# Design QA — 我的文档列表视觉优化
+
+**Source visual truth**
+
+- `/var/folders/9b/8y0kwpzj4h1_wzryl7kzmbfm0000gn/T/codex-clipboard-ac6558e2-eec8-41a1-9990-26253f63d1ac.png`
+- Source pixels: 1675 × 945，桌面浅色主题，网格视图和“新建”菜单展开状态。
+
+**Implementation evidence**
+
+- `http://localhost:3000/documents`
+- In-app Browser viewport/capture: 1268 × 712 CSS px，device scale factor 1。
+- Browser-rendered states inspected: populated grid, populated list, final empty state, light theme。
+- The populated states used 3 temporary folders and 9 representative files. All temporary code and 13 database records were removed after capture.
+
+## Full-view comparison evidence
+
+The populated grid capture follows the source composition: title and subtitle at the upper left, compact view/search/create controls at the upper right, pill filters, a restrained folder row, and a dense recent-file grid. Card width adapts to the smaller review viewport, so the implementation shows four columns where the 1675 px source shows five. This is the expected responsive result rather than a fidelity defect.
+
+The list capture was reviewed separately. It uses the same content hierarchy with aligned name, size, update time, source, and action columns. Switching views does not change the surrounding page rhythm.
+
+## Focused-region comparison evidence
+
+The toolbar, folder cards, file preview cards, metadata rows, and AI badges were readable in the full browser capture, so a separate crop was unnecessary. The open create menu was not reworked because the request explicitly limited this pass to the document-list presentation and existing functionality.
+
+## Required fidelity surfaces
+
+- Fonts and typography: the existing Geist and Chinese fallback stack is preserved. The 30 px page title, 18 px section headings, 14 px controls, 13 px filenames, and 11 px metadata reproduce the source hierarchy without clipping.
+- Spacing and layout rhythm: page padding, 30 px filter offset, 36 px section rhythm, 18–20 px grid gutters, 15 px card radius, and 1 px hairlines match the source's airy density. Cards lift by only 2 px on hover.
+- Colors and visual tokens: page, card, border, text, muted, link, and focus colors all come from the existing Piwork semantic tokens. File-type color remains limited to small icons and quiet preview surfaces.
+- Image quality and asset fidelity: actual uploaded images still render with `object-cover`. Non-image files use existing Lucide file-type icons at consistent optical size; no raster placeholders or new decorative assets were introduced.
+- Copy and content: all existing labels and actions are preserved. The reference's sample files and additional creation options were treated only as visual material and were not added to product behavior.
+
+## Comparison history
+
+1. Initial implementation used oversized cards, inconsistent document mock covers, heavier borders/shadows, and a sparse list layout. These were P2 visual-density mismatches.
+2. The page was revised with responsive auto-fill grids, a unified preview frame, quieter hairlines/shadows, compact file metadata, polished folder cards, and a real tabular list mode.
+3. Post-fix browser captures showed the target hierarchy and density at 1268 × 712. The final empty state and browser console were checked after temporary data cleanup; no page errors or warnings remained.
+
+## Findings
+
+No actionable P0, P1, or P2 findings remain.
+
+## Follow-up polish
+
+- P3: Office/PDF thumbnail generation would make non-image previews richer, but it would add backend functionality and is intentionally outside this visual-only request.
+
+final result: passed
+
+---
+
 # Design QA — Model Provider Plugin Installation
 
 **Source visual truth**

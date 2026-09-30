@@ -1,70 +1,355 @@
 .page {
-  container-type: inline-size;
-  min-height: 100dvh;
   width: 100%;
+  min-height: 100dvh;
   padding: 32px 48px 40px;
+  container-type: inline-size;
   background: var(--background);
 }
-.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
-.heading { font-size: 30px; line-height: 40px; letter-spacing: -.035em; font-weight: 600; }
-.subtitle { margin-top: 3px; color: var(--muted-foreground); font-size: 14px; line-height: 24px; }
-.toolbar { display: flex; align-items: center; gap: 12px; padding-top: 0; }
-.search { display: flex; align-items: center; gap: 10px; width: clamp(180px, 19vw, 268px); height: 42px; padding: 0 15px; border: 1px solid var(--border); border-radius: 24px; background: var(--background); transition: border-color .15s, box-shadow .15s; }
-.search:focus-within { border-color: var(--ring); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 12%, transparent); }
-.tabs { display: flex; gap: 10px; margin-top: 30px; padding-bottom: 4px; overflow-x: auto; }
-.section { margin-top: 36px; }
-.sectionTitle { margin-bottom: 18px; font-size: 18px; line-height: 26px; font-weight: 600; letter-spacing: -.025em; }
-.folderGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; max-width: 880px; }
-.folderCard { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 94px; padding: 20px; border: 1px solid var(--border); border-radius: 15px; background: var(--card); box-shadow: 0 4px 16px rgb(0 0 0 / 2%); transition: border-color .18s, box-shadow .18s; }
-.folderCard:hover { border-color: var(--hairline-strong); box-shadow: 0 6px 20px rgb(0 0 0 / 4%); }
-.fileGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 20px 18px; }
-.card { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 15px; padding: 14px; background: var(--card); box-shadow: 0 4px 18px rgb(0 0 0 / 2%); transition: border-color .18s, box-shadow .18s, transform .18s; }
-.card:hover { border-color: var(--hairline-strong); box-shadow: 0 8px 24px rgb(0 0 0 / 5%); transform: translateY(-2px); }
-.preview { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 1.6; margin-bottom: 12px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--border) 55%, transparent); border-radius: 8px; background: var(--muted); }
-.cover { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; width: 100%; height: 100%; }
-.coverIcon { width: 42px; height: 42px; stroke-width: 1.2; }
-.coverLabel { font-size: 10px; font-weight: 600; letter-spacing: .14em; opacity: .75; }
-.aiBadge { position: absolute; top: 7px; right: 7px; padding: 3px 8px; border-radius: 7px; background: var(--card); color: var(--link); font-size: 11px; line-height: 18px; font-weight: 500; box-shadow: 0 1px 5px rgb(0 0 0 / 3%); }
-.fileInfo { display: flex; align-items: flex-start; gap: 9px; min-width: 0; }
-.fileDetails { min-width: 0; flex: 1; }
-.fileName { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; line-height: 21px; font-weight: 500; }
-.meta { display: flex; align-items: center; gap: 5px; margin-top: 3px; color: var(--muted-foreground); font-size: 11px; line-height: 18px; white-space: nowrap; }
-.fileInfo > button { margin-right: -5px; margin-top: 4px; }
-.fileList { overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
-.listHeader, .row .fileInfo { display: grid; grid-template-columns: 32px minmax(160px, 1fr) 88px 170px 80px 32px; gap: 14px; align-items: center; }
-.listHeader { padding: 13px 20px; border-bottom: 1px solid var(--border); color: var(--muted-foreground); font-size: 12px; }
-.listHeader > :first-child { grid-column: 1 / 3; padding-left: 46px; }
-.row { padding: 15px 20px; border-bottom: 1px solid var(--border); transition: background .15s; }
-.row:last-child { border-bottom: 0; }
-.row:hover { background: color-mix(in srgb, var(--muted) 50%, transparent); }
-.row .fileDetails, .row .meta { display: contents; }
-.row .fileName { font-size: 14px; }
-.row .meta > span { color: var(--muted-foreground); font-size: 12px; white-space: nowrap; }
-.row .meta > .metaDot { display: none; }
-.row .fileInfo > button { margin: 0; }
-.listSource { color: var(--muted-foreground); font-size: 12px; white-space: nowrap; }
-.listSourceAi { color: var(--link); }
-.hint { display: flex; align-items: center; gap: 7px; margin-top: 32px; color: var(--muted-foreground); font-size: 11px; line-height: 20px; }
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.heading {
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 40px;
+  letter-spacing: -0.035em;
+}
+.subtitle {
+  margin-top: 3px;
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--muted-foreground);
+}
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding-top: 0;
+}
+.search {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: clamp(180px, 19vw, 268px);
+  height: 42px;
+  padding: 0 15px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.search:focus-within {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 12%, transparent);
+}
+.tabs {
+  display: flex;
+  gap: 10px;
+  padding-bottom: 4px;
+  margin-top: 30px;
+  overflow-x: auto;
+}
+.section {
+  margin-top: 36px;
+}
+.sectionTitle {
+  margin-bottom: 18px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 26px;
+  letter-spacing: -0.025em;
+}
+.folderGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+  max-width: 880px;
+}
+.folderCard {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  min-height: 94px;
+  padding: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 2%);
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s;
+}
+.folderCard:hover {
+  border-color: var(--hairline-strong);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 4%);
+}
+.fileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+  gap: 20px 18px;
+}
+.card {
+  min-width: 0;
+  padding: 14px;
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  box-shadow: 0 4px 18px rgb(0 0 0 / 2%);
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s,
+    transform 0.18s;
+}
+.card:hover {
+  border-color: var(--hairline-strong);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 5%);
+  transform: translateY(-2px);
+}
+.preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1.6;
+  margin-bottom: 12px;
+  overflow: hidden;
+  background: var(--muted);
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 8px;
+}
+.cover {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.coverIcon {
+  width: 42px;
+  height: 42px;
+  stroke-width: 1.2;
+}
+.coverLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  opacity: 0.75;
+}
+.aiBadge {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--link);
+  background: var(--card);
+  border-radius: 7px;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 3%);
+}
+.fileInfo {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  min-width: 0;
+}
+.fileDetails {
+  flex: 1;
+  min-width: 0;
+}
+.fileName {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 21px;
+  white-space: nowrap;
+}
+.meta {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.fileInfo > button {
+  margin-top: 4px;
+  margin-right: -5px;
+}
+.fileList {
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.listHeader,
+.row .fileInfo {
+  display: grid;
+  grid-template-columns: 32px minmax(160px, 1fr) 88px 170px 80px 32px;
+  gap: 14px;
+  align-items: center;
+}
+.listHeader {
+  padding: 13px 20px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
+}
+.listHeader > :first-child {
+  grid-column: 1 / 3;
+  padding-left: 46px;
+}
+.row {
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.row:last-child {
+  border-bottom: 0;
+}
+.row:hover {
+  background: color-mix(in srgb, var(--muted) 50%, transparent);
+}
+.row .fileDetails,
+.row .meta {
+  display: contents;
+}
+.row .fileName {
+  font-size: 14px;
+}
+.row .meta > span {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.row .meta > .metaDot {
+  display: none;
+}
+.row .fileInfo > button {
+  margin: 0;
+}
+.listSource {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.listSourceAi {
+  color: var(--link);
+}
+.hint {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin-top: 32px;
+  font-size: 11px;
+  line-height: 20px;
+  color: var(--muted-foreground);
+}
 @container (max-width: 860px) {
-  .toolbar { width: 100%; }
-  .search { flex: 1; width: auto; }
-  .listHeader, .row .fileInfo { grid-template-columns: 28px minmax(100px, 1fr) 75px 145px 32px; gap: 10px; }
-  .listSource, .listHeader > :nth-last-child(2) { display: none; }
+  .toolbar {
+    width: 100%;
+  }
+  .search {
+    flex: 1;
+    width: auto;
+  }
+  .listHeader,
+  .row .fileInfo {
+    grid-template-columns: 28px minmax(100px, 1fr) 75px 145px 32px;
+    gap: 10px;
+  }
+  .listSource,
+  .listHeader > :nth-last-child(2) {
+    display: none;
+  }
 }
 @container (max-width: 560px) {
-  .fileGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .card { padding: 10px; border-radius: 12px; }
-  .meta { flex-wrap: wrap; column-gap: 5px; row-gap: 0; font-size: 10px; }
-  .metaDot { display: none; }
-  .meta > span:last-child { flex-basis: 100%; }
-  .tabs { gap: 4px; margin-top: 24px; }
-  .section { margin-top: 28px; }
-  .listHeader, .row .fileInfo { grid-template-columns: 25px minmax(80px, 1fr) 62px 28px; gap: 8px; }
-  .row, .listHeader { padding: 12px; }
-  .row .meta > span:last-child, .listHeader > :nth-child(3) { display: none; }
-  .fileInfo { gap: 6px; }
-  .coverIcon { width: 34px; height: 34px; }
+  .fileGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .card {
+    padding: 10px;
+    border-radius: 12px;
+  }
+  .meta {
+    flex-wrap: wrap;
+    row-gap: 0;
+    column-gap: 5px;
+    font-size: 10px;
+  }
+  .metaDot {
+    display: none;
+  }
+  .meta > span:last-child {
+    flex-basis: 100%;
+  }
+  .tabs {
+    gap: 4px;
+    margin-top: 24px;
+  }
+  .section {
+    margin-top: 28px;
+  }
+  .listHeader,
+  .row .fileInfo {
+    grid-template-columns: 25px minmax(80px, 1fr) 62px 28px;
+    gap: 8px;
+  }
+  .row,
+  .listHeader {
+    padding: 12px;
+  }
+  .row .meta > span:last-child,
+  .listHeader > :nth-child(3) {
+    display: none;
+  }
+  .fileInfo {
+    gap: 6px;
+  }
+  .coverIcon {
+    width: 34px;
+    height: 34px;
+  }
 }
-@media (max-width: 1023px) { .page { padding: 28px; } }
-@media (max-width: 639px) { .page { padding: 24px 18px; } .heading { font-size: 26px; } .subtitle { font-size: 12px; } }
-@media (prefers-reduced-motion: reduce) { .card, .folderCard { transition: none; } .card:hover { transform: none; } }
+@media (max-width: 1023px) {
+  .page {
+    padding: 28px;
+  }
+}
+@media (max-width: 639px) {
+  .page {
+    padding: 24px 18px;
+  }
+  .heading {
+    font-size: 26px;
+  }
+  .subtitle {
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .folderCard {
+    transition: none;
+  }
+  .card:hover {
+    transform: none;
+  }
+}
