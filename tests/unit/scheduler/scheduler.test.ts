@@ -7,6 +7,7 @@ import type {
 } from "../../../lib/runtime/run/run-manager";
 import { waitForTaskCompletion } from "../../../lib/scheduler/completion";
 import { getNextRunTime } from "../../../lib/scheduler/cron-utils";
+import { createSchedulerLoop } from "../../../lib/scheduler/scheduler";
 import { taskInputSchema } from "../../../lib/scheduler/validation";
 
 const input = {
@@ -118,4 +119,24 @@ test("starting a run is not completion; failure and timeout are not success", as
     ),
     /超时/
   );
+});
+
+test("scheduler scans immediately, polls again, prevents re-entry and stops", async () => {
+  const first = Promise.withResolvers<void>();
+  let calls = 0;
+  const loop = createSchedulerLoop(async () => {
+    calls += 1;
+    if (calls === 1) {
+      await first.promise;
+    }
+  }, 10);
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert.equal(calls, 1, "a slow scan must not overlap the next interval");
+  first.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert.ok(calls >= 2, "the loop must continue polling after completion");
+  loop.stop();
+  const stoppedAt = calls;
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert.equal(calls, stoppedAt, "stop must clear future polling");
 });

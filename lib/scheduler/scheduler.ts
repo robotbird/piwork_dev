@@ -20,33 +20,54 @@ export async function processDueTasks() {
 }
 
 const key = Symbol.for("piwork.scheduler");
-const scope = globalThis as Record<
-  symbol,
-  { timer: ReturnType<typeof setInterval>; busy: boolean } | undefined
->;
+const scope = globalThis as Record<symbol, SchedulerLoop | undefined>;
+
+export type SchedulerLoop = {
+  stop: () => void;
+};
+
+/**
+ * Own one polling lifecycle. The callback is injected so the timing and
+ * re-entry guarantees can be verified without touching a database.
+ */
+export function createSchedulerLoop(
+  run: () => Promise<unknown>,
+  intervalMs = 30_000
+): SchedulerLoop {
+  let busy = false;
+  let stopped = false;
+  const tick = async () => {
+    if (busy || stopped) {
+      return;
+    }
+    busy = true;
+    try {
+      await run();
+    } catch (error) {
+      console.error("[scheduler] tick failed", error);
+    } finally {
+      busy = false;
+    }
+  };
+  const timer = setInterval(() => {
+    tick().catch(console.error);
+  }, intervalMs);
+  timer.unref();
+  // Scan once at startup; otherwise a freshly restarted host leaves already
+  // due work idle for a full interval.
+  tick().catch(console.error);
+  return {
+    stop: () => {
+      stopped = true;
+      clearInterval(timer);
+    },
+  };
+}
 
 /** MVP runs in one long-lived Node server alongside RunManager (not a separate worker). */
 export function startScheduler() {
   if (scope[key]) {
     return;
   }
-  const tick = async () => {
-    const state = scope[key];
-    if (!state || state.busy) {
-      return;
-    }
-    state.busy = true;
-    try {
-      await processDueTasks();
-    } catch (error) {
-      console.error("[scheduler] tick failed", error);
-    } finally {
-      state.busy = false;
-    }
-  };
-  const timer = setInterval(() => {
-    tick().catch(console.error);
-  }, 30_000);
-  timer.unref();
-  scope[key] = { busy: false, timer };
+  scope[key] = createSchedulerLoop(processDueTasks);
 }

@@ -96,7 +96,7 @@ flowchart LR
 - `lib/db/scheduled-task-queries.ts` 持有所有数据库访问。ScheduledTask.enabled 与最近执行 status 分离；ScheduledTaskRun 独立保存运行记录。事务内条件更新领取任务并插入运行记录，leaseToken 防止过期执行写回；10 分钟未完成的领取恢复为失败。暂停不取消当前运行，运行时不允许编辑/删除。
 - `lib/scheduler/executor.ts` 以默认启用模型构建 RuntimeSpec，使用已有 Skill/MCP/工作区/交付归档能力，走 `RunManager → InProcessBackend → Pi AgentSession`，等待 subscription.settled 才标记成功。运行最长 5 分钟，超时发送 abort。执行结果保存在独立 Chat 与 Message_v2；任务执行不注入创建任务工具，避免递归调度。
 - Cron 由 cron-parser 计算，支持五段数字表达式与 IANA 时区，默认 Asia/Shanghai。成功和失败都计算下一次周期，跳过停机期间的历史积压；不重放每一个错过的周期。
-- MVP 仅支持一个常驻 Node.js 服务实例：设置 `SCHEDULED_TASKS_ENABLED=true` 后 instrumentation 启动每 30 秒扫描，单轮最多 3 个任务。不要把定时器视为 serverless 或多实例分布式调度保证。可选 POST `/api/scheduled-tasks/execute` 供外部触发，必须配置并传入 `SCHEDULED_TASKS_API_KEY`；未配置时拒绝。暂停/关闭进程不会继续运行。
+- MVP 仅支持一个常驻 Node.js 服务实例：设置 `SCHEDULED_TASKS_ENABLED=true` 后 instrumentation 在启动时立即扫描，此后每 30 秒扫描，单轮最多 3 个任务；同一实例的扫描不会重入。不要把定时器视为 serverless 或多实例分布式调度保证。可选 POST `/api/scheduled-tasks/execute` 供外部触发，必须配置并传入 `SCHEDULED_TASKS_API_KEY`；未配置时拒绝。暂停/关闭进程不会继续运行。
 - Pi 官方依据：[SDK](https://pi.dev/docs/latest/sdk)、[Extensions](https://pi.dev/docs/latest/extensions)，并核对已安装 0.87.1 的 `dist/core/sdk.d.ts`、`dist/core/extensions/types.d.ts` 与项目官方 API 适配器：复用 customTools、prompt、abort、事件与 dispose，不另建 agent loop。
 
 ## 9. 项目 Workspace MVP（2026-09-28）

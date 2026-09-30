@@ -52,7 +52,7 @@ pnpm plugin:verify     # 模型插件链路验证
 ## 定时任务验证与运行
 
 1. `pnpm db:migrate` 应用 0012（增加 enabled/领取租约和运行记录，旧 cancelled 任务转为停用）。
-2. 常驻 Node 开发/部署环境设置 `SCHEDULED_TASKS_ENABLED=true`，重启 `pnpm dev` 或 `pnpm start`；默认不开启后台调度。进程必须保持运行。手动“立即运行”不依赖该开关。
+2. 常驻 Node 开发/部署环境设置 `SCHEDULED_TASKS_ENABLED=true`，重启 `pnpm dev` 或 `pnpm start`；默认不开启后台调度。进程启动时立即扫描，之后每 30 秒扫描，且不会重入。进程必须保持运行。手动“立即运行”不依赖该开关。
 3. `pnpm test:scheduler` 验证 Cron 时区、非法输入、工具创建协议和完成语义；`pnpm test:scheduler:db` 使用 .env.local 的本地数据库，独立测试用户，验证归属、并发领取、暂停、重复执行、运行记录和过期租约。
 4. 任务中心输入“每天上午 9 点整理 AI 日报”，应进入真实聊天，AI 调用创建工具；回到任务中心后应看到计划及北京时间。立即运行后应先显示运行中，终态后打开结果。失败后仍保留下一周期。
 5. 运行期间暂停仅阻止后续计划；运行期间编辑和删除返回 409。删除任务保留已生成聊天，删除聊天将运行记录的 chatId 置空。
