@@ -9,6 +9,7 @@
 | [平台与 Runtime 演进架构](platform-runtime-roadmap.md) | Web → Worker/Sandbox → 未来 Desktop 的目标边界与分期 | 目标架构；含现有代码映射和验收条件 |
 | [开发与测试](development.md) | 目录约定、测试位置和验证命令 | 当前规范 |
 | [Pi Package 与 Runtime 架构](pi-plugin-support-research.md) | Package、RPC、Sandbox 的分阶段目标设计 | 含已实现步骤与后续规划；逐节核对状态 |
+| [Pi Durable 评估与采用计划](pi-durable-evaluation.md) | 官方 durable harness 与现状的映射、spike 实录、分阶段采用计划 | 结论：现阶段不替换主链路；P2 旁路原型已落地（DurableBackend + 实验开关） |
 | [模型供应商插件架构](model-provider-plugin-architecture.md) | 插件方案与设计背景 | 原始草案，部分版本和阶段描述已过时；以项目架构和代码为准 |
 | [Skill 执行安全方案](security/skill-execution-security-plan.md) | 威胁模型与安全目标 | 规划；文件头说明已被后续设计取代的部分 |
 | [界面设计规范](design-system/openai-unified-interface/design-spec.md) | 界面参考及 token | 设计资料 |

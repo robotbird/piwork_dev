@@ -22,6 +22,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -585,6 +586,41 @@ function PureMultimodalInput({
     ]
   );
   const isEmptyChat = messages.length === 0;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Resize after controlled text changes or composer replacement, before paint.
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    const resize = () => {
+      textarea.style.height = "auto";
+      const styles = getComputedStyle(textarea);
+      const minHeight = Number.parseFloat(styles.minHeight) || 0;
+      const maxHeight = Number.parseFloat(styles.maxHeight) || 192;
+      const height = Math.min(
+        maxHeight,
+        Math.max(minHeight, textarea.scrollHeight)
+      );
+      textarea.style.height = `${height}px`;
+      textarea.style.overflowY =
+        textarea.scrollHeight > height ? "auto" : "hidden";
+    };
+
+    resize();
+    let previousWidth = textarea.getBoundingClientRect().width;
+    const observer = new ResizeObserver(() => {
+      const nextWidth = textarea.getBoundingClientRect().width;
+      if (nextWidth !== previousWidth) {
+        previousWidth = nextWidth;
+        resize();
+      }
+    });
+    observer.observe(textarea);
+    return () => observer.disconnect();
+  }, [input, isEmptyChat]);
+
   const canSubmit = Boolean(
     input.trim() || selectedSkill || attachments.length > 0
   );
@@ -753,7 +789,7 @@ function PureMultimodalInput({
             ) : null}
             <PromptInputTextarea
               className={cn(
-                "max-h-32 min-h-10 min-w-0 px-2 py-2 text-[16px] leading-6 placeholder:text-[var(--chat-placeholder)] focus-visible:border-transparent focus-visible:ring-0",
+                "max-h-48 min-h-10 min-w-0 px-2 py-2 text-[16px] leading-6 placeholder:text-[var(--chat-placeholder)] focus-visible:border-transparent focus-visible:ring-0",
                 selectedSkill && "pl-0"
               )}
               data-testid="multimodal-input"

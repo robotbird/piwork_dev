@@ -14,8 +14,9 @@ export async function GET() {
 
   return Response.json(
     {
-      diagnostics: diagnostics.map(({ code, message, path }) => ({
-        code,
+      diagnostics: diagnostics.map(({ type, message, path }) => ({
+        // 1.0.0 的 ResourceDiagnostic 以 type 取代 code；wire 格式保持不变
+        code: type,
         message,
         path,
       })),

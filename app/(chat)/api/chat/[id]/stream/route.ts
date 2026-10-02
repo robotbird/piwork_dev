@@ -19,6 +19,9 @@ const resumeQuerySchema = z.object({
  * DB 仍有活跃 run 时 attach LiveRun → 按 §2.5 输出序重放（start →
  * waiting → 日志重放 + 活流 tail）；run 已终态或进程重启 → 惰性清僵尸
  * 后仍无 → 204（SDK 约定下客户端静默 no-op，DB 已含完整消息）。
+ * chat 行尚不存在（新聊天首条消息提交时 submitForm 先 pushState，
+ * resume GET 可能抢在 POST 落库前到达）同样 204 静默：此语境下 404
+ * 会被 onError 弹成错误 toast，而"无可恢复"本就该静默。
  */
 export async function GET(
   request: Request,
@@ -33,7 +36,7 @@ export async function GET(
 
   const chat = await getChatById({ id });
   if (!chat) {
-    return new ChatbotError("not_found:chat").toResponse();
+    return new Response(null, { status: 204 });
   }
   if (chat.userId !== session.user.id) {
     return new ChatbotError("forbidden:chat").toResponse();

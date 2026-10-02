@@ -4,6 +4,7 @@ import { postgresAgentRunStore } from "@/lib/db/agent-run-queries";
 import { registerGeneratedFile } from "@/lib/db/library-queries";
 import { upsertMessage } from "@/lib/db/queries";
 import { PostgresEventStore } from "@/lib/db/runtime-event-queries";
+import { DurableBackend } from "../backends/durable/backend";
 import { InProcessBackend } from "../backends/in-process/backend";
 import { RunManager } from "./run-manager";
 
@@ -11,6 +12,9 @@ import { RunManager } from "./run-manager";
  * RunManager 组装与单例（v2.0 §8.2）：InProcessBackend + Postgres 持久化。
  * 挂 globalThis Symbol 键使 dev HMR 下 run 状态存活；进程全量重启则
  * LiveRun 丢失，由 attach 落空 → failZombieRuns 兜底（§2.12）。
+ *
+ * PIWORK_RUNTIME_BACKEND=durable 切换实验性 Pi Durable 后端
+ * （docs/pi-durable-evaluation.md §5 P2 原型；生产默认恒为 InProcess）。
  */
 
 type RunManagerGlobal = {
@@ -26,7 +30,10 @@ const runtimeGlobal = globalScope[RUN_MANAGER_KEY];
 
 runtimeGlobal.workerId ??= globalThis.crypto.randomUUID();
 runtimeGlobal.manager ??= new RunManager({
-  backend: new InProcessBackend(registerGeneratedFile),
+  backend:
+    process.env.PIWORK_RUNTIME_BACKEND === "durable"
+      ? new DurableBackend()
+      : new InProcessBackend(registerGeneratedFile),
   eventStore: new PostgresEventStore(),
   messageStore: {
     upsertAssistantMessage: async ({ chatId, id, parts }) => {

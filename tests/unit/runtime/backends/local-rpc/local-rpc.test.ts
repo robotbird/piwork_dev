@@ -280,8 +280,9 @@ test("seedSessionFile：历史落盘可读回；空历史也物化文件", async
 
   const emptyDir = await mkdtemp(path.join(tmpdir(), "piwork-rpc-seed-"));
   const emptyFile = seedSessionFile(await makeSpec(), emptyDir);
-  // pi _persist 规则：无 assistant 消息不落盘；--session 给绝对路径时缺失
-  // 文件合法（子进程以新会话绑定该路径起步），无需物化
+  // pi _persist 规则（0.99.0 #10000 起）：首条用户消息发出时创建会话文件；
+  // 零消息仍无落盘，--session 给绝对路径时缺失文件合法（子进程以新会话
+  // 绑定该路径起步），无需物化
   assert.ok(emptyFile.startsWith(emptyDir));
   assert.ok(!existsSync(emptyFile));
 
@@ -294,9 +295,9 @@ test("seedSessionFile：历史落盘可读回；空历史也物化文件", async
     }),
     userOnlyDir
   );
-  // 已知边界：纯 user 历史不落盘（生产 historyMessages 是既往轮次，必含
-  // assistant，边界不触发；Step 8 切生产路径前复核）
-  assert.ok(!existsSync(userOnlyFile));
+  // 0.99.0 行为变更：纯 user 历史也落盘（会话文件在首条用户消息发送时创建，
+  // pi #10000）；生产 historyMessages 是既往轮次必含 assistant，不受影响
+  assert.ok(existsSync(userOnlyFile));
 });
 
 // ---------------------------------------------------------------------------

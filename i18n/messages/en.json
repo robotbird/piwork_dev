@@ -993,7 +993,7 @@
     "badgeSystem": "System",
     "badgeSkillsCount": "Skills ×{count}",
     "badgeExtensionsPending": "Extensions ×{count} · pending runtime",
-    "systemNote": "Preinstalled system package · MCP service adapter (cannot be uninstalled)",
+    "systemNote": "Legacy system package; removed automatically on first use",
     "skillsLabel": "Extracted skills",
     "installedTitle": "Installed packages",
     "installedEmptyTitle": "No packages installed",
@@ -1020,8 +1020,6 @@
     "uninstalling": "Uninstalling…",
     "uninstallDialogTitle": "Uninstall {name}",
     "uninstallDialogDescription": "This will uninstall {name} and remove its {count} extracted skills. Continue?",
-    "uninstallSuccess": "Uninstalled {name}, removed {skills} skills",
-    "systemPending": "The system package (pi-mcp-adapter) has not been installed yet. You can retry.",
-    "retrySystem": "Retry install"
+    "uninstallSuccess": "Uninstalled {name}, removed {skills} skills"
   }
 }

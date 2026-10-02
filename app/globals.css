@@ -409,6 +409,7 @@ body:has(.openai-management) {
 
 /* 输入器参考 ChatGPT：克制的两段式浮层阴影 + 1px 边框；聚焦只加深边框（规范 §11.2） */
 .openai-composer > [data-slot="input-group"] {
+  height: auto;
   background: var(--surface-card);
   border-color: var(--hairline);
   box-shadow:

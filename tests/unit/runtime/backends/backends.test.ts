@@ -15,6 +15,7 @@ import {
   Type,
 } from "@earendil-works/pi-ai";
 import { getPiModel, getTestFauxHandle } from "@/lib/ai/pi";
+import { DurableBackend } from "../../../../lib/runtime/backends/durable/backend";
 import { InProcessBackend } from "../../../../lib/runtime/backends/in-process/backend";
 import { LocalRpcBackend } from "../../../../lib/runtime/backends/local-rpc/backend";
 import type {
@@ -99,6 +100,24 @@ const harnesses: Harness[] = [
       return backend.open(await makeSpec(scenario));
     },
     supportsPlatformTools: true,
+  },
+  {
+    name: "Durable",
+    openSession: async (scenario) => {
+      const faux = getTestFauxHandle();
+      assert.ok(faux, "Durable 契约测试需在测试环境运行（faux 未注册）");
+      faux.setResponses(scenario.fauxSteps ?? []);
+      // 原型差口（docs/pi-durable-evaluation.md §5 P2）：平台侧工具闭包与
+      // deliver_file 归档未接入，强制空工具、无 workspace
+      const spec = await makeSpec({
+        ...scenario,
+        tools: [],
+        workspaceDir: null,
+      });
+      const backend = new DurableBackend();
+      return backend.open(spec);
+    },
+    supportsPlatformTools: false,
   },
   {
     name: "LocalRpc",

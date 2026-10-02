@@ -1,14 +1,15 @@
 import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
-import {
-  type AgentTool,
-  BACKGROUND_CONTEXT,
-  formatSkillInvocation,
-  formatSkillsForSystemPrompt,
-  loadSkills,
-  type Skill,
-} from "@earendil-works/pi-agent-core";
-import { NodeExecutionEnv } from "@earendil-works/pi-agent-core/node";
+
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { Type } from "@earendil-works/pi-ai";
+import {
+  formatSkillsForPrompt,
+  loadSkillsFromDir,
+  type Skill,
+  stripFrontmatter,
+} from "@earendil-works/pi-coding-agent";
+import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { unzipSync } from "fflate";
 import { getInstallableCatalogSkill } from "./skill-catalog";
 import {
@@ -218,11 +219,10 @@ export async function loadProjectSkills(cwd = process.cwd()) {
   const env = createExecutionEnv(cwd);
 
   try {
-    const loaded = await loadSkills(
-      env,
-      getSkillsDirectory(cwd),
-      BACKGROUND_CONTEXT
-    );
+    const loaded = loadSkillsFromDir({
+      dir: getSkillsDirectory(cwd),
+      source: "piwork",
+    });
     const disabled = await readDisabledSkillNames(env, cwd);
     return {
       diagnostics: loaded.diagnostics,
@@ -237,7 +237,10 @@ export async function loadAllProjectSkills(cwd = process.cwd()) {
   const env = createExecutionEnv(cwd);
 
   try {
-    return await loadSkills(env, getSkillsDirectory(cwd), BACKGROUND_CONTEXT);
+    return loadSkillsFromDir({
+      dir: getSkillsDirectory(cwd),
+      source: "piwork",
+    });
   } finally {
     await env.cleanup(BACKGROUND_CONTEXT);
   }
@@ -247,11 +250,10 @@ export async function loadProjectSkillSummaries(cwd = process.cwd()) {
   const env = createExecutionEnv(cwd);
 
   try {
-    const loaded = await loadSkills(
-      env,
-      getSkillsDirectory(cwd),
-      BACKGROUND_CONTEXT
-    );
+    const loaded = loadSkillsFromDir({
+      dir: getSkillsDirectory(cwd),
+      source: "piwork",
+    });
     const disabled = await readDisabledSkillNames(env, cwd);
     const skills = await Promise.all(
       loaded.skills.map(async (skill) => {
@@ -299,11 +301,10 @@ export async function setProjectSkillEnabled(
   const env = createExecutionEnv(cwd);
 
   try {
-    const loaded = await loadSkills(
-      env,
-      getSkillsDirectory(cwd),
-      BACKGROUND_CONTEXT
-    );
+    const loaded = loadSkillsFromDir({
+      dir: getSkillsDirectory(cwd),
+      source: "piwork",
+    });
     const skill = loaded.skills.find((candidate) => candidate.name === name);
     if (!skill) {
       throw new Error(`Skill "${name}" was not found.`);
@@ -416,7 +417,7 @@ export async function createProjectSkill({
       throw written.error;
     }
 
-    const loaded = await loadSkills(env, skillDirectory, BACKGROUND_CONTEXT);
+    const loaded = loadSkillsFromDir({ dir: skillDirectory, source: "piwork" });
     const skill = loaded.skills.find((candidate) => candidate.name === name);
     if (!skill) {
       const detail = loaded.diagnostics.map((item) => item.message).join("; ");
@@ -505,11 +506,10 @@ export async function installProjectSkill({
       throw failedStagedWrite.error;
     }
 
-    const staged = await loadSkills(
-      env,
-      stagedSkillDirectory,
-      BACKGROUND_CONTEXT
-    );
+    const staged = loadSkillsFromDir({
+      dir: stagedSkillDirectory,
+      source: "piwork",
+    });
     if (staged.skills.length !== 1 || staged.diagnostics.length > 0) {
       const detail = staged.diagnostics.map((item) => item.message).join("; ");
       throw new Error(
@@ -553,11 +553,10 @@ export async function installProjectSkill({
       throw failedInstalledWrite.error;
     }
 
-    const installed = await loadSkills(
-      env,
-      installedDirectory,
-      BACKGROUND_CONTEXT
-    );
+    const installed = loadSkillsFromDir({
+      dir: installedDirectory,
+      source: "piwork",
+    });
     const installedSkill = installed.skills.find(
       (candidate) => candidate.name === skill.name
     );
@@ -588,17 +587,12 @@ export async function installProjectSkill({
   }
 }
 
-async function resolveProjectSkill(
-  env: NodeExecutionEnv,
-  cwd: string,
-  name: string
-) {
+function resolveProjectSkill(cwd: string, name: string) {
   validateSkillName(name);
-  const loaded = await loadSkills(
-    env,
-    getSkillsDirectory(cwd),
-    BACKGROUND_CONTEXT
-  );
+  const loaded = loadSkillsFromDir({
+    dir: getSkillsDirectory(cwd),
+    source: "piwork",
+  });
   const skill = loaded.skills.find((candidate) => candidate.name === name);
   if (!skill) {
     throw new Error(`Skill "${name}" was not found.`);
@@ -622,8 +616,10 @@ export async function deleteProjectSkill(name: string, cwd = process.cwd()) {
   const env = createExecutionEnv(cwd);
 
   try {
-    const { relativeDirectory, skill, skillDirectory } =
-      await resolveProjectSkill(env, cwd, name);
+    const { relativeDirectory, skill, skillDirectory } = resolveProjectSkill(
+      cwd,
+      name
+    );
     const target = relativeDirectory ? skillDirectory : skill.filePath;
     const removed = await env.remove(
       target,
@@ -709,8 +705,7 @@ export async function listProjectSkillFiles(
   const env = createExecutionEnv(cwd);
 
   try {
-    const { relativeDirectory, skillDirectory } = await resolveProjectSkill(
-      env,
+    const { relativeDirectory, skillDirectory } = resolveProjectSkill(
       cwd,
       name
     );
@@ -777,8 +772,7 @@ export async function readProjectSkillFile(
   const env = createExecutionEnv(cwd);
 
   try {
-    const { relativeDirectory, skillDirectory } = await resolveProjectSkill(
-      env,
+    const { relativeDirectory, skillDirectory } = resolveProjectSkill(
       cwd,
       name
     );
@@ -847,7 +841,7 @@ export async function readProjectSkillFile(
 }
 
 export function buildSkillsSystemPrompt(skills: Skill[]) {
-  const availableSkills = formatSkillsForSystemPrompt(skills);
+  const availableSkills = formatSkillsForPrompt(skills);
 
   return [
     "Skills are reusable, on-demand instruction packages.",
@@ -875,10 +869,31 @@ export function invokeSkill(
 ) {
   const skill = skills.find((candidate) => candidate.name === name);
   if (!skill) {
-    throw new Error(`Unknown skill "${name}".`);
+    return Promise.reject(new Error(`Unknown skill "${name}".`));
   }
 
   return formatSkillInvocation(skill, additionalInstructions);
+}
+
+/**
+ * 与 pi-coding-agent 1.0.0 的 _expandSkillCommand 同构
+ * （dist/core/agent-session.js：读 SKILL.md → stripFrontmatter → <skill> 块）；
+ * 1.0.0 起 formatSkillInvocation 不再从官方包导出。
+ */
+async function formatSkillInvocation(
+  skill: Skill,
+  additionalInstructions?: string
+) {
+  const env = new NodeExecutionEnv({ cwd: process.cwd() });
+  const read = await env.readTextFile(skill.filePath, BACKGROUND_CONTEXT);
+  if (!read.ok) {
+    throw read.error;
+  }
+  const body = stripFrontmatter(read.value).trim();
+  const skillBlock = `<skill name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</skill>`;
+  return additionalInstructions
+    ? `${skillBlock}\n\n${additionalInstructions}`
+    : skillBlock;
 }
 
 export function createSkillTools(
@@ -890,22 +905,22 @@ export function createSkillTools(
   const loadSkill: AgentTool = {
     description:
       "Load the complete instructions for an available skill before carrying out a matching task.",
-    execute: (_toolCallId, params) => {
+    execute: async (_toolCallId, params) => {
       const { name, task } = params as { name: string; task?: string };
       const skill = skills.get(name);
       if (!skill) {
         throw new Error(`Unknown skill "${name}".`);
       }
 
-      return Promise.resolve({
+      return {
         content: [
           {
-            text: formatSkillInvocation(skill, task),
+            text: await formatSkillInvocation(skill, task),
             type: "text",
           },
         ],
         details: { name: skill.name, path: skill.filePath },
-      });
+      };
     },
     label: "Load skill",
     name: "load_skill",

@@ -1,6 +1,6 @@
 # Piwork 项目架构（当前实现）
 
-> 核对日期：2026-09-27。依据当前工作树的代码和 `package.json`。Pi 三个主包 `@earendil-works/pi-ai`、`@earendil-works/pi-agent-core`、`@earendil-works/pi-coding-agent` 均为 **0.87.1**。本文描述现状；目标架构见 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)。
+> 核对日期：2026-10-02。依据当前工作树的代码和 `package.json`。Pi 三个主包 `@earendil-works/pi-ai`、`@earendil-works/pi-agent-core`、`@earendil-works/pi-coding-agent` 均为 **1.0.0**。本文描述现状；目标架构见 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)。
 
 Web、独立 Worker/Sandbox 与未来 Desktop 的整体演进方向见 [平台与 Agent Runtime 演进架构](platform-runtime-roadmap.md)。
 
@@ -36,7 +36,7 @@ flowchart LR
 | `lib/runtime/backends` | `in-process` 当前运行适配器；`local-rpc` 是已实现的本机子进程适配器，尚未接入生产默认路径；Pi 事件归一化和事件队列 |
 | `lib/runtime/run` | `RunManager` 生命周期、订阅、事件日志、消息构建、事件存储接口；`index.ts` 组装当前后端和 PostgreSQL 实现 |
 | `lib/ai` | Pi session 装配、模型适配、系统提示、Skill、工具、附件和文件存储；`agent-session.ts` 调用 Pi SDK |
-| `lib/pi-packages`、`lib/mcp` | 受管 Pi 包安装/资源清点；将管理端 MCP 配置同步到聊天工作区 `.mcp.json` |
+| `lib/pi-packages`、`lib/mcp` | 受管 Pi 包安装/资源清点；将管理端 MCP 配置同步到受管 agentDir `mcp.json`，并提供 Pi 内置 MCP 扩展的自定义 `loadConfig` |
 | `lib/model-plugins`、`packages/model-provider-sdk`、`plugins` | 模型供应商插件契约、检查/构建/Worker host/注册；SDK 与示例 DeepSeek 插件 |
 | `lib/db`、`lib/management` | Drizzle schema、迁移和查询；管理权限与管理业务逻辑 |
 | `lib/artifacts`、`lib/editor`、`i18n` | 文档产物、编辑器功能和国际化 |
@@ -46,7 +46,7 @@ flowchart LR
 
 逐步时序图和 RPC 边界见 [聊天业务链路与 RPC](rpc-business-flow.md)。
 
-1. `app/(chat)/api/chat/route.ts` 校验请求、身份、配额及模型目录；读取/保存聊天消息，处理附件，加载启用的 Skill，并按聊天创建工作区和 `.mcp.json`。
+1. `app/(chat)/api/chat/route.ts` 校验请求、身份、配额及模型目录；读取/保存聊天消息，处理附件，加载启用的 Skill，按聊天创建工作区，并把启用的 MCP 服务同步进受管 agentDir 的 `mcp.json`。
 2. 请求将模型、历史、提示、工具和工作区组成 `RuntimeSpec`，交给 `getRunManager().start()`；页面流订阅运行事件。断线重连走 `api/chat/[id]/stream`，显式停止走 `api/chat/[id]/stop`。
 3. `lib/runtime/run/index.ts` 当前固定装配 `InProcessBackend`。后端通过 `lib/ai/agent-session.ts` 创建 Pi `AgentSession`，使用 `DefaultResourceLoader`、`ModelRuntime`、`SessionManager.inMemory()` 和自定义工具。Pi 的 agent loop、工具执行与扩展生命周期由 Pi SDK 掌管。
 4. Pi 事件由 `lib/runtime/backends/pi-event-normalizer.ts` 转为平台 `RuntimeEvent`。`RunManager` 管理运行状态、事件序号、订阅与重放；关键事件写入 `RuntimeEvent` 表，最终 assistant 消息落库。`stream-mapping.ts` 才把平台事件转成前端 UI message stream。
@@ -58,8 +58,8 @@ flowchart LR
 - **身份与权限**：`app/(auth)` 提供用户会话；管理 API 通过 `lib/management/access.ts` 判定管理身份。新增管理操作需沿用这一入口。
 - **数据**：`lib/db/schema.ts` 定义用户、组织、成员/角色、聊天/消息、文档、Skill、模型插件、MCP、Pi Package、AgentRun/RuntimeEvent/RuntimeLease；查询由 `lib/db/*-queries.ts` 持有，路由不直接拼 SQL。
 - **模型**：`lib/model-plugins` 检查并构建插件，在 Worker 中激活，暴露 Pi `Provider`；`lib/ai/pi.ts` 和 `agent-session.ts` 将可用 Provider 接入 Pi 模型运行时。`plugins/piwork-llm-deepseek` 是项目内示例插件。
-- **Package 与 Skill**：`lib/pi-packages/manager.ts` 使用 Pi `DefaultPackageManager.installAndPersist()` 管理受管目录；包内 Skill 由 Piwork 的 Skill 管线登记、启用和展示。聊天会话通过 `DefaultResourceLoader` 加载受管扩展，同时关闭全局 Skill/上下文自动发现，避免跨租户资源泄漏。
-- **MCP**：管理端记录服务配置，`lib/mcp/workspace-config.ts` 在请求时生成工作区 `.mcp.json`；系统 Pi Package `pi-mcp-adapter` 负责消费它。
+- **Package 与 Skill**：`lib/pi-packages/manager.ts` 使用 Pi `DefaultPackageManager.installAndPersist()` 管理受管目录；包内 Skill 由 Piwork 的 Skill 管线登记、启用和展示。聊天会话通过 `DefaultResourceLoader` 加载受管扩展，同时关闭全局 Skill/上下文自动发现，避免跨租户资源泄漏。旧系统插件 `pi-mcp-adapter` 已被 Pi 内置 MCP 取代，进程内会自动退役清理（见第 10 节）。
+- **MCP**：管理端记录服务配置，`lib/mcp/agent-config.ts` 在请求时把启用服务（`exposure: direct`）同步到受管 agentDir 的 `mcp.json`；Pi 内置 MCP 扩展以自定义 `loadConfig` 消费它，忽略工作区项目级配置。
 
 ## 5. 现状与目标的分界
 
@@ -68,16 +68,18 @@ flowchart LR
 | Pi SDK 会话、受管 Package、模型 Provider 桥接 | 已接入当前聊天路径 |
 | InProcessBackend + RunManager + PostgreSQL 事件/消息持久化 | 当前默认路径 |
 | LocalRpcBackend | 已有实现与契约测试；生产组装尚未选用 |
+| DurableBackend（Pi Durable） | 实验旁路原型（P2）：满足 RuntimeBackend 契约并进入契约测试套件；`PIWORK_RUNTIME_BACKEND=durable` 显式切换，生产默认恒为 InProcess。评估与采用计划见 [Pi Durable 评估](pi-durable-evaluation.md) |
 | 完整 Pi 进程 Sandbox、远端 Runtime Worker、隔离后的生产 RPC | 目标设计，当前代码未落地 |
 | 用户上传扩展/模型插件的强隔离与凭据网关 | 安全规划；现有 Worker 与进程内扩展不应被描述为强沙箱 |
 
 ## 6. Pi 官方依据
 
-- [SDK](https://pi.dev/docs/latest/sdk)：`createAgentSession`、`SessionManager`、`DefaultResourceLoader`、订阅事件及 `dispose()`；本项目会话装配与运行生命周期按这些边界处理。
+- [SDK](https://pi.dev/docs/latest/sdk)：`createAgentSession`、`SessionManager`、`DefaultResourceLoader`、订阅事件及 `dispose()`；SDK 会话需在 `extensionFactories` 显式加入 `createMcpExtension()`（内置 `codemode`/`tool_search`/MCP 不默认加载）。
+- [MCP Servers](https://pi.dev/docs/latest/mcp)：`mcp.json` 全局（agentDir）与项目（`.pi/mcp.json`，需信任）两级发现、stdio/HTTP 配置字段、`exposure`（`codemode`/`deferred`/`direct`/`hidden`）、OAuth 与 `pi mcp` CLI 的依据。
 - [RPC 协议](https://pi.dev/docs/latest/rpc) 与 [RPC 命令](https://pi.dev/docs/latest/rpc-commands)：本机 RPC 适配器的命令、事件和进程生命周期依据。
 - [Extensions](https://pi.dev/docs/latest/extensions)、[Custom Providers](https://pi.dev/docs/latest/custom-provider)：扩展工厂、`registerProvider()` 与 Provider 接口的依据。
 - [Pi Packages](https://pi.dev/docs/latest/packages)、[Skills](https://pi.dev/docs/latest/skills)：安装与资源发现约定的依据。
-- 精确签名与行为以本仓库安装的 `node_modules/@earendil-works/pi-coding-agent`、`pi-ai`、`pi-agent-core` **0.87.1** 类型/源码为准；文档 latest 可能超前于已安装版本。
+- 精确签名与行为以本仓库安装的 `node_modules/@earendil-works/pi-coding-agent`、`pi-ai`、`pi-agent-core` **1.0.0** 类型/源码为准（含 `dist/extensions/mcp/` 的 `index.d.ts`、`config.d.ts` 与 `examples/sdk/14-codemode-mcp.ts`）；文档 latest 可能超前于已安装版本。
 
 ## 7. 我的文档（2026-09-28）
 
@@ -87,7 +89,7 @@ flowchart LR
 - 生产 `lib/runtime/run/index.ts` 向 `InProcessBackend` 注入 `registerGeneratedFile`；backend 将它交给现有 Pi `deliver_file` 工具的异步 `onStored` 回调。归档成功后才发出原有 `artifact.created`，不改变 RuntimeEvent 协议或 Pi agent loop。通用工具/后端契约测试无需连接数据库。LocalRpc 尚未支持这个平台工具桥接。
 - `saveDocument` 与文档目录登记在同一事务内；更新内容同步大小和更新时间。下载读取最新 Document 版本。迁移 `0010` 回填已有 Document 及 Message_v2 中的上传和交付附件；没有聊天引用的旧磁盘文件无法可靠推断归属，不自动认领。历史聊天附件大小未知时显示“—”。
 - 已配置的 Vercel Blob 仍沿用原有 public 对象模式；文档库目录/API 按用户隔离，不等同于将已有 Blob URL 改成私有对象。当前未提供 Office 在线编辑、Office 页面缩略图、回收站或项目权限管理。工作区中间文件不归档，最终产物通过 `deliver_file` 归档。
-- Pi 依据：[SDK customTools](https://pi.dev/docs/latest/sdk)、[Extensions 工具契约](https://pi.dev/docs/latest/extensions)；已安装 **0.87.1** 的 `dist/core/sdk.d.ts` 与 `dist/core/extensions/types.d.ts`（ToolDefinition.execute）核对了自定义工具的异步执行和结果返回方式。
+- Pi 依据：[SDK customTools](https://pi.dev/docs/latest/sdk)、[Extensions 工具契约](https://pi.dev/docs/latest/extensions)；当时（2026-09-28，主包尚为 0.87.1）以 `dist/core/sdk.d.ts` 与 `dist/core/extensions/types.d.ts`（ToolDefinition.execute）核对了自定义工具的异步执行和结果返回方式。
 
 ## 8. 定时任务 MVP（2026-09-28）
 
@@ -97,7 +99,7 @@ flowchart LR
 - `lib/scheduler/executor.ts` 以默认启用模型构建 RuntimeSpec，使用已有 Skill/MCP/工作区/交付归档能力，走 `RunManager → InProcessBackend → Pi AgentSession`，等待 subscription.settled 才标记成功。运行最长 5 分钟，超时发送 abort。执行结果保存在独立 Chat 与 Message_v2；任务执行不注入创建任务工具，避免递归调度。
 - Cron 由 cron-parser 计算，支持五段数字表达式与 IANA 时区，默认 Asia/Shanghai。成功和失败都计算下一次周期，跳过停机期间的历史积压；不重放每一个错过的周期。
 - MVP 仅支持一个常驻 Node.js 服务实例：设置 `SCHEDULED_TASKS_ENABLED=true` 后 instrumentation 在启动时立即扫描，此后每 30 秒扫描，单轮最多 3 个任务；同一实例的扫描不会重入。不要把定时器视为 serverless 或多实例分布式调度保证。可选 POST `/api/scheduled-tasks/execute` 供外部触发，必须配置并传入 `SCHEDULED_TASKS_API_KEY`；未配置时拒绝。暂停/关闭进程不会继续运行。
-- Pi 官方依据：[SDK](https://pi.dev/docs/latest/sdk)、[Extensions](https://pi.dev/docs/latest/extensions)，并核对已安装 0.87.1 的 `dist/core/sdk.d.ts`、`dist/core/extensions/types.d.ts` 与项目官方 API 适配器：复用 customTools、prompt、abort、事件与 dispose，不另建 agent loop。
+- Pi 官方依据：[SDK](https://pi.dev/docs/latest/sdk)、[Extensions](https://pi.dev/docs/latest/extensions)，并核对当时安装版本（0.87.1）的 `dist/core/sdk.d.ts`、`dist/core/extensions/types.d.ts` 与项目官方 API 适配器：复用 customTools、prompt、abort、事件与 dispose，不另建 agent loop。
 
 ## 9. 项目 Workspace MVP（2026-09-28）
 
@@ -109,3 +111,20 @@ flowchart LR
 - API：`/api/projects`（列表/创建）、`/api/projects/:id`（改名/删除，删除前 abort 项目内活跃 run）、`/api/projects/:id/chats`（列表/预建）、`/api/projects/:id/sources`（列表/上传）、`/api/projects/:id/sources/:sourceId`（删除）；聊天删除复用 `DELETE /api/chat`。主侧边栏「最近」与「全部删除」排除项目内聊天（`Chat.projectId IS NULL`）。
 - 测试：`pnpm test:runtime:db` 覆盖 `tests/unit/db/project-queries.test.ts`（归属隔离、聊天列表摘要排序、资料写入/删除/级联清理）。
 - Pi 依据：未新增 Pi API 调用；聊天执行仍由既有 RunManager/Pi 会话装配承担，资料注入只发生在 route 组装 prompt 阶段。
+
+## 10. Pi 0.99.2 升级与内置 MCP（2026-10-01）
+
+- Pi 三主包升级到 **0.99.2**（0.87.1 → 0.99.0/0.99.1/0.99.2；0.99.0 引入内置 codemode/tool_search/MCP 扩展）。SDK 会话默认不加载内置扩展，`lib/ai/agent-session.ts` 在 `DefaultResourceLoader.extensionFactories` 显式加入 `createMcpExtension()`，`bindExtensions` 触发 `session_start` 后由它在后台连接服务。
+- **MCP 不再使用 `pi-mcp-adapter`**：管理端启用的服务改由 `lib/mcp/agent-config.ts` 同步到受管 agentDir 的 `mcp.json`（`.piwork/pi-agent/mcp.json`，Pi 全局发现位置），每次聊天请求幂等同步（内容未变不写盘，串行队列防并发写交错）。聊天与定时任务执行均先同步再创建会话；工作区级的 `.mcp.json` 机制废止，旧文件残留无害（无人读取）。
+- **exposure 固定 `direct`**：MCP 工具像内建工具一样声明给模型（与旧适配器行为一致），不要求 codemode 脚本。会话不注册 codemode/tool_search 扩展。
+- **多租户隔离**：SDK 默认 `projectTrusted=true` 会读取会话 cwd 的 `.pi/mcp.json`，因此以自定义 `loadConfig`（`loadPiworkMcpConfig`）替代默认发现——只读受管 agentDir 的 `mcp.json`，永不读聊天工作区的项目级配置；`process.env.PI_CODING_AGENT_DIR` 指向受管 agentDir，使 MCP 运行时兜底路径（`mcp.log`、`mcp-auth.json`、刷新锁）也落在受管目录内。
+- **旧系统插件退役**：`ensureSystemPiPackagesInstalled` 播种逻辑删除，改为 `retireLegacyMcpAdapterPackage()`——进程内首个会话创建/管理端插件列表请求时，卸载受管目录中的 `pi-mcp-adapter` 并删除 PiPackage 记录（幂等、失败降级为日志）。`PiPackage.system` 字段保留但不再产生新记录；管理端"系统插件状态条"及对应 i18n 键移除。
+- 管理端 MCP 服务的名称校验沿用 `[a-z0-9][a-z0-9-]*`，与 Pi 0.99.2 的 `-`→`_` 命名空间归一不冲突（不含 `_`，不可能归一重名）。
+- Pi 依据：[MCP Servers](https://pi.dev/docs/latest/mcp)、[SDK](https://pi.dev/docs/latest/sdk)（SDK 会话加入 `createMcpExtension()` 的示例 `examples/sdk/14-codemode-mcp.ts`），并核对已安装 0.99.2 的 `dist/index.d.ts`、`dist/core/mcp-servers.d.ts`、`dist/extensions/mcp/index.d.ts`、`dist/extensions/mcp/config.d.ts`（`loadMcpConfig`/`McpServerEntry`/`LoadedMcpConfig`）、`dist/core/settings-manager.js`（`projectTrusted` 默认 true）与 `dist/extensions/mcp/oauth.js`（默认凭据后端指向 `getAgentDir()`）。
+
+## 11. Pi 1.0.0 升级（2026-10-02）
+
+- 三主包升级 **1.0.0**（官方正式里程碑；无 Breaking Changes 章节）。`@earendil-works/pi-durable`/`chord` 仍为 0.99.2（experimental，未随 1.0.0 重建），pnpm 下 pi-durable 嵌套解析 pi-ai 0.99.2，双版本共存；`DurableBackend` 在 Harness 选项边界有一处显式转型（1.0.0 给 `TranscriptContext` 加的 `unique symbol` brand 是纯类型标记，无运行时足迹），行为由契约测试兜底，pi-durable 发布对齐版本后移除。
+- **pi-agent-core 1.0.0 拆出 harness**：`index` 不再 re-export telemetry/`agent-harness`/`skills`/`NodeExecutionEnv`。项目侧迁移：`Skill`/`loadSkillsFromDir`/`formatSkillsForPrompt`/`stripFrontmatter` 改自 `pi-coding-agent`（`core/skills.ts`）；`NodeExecutionEnv` 改自 `@earendil-works/pi-durable/env/node`；`BACKGROUND_CONTEXT` 改自 `@earendil-works/chord/context`；`@earendil-works/pi-agent-core/node` 子路径已不存在。
+- **Skill API 形态变化**：`loadSkills(env, dirs, ctx)`（异步、env 驱动）→ `loadSkillsFromDir({dir, source})`（同步，直接 fs）；`formatSkillsForSystemPrompt` → `formatSkillsForPrompt`；`ResourceDiagnostic` 的 `code` 字段改名为 `type`（管理/聊天 API wire 格式保持 `code` 字段映射 `type`）；`formatSkillInvocation` 不再导出——`invokeSkill`/`load_skill` 工具按官方 `_expandSkillCommand` 同构实现（读 SKILL.md → `stripFrontmatter` → `<skill name location>` 块，`References are relative to ${skill.baseDir}`），`invokeSkill` 因此异步化。
+- `AgentTool`/`AgentSession`/SDK 会话装配/MCP 扩展契约在 1.0.0 无破坏（仅新增字段，如 MCP `oauth.authServerMetadataUrl`）。

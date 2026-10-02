@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -49,28 +49,51 @@ test("creates and discovers a standard Pi skill", async () => {
   }
 });
 
-test("parses and formats explicit skill commands", () => {
+test("parses and formats explicit skill commands", async () => {
   const command = parseSkillCommand("/weekly-recap focus on risks");
   assert.deepEqual(command, {
     instructions: "focus on risks",
     name: "weekly-recap",
   });
 
-  const prompt = invokeSkill(
-    [
-      {
-        content: "# Weekly recap\n\nReturn three concise bullets.",
-        description: "Summarizes weekly reports.",
-        filePath: "/skills/weekly-recap/SKILL.md",
-        name: "weekly-recap",
-      },
-    ],
-    "weekly-recap",
-    command?.instructions
-  );
+  // 1.0.0 起 Skill 不含 content，invokeSkill 读 SKILL.md 并 stripFrontmatter
+  const cwd = await mkdtemp(join(tmpdir(), "piwork-skill-invoke-"));
+  try {
+    const skillDir = join(cwd, "weekly-recap");
+    await mkdir(skillDir, { recursive: true });
+    const skillFile = join(skillDir, "SKILL.md");
+    await writeFile(
+      skillFile,
+      '---\nname: "weekly-recap"\ndescription: "Summarizes weekly reports."\n---\n\n# Weekly recap\n\nReturn three concise bullets.\n'
+    );
 
-  assert.match(prompt, /<skill name="weekly-recap"/);
-  assert.match(prompt, /focus on risks/);
+    const prompt = await invokeSkill(
+      [
+        {
+          baseDir: skillDir,
+          description: "Summarizes weekly reports.",
+          disableModelInvocation: false,
+          filePath: skillFile,
+          name: "weekly-recap",
+          sourceInfo: {
+            origin: "top-level",
+            path: skillFile,
+            scope: "temporary",
+            source: "test",
+          },
+        },
+      ],
+      "weekly-recap",
+      command?.instructions
+    );
+
+    assert.match(prompt, /<skill name="weekly-recap"/);
+    assert.match(prompt, /# Weekly recap/);
+    assert.ok(!prompt.includes("description:"));
+    assert.match(prompt, /focus on risks/);
+  } finally {
+    await rm(cwd, { force: true, recursive: true });
+  }
 });
 
 test("rejects unsafe skill names", () => {

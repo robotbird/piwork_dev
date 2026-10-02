@@ -993,7 +993,7 @@
     "badgeSystem": "系统",
     "badgeSkillsCount": "技能 ×{count}",
     "badgeExtensionsPending": "扩展 ×{count} · 待运行时",
-    "systemNote": "系统预装 · MCP 服务适配器（不可卸载）",
+    "systemNote": "旧版系统插件，首次使用后自动移除",
     "skillsLabel": "已提取技能",
     "installedTitle": "已安装插件",
     "installedEmptyTitle": "暂无已安装插件",
@@ -1020,8 +1020,6 @@
     "uninstalling": "卸载中…",
     "uninstallDialogTitle": "卸载 {name}",
     "uninstallDialogDescription": "将卸载 {name} 并同步移除其提取的 {count} 个技能，确认继续？",
-    "uninstallSuccess": "已卸载 {name}，移除技能 {skills} 个",
-    "systemPending": "系统插件（pi-mcp-adapter）尚未安装成功，可重试。",
-    "retrySystem": "重试安装"
+    "uninstallSuccess": "已卸载 {name}，移除技能 {skills} 个"
   }
 }

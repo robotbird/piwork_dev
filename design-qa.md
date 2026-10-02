@@ -95,6 +95,15 @@ No actionable P0, P1, or P2 findings remain.
 
 final result: passed
 
+## 2026-10-01 radius refinement
+
+- Source visual truth: `/var/folders/9b/8y0kwpzj4h1_wzryl7kzmbfm0000gn/T/codex-clipboard-03d2b628-ed45-48ca-be1f-d6264110a8f4.png`.
+- Scope: task composer and scheduled-task dialogs only; scheduler, database, and Pi agent behavior were not changed.
+- Browser evidence: `http://localhost:3000/scheduled-tasks` rendered the composer at 72 px height with a 24 px border radius and a 48 px circular send button, matching the larger ChatGPT-style radius requested in the reference.
+- Screenshot: `/private/tmp/piwork-scheduled-tasks-rounded-composer.png`.
+
+final result: passed
+
 ---
 
 # Design QA — 我的文档列表视觉优化

@@ -254,27 +254,10 @@ test.describe
         "/api/management/pi-packages"
       );
       expect(listResponse.ok).toBeTruthy();
-      const { packages, systemPackageStatus } = (await listResponse.json()) as {
+      const { packages } = (await listResponse.json()) as {
         packages: Array<{ name: string; source: string; system: boolean }>;
-        systemPackageStatus: string;
       };
       expect(packages.some((item) => item.source === fixtureSource)).toBe(true);
-      // 播种状态取决于 dev server 是否带 playwright 环境变量
-      // (playwright 自起 server → skipped;复用已有 server → 可能真的装上)
-      expect(["failed", "installed", "ready", "skipped"]).toContain(
-        systemPackageStatus
-      );
-
-      // 系统插件(pi-mcp-adapter)已装时:不可卸载
-      const systemPackage = packages.find((item) => item.system);
-      if (systemPackage) {
-        expect(systemPackage.source).toContain("pi-mcp-adapter");
-        const systemDelete = await page.request.delete(
-          "/api/management/pi-packages",
-          { data: { source: systemPackage.source } }
-        );
-        expect(systemDelete.status()).toBe(400);
-      }
 
       // 插件视图显示已装包
       await page.goto(`${TOOLS_URL}?view=pi-plugins`);

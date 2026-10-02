@@ -67,8 +67,6 @@ export type PiCatalogItemView = {
   version: string;
 };
 
-export type SystemPackageStatus = "failed" | "installed" | "ready" | "skipped";
-
 const CATALOG_PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -207,10 +205,8 @@ function CatalogCard({
 
 export function PiPackagesPage({
   initialPackages,
-  systemPackageStatus,
 }: {
   initialPackages: PiPackageView[];
-  systemPackageStatus: SystemPackageStatus;
 }) {
   const { t } = usePreferences();
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -218,7 +214,6 @@ export function PiPackagesPage({
   const catalogEndpoint = `${endpoint}/catalog`;
 
   const [packages, setPackages] = useState(initialPackages);
-  const [systemStatus, setSystemStatus] = useState(systemPackageStatus);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<PiCatalogItemView[]>([]);
   const [total, setTotal] = useState(0);
@@ -235,7 +230,6 @@ export function PiPackagesPage({
     null
   );
   const [uninstalling, setUninstalling] = useState(false);
-  const [retryingSystem, setRetryingSystem] = useState(false);
 
   const installedNames = useMemo(
     () => new Set(packages.map((packageItem) => packageItem.name)),
@@ -250,12 +244,8 @@ export function PiPackagesPage({
     }
     const data = result.data as {
       packages?: PiPackageView[];
-      systemPackageStatus?: SystemPackageStatus;
     } | null;
     setPackages(data?.packages ?? []);
-    if (data?.systemPackageStatus) {
-      setSystemStatus(data.systemPackageStatus);
-    }
   }, [endpoint, t]);
 
   const loadCatalog = useCallback(
@@ -429,12 +419,6 @@ export function PiPackagesPage({
     [uninstalling]
   );
 
-  const handleRetrySystem = useCallback(async () => {
-    setRetryingSystem(true);
-    await refresh();
-    setRetryingSystem(false);
-  }, [refresh]);
-
   const handleConfirmInstallClick = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
@@ -462,22 +446,6 @@ export function PiPackagesPage({
             {t("management.piPluginsDescription")}
           </p>
         </header>
-
-        {systemStatus === "failed" ? (
-          <div className="mt-6 flex flex-col gap-3 rounded-[14px] border border-border bg-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              {t("piPackages.systemPending")}
-            </p>
-            <Button
-              disabled={retryingSystem}
-              onClick={handleRetrySystem}
-              variant="outline"
-            >
-              {retryingSystem ? <Spinner /> : <RefreshCwIcon />}
-              {t("piPackages.retrySystem")}
-            </Button>
-          </div>
-        ) : null}
 
         <div className="mt-6 overflow-hidden rounded-[14px] border border-border bg-card">
           <div className="border-b border-border px-4 py-3">

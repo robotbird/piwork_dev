@@ -17,11 +17,10 @@ import {
   createPiPackage,
   deletePiPackage,
   getPiPackageBySource,
-  getSystemPiPackage,
-  updatePiPackage,
 } from "@/lib/db/pi-package-queries";
 import { getSkillRecordsBySourcePackage } from "@/lib/db/queries";
 import type { PiPackageResourceSummary } from "@/lib/db/schema";
+import { MANAGED_AGENT_DIR } from "./agent-dir";
 import {
   collectPackageSkillFiles,
   countPackageResourceFiles,
@@ -37,11 +36,9 @@ import {
  * 包内 skills 提取进 piwork 技能流水线,extensions 仅清点待扩展运行时。
  */
 
-export const MANAGED_AGENT_DIR = resolve(process.cwd(), ".piwork", "pi-agent");
-const REPO_ROOT = process.cwd();
+export { MANAGED_AGENT_DIR } from "./agent-dir";
 
-/** 系统插件:MCP 服务适配器(Task 1 的 .mcp.json 消费方),spike C 实测版本 */
-export const SYSTEM_PI_PACKAGE_SOURCE = "npm:pi-mcp-adapter@2.37.0";
+const REPO_ROOT = process.cwd();
 
 export type PiPackageErrorCode =
   | "alreadyInstalled"
@@ -348,7 +345,77 @@ export async function uninstallPiPackage(source: string): Promise<{
   });
 }
 
-export type SystemPackageStatus = "failed" | "installed" | "ready" | "skipped";
+/** 旧系统插件(pi-mcp-adapter)的安装源;0.99.2 起由 Pi 内置 MCP 扩展取代 */
+const LEGACY_MCP_ADAPTER_SOURCE = "npm:pi-mcp-adapter@2.37.0";
+
+let legacyAdapterRetireOnce: Promise<void> | null = null;
+
+/** settings.json packages 是否仍登记旧插件(条目形态:字符串或 {source}) */
+async function isLegacyAdapterRegisteredInSettings(): Promise<boolean> {
+  try {
+    const raw = await readFile(
+      resolve(MANAGED_AGENT_DIR, "settings.json"),
+      "utf8"
+    );
+    const packages = (JSON.parse(raw).packages ?? []) as unknown[];
+    return packages.some((entry) => {
+      const source =
+        typeof entry === "string"
+          ? entry
+          : (entry as { source?: string } | undefined)?.source;
+      return source === LEGACY_MCP_ADAPTER_SOURCE;
+    });
+  } catch {
+    // 文件缺失或不可读:按未登记处理,交由其余触发条件兜底
+    return false;
+  }
+}
+
+/**
+ * 退役旧系统插件 pi-mcp-adapter(Pi 0.99.2 内置 MCP 扩展已取代它):
+ * 卸载受管目录中的包、移除 settings.json 登记并删除 PiPackage 记录。
+ * 触发条件是三种残留任一——settings.json 登记(Pi 的 PackageManager
+ * .resolve 只按它加载扩展包)、PiPackage 记录、npm 落盘;不能只看数据库
+ * 记录,库重置后记录缺失时 Pi 仍会按 settings.json 加载残留包。幂等,
+ * 进程内只执行一次,失败降级为日志不抛错(残留包只是多加载一个空转
+ * 扩展),测试环境跳过。
+ */
+export function retireLegacyMcpAdapterPackage(): Promise<void> {
+  if (isTestEnvironment) {
+    return Promise.resolve();
+  }
+  legacyAdapterRetireOnce ??= (async () => {
+    try {
+      let retired = false;
+      await enqueueMutation(async () => {
+        // 队列内复查三态:并发请求里前一个可能刚退役完;全净时跳过,
+        // 避免每次进程启动都空跑 npm uninstall 子进程
+        const [record, registered, installedPath] = await Promise.all([
+          getPiPackageBySource(LEGACY_MCP_ADAPTER_SOURCE),
+          isLegacyAdapterRegisteredInSettings(),
+          getPiPackageManager().then((manager) =>
+            manager.getInstalledPath(LEGACY_MCP_ADAPTER_SOURCE, "user")
+          ),
+        ]);
+        if (!record && !registered && !installedPath) {
+          return;
+        }
+        retired = true;
+        const manager = await getPiPackageManager();
+        await manager
+          .removeAndPersist(LEGACY_MCP_ADAPTER_SOURCE)
+          .catch(() => undefined);
+        await deletePiPackage(LEGACY_MCP_ADAPTER_SOURCE);
+      });
+      if (retired) {
+        console.info("Retired legacy system pi package pi-mcp-adapter.");
+      }
+    } catch (error) {
+      console.warn("Failed to retire legacy pi-mcp-adapter package:", error);
+    }
+  })();
+  return legacyAdapterRetireOnce;
+}
 
 /** 会话级请求参数默认值(复刻旧直连链路的 maxRetries/timeoutMs 边界,经 settings.json 生效) */
 const MANAGED_SETTINGS_RETRY_DEFAULTS = {
@@ -400,35 +467,5 @@ export async function ensureManagedAgentSettings(): Promise<void> {
   if (serialized !== `${JSON.stringify(current, null, 2)}\n`) {
     await mkdir(MANAGED_AGENT_DIR, { recursive: true });
     await writeFile(target, serialized, "utf8");
-  }
-}
-
-/** 懒播种系统插件(pi-mcp-adapter):幂等,失败降级不抛错,测试环境跳过 */
-export async function ensureSystemPiPackagesInstalled(): Promise<SystemPackageStatus> {
-  if (isTestEnvironment) {
-    return "skipped";
-  }
-  try {
-    await ensureManagedAgentSettings();
-    if (await getSystemPiPackage()) {
-      return "ready";
-    }
-    // 已被手动装过普通版:升级为系统标记
-    const manual = await getPiPackageBySource(SYSTEM_PI_PACKAGE_SOURCE);
-    if (manual) {
-      if (!manual.system) {
-        await updatePiPackage(SYSTEM_PI_PACKAGE_SOURCE, { system: true });
-      }
-      return "ready";
-    }
-    await installPiPackage({
-      source: SYSTEM_PI_PACKAGE_SOURCE,
-      system: true,
-      userId: null,
-    });
-    return "installed";
-  } catch (error) {
-    console.warn("Failed to seed system pi package:", error);
-    return "failed";
   }
 }

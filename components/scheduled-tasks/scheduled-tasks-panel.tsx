@@ -256,7 +256,7 @@ export function ScheduledTasksPanel() {
           </DropdownMenu>
         </header>
         <form
-          className="composer-plain flex min-h-16 items-center gap-2 rounded-xl border border-[var(--hairline-strong)] bg-card px-3 shadow-[var(--shadow-float)]"
+          className="composer-plain flex min-h-18 items-center gap-3 rounded-3xl border border-[var(--hairline-strong)] bg-card px-5 py-2 shadow-[var(--shadow-float)]"
           onSubmit={(event) => {
             event.preventDefault();
             startChat(query);
@@ -304,7 +304,7 @@ export function ScheduledTasksPanel() {
             <TooltipTrigger asChild>
               <Button
                 aria-label="通过 AI 安排任务"
-                className="size-10 shrink-0 rounded-full bg-primary text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                className="size-12 shrink-0 rounded-full bg-primary text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                 disabled={!query.trim()}
                 size="icon"
                 type="submit"
@@ -520,7 +520,7 @@ export function ScheduledTasksPanel() {
         }}
         open={!!deleting}
       >
-        <DialogContent>
+        <DialogContent className="rounded-3xl">
           <DialogHeader>
             <DialogTitle>删除“{deleting?.taskType}”？</DialogTitle>
             <DialogDescription>
@@ -594,7 +594,7 @@ function TaskEditor({
       }}
       open
     >
-      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-3xl">
         <DialogHeader>
           <DialogTitle>{task ? "编辑任务" : "手动创建任务"}</DialogTitle>
           <DialogDescription>
@@ -706,7 +706,7 @@ function TaskHistory({ task, onClose }: { task: Task; onClose: () => void }) {
       }}
       open
     >
-      <DialogContent className="max-h-[85dvh] overflow-y-auto">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto rounded-3xl">
         <DialogHeader>
           <DialogTitle>{task.taskType}</DialogTitle>
           <DialogDescription>

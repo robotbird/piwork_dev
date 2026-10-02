@@ -4,7 +4,7 @@
 >
 > 范围：Pi Package 网页安装、企业治理、Agent Runtime、Sandbox、Web/Desktop 复用
 >
-> Pi 版本：`@earendil-works/pi-ai` / `pi-agent-core` / `pi-coding-agent` 0.87.1
+> Pi 版本：`@earendil-works/pi-ai` / `pi-agent-core` / `pi-coding-agent` 1.0.0（2026-10-02 起；MCP 为 Pi 内置扩展，见架构文档第 10/11 节）
 >
 > 历史与证据库：v1.x 为调研报告（spike 实录与实施 gotchas，附录 A–F），已归档至 [docs/archive/pi-plugin-research-v1.7.md](archive/pi-plugin-research-v1.7.md)（git 8cb4286）。Step 3/4 实施前必读其附录 E.4（loader reload / CredentialStore / 事件桥）与 F.1（RPC 协议纪律：`agent_settled` 判据、JSONL 分帧、停机语义）。
 
@@ -40,7 +40,7 @@ Task
 
 v1.7（归档附录 F.5）的结论是"双执行后端、in-process 为生产默认、RPC sidecar 按需路由，产品需要长会话语义时再翻转"。v2.0 将生产目标态反转为 Sandbox RPC（上表第 2 行），理由：
 
-1. **官方安全指引**：pi.dev security 页将 full container/VM 列为 "usually the strongest practical option"，把"仅内置工具进沙箱"明确定位为更窄的隔离（narrower form）。piwork 必须加载 pi-mcp-adapter 等扩展，而扩展在工具级沙箱之外运行，"仅隔离执行工具"路线不成立。
+1. **官方安全指引**：pi.dev security 页将 full container/VM 列为 "usually the strongest practical option"，把"仅内置工具进沙箱"明确定位为更窄的隔离（narrower form）。piwork 必须加载扩展（内置 MCP、模型桥等），而扩展在工具级沙箱之外运行，"仅隔离执行工具"路线不成立。
 2. **零信任一致性**：第三方 Extension 以 Web 进程权限运行，与模型插件架构（model-provider 文档 §11）确立的零信任立场矛盾。v1.7 将该矛盾定位为 Phase C 待解事项，本文件将其收敛为：不可信代码有且只有 Sandbox 一个去处。
 3. **fail-closed**：不可信代码的执行位置不允许有第二个选项，隔离失败即拒绝执行。
 
@@ -50,12 +50,12 @@ v1.7（归档附录 F.5）的结论是"双执行后端、in-process 为生产默
 
 已完成：
 
-- 三个 Pi 主包已统一到 0.87.1。
+- 三个 Pi 主包已统一到 1.0.0。
 - 聊天链路通过 `createAgentSession()` 和 `DefaultResourceLoader` 加载官方扩展。
 - 模型插件通过 `ExtensionAPI.registerProvider()` 注入 Pi session。
 - 管理端已有 Pi Package 搜索、安装、卸载和数据库记录。
 - Package 安装直接复用官方 PackageManager；包内 skills 可进入现有 Skill 管理链路。
-- `pi-mcp-adapter` 已作为系统 Package 接入。
+- MCP 已改用 Pi 内置 MCP 扩展（受管 agentDir `mcp.json` + 自定义 `loadConfig`）；旧系统 Package `pi-mcp-adapter` 自动退役。
 
 主要代码位置：
 
@@ -253,7 +253,7 @@ queued → starting → running ↔ waiting_user
 
 | RuntimeSpec 内容 | 执行位置 | 说明 |
 | --- | --- | --- |
-| 含任何非平台代码 | Sandbox + Pi RPC | 包括 pi-mcp-adapter 等系统 Package——来源同为 npm，按第三方对待 |
+| 含任何非平台代码 | Sandbox + Pi RPC | 包括第三方/受管 Package 与 MCP 服务进程——来源同为外部，按第三方对待 |
 | 纯对话（无执行工具、无 Package） | 允许 in-process | 无第三方代码，不构成降级 |
 
 fail-closed 禁止的是"Sandbox 失败后静默回退到 Web 进程执行第三方代码"，不是无风险 in-process 路径的存在。禁止降级，允许并存。
@@ -366,7 +366,7 @@ runtime-worker/
 
 ```text
 创建 AgentRun
-→ 解析已批准的 pi-mcp-adapter
+→ 解析已批准的 Pi Package/MCP 服务
 → 启动 Sandbox + Runtime Worker + Pi RPC
 → 执行一个 MCP tool 和一个文件工具
 → SSE 展示消息和工具事件

@@ -171,8 +171,8 @@ export type ModelProviderPluginRecord = InferSelectModel<
 >;
 
 /**
- * 管理端配置的 MCP 服务；启用项会同步进聊天工作区 `.mcp.json`
- * （pi 官方 cwd 级 MCP 发现格式，pi.dev/docs/latest/packages）。
+ * 管理端配置的 MCP 服务；启用项会同步进受管 agentDir 的 `mcp.json`，
+ * 由 Pi 内置 MCP 扩展（0.99.0+ builtin:mcp）在会话启动时消费。
  */
 export const mcpServer = pgTable("McpServer", {
   args: json("args").$type<string[]>().notNull().default([]),
@@ -189,7 +189,7 @@ export const mcpServer = pgTable("McpServer", {
     .notNull()
     .default({}),
   id: uuid("id").primaryKey().notNull().defaultRandom(),
-  /** 兼作工作区 .mcp.json 的 server key */
+  /** 兼作受管 agentDir mcp.json 的 server key */
   name: varchar("name", { length: 64 }).notNull().unique(),
   transport: varchar("transport", { enum: ["stdio", "http"] }).notNull(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
@@ -229,7 +229,7 @@ export const piPackage = pgTable("PiPackage", {
     .notNull(),
   /** "npm:<name>[@<version>]" 或本地绝对路径（仅开发/测试） */
   source: varchar("source", { length: 256 }).notNull().unique(),
-  /** 系统插件（pi-mcp-adapter）：默认安装、不可卸载 */
+  /** 旧系统插件（pi-mcp-adapter）标记；退役清理后不再有新记录 */
   system: boolean("system").notNull().default(false),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
   version: varchar("version", { length: 64 }).notNull().default(""),

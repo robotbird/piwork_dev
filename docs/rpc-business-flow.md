@@ -1,6 +1,6 @@
 # 聊天业务链路与 RPC 的位置
 
-> 核对日期：2026-09-27；Pi 主包版本 0.87.1。本文同时展示**当前生产代码路径**和**已经实现、尚未接入生产组装的本机 RPC 适配器**。完整 Pi 进程 Sandbox / 远端 Worker 是后续目标，见 [目标架构](pi-plugin-support-research.md)。
+> 核对日期：2026-10-02；Pi 主包版本 1.0.0。本文同时展示**当前生产代码路径**和**已经实现、尚未接入生产组装的本机 RPC 适配器**。完整 Pi 进程 Sandbox / 远端 Worker 是后续目标，见 [目标架构](pi-plugin-support-research.md)。
 
 ## 一句话定位
 
@@ -38,7 +38,7 @@ sequenceDiagram
   API-->>U: 流结束
 ```
 
-1. `app/(chat)/api/chat/route.ts` 校验输入、用户、权限/配额、可用模型；将用户消息和附件写入相应存储，准备聊天工作区、MCP `.mcp.json`、Skill 提示与工具，把历史转成 Pi 消息。
+1. `app/(chat)/api/chat/route.ts` 校验输入、用户、权限/配额、可用模型；将用户消息和附件写入相应存储，准备聊天工作区、受管 agentDir 的 MCP `mcp.json`、Skill 提示与工具，把历史转成 Pi 消息。
 2. 路由形成 `RuntimeSpec`（模型、提示、历史、工具、工作区）并调用 `RunManager.start()`。`RunManager` 创建 `AgentRun` 与 lease、打开 backend、先启动事件消费，再发送 `prompt`。`prompt` 的受理不等于模型已完成。
 3. 当前 `lib/runtime/run/index.ts` 固定选用 `InProcessBackend`。它调用 `lib/ai/agent-session.ts` 创建 Pi `AgentSession`；Pi SDK负责模型请求、Agent loop、工具轮次与扩展事件。模型插件通过 Pi Provider 接入，MCP 由受管 Pi Package 与工作区配置接入。
 4. `PiEventNormalizer` 将 Pi 会话事件转为平台 `RuntimeEvent`。`RunManager` 对关键事件分配序号，**先持久化、后广播**，同时保存内存日志供活跃运行的重放。路由的 `stream-mapping.ts` 再将事件转为浏览器消费的 UI message chunk。

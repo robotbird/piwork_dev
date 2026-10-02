@@ -41,7 +41,7 @@ import {
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
-import { syncWorkspaceMcpConfig } from "@/lib/mcp/workspace-config";
+import { syncManagedAgentMcpConfig } from "@/lib/mcp/agent-config";
 import { buildProjectSourcesContext } from "@/lib/projects/context";
 import { getRunManager } from "@/lib/runtime/run";
 import type { RunSubscription } from "@/lib/runtime/run/run-manager";
@@ -76,7 +76,10 @@ export async function POST(request: Request) {
       requestBody;
 
     const [botIdResult, session] = await Promise.all([
-      checkBotId().catch(() => null),
+      // 显式声明开发态绕过(本地无法做真实 BotId 检测):不传时 botid 每次
+      // 请求都会 warn "[Dev Only] ... bot protection will return HUMAN" 并
+      // 打进 Next dev overlay;生产行为不变(走 Vercel OIDC 真实检测)。
+      checkBotId({ developmentOptions: { bypass: "HUMAN" } }).catch(() => null),
       auth(),
     ]);
 
@@ -292,13 +295,12 @@ export async function POST(request: Request) {
     const workspaceDir = executionToolsEnabled()
       ? await ensureChatWorkspace(id)
       : null;
-    if (workspaceDir) {
-      // 管理端 MCP 服务配置同步进工作区 .mcp.json（pi 官方发现格式）；
-      // 幂等（内容未变不写盘），失败仅记日志不阻断聊天。
-      await syncWorkspaceMcpConfig(workspaceDir).catch((error) => {
-        console.warn("Failed to sync workspace .mcp.json:", error);
-      });
-    }
+    // 管理端 MCP 服务配置同步进受管 agentDir 的 mcp.json（Pi 内置 MCP
+    // 扩展的全局发现位置，pi.dev/docs/latest/mcp）；幂等（内容未变不写盘），
+    // 失败仅记日志不阻断聊天。与执行工具开关无关：无工作区也可用 MCP。
+    await syncManagedAgentMcpConfig().catch((error) => {
+      console.warn("Failed to sync managed agent mcp.json:", error);
+    });
     let workspaceAttachmentFiles: string[] = [];
     if (workspaceDir && currentUserMessage) {
       try {
@@ -331,7 +333,7 @@ export async function POST(request: Request) {
     let agentPrompt = currentUserText || "请分析并处理附件。";
     if (skillCommand) {
       try {
-        agentPrompt = invokeSkill(
+        agentPrompt = await invokeSkill(
           skills,
           skillCommand.name,
           skillCommand.instructions

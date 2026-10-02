@@ -6,6 +6,7 @@ import {
   type AgentSession,
   CURRENT_SESSION_VERSION,
   createAgentSession,
+  createMcpExtension,
   DefaultResourceLoader,
   type ExtensionAPI,
   type FileEntry,
@@ -13,20 +14,25 @@ import {
   ModelRuntime,
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
+import { loadPiworkMcpConfig } from "@/lib/mcp/agent-config";
 import { createPluginCredentialStore } from "@/lib/model-plugins/pi-credential-store";
+import { MANAGED_AGENT_DIR } from "@/lib/pi-packages/agent-dir";
 import {
   ensureManagedAgentSettings,
-  MANAGED_AGENT_DIR,
+  retireLegacyMcpAdapterPackage,
 } from "@/lib/pi-packages/manager";
 import { isTestEnvironment } from "../constants";
 import { agentToolToToolDefinition } from "./agent-tools";
 import { getActivePiProviders } from "./pi";
 
-// e2e 环境未播种 .piwork/pi-agent:PI_OFFLINE 阻止 loader 网络安装适配器,
+// e2e 环境未播种 .piwork/pi-agent:PI_OFFLINE 阻止 loader 网络安装,
 // 聊天照常工作(无 mcp 工具),保证测试确定性。
 if (isTestEnvironment) {
   process.env.PI_OFFLINE ??= "1";
 }
+// Pi 运行时的 getAgentDir() 兜底路径(mcp.log、mcp-auth.json、OAuth 锁等)
+// 指向受管 agentDir,避免触碰宿主 ~/.pi。
+process.env.PI_CODING_AGENT_DIR ??= MANAGED_AGENT_DIR;
 
 export type PiworkAgentSessionOptions = {
   /** 追加在会话自带系统提示之后的段落(skills 段 + 执行段) */
@@ -76,10 +82,11 @@ function buildSessionEntries(cwd: string, messages: Message[]): FileEntry[] {
 }
 
 /**
- * 构建接入 pi 扩展运行时的聊天会话(spike C 实证形态,见
- * docs/pi-plugin-support-research.md 附录 E):
- * loader(模型桥 + 受管 agentDir 扩展) → 显式 reload → createAgentSession
- * → bindExtensions(触发 session_start,适配器按 cwd 重读 .mcp.json)。
+ * 构建接入 pi 扩展运行时的聊天会话(Pi 1.0.0 SDK 形态,见
+ * docs/architecture.md 第 10 节):
+ * loader(模型桥 + 内置 MCP 扩展 + 受管 agentDir 扩展) → 显式 reload
+ * → createAgentSession → bindExtensions(触发 session_start,内置 MCP
+ * 扩展在后台连接受管 agentDir mcp.json 里的服务)。
  * 每请求新建:cwd 烧进 loader 的资源发现,聊天工作区互不相同,不能共享。
  */
 export async function createPiworkAgentSession(
@@ -87,6 +94,7 @@ export async function createPiworkAgentSession(
 ): Promise<PiworkAgentSession> {
   const startedAt = Date.now();
   await ensureManagedAgentSettings();
+  await retireLegacyMcpAdapterPackage();
   const providers = await getActivePiProviders();
   const modelRuntime = await ModelRuntime.create({
     credentials: createPluginCredentialStore(),
@@ -96,13 +104,19 @@ export async function createPiworkAgentSession(
     agentDir: MANAGED_AGENT_DIR,
     appendSystemPrompt: options.appendSystemPrompt,
     cwd: options.cwd,
-    extensionFactories: providers.map((provider) => ({
-      factory: (pi: ExtensionAPI) => {
-        pi.registerProvider(provider);
-      },
-      hidden: true,
-      name: `piwork-model-bridge-${provider.id}`,
-    })),
+    extensionFactories: [
+      // 内置 MCP 扩展(pi.dev/docs/latest/mcp):服务来自受管 agentDir 的
+      // mcp.json,exposure=direct 时工具像内建工具一样声明给模型。
+      // session_start 由下方 bindExtensions 触发,服务在后台连接。
+      createMcpExtension({ loadConfig: () => loadPiworkMcpConfig() }),
+      ...providers.map((provider) => ({
+        factory: (pi: ExtensionAPI) => {
+          pi.registerProvider(provider);
+        },
+        hidden: true,
+        name: `piwork-model-bridge-${provider.id}`,
+      })),
+    ],
     // 工作区是隔离沙箱:AGENTS.md 等上下文文件不自动注入(与现状对齐)
     noContextFiles: true,
     noPromptTemplates: true,
@@ -122,7 +136,7 @@ export async function createPiworkAgentSession(
     model: options.model,
     modelRuntime,
     // 注意:不能传 tools/excludeTools 白名单——isAllowedTool 会把
-    // mcp/mcpScript 等扩展工具一并过滤掉(agent-session.js _refreshToolRegistry)
+    // 内置 MCP(mcp__*)等扩展工具一并过滤掉(agent-session.js _refreshToolRegistry)
     ...(options.disableBuiltinTools ? { noTools: "builtin" as const } : {}),
     resourceLoader: loader,
     sessionManager: SessionManager.inMemory(
@@ -132,7 +146,7 @@ export async function createPiworkAgentSession(
     ),
   });
 
-  // headless 必需:触发 session_start → 适配器初始化/延迟快照
+  // headless 必需:触发 session_start → 内置 MCP 扩展连接服务
   await session.bindExtensions({
     mode: "print",
     onError: (error) => {

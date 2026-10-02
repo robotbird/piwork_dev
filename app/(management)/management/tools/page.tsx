@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { listMcpServers } from "@/lib/db/mcp-server-queries";
 import { listPiPackages } from "@/lib/db/pi-package-queries";
 import { requireManagementAdmin } from "@/lib/management/access";
-import { ensureSystemPiPackagesInstalled } from "@/lib/pi-packages/manager";
 
 /** 非管理员可见的占位说明(MCP 服务与插件配置仅管理员可访问) */
 async function PermissionNotice() {
@@ -54,8 +53,6 @@ async function McpView() {
 }
 
 async function PiPackagesView() {
-  // 懒播种系统插件(pi-mcp-adapter);失败降级为状态条,不阻塞页面
-  const systemPackageStatus = await ensureSystemPiPackagesInstalled();
   const records = await listPiPackages();
   const packages = records.map((record) => ({
     id: record.id,
@@ -66,12 +63,7 @@ async function PiPackagesView() {
     system: record.system,
     version: record.version,
   }));
-  return (
-    <PiPackagesPage
-      initialPackages={packages}
-      systemPackageStatus={systemPackageStatus}
-    />
-  );
+  return <PiPackagesPage initialPackages={packages} />;
 }
 
 /** 工具管理:MCP 服务(默认)/ pi 官方插件,`?view=` 切换(organization 先例) */

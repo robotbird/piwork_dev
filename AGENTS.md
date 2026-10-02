@@ -8,7 +8,7 @@
 
 - 官方文档（优先查看与当前版本匹配的页面）：<https://pi.dev/docs/latest>
 - 官方代码库及源码：<https://github.com/earendil-works/pi>
-- 本项目当前安装版本：以 `package.json` 和锁文件为准；2026-09-27 核对的 `@earendil-works/pi-ai`、`@earendil-works/pi-agent-core`、`@earendil-works/pi-coding-agent` 均为 `0.87.1`。升级后同步更新这里和架构文档。
+- 本项目当前安装版本：以 `package.json` 和锁文件为准；2026-10-02 核对的 `@earendil-works/pi-ai`、`@earendil-works/pi-agent-core`、`@earendil-works/pi-coding-agent` 均为 `1.0.0`（`@earendil-works/pi-durable`/`chord` 仍为 0.99.2，见评估文档）。升级后同步更新这里和架构文档。
 
 ### 必须遵守的工作流程
 

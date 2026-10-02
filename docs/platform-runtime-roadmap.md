@@ -1,6 +1,6 @@
 # Piwork 平台与 Agent Runtime 演进架构
 
-> 状态：**目标架构与迁移路线**，不是当前系统拓扑。2026-09-27 按当前代码核对；Pi 主包 `@earendil-works/pi-ai`、`pi-agent-core`、`pi-coding-agent` 均为 0.87.1。
+> 状态：**目标架构与迁移路线**，不是当前系统拓扑。2026-10-02 按当前代码核对；Pi 主包 `@earendil-works/pi-ai`、`pi-agent-core`、`pi-coding-agent` 均为 1.0.0。
 >
 > 本文吸收“Web 企业工作台 → 独立 Runtime → 未来 Desktop 本地 Runtime”的产品方向。当前事实和请求时序见 [项目架构](architecture.md)、[聊天业务链路与 RPC](rpc-business-flow.md)；Package、Sandbox 和 Worker 的详细设计见 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)。
 
@@ -103,4 +103,4 @@ Desktop 是后续产品方向：同一账号和平台规则可以选择远端企
 - [Pi RPC](https://pi.dev/docs/latest/rpc)：独立进程的命令、响应、事件与 `agent_settled` 终态语义；TypeScript 子进程集成使用官方 `RpcClient`。
 - [Pi Skills](https://pi.dev/docs/latest/skills)：Skill 是 `SKILL.md` 指令和配套文件，可带脚本/参考资料；支持的 frontmatter 与发现机制。
 - [Pi Packages](https://pi.dev/docs/latest/packages)：Package 分发 Skill、Extension 等资源及其依赖；企业审批与隔离是 Piwork 的额外控制面责任。
-- 精确接口仍以项目安装的 0.87.1 包类型为准，尤其是 `node_modules/@earendil-works/pi-coding-agent/dist/core/sdk.d.ts`、`dist/modes/rpc/rpc-client.d.ts`。
+- 精确接口仍以项目安装的 1.0.0 包类型为准，尤其是 `node_modules/@earendil-works/pi-coding-agent/dist/core/sdk.d.ts`、`dist/modes/rpc/rpc-client.d.ts`。

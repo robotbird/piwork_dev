@@ -3,9 +3,9 @@ import { listPiPackages } from "@/lib/db/pi-package-queries";
 import { ChatbotError } from "@/lib/errors";
 import { requireManagementAdmin } from "@/lib/management/access";
 import {
-  ensureSystemPiPackagesInstalled,
   installPiPackage,
   PiPackageError,
+  retireLegacyMcpAdapterPackage,
   uninstallPiPackage,
 } from "@/lib/pi-packages/manager";
 
@@ -53,10 +53,11 @@ export async function GET() {
     return unauthorized();
   }
   try {
-    const systemPackageStatus = await ensureSystemPiPackagesInstalled();
+    // 触发旧系统插件(pi-mcp-adapter)退役清理;幂等,失败降级
+    await retireLegacyMcpAdapterPackage();
     const packages = await listPiPackages();
     return Response.json(
-      { packages, systemPackageStatus },
+      { packages },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {

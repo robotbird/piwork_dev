@@ -18,7 +18,7 @@ import {
   linkTaskChat,
 } from "@/lib/db/scheduled-task-queries";
 import type { ScheduledTaskRecord } from "@/lib/db/schema";
-import { syncWorkspaceMcpConfig } from "@/lib/mcp/workspace-config";
+import { syncManagedAgentMcpConfig } from "@/lib/mcp/agent-config";
 import { getRunManager } from "@/lib/runtime/run";
 import { waitForTaskCompletion } from "./completion";
 
@@ -39,9 +39,10 @@ export async function executeScheduledTask(task: ScheduledTaskRecord) {
     const workspaceDir = executionToolsEnabled()
       ? await ensureChatWorkspace(chatId)
       : null;
-    if (workspaceDir) {
-      await syncWorkspaceMcpConfig(workspaceDir);
-    }
+    // MCP 服务配置同步不依赖工作区；失败仅记日志，不阻断任务执行
+    await syncManagedAgentMcpConfig().catch((error) => {
+      console.warn("Failed to sync managed agent mcp.json:", error);
+    });
     const { skills } = await loadEnabledManagedProjectSkills();
     await saveChat({
       id: chatId,
