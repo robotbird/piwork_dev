@@ -598,7 +598,10 @@ function PureMultimodalInput({
       textarea.style.height = "auto";
       const styles = getComputedStyle(textarea);
       const minHeight = Number.parseFloat(styles.minHeight) || 0;
-      const maxHeight = Number.parseFloat(styles.maxHeight) || 192;
+      const maxHeight = Math.max(
+        minHeight,
+        Math.min(320, window.innerHeight * 0.4)
+      );
       const height = Math.min(
         maxHeight,
         Math.max(minHeight, textarea.scrollHeight)
@@ -618,7 +621,11 @@ function PureMultimodalInput({
       }
     });
     observer.observe(textarea);
-    return () => observer.disconnect();
+    window.addEventListener("resize", resize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", resize);
+    };
   }, [input, isEmptyChat]);
 
   const canSubmit = Boolean(
@@ -701,108 +708,40 @@ function PureMultimodalInput({
             ))}
           </div>
         )}
-        {isEmptyChat ? (
-          <>
-            <div className="flex min-h-[64px] w-full items-start px-5 pt-4">
-              {selectedSkill ? (
-                <span
-                  className="mt-px inline-flex h-6 shrink-0 items-center gap-1.5 text-sm font-medium leading-6 text-primary"
-                  data-testid="selected-skill"
-                >
-                  <HammerIcon aria-hidden="true" className="size-4" />
-                  <span>{selectedSkill.displayName}</span>
-                </span>
-              ) : null}
-              <PromptInputTextarea
-                className={cn(
-                  "min-h-[48px] px-0 pb-1 pt-0 text-[16px] leading-6 placeholder:text-[var(--chat-placeholder)] focus-visible:border-transparent focus-visible:ring-0",
-                  selectedSkill && "ml-2"
-                )}
-                data-testid="multimodal-input"
-                onChange={handleInput}
-                onKeyDown={handleTextareaKeyDown}
-                placeholder={
-                  editingMessage
-                    ? t("chat.editYourMessage")
-                    : selectedSkill
-                      ? t("chat.describeYourTask")
-                      : t("chat.askAnything")
-                }
-                ref={textareaRef}
-                value={input}
-              />
-            </div>
-            <PromptInputFooter className="px-3 pb-2.5 pt-1">
-              <PromptInputTools>
-                <AttachmentsButton
-                  fileInputRef={fileInputRef}
-                  status={status}
-                />
-              </PromptInputTools>
-              <PromptInputTools className="gap-1">
-                <ModelSelectorCompact
-                  onModelChange={onModelChange}
-                  selectedModelId={selectedModelId}
-                />
-                <Button
-                  aria-label={t("chat.voiceInput")}
-                  className="size-10 rounded-full text-foreground hover:bg-muted"
-                  onClick={handleVoiceInput}
-                  size="icon-sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  <MicIcon className="size-[19px]" />
-                </Button>
-                {isGenerating ? (
-                  <StopButton setMessages={setMessages} stop={stopGeneration} />
-                ) : (
-                  <PromptInputSubmit
-                    className={cn(
-                      "size-10 rounded-full border-0 transition-colors duration-150",
-                      canSubmit
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                        : "bg-[#b8d4ff] text-white"
-                    )}
-                    data-testid="send-button"
-                    disabled={!canSubmit || uploadQueue.length > 0}
-                    status={status}
-                    variant="secondary"
-                  >
-                    <ArrowUpIcon className="size-5" />
-                  </PromptInputSubmit>
-                )}
-              </PromptInputTools>
-            </PromptInputFooter>
-          </>
-        ) : (
-          <div className="flex min-w-0 flex-1 items-end gap-1 px-1.5 py-1.5">
-            <AttachmentsButton fileInputRef={fileInputRef} status={status} />
-            {selectedSkill ? (
-              <span
-                className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-muted px-2.5 text-sm font-medium text-foreground"
-                data-testid="selected-skill"
-              >
-                <HammerIcon aria-hidden="true" className="size-4" />
-                <span>{selectedSkill.displayName}</span>
-              </span>
-            ) : null}
-            <PromptInputTextarea
-              className={cn(
-                "max-h-48 min-h-10 min-w-0 px-2 py-2 text-[16px] leading-6 placeholder:text-[var(--chat-placeholder)] focus-visible:border-transparent focus-visible:ring-0",
-                selectedSkill && "pl-0"
-              )}
-              data-testid="multimodal-input"
-              onChange={handleInput}
-              onKeyDown={handleTextareaKeyDown}
-              placeholder={
-                editingMessage
-                  ? t("chat.editYourMessage")
+        <div className="flex min-h-[64px] w-full items-start px-5 pt-4">
+          {selectedSkill ? (
+            <span
+              className="mt-px inline-flex h-6 shrink-0 items-center gap-1.5 text-sm font-medium leading-6 text-primary"
+              data-testid="selected-skill"
+            >
+              <HammerIcon aria-hidden="true" className="size-4" />
+              <span>{selectedSkill.displayName}</span>
+            </span>
+          ) : null}
+          <PromptInputTextarea
+            className={cn(
+              "max-h-[min(320px,40dvh)] min-h-[48px] px-0 pb-1 pt-0 text-[16px] leading-6 placeholder:text-[var(--chat-placeholder)] focus-visible:border-transparent focus-visible:ring-0",
+              selectedSkill && "ml-2"
+            )}
+            data-testid="multimodal-input"
+            onChange={handleInput}
+            onKeyDown={handleTextareaKeyDown}
+            placeholder={
+              editingMessage
+                ? t("chat.editYourMessage")
+                : selectedSkill
+                  ? t("chat.describeYourTask")
                   : t("chat.askAnything")
-              }
-              ref={textareaRef}
-              value={input}
-            />
+            }
+            ref={textareaRef}
+            value={input}
+          />
+        </div>
+        <PromptInputFooter className="px-3 pb-2.5 pt-1">
+          <PromptInputTools>
+            <AttachmentsButton fileInputRef={fileInputRef} status={status} />
+          </PromptInputTools>
+          <PromptInputTools className="gap-1">
             <ModelSelectorCompact
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
@@ -825,7 +764,7 @@ function PureMultimodalInput({
                   "size-10 rounded-full border-0 transition-colors duration-150",
                   canSubmit
                     ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-secondary text-muted-foreground"
+                    : "bg-[#b8d4ff] text-white"
                 )}
                 data-testid="send-button"
                 disabled={!canSubmit || uploadQueue.length > 0}
@@ -835,8 +774,8 @@ function PureMultimodalInput({
                 <ArrowUpIcon className="size-5" />
               </PromptInputSubmit>
             )}
-          </div>
-        )}
+          </PromptInputTools>
+        </PromptInputFooter>
       </PromptInput>
 
       {isEmptyChat ? (

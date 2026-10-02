@@ -424,10 +424,10 @@ body:has(.openai-management) {
 }
 
 .openai-composer--conversation > [data-slot="input-group"] {
-  flex-flow: row wrap;
-  align-items: center;
-  min-height: 64px;
-  border-radius: 32px;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 128px;
+  border-radius: 28px;
 }
 
 .openai-composer > [data-slot="input-group"]:focus-within {
