@@ -3,7 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   createContext,
   type Dispatch,
@@ -58,6 +58,7 @@ function extractChatId(pathname: string): string | null {
 
 export function ActiveChatProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const sandboxView = useSearchParams().get("sandbox");
   const { setDataStream, setToolStatus, setWaitingStatus } = useDataStream();
   const { mutate } = useSWRConfig();
 
@@ -93,7 +94,9 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
   const { data: chatData, isLoading } = useSWR(
     isNewChat
       ? null
-      : `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/messages?chatId=${chatId}`,
+      : sandboxView
+        ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/management/sandboxes/${encodeURIComponent(sandboxView)}/task?chatId=${chatId}`
+        : `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/messages?chatId=${chatId}`,
     fetcher,
     { revalidateOnFocus: false }
   );
@@ -265,6 +268,9 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
 
   const hasAppendedQueryRef = useRef(false);
   useEffect(() => {
+    if (sandboxView) {
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     const query = params.get("query");
     if (!query) {
@@ -287,16 +293,19 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       parts: [{ text: query, type: "text" }],
       role: "user" as const,
     });
-  }, [sendMessage, chatId]);
+  }, [sendMessage, chatId, sandboxView]);
 
   useAutoResume({
-    autoResume: !isNewChat && !!chatData,
+    autoResume:
+      !sandboxView && !isNewChat && !!chatData && !chatData.isReadonly,
     initialMessages,
     resumeStream,
     setMessages,
   });
 
-  const isReadonly = isNewChat ? false : (chatData?.isReadonly ?? false);
+  const isReadonly =
+    Boolean(sandboxView) ||
+    (isNewChat ? false : (chatData?.isReadonly ?? false));
 
   const { data: votes } = useSWR<Vote[]>(
     !isReadonly && messages.length >= 2

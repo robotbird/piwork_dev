@@ -463,7 +463,8 @@ test("abort：settled(reason=aborted) → 状态 aborted，部分文本以 strea
         entry.event.type === "message.delta" &&
         entry.event.phase === "delta"
       ) {
-        assert.equal(await fixture.manager.abortByChat(CHAT), true);
+        assert.equal(await fixture.manager.abortByChat(CHAT, "stale-sandbox-run"), false);
+        assert.equal(await fixture.manager.abortByChat(CHAT, run.runId), true);
       }
     }
   })();

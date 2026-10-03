@@ -132,6 +132,15 @@ type LiveRun = {
 
 export type RunManagerOptions = {
   backend: RuntimeBackend;
+  /**
+   * AgentRun.backend 落库值（in_process 默认；sandbox 装配传 sandbox_rpc，
+   * 见 lib/runtime/run/index.ts）。与 backend 实例分开声明：RunManager 不
+   * 反射 backend 类型。与 backendKindFor 二选一：路由矩阵装配用后者逐
+   * run 记录实际执行位（requiresSandbox）。
+   */
+  backendKind?: "in_process" | "sandbox_rpc";
+  /** 逐 run 解析 AgentRun.backend（v2.0 §8.1 路由矩阵；与 backendKind 互斥，优先） */
+  backendKindFor?: (spec: RuntimeSpec) => "in_process" | "sandbox_rpc";
   eventStore: EventStore;
   runStore: AgentRunStore;
   messageStore: AssistantMessageStore;
@@ -174,6 +183,13 @@ export class RunManager {
     return live && !live.terminal ? { runId: live.runId } : null;
   }
 
+  /** AgentRun.backend 落库值：路由矩阵装配逐 run 解析，否则固定声明值 */
+  private resolveBackendKind(spec: RuntimeSpec): "in_process" | "sandbox_rpc" {
+    return this.options.backendKindFor
+      ? this.options.backendKindFor(spec)
+      : (this.options.backendKind ?? "in_process");
+  }
+
   /**
    * 惰性僵尸清理：先按心跳过期（多进程语义），再按"非终态且不在本进程
    * LiveRun"（单进程孤儿，进程重启即时生效）。attach 落空时调用方可重试。
@@ -203,8 +219,7 @@ export class RunManager {
       throw new ChatbotError("conflict:chat");
     }
     const runId = await this.options.runStore.createAgentRun({
-      // Step 2 仅 in_process；Step 5 起按部署形态区分
-      backend: "in_process",
+      backend: this.resolveBackendKind(input.spec),
       chatId,
       userId: input.userId,
     });
@@ -219,7 +234,7 @@ export class RunManager {
       throw new ChatbotError("conflict:chat");
     }
 
-    const session = await this.options.backend.open(input.spec);
+    const session = await this.options.backend.open({ ...input.spec, runId });
     const live = createLiveRun({ chatId, input, runId, session });
     this.liveByRun.set(runId, live);
     this.liveByChat.set(chatId, live);
@@ -290,9 +305,9 @@ export class RunManager {
   }
 
   /** 显式中止（Stop 端点 / 删 chat）：无活跃 run 返回 false（幂等） */
-  async abortByChat(chatId: string): Promise<boolean> {
+  async abortByChat(chatId: string, expectedRunId?: string): Promise<boolean> {
     const live = this.liveByChat.get(chatId);
-    if (!live || live.terminal) {
+    if (!live || live.terminal || (expectedRunId && live.runId !== expectedRunId)) {
       return false;
     }
     const ack = await live.session.send({ type: "abort" });

@@ -7,6 +7,8 @@ import type { Api, Message, Model } from "@earendil-works/pi-ai";
  * Step 3 引入 RpcClient 时在序列化边界收敛为中性 DTO（模型引用 + 会话文件 seeding）。
  */
 export type RuntimeSpec = {
+  /** Assigned by RunManager; shared with sandbox registry and inference audit. */
+  runId?: string;
   /** 关联聊天；Step 2 起映射 AgentRun，Step 1 仅透传 */
   chatId: string;
   /** 聊天执行工作区；null = 关闭执行类工具（backend 派生 cwd 与 noTools builtin） */
@@ -21,4 +23,10 @@ export type RuntimeSpec = {
   historyMessages: Message[];
   /** 平台侧 AgentTool（技能工具）；deliver_file 由 backend 按 workspaceDir 注入 */
   tools: AgentTool[];
+  /**
+   * 本次运行申请的 egress FQDN 白名单（spec §6 Phase 4）。只能收紧：
+   * backend 与装配基线取交集，申请超出基线的条目被丢弃；未设置 = 基线
+   * （proxy 主机 + 装配级附加）。沙箱默认拒绝一切其余出站。
+   */
+  egress?: { allowFqdns: string[] };
 };

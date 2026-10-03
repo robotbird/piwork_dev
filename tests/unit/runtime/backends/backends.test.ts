@@ -1,9 +1,9 @@
 import "../../../support/runtime-env";
 import assert from "node:assert/strict";
-import { mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import test from "node:test";
+import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import {
@@ -18,15 +18,20 @@ import { getPiModel, getTestFauxHandle } from "@/lib/ai/pi";
 import { DurableBackend } from "../../../../lib/runtime/backends/durable/backend";
 import { InProcessBackend } from "../../../../lib/runtime/backends/in-process/backend";
 import { LocalRpcBackend } from "../../../../lib/runtime/backends/local-rpc/backend";
+import { resolveDefaultCliPath } from "../../../../lib/runtime/backends/local-rpc/spawn";
+import { SandboxRpcBackend } from "../../../../lib/runtime/backends/sandbox-rpc/backend";
 import type {
   RuntimeEvent,
   RuntimeSession,
   RuntimeSpec,
 } from "../../../../lib/runtime/protocol";
+import { DockerSandboxProvider } from "../../../../lib/runtime/sandbox/docker/provider";
 import {
   InMemoryBackend,
   type InMemoryScriptStep,
 } from "../../../support/in-memory-backend";
+import { bundleFauxExtension } from "../../../support/sandbox/faux-extension-bundle";
+import { TestSandboxProvider } from "../../../support/sandbox/test-sandbox-provider";
 
 /**
  * Runtime backend 契约测试（v2.0 §10 Step 1/3）：同一套用例跑 InMemory（脚本
@@ -78,6 +83,56 @@ async function makeSpec(scenario: Scenario): Promise<RuntimeSpec> {
     workspaceDir: scenario.workspaceDir ?? null,
   };
 }
+
+/**
+ * 真实容器底座（显式 opt-in）：PIWORK_SANDBOX_DOCKER_RPC_TESTS=1 且本机
+ * docker 可用、pi-runtime:dev 已构建（构建方式见 docs/development.md）。
+ * 证明同一 RPC 契约套件在 DockerSandboxProvider + pi-runtime 镜像上成立：
+ * 官方 RpcClient → UDS bridge → docker exec 管道 → 容器内完整安装的 pi。
+ */
+const dockerRpcWorkspaces: string[] = [];
+const dockerRpcHarness =
+  process.env.PIWORK_SANDBOX_DOCKER_RPC_TESTS === "1"
+    ? ({
+        name: "SandboxDocker",
+        openSession: async (scenario) => {
+          // 同 SandboxRpc 场景约束：平台侧工具闭包不跨进程；artifact 用例
+          // 走 Artifact Gateway 后置收割（skip 原因见下）
+          const baseDir = path.join(process.cwd(), ".pi", "test-sandboxes");
+          await mkdir(baseDir, { recursive: true });
+          const workspace = await mkdtemp(path.join(baseDir, "docker-rpc-"));
+          dockerRpcWorkspaces.push(workspace);
+          // 扩展/脚本先落宿主 workspace（colima 只挂载 /Users），provider
+          // bind-mount 后容器内可见。faux 扩展 esbuild 预打包——容器内无仓库
+          // node_modules，源码 import 不可解析；env/extensions 用容器内视角
+          // 路径（DockerSandboxProvider workspaceRoot === "/workspace"，契约
+          // 测试已断言）
+          await writeFile(
+            path.join(workspace, "faux-provider.mjs"),
+            await bundleFauxExtension()
+          );
+          await writeFile(
+            path.join(workspace, "faux-script.json"),
+            JSON.stringify(scenario.fauxSteps ?? [])
+          );
+          const spec = await makeSpec({
+            ...scenario,
+            tools: [],
+            workspaceDir: workspace,
+          });
+          const backend = new SandboxRpcBackend({
+            env: { PIWORK_FAUX_SCRIPT: "/workspace/faux-script.json" },
+            extensions: ["/workspace/faux-provider.mjs"],
+            image: "pi-runtime:dev",
+            provider: new DockerSandboxProvider(),
+            remoteCliPath:
+              "/opt/pi/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
+          });
+          return backend.open(spec);
+        },
+        supportsPlatformTools: false,
+      } satisfies Harness)
+    : undefined;
 
 const harnesses: Harness[] = [
   {
@@ -142,7 +197,41 @@ const harnesses: Harness[] = [
     },
     supportsPlatformTools: false,
   },
+  {
+    name: "SandboxRpc",
+    openSession: async (scenario) => {
+      // 同 LocalRpc 场景约束：平台侧工具闭包不跨进程（§3.1-9）
+      const spec = await makeSpec({
+        ...scenario,
+        tools: [],
+        workspaceDir: null,
+      });
+      const scriptDir = await mkdtemp(
+        path.join(tmpdir(), "piwork-sbx-contract-")
+      );
+      const scriptPath = path.join(scriptDir, "faux-script.json");
+      await writeFile(scriptPath, JSON.stringify(scenario.fauxSteps ?? []));
+      // TestSandboxProvider 与宿主同文件系统：扩展/脚本直接给宿主路径，
+      // remoteCliPath 直指官方 bundle 跳过上传（上传路径由 sandbox-rpc
+      // 专测覆盖）；真实容器底座见下方 SandboxDocker
+      const backend = new SandboxRpcBackend({
+        env: { PIWORK_FAUX_SCRIPT: scriptPath },
+        extensions: [FAUX_EXTENSION_PATH],
+        provider: new TestSandboxProvider(),
+        remoteCliPath: resolveDefaultCliPath(),
+      });
+      return backend.open(spec);
+    },
+    supportsPlatformTools: false,
+  },
+  ...(dockerRpcHarness ? [dockerRpcHarness] : []),
 ];
+
+after(async () => {
+  await Promise.allSettled(
+    dockerRpcWorkspaces.map((dir) => rm(dir, { force: true, recursive: true }))
+  );
+});
 
 /** 排空事件流直到终态（run.settled/failed） */
 async function collect(session: RuntimeSession): Promise<RuntimeEvent[]> {
@@ -539,7 +628,9 @@ for (const harness of harnesses) {
   test(`[${harness.name}] artifact.created 严格位于 tool.started 与 tool.completed 之间`, {
     skip: harness.supportsPlatformTools
       ? false
-      : "平台侧工具闭包不跨进程，Step 4 bridge Package 解锁",
+      : harness.name.startsWith("Sandbox")
+        ? "deliver_file 已走 Artifact Gateway（artifact.created 在 tool.completed 之后收割），全链路由 sandbox-rpc.test.ts 覆盖"
+        : "平台侧工具闭包不跨进程，Step 4 bridge Package 解锁",
     timeout: TEST_TIMEOUT_MS,
   }, async () => {
     const scenario = await artifactScenario();

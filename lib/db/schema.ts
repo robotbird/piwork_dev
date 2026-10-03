@@ -1,3 +1,4 @@
+import type { SandboxRuntimeConfig } from "../runtime/sandbox";
 import type { InferSelectModel } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
@@ -466,6 +467,104 @@ export const runtimeLease = pgTable("RuntimeLease", {
   /** 持有者标识：进程实例 id（MVP）；Step 8 起为 worker id */
   workerId: varchar("workerId", { length: 128 }).notNull(),
 });
+
+/**
+ * SandboxInstance：沙箱注册表（opensandbox-integration-spec.md §6 管理功能）。
+ * provider 生命周期经 SandboxRegistry 落库，是管理页「用户运行的沙箱状态」
+ * 的数据源；chat 删除级联清理记录（实际回收由 provider TTL/销毁负责）。
+ * (provider, externalId) 唯一：externalId 即 SandboxHandle.id。
+ */
+export const sandboxInstance = pgTable(
+  "SandboxInstance",
+  {
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    /** chat 级 lease：该 chat 复用的沙箱 */
+    chatId: uuid("chatId")
+      .notNull()
+      .references(() => chat.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    /** 到期时刻（now + ttl；续期时刷新）；过期由惰性检测收敛为 expired */
+    expiresAt: timestamp("expiresAt").notNull(),
+    externalId: varchar("externalId", { length: 256 }).notNull(),
+    image: varchar("image", { length: 256 }).notNull(),
+    lastRenewedAt: timestamp("lastRenewedAt").notNull().defaultNow(),
+    runtimeConfig: json("runtimeConfig").$type<SandboxRuntimeConfig>(),
+    /** 最近一次 acquire 该沙箱的 run；chat 复用下会更新 */
+    lastRunId: uuid("lastRunId"),
+    /** 底座：test（测试替身）| docker（开发）| opensandbox（生产） */
+    provider: varchar("provider", {
+      enum: ["test", "docker", "opensandbox"],
+    }).notNull(),
+    status: varchar("status", {
+      enum: [
+        "creating",
+        "ready",
+        "paused",
+        "degraded",
+        "destroyed",
+        "expired",
+      ],
+    })
+      .notNull()
+      .default("creating"),
+    /** TTL 秒数；续期节奏 min(TTL/2, 1h) 由 lease 层驱动 */
+    ttlSeconds: integer("ttlSeconds").notNull(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+  },
+  (table) => ({
+    chatIdx: index("SandboxInstance_chatId_idx").on(
+      table.chatId,
+      table.createdAt,
+    ),
+    providerExtKey: uniqueIndex("SandboxInstance_provider_externalId_key").on(
+      table.provider,
+      table.externalId,
+    ),
+  }),
+);
+
+export type SandboxInstanceRecord = InferSelectModel<typeof sandboxInstance>;
+
+/**
+ * InferenceAccessAudit：Inference Proxy 访问审计（opensandbox-integration-
+ * spec.md §6 Phase 4「未授权访问失败且留脱敏审计」）。追加型日志：只记
+ * runId/chatId/provider/model/状态/用量/时长/错误码，永不落 token、
+ * context 或消息内容；chat 删除不级联（审计轨迹保留），chatId 无外键。
+ */
+export const inferenceAccessAudit = pgTable(
+  "InferenceAccessAudit",
+  {
+    action: varchar("action", { length: 32 }).notNull(),
+    chatId: uuid("chatId"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    durationMs: integer("durationMs"),
+    errorCode: varchar("errorCode", { length: 32 }),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    inputTokens: integer("inputTokens"),
+    model: varchar("model", { length: 128 }),
+    outputTokens: integer("outputTokens"),
+    provider: varchar("provider", { length: 64 }),
+    /** 沙箱 run 标识（SandboxSpec.runId；非 AgentRun 外键，仅审计关联） */
+    runId: varchar("runId", { length: 64 }),
+    status: varchar("status", {
+      enum: ["allowed", "denied", "error"],
+    }).notNull(),
+  },
+  (table) => ({
+    chatIdx: index("InferenceAccessAudit_chatId_idx").on(
+      table.chatId,
+      table.createdAt,
+    ),
+    runIdx: index("InferenceAccessAudit_runId_idx").on(table.runId),
+  }),
+);
+
+export type InferenceAccessAuditRecord = InferSelectModel<
+  typeof inferenceAccessAudit
+>;
 
 export type RuntimeLeaseRecord = InferSelectModel<typeof runtimeLease>;
 

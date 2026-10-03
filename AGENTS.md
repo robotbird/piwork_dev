@@ -38,11 +38,13 @@
 | `app/(auth)`、`app/(chat)`、`app/(management)` | 页面、Server Actions、HTTP API 与入口鉴权；聊天路由不实现 Pi agent loop |
 | `components/`、`hooks/` | UI 组件与客户端状态，不直接依赖 Pi SDK/RPC 内部事件 |
 | `lib/runtime/protocol` | 平台 Runtime 输入、命令、事件与 Backend/Session 契约 |
-| `lib/runtime/backends` | Pi 运行适配器与事件归一化；新增后端实现相同协议 |
+| `lib/runtime/backends` | Pi 运行适配器与事件归一化；新增后端实现相同协议；`sandbox-rpc` 复用官方 RpcClient，只换 spawn 策略 |
+| `lib/runtime/sandbox` | Pi 无关的 SandboxProvider/SandboxHandle/SandboxChannel seam、DB 注册表/租约与 UDS bridge；生产 Docker/OpenSandbox provider 见 OpenSandbox 接入 Spec，未落地不得当现状描述 |
 | `lib/runtime/run` | RunManager、订阅/重放、运行持久化和最终消息构建 |
 | `lib/ai` | Pi 会话、模型、工具、Skill、附件装配；优先调用官方 SDK |
 | `lib/pi-packages`、`lib/mcp`、`lib/model-plugins` | Pi Package、MCP 配置与模型供应商插件；各自持有安装/注册边界 |
 | `lib/db`、`lib/management` | Schema、迁移、查询与管理域规则 |
+| `docker/` | 沙箱运行时镜像（`pi-runtime` 预装完整 pi，版本随仓库 `package.json` 同步） |
 | `packages/`、`plugins/` | 可复用 SDK 与项目内插件样例 |
 | `tests/` | 所有自动化测试、fixture、测试环境与替身；源码目录不得新增测试代码 |
 | `docs/` | 当前架构、开发约定、方案与历史调研；状态需明确 |
@@ -62,3 +64,11 @@
 ## 项目 Workspace 边界
 
 `lib/projects` 持有资料文本提取与聊天上下文组装；`lib/db/project-queries.ts` 持有项目/项目聊天/来源的归属查询与事务删除。项目聊天复用既有 Chat 表（`Chat.projectId`）与完整聊天链路，页面不实现第二个 agent loop；项目主页输入通过预建聊天加 `?query=` 进入聊天页。资料上下文是全文注入（无检索、无 Embedding），不要把 Source 查询写入 Pi 通用工具，也不要让项目逻辑绕过 RunManager 直接调用 Pi。删除项目必须先停活跃 run 并在事务内清理 vote/message。
+
+## 沙箱 Runtime 边界
+
+`lib/runtime/sandbox` 持有 Pi 无关的 `SandboxProvider/SandboxHandle/SandboxChannel` seam、注册表与 bridge 泵，`sandbox/docker` 是 docker CLI provider（安全基线自持，不依赖任何第三方 runtime 的默认值；egress 默认 deny-all（`--network none`），allowlist = 每沙箱独立非 internal 网桥 + `--add-host host-gateway` + `--dns 127.0.0.1`——raw-IP 直连是该档已声明的开发近似残余缺口，生产 FQDN 级硬拒绝归 OpenSandbox egress sidecar/NetworkPolicy），`sandbox/opensandbox` 是生产 provider（`@alibaba-group/opensandbox` SDK 只在该目录 import；PTY pipe 通道按 spec §11 D-2，exec 行走二进制 0x00 帧、exit 帧 `exit_code`、鉴权 header `OPEN-SANDBOX-API-KEY`；与 Docker 档的安全基线差异如实声明，见 spec §5.1）；`lib/db/sandbox-queries.ts` 持有注册、租约、重连与停止查询，`/management/sandboxes` 提供管理员列表/详情、状态核验、延长 1 小时和真实销毁；生命周期操作由 `lib/management/sandbox-service.ts` 经 Pi 无关的 Provider `SandboxControl` 编排，DB 查询仍留 `lib/db/sandbox-queries.ts`。`runtimeConfig`（迁移 0016）保存创建额度/egress/workspace 快照，不能当实时用量；OpenSandbox 控制面使用官方 SandboxManager，SDK import 仍只在 opensandbox/。销毁按 RunManager 的 chat + expectedRunId 停关联 run，再真实 kill，成功后落库；刷新失败不得伪装 destroyed。关联任务通过 `/api/management/sandboxes/:id/task` 管理员只读访问，不扩张普通聊天写入权限。`SandboxRpcBackend`（`lib/runtime/backends/sandbox-rpc`）必须复用官方 `RpcClient` 与 `LocalRpcRuntimeSession`，只经 bridge 换 spawn 策略，不得重写 RPC 客户端或事件归一化；`remoteCliPath` 必须指向完整安装的 pi 包（单拷 dist/bundle 不是合法分发）。宿主 env 不透传沙箱；provider 失败 fail-closed，不得回退 in-process。沙箱内 `deliver_file` 只经 Artifact Gateway 出站（extension 落 workspace outbox manifest + 宿主侧收割出站归档），沙箱内工具不得直呼平台回调或携带平台凭据。
+
+沙箱内模型访问只经 Inference Proxy（`lib/runtime/inference-proxy`）：控制面旁路 HTTP 反代讲官方 pi-messages wire 协议（pi-ai `dist/api/pi-messages.js`），沙箱内 pi 经 agentDir `models.json`（`apiKey: "${PIWORK_RUN_TOKEN}"` env 模板）对接；真实模型凭据只留在控制面模型插件 Worker host，沙箱内唯一凭据是 AgentRun 级 run token（sha256 存储、滑动 30min TTL、grant 限 provider/model，acquire 失败即撤销）。egress 白名单由 `deriveSandboxEgress` 派生（只收紧：无 proxy 恒 deny-all，有 = 代理主机 ∪ 装配基线 ∩ RuntimeSpec 申请）。代理访问审计落 `InferenceAccessAudit`（`lib/db/inference-audit-queries.ts`，迁移 0015；脱敏、chatId 无外键）。生产装配经 `PIWORK_INFERENCE_URL`（沙箱视角地址）显式启用，缺省 = deny-all 无模型通道；可选 `PIWORK_INFERENCE_PROXY_HOST`/`PIWORK_INFERENCE_PROXY_PORT`/`PIWORK_INFERENCE_EGRESS_ALLOWLIST`；listen 失败 fail-closed。
+
+路由矩阵（v2.0 §8.1）：`lib/runtime/backends/routing` 的 `requiresSandbox`（workspaceDir 非 null = 执行工具开启）逐 run 分流——执行工具 run 走 SandboxRpc、纯对话 in-process 并存非降级，`RunManager.backendKindFor` 把实际执行位落 AgentRun.backend；沙箱路由失败原样上抛绝不回落 in-process。装配 `PIWORK_SANDBOX_ROUTING=matrix`（默认）|`all`。已知边界（如实声明）：平台闭包工具（技能工具、create_scheduled_task）不跨进程，沙箱路由的 run 丢失它们；Package/MCP 未进 RuntimeSpec 仍走 in-process。生产装配走 `lib/runtime/run/index.ts` 的 `PIWORK_SANDBOX_PROVIDER=docker|opensandbox`（+ 必填 `PIWORK_SANDBOX_CLI_PATH`，指向 `docker/pi-runtime` 镜像内预装的完整 pi；opensandbox 另需 `OPENSANDBOX_DOMAIN`/`OPENSANDBOX_API_KEY`，走平台密钥存储落 env；fail-closed），测试替身 TestSandboxProvider 只在 `tests/support/sandbox`，禁止进生产装配。测试放 `tests/unit/runtime/sandbox`、`tests/unit/runtime/backends`、`tests/unit/runtime/inference-proxy` 与 `tests/unit/db`，契约测试默认用 TestSandboxProvider，Docker 契约组需本机 docker（无则跳过；含 egress allowlist 对照用例），真实容器上的 RPC 契约组需显式 `PIWORK_SANDBOX_DOCKER_RPC_TESTS=1` 并先构建 pi-runtime 镜像（默认关闭），OpenSandbox 真实 server 契约组需显式 `PIWORK_SANDBOX_CONTRACT_OPENSANDBOX=1`（+ `OPENSANDBOX_DOMAIN`/`OPENSANDBOX_API_KEY`，默认关闭）。

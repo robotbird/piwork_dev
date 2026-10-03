@@ -1,0 +1,1 @@
+ALTER TABLE "SandboxInstance" ADD COLUMN "runtimeConfig" json;

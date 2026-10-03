@@ -5,6 +5,7 @@ import {
   BlocksIcon,
   BrainIcon,
   Building2Icon,
+  ContainerIcon,
   DatabaseIcon,
   LayoutDashboardIcon,
   type LucideIcon,
@@ -118,6 +119,17 @@ const navigationGroups: NavigationGroup[] = [
       },
     ],
     labelKey: "organizationAndAccess",
+  },
+  {
+    items: [
+      {
+        href: "/management/sandboxes",
+        icon: ContainerIcon,
+        labelKey: "sandboxManagement",
+        searchKeywordsKey: "sandboxManagementSearchKeywords",
+      },
+    ],
+    labelKey: "runtimeAndSecurity",
   },
   {
     items: [
