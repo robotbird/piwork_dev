@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { getRoleView, setRoleMembership } from "@/lib/db/role-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementSession } from "@/lib/management/access";
+import { requireAdminSession } from "@/lib/admin/access";
 
 function apiError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -12,8 +12,8 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }

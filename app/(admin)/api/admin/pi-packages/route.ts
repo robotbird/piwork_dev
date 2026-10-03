@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { listPiPackages } from "@/lib/db/pi-package-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementAdmin } from "@/lib/management/access";
+import { requireAdminRole } from "@/lib/admin/access";
 import {
   installPiPackage,
   PiPackageError,
@@ -14,7 +14,7 @@ function unauthorized() {
 }
 
 async function errorResponse(error: unknown, status = 400) {
-  const t = await getTranslations("managementApi");
+  const t = await getTranslations("adminApi");
   return Response.json(
     { error: error instanceof Error ? error.message : t("operationFailed") },
     { status }
@@ -31,7 +31,7 @@ const ERROR_MAP: Record<string, { key: string; status: number }> = {
 };
 
 function piPackageErrorResponse(error: PiPackageError) {
-  return getTranslations("managementApi").then((t) => {
+  return getTranslations("adminApi").then((t) => {
     const mapped = ERROR_MAP[error.code] ?? {
       key: "operationFailed",
       status: 500,
@@ -48,7 +48,7 @@ function piPackageErrorResponse(error: PiPackageError) {
 
 /** 管理端 pi 官方插件:已装列表/安装/卸载;仅管理员可用。 */
 export async function GET() {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }
@@ -66,14 +66,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }
   try {
     const body = (await request.json()) as { source?: unknown };
     if (typeof body.source !== "string" || !body.source.trim()) {
-      const t = await getTranslations("managementApi");
+      const t = await getTranslations("adminApi");
       return errorResponse(new Error(t("piInvalidSource")));
     }
 
@@ -94,14 +94,14 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }
   try {
     const body = (await request.json()) as { source?: unknown };
     if (typeof body.source !== "string" || !body.source.trim()) {
-      const t = await getTranslations("managementApi");
+      const t = await getTranslations("adminApi");
       return errorResponse(new Error(t("piInvalidSource")));
     }
 

@@ -31,7 +31,7 @@ flowchart LR
 | `app/(auth)` | Auth.js、访客登录、注册与鉴权动作 |
 | `app/(chat)` | 聊天页、聊天/文档/上传/模型/Skill API；`api/chat/route.ts` 是请求入口，`stream-mapping.ts` 负责协议到 UI stream 的映射 |
 | `app/(admin)` | 组织、成员、角色、模型插件、Pi Package、MCP、Skill、沙箱的管理页与 API |
-| `components/chat`、`components/management`、`components/ui`、`hooks` | 页面组合、业务组件、基础组件和前端状态/hooks |
+| `components/chat`、`components/admin`、`components/ui`、`hooks` | 页面组合、业务组件、基础组件和前端状态/hooks |
 | `lib/runtime/protocol` | 平台内的 `RuntimeSpec`、命令、事件、`RuntimeBackend`/`RuntimeSession` 契约；服务端适配器和上层编排的边界 |
 | `lib/runtime/backends` | `in-process` 当前运行适配器；`local-rpc` 是已实现的本机子进程适配器，尚未接入生产默认路径；`sandbox-rpc` 把官方 `RpcClient` 经 bridge 泵接进沙箱内 pi，含 Artifact Gateway（deliver_file 出站）与 Inference Proxy 客户端装配（models.json/run token/egress 派生）；`routing` 按 v2.0 §8.1 矩阵逐 run 分流（执行工具 → 沙箱、纯对话 → in-process）；经 `PIWORK_SANDBOX_PROVIDER=docker\|opensandbox` 装配（默认关闭）；Pi 事件归一化和事件队列 |
 | `lib/runtime/inference-proxy` | 控制面旁路 HTTP 反代（pi-messages wire 协议）：`server.ts`（鉴权/SSE 中继/审计）、`tokens.ts`（AgentRun 级短期窄 token）、`models-manifest.ts`（沙箱 agentDir models.json 生成）、`events.ts`（AssistantMessageEvent → SSE 行映射）；真实模型凭据只在本层内侧（模型插件 Worker host） |
@@ -40,7 +40,7 @@ flowchart LR
 | `lib/ai` | Pi session 装配、模型适配、系统提示、Skill、工具、附件和文件存储；`agent-session.ts` 调用 Pi SDK |
 | `lib/pi-packages`、`lib/mcp` | 受管 Pi 包安装/资源清点；将管理端 MCP 配置同步到受管 agentDir `mcp.json`，并提供 Pi 内置 MCP 扩展的自定义 `loadConfig` |
 | `lib/model-plugins`、`packages/model-provider-sdk`、`plugins` | 模型供应商插件契约、检查/构建/Worker host/注册；SDK 与示例 DeepSeek 插件 |
-| `lib/db`、`lib/management` | Drizzle schema、迁移和查询；管理权限与管理业务逻辑 |
+| `lib/db`、`lib/admin` | Drizzle schema、迁移和查询；管理权限与管理业务逻辑 |
 | `docker/` | 沙箱运行时镜像（`pi-runtime`：预装完整 pi，供 SandboxRpcBackend 的 `remoteCliPath` 指向） |
 | `lib/artifacts`、`lib/editor`、`i18n` | 文档产物、编辑器功能和国际化 |
 | `tests`、`scripts` | 单元/集成/E2E 测试与构建、验证脚本；目录细节见 [开发与测试](development.md) |
@@ -58,7 +58,7 @@ flowchart LR
 
 ## 4. 管理与资源链路
 
-- **身份与权限**：`app/(auth)` 提供用户会话；管理 API 通过 `lib/management/access.ts` 判定管理身份。新增管理操作需沿用这一入口。
+- **身份与权限**：`app/(auth)` 提供用户会话；管理 API 通过 `lib/admin/access.ts` 判定管理身份。新增管理操作需沿用这一入口。
 - **数据**：`lib/db/schema.ts` 定义用户、组织、成员/角色、聊天/消息、文档、Skill、模型插件、MCP、Pi Package、AgentRun/RuntimeEvent/RuntimeLease；查询由 `lib/db/*-queries.ts` 持有，路由不直接拼 SQL。
 - **模型**：`lib/model-plugins` 检查并构建插件，在 Worker 中激活，暴露 Pi `Provider`；`lib/ai/pi.ts` 和 `agent-session.ts` 将可用 Provider 接入 Pi 模型运行时。`plugins/piwork-llm-deepseek` 是项目内示例插件。
 - **Package 与 Skill**：`lib/pi-packages/manager.ts` 使用 Pi `DefaultPackageManager.installAndPersist()` 管理受管目录；包内 Skill 由 Piwork 的 Skill 管线登记、启用和展示。聊天会话通过 `DefaultResourceLoader` 加载受管扩展，同时关闭全局 Skill/上下文自动发现，避免跨租户资源泄漏。旧系统插件 `pi-mcp-adapter` 已被 Pi 内置 MCP 取代，进程内会自动退役清理（见第 10 节）。
@@ -145,7 +145,7 @@ flowchart LR
 - **env 三层分离**：RpcClient env 只含 shim socket 定位；沙箱内 env 为最小集 + `PI_CODING_AGENT_DIR` + `PI_OFFLINE=1` + options.env（启用 Inference Proxy 时另有 `PIWORK_RUN_TOKEN`——沙箱内唯一模型凭据）；宿主 env 不透传。
 - **Inference Proxy（`lib/runtime/inference-proxy/`，2026-10-03，spec Phase 4）**：控制面旁路 HTTP 反代，讲 pi 官方 **pi-messages wire 协议**（单 POST `{model, context, options}` → SSE 事件流；pi-ai `dist/api/pi-messages.js` 核对——沙箱内官方 pi 无需兼容层）。`server.ts`：Bearer run token 鉴权（401）/模型 grant 匹配（403，跨 provider 同名 model 拒绝）/请求校验与体积上限（400/413）/上游不可达（503），SSE 中继 + 上游违约防护（无终态合成 error 事件）、客户端中断归类 client_aborted（Node ≥16 `req close` 在请求完成即触发，断连检测须 `res.on("close")` + `!writableEnded`——实测）；上游 = `getActivePiProviders`（模型插件 Worker host，真实凭据只在控制面）。`tokens.ts`：AgentRun 级 token（32B hex、仅存 sha256、滑动 30min TTL、grant 限 provider/model）。`models-manifest.ts`：沙箱 agentDir `models.json` 生成（`api: "pi-messages"`、`apiKey: "${PIWORK_RUN_TOKEN}"` env 模板、baseUrl = proxyUrl）。backend 侧：mint 先于 acquire（acquire 失败即撤销已签发 token）、`deriveSandboxEgress` 只收紧派生（无 proxy 恒 deny-all；有 = 代理主机 ∪ 装配基线 ∩ RuntimeSpec 申请）。
 - **访问审计（`InferenceAccessAudit`，迁移 `0015`，`lib/db/inference-audit-queries.ts`）**：追加型、每次代理访问一行（allowed/denied/error + provider/model/runId/chatId/tokens/时长/errorCode），脱敏（无 token/上下文/内容材料）；chatId 无外键——chat 删除后审计轨迹保留。
-- **沙箱管理 MVP（2026-10-03）**：`/admin/sandboxes` 的列表/搜索/四组状态筛选/详情抽屉每 10 秒刷新；管理员可按当前到期时间延长 1 小时、真实销毁容器。`lib/management/sandbox-service.ts` 编排注册表读取、Provider `SandboxControl` 核验与生命周期操作，`lib/management/sandboxes.ts` 注入 DB 和 RunManager；路由只鉴权/校验/编排。OpenSandbox control 使用官方 SDK 1.1.0 的 `SandboxManager.getSandboxInfo/renewSandbox/killSandbox/close`，不通过 connect 启动 execd 会话；Docker control 使用 inspect/rm，续期仅延长注册表租约（无原生 TTL/reaper）。仅已登记实例可操作；服务不可达显示“状态待确认”，不把连接错误当作已销毁；实例级进程内串行化，非分布式锁。
+- **沙箱管理 MVP（2026-10-03）**：`/admin/sandboxes` 的列表/搜索/四组状态筛选/详情抽屉每 10 秒刷新；管理员可按当前到期时间延长 1 小时、真实销毁容器。`lib/admin/sandbox-service.ts` 编排注册表读取、Provider `SandboxControl` 核验与生命周期操作，`lib/admin/sandboxes.ts` 注入 DB 和 RunManager；路由只鉴权/校验/编排。OpenSandbox control 使用官方 SDK 1.1.0 的 `SandboxManager.getSandboxInfo/renewSandbox/killSandbox/close`，不通过 connect 启动 execd 会话；Docker control 使用 inspect/rm，续期仅延长注册表租约（无原生 TTL/reaper）。仅已登记实例可操作；服务不可达显示“状态待确认”，不把连接错误当作已销毁；实例级进程内串行化，非分布式锁。
 - **详情与任务**：迁移 `0016` 增加 `SandboxInstance.runtimeConfig`（实际申请的 CPU/内存额度、egress 与 workspace），旧记录未知值显示“未记录”。安全基线按 Provider 能力如实展示；无实时用量/日志。`SandboxInstance` 查询连接显式 UTC，避免本地 PostgreSQL 时区造成到期显示偏移。RunManager 将 AgentRun ID 注入 `RuntimeSpec.runId`，SandboxRpc 复用该 ID 登记沙箱/签发推理 token；销毁先按 chat + expectedRunId 经 RunManager 发送官方 abort，再调用 Provider kill，成功后才写 destroyed，避免误停后续 run。自动续期不会缩短手动延期。
 - **关联聊天只读查看**：详情“查看任务”打开 `/chat/:chatId?sandbox=:instanceId`；`/api/admin/sandboxes/:id/task` 仅管理员可读、校验注册表与 chat 对应关系，返回既有 UI message 格式。客户端强制只读、不恢复 live stream、不消费 query prompt；普通聊天写入/停止/附件等 API 的所有权规则保持不变。
 - **生产装配开关（`lib/runtime/run/index.ts`）**：`PIWORK_SANDBOX_PROVIDER=docker|opensandbox`（+ 必填 `PIWORK_SANDBOX_CLI_PATH`，可选 `PIWORK_SANDBOX_IMAGE`/`PIWORK_SANDBOX_TTL_SECONDS`）→ `LeasingSandboxProvider(<provider>, dbSandboxRegistry)` + SandboxRpcBackend；`PIWORK_SANDBOX_ROUTING=matrix`（默认，Phase 5 路由矩阵）/`all`（全量沙箱，AgentRun 落库 `backend: "sandbox_rpc"`）——matrix 下 AgentRun.backend 逐 run 落实际执行位；**opensandbox** 另需 `OPENSANDBOX_DOMAIN`/`OPENSANDBOX_API_KEY` 必填（平台密钥存储落 env）、可选 `OPENSANDBOX_PROTOCOL`（http|https）/`OPENSANDBOX_READY_TIMEOUT_SECONDS`/`OPENSANDBOX_EXECD_PORT`；**Inference Proxy**（Phase 4）经 `PIWORK_INFERENCE_URL`（沙箱视角代理地址）显式启用，另有 `PIWORK_INFERENCE_PROXY_HOST`（默认 `0.0.0.0`）/`PIWORK_INFERENCE_PROXY_PORT`（默认 3210）/`PIWORK_INFERENCE_EGRESS_ALLOWLIST`（逗号分隔 FQDN 基线），listen 失败 fail-closed（首个 run 显式失败）；未设置 = InProcessBackend 不变；未知取值或缺配置启动即抛错（fail-closed 不回退 in-process）；与 `PIWORK_RUNTIME_BACKEND=durable` 互斥。

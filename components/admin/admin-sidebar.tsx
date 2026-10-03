@@ -180,7 +180,7 @@ function NavigationLink({
   item: NavigationItem;
   onNavigate?: () => void;
 }) {
-  const t = useTranslations("managementSidebar");
+  const t = useTranslations("adminSidebar");
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const active = isItemActive(pathname, searchParams.get("view"), item);
@@ -220,7 +220,7 @@ function SidebarBody({
   onNavigate?: () => void;
   user: { email?: string | null; name?: string | null };
 }) {
-  const t = useTranslations("managementSidebar");
+  const t = useTranslations("adminSidebar");
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleGroups = useMemo(
@@ -302,18 +302,18 @@ function SidebarBody({
       </nav>
 
       <div className="p-3">
-        <UserNav area="management" user={user} />
+        <UserNav area="admin" user={user} />
       </div>
     </div>
   );
 }
 
-export function ManagementSidebar({
+export function AdminSidebar({
   user,
 }: {
   user: { email?: string | null; name?: string | null };
 }) {
-  const t = useTranslations("managementSidebar");
+  const t = useTranslations("adminSidebar");
   const [mobileOpen, setMobileOpen] = useState(false);
   const handleOpenMobile = useCallback(() => setMobileOpen(true), []);
   const handleCloseMobile = useCallback(() => setMobileOpen(false), []);

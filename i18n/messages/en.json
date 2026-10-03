@@ -57,7 +57,7 @@
     "emptySourcesTitle": "Add more context for your project",
     "sourcesAction": "Add sources"
   },
-  "managementSidebar": {
+  "adminSidebar": {
     "overview": "Overview",
     "overviewSearchKeywords": "workspace dashboard",
     "workspace": "Workspace",
@@ -496,7 +496,7 @@
     "pastedImage": "Pasted image",
     "copy": "Copy"
   },
-  "management": {
+  "admin": {
     "customRoleType": "Custom",
     "systemRoleType": "System",
     "viewRole": "View role {name}",
@@ -765,7 +765,7 @@
     "more": "More",
     "work": "Work",
     "public": "Public",
-    "management": "Management",
+    "admin": "Management",
     "skills": "Skills",
     "deny": "Deny",
     "yourTaskHistoryWillAppearHere": "Your task history will appear here",
@@ -922,7 +922,7 @@
   "metadata": {
     "description": "piwork enterprise AI task assistant"
   },
-  "managementPermissions": {
+  "adminPermissions": {
     "title": "Roles & permissions",
     "comingSoon": "Coming soon",
     "description": "Configure roles and permissions to control access to management capabilities.",
@@ -956,7 +956,7 @@
     "thoughtBriefly": "Thought for a few seconds",
     "thoughtFor": "Thought for {duration} seconds"
   },
-  "managementApi": {
+  "adminApi": {
     "operationFailed": "Operation failed",
     "sandboxInvalidProvider": "Invalid sandbox provider",
     "sandboxInvalidExternalId": "Missing sandbox instance id",

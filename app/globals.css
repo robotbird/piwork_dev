@@ -324,7 +324,7 @@ body:has(.openai-chat) {
 }
 
 /* OpenAI Unified Interface tokens scoped to the system management surface. */
-body:has(.openai-management) {
+body:has(.openai-admin) {
   --canvas: #ffffff;
   --canvas-soft: #f7f7f8;
   --surface-card: #ffffff;
@@ -367,7 +367,7 @@ body:has(.openai-management) {
   --sidebar-ring: var(--link);
 }
 
-.dark body:has(.openai-management) {
+.dark body:has(.openai-admin) {
   --canvas: #171719;
   --canvas-soft: #202022;
   --surface-card: #252527;

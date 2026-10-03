@@ -3,12 +3,12 @@
 import { ArrowRightIcon } from "lucide-react";
 import { usePreferences } from "@/components/preferences-provider";
 import { Badge } from "@/components/ui/badge";
-import type { ManagementSection } from "@/lib/management/sections";
+import type { AdminSection } from "@/lib/admin/sections";
 
 export function SectionPlaceholder({
   section,
 }: {
-  section: ManagementSection;
+  section: AdminSection;
 }) {
   const Icon = section.icon;
   const { t } = usePreferences();
@@ -22,7 +22,7 @@ export function SectionPlaceholder({
               {t(section.title)}
             </h1>
             {section.ready ? null : (
-              <Badge variant="secondary">{t("management.comingSoon")}</Badge>
+              <Badge variant="secondary">{t("admin.comingSoon")}</Badge>
             )}
           </div>
           <p className="mt-2 max-w-2xl text-[14px] leading-6 text-muted-foreground">
@@ -48,7 +48,7 @@ export function SectionPlaceholder({
                     {t(feature)}
                   </span>
                   <span className="mt-0.5 block text-[12px] leading-5 text-muted-foreground">
-                    {t("management.thisFeatureIsPlannedAndWillBe")}
+                    {t("admin.thisFeatureIsPlannedAndWillBe")}
                   </span>
                 </span>
                 <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />

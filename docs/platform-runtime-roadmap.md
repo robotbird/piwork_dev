@@ -35,7 +35,7 @@ flowchart TB
 | 概念 | 当前落点 | 状态与说明 |
 | --- | --- | --- |
 | Web Client / API | `app/(chat)`、`app/(admin)`、`components/` | 已实现 Next.js Web；聊天经 HTTP UI message stream 返回 |
-| 用户、组织、RBAC | `app/(auth)`、`lib/management`、`lib/db` | 已有身份和管理权限；更细的 Package/工具运行授权仍需完善 |
+| 用户、组织、RBAC | `app/(auth)`、`lib/admin`、`lib/db` | 已有身份和管理权限；更细的 Package/工具运行授权仍需完善 |
 | Task Center | `Chat`、`AgentRun`、`RuntimeLease`、`RuntimeEvent` | 当前以 chatId 组织运行；尚无独立 Task Service、任务队列或通用 Task API |
 | Workspace | `lib/ai/agent-tools.ts` 的聊天工作区 | 当前按 chat 隔离目录；不是经 Sandbox 强制的任务级文件边界 |
 | Runtime Protocol | `lib/runtime/protocol` | 已有 `RuntimeSpec`、命令、事件、Backend/Session 接口 |

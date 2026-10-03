@@ -6,14 +6,14 @@ import {
   listMcpServers,
 } from "@/lib/db/mcp-server-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementAdmin } from "@/lib/management/access";
+import { requireAdminRole } from "@/lib/admin/access";
 
 function unauthorized() {
   return new ChatbotError("unauthorized:chat").toResponse();
 }
 
 async function errorResponse(error: unknown, status = 400) {
-  const t = await getTranslations("managementApi");
+  const t = await getTranslations("adminApi");
   return Response.json(
     { error: error instanceof Error ? error.message : t("operationFailed") },
     { status }
@@ -40,7 +40,7 @@ function asRecord(value: unknown): Record<string, string> | null {
 
 /** 管理端 MCP 服务 CRUD；仅管理员可用。 */
 export async function GET() {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }
@@ -56,8 +56,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementAdmin();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }

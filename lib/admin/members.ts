@@ -7,7 +7,7 @@ export type MemberRole = "admin" | "member";
 
 export type MemberStatus = "enabled" | "disabled";
 
-export type ManagementMember = {
+export type AdminMember = {
   /** 添加时间（ISO 字符串），展示时经 formatStamp 格式化 */
   addedAt: string;
   departmentId: string | null;
@@ -98,8 +98,8 @@ export function getAvatarInitial(name: string): string {
  * 该成员不允许被停用、降级或删除，保证控制台始终有人可管理。
  */
 export function isLastEnabledAdmin(
-  members: readonly ManagementMember[],
-  member: ManagementMember
+  members: readonly AdminMember[],
+  member: AdminMember
 ): boolean {
   if (member.role !== "admin" || member.status !== "enabled") {
     return false;

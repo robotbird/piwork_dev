@@ -5,11 +5,11 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { ChatbotError } from "../errors";
 import {
-  type ManagementRole,
+  type AdminRole,
   type RolesView,
   SYSTEM_ROLE_CODES,
   SYSTEM_ROLE_SEEDS,
-} from "../management/roles";
+} from "../admin/roles";
 import {
   department,
   type MemberRecord,
@@ -412,10 +412,10 @@ export async function syncMembershipsForLegacyRole(
 
 /* ------------------------------ 页面视图组装 ------------------------------ */
 
-function toManagementRole(
+function toAdminRole(
   record: RoleRecord,
   memberships: MemberRoleRecord[]
-): ManagementRole {
+): AdminRole {
   return {
     code: record.code,
     description: record.description,
@@ -430,13 +430,13 @@ function toManagementRole(
 }
 
 /** 单个角色的视图模型（创建 / 更新接口的返回值） */
-export async function getRoleView(id: string): Promise<ManagementRole | null> {
+export async function getRoleView(id: string): Promise<AdminRole | null> {
   const record = await getRoleById(id);
   if (!record) {
     return null;
   }
   const memberships = await listMembershipsByRoleIds([id]);
-  return toManagementRole(record, memberships);
+  return toAdminRole(record, memberships);
 }
 
 /** 角色管理页初始数据：角色列表（含成员 id）+ 成员选择器候选人 */
@@ -462,6 +462,6 @@ export async function loadRolesView(): Promise<RolesView> {
 
   return {
     members: memberOptions,
-    roles: roleRecords.map((record) => toManagementRole(record, memberships)),
+    roles: roleRecords.map((record) => toAdminRole(record, memberships)),
   };
 }

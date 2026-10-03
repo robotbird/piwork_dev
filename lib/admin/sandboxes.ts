@@ -5,9 +5,9 @@ import {
   observeSandboxInstance,
 } from "@/lib/db/sandbox-queries";
 import { buildSandboxProvider } from "@/lib/runtime/sandbox/configuration";
-import { SandboxManagementService } from "./sandbox-service";
+import { SandboxAdminService } from "./sandbox-service";
 
-const management = new SandboxManagementService({
+const management = new SandboxAdminService({
   control: (provider) =>
     provider === "test" ? undefined : buildSandboxProvider(provider).control,
   get: getSandboxInstance,
@@ -25,6 +25,6 @@ const management = new SandboxManagementService({
   },
 });
 
-export function getSandboxManagement() {
+export function getSandboxAdminService() {
   return management;
 }

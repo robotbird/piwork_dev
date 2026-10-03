@@ -57,7 +57,7 @@
     "emptySourcesTitle": "为项目提供更多上下文",
     "sourcesAction": "添加来源"
   },
-  "managementSidebar": {
+  "adminSidebar": {
     "overview": "概览",
     "overviewSearchKeywords": "工作台 仪表盘",
     "workspace": "工作台",
@@ -496,7 +496,7 @@
     "pastedImage": "粘贴的图片",
     "copy": "复制"
   },
-  "management": {
+  "admin": {
     "customRoleType": "自定义",
     "systemRoleType": "系统",
     "viewRole": "查看角色 {name}",
@@ -765,7 +765,7 @@
     "more": "更多",
     "work": "工作",
     "public": "公开",
-    "management": "管理",
+    "admin": "管理",
     "skills": "技能",
     "deny": "拒绝",
     "yourTaskHistoryWillAppearHere": "开始新任务后，记录会显示在这里",
@@ -922,7 +922,7 @@
   "metadata": {
     "description": "piwork 企业智能任务助手"
   },
-  "managementPermissions": {
+  "adminPermissions": {
     "title": "角色与权限",
     "comingSoon": "建设中",
     "description": "配置角色与权限，控制成员可访问的管理能力。",
@@ -956,7 +956,7 @@
     "thoughtBriefly": "思考了几秒钟",
     "thoughtFor": "思考了 {duration} 秒"
   },
-  "managementApi": {
+  "adminApi": {
     "operationFailed": "操作失败",
     "sandboxInvalidProvider": "沙箱提供方不合法",
     "sandboxInvalidExternalId": "缺少沙箱实例标识",

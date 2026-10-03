@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
 import { getSandboxInstanceById } from "@/lib/db/sandbox-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementAdmin } from "@/lib/management/access";
+import { requireAdminRole } from "@/lib/admin/access";
 import { convertToUIMessages } from "@/lib/utils";
 
 /** Registered sandbox tasks are administrator-readable; normal chat APIs retain ownership checks. */
@@ -10,7 +10,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await requireManagementAdmin())) {
+  if (!(await requireAdminRole())) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
   const { id } = await params;

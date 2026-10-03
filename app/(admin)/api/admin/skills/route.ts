@@ -16,7 +16,7 @@ import {
 } from "@/lib/ai/skills";
 import { getUserById } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementAdmin } from "@/lib/management/access";
+import { requireAdminRole } from "@/lib/admin/access";
 
 function apiError(error: unknown, status = 400) {
   return Response.json(
@@ -26,7 +26,7 @@ function apiError(error: unknown, status = 400) {
 }
 
 export async function GET() {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
@@ -47,7 +47,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
@@ -168,7 +168,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }

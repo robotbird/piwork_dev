@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import {
   type SkillBrowseTarget,
   SkillContentBrowser,
-} from "@/components/management/skill-content-browser";
+} from "@/components/admin/skill-content-browser";
 import { usePreferences } from "@/components/preferences-provider";
 import {
   AlertDialog,

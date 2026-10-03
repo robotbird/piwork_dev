@@ -9,7 +9,7 @@
 
 export type RoleType = "system" | "custom";
 
-export type ManagementRole = {
+export type AdminRole = {
   /** 稳定标识；仅系统角色有值 */
   code: string | null;
   description: string | null;
@@ -32,7 +32,7 @@ export type RoleMemberOption = {
 
 export type RolesView = {
   members: RoleMemberOption[];
-  roles: ManagementRole[];
+  roles: AdminRole[];
 };
 
 /** 系统角色 code；自定义角色不占用 */
@@ -81,13 +81,13 @@ export const ROLE_TYPE_LABELS: Record<RoleType, string> = {
   system: "系统",
 };
 
-export function isSystemRole(role: Pick<ManagementRole, "type">): boolean {
+export function isSystemRole(role: Pick<AdminRole, "type">): boolean {
   return role.type === "system";
 }
 
 /** 该角色的成员变动会同步影响 Member.role（admin / member） */
 export function carriesAdminAccess(
-  role: Pick<ManagementRole, "code">
+  role: Pick<AdminRole, "code">
 ): boolean {
   return (
     role.code === SYSTEM_ROLE_CODES.admin ||

@@ -19,7 +19,7 @@ import {
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { EChartsChart } from "@/components/management/echarts-chart";
+import { EChartsChart } from "@/components/admin/echarts-chart";
 import { usePreferences } from "@/components/preferences-provider";
 import { getChartTheme } from "@/lib/chart-theme";
 import { cn } from "@/lib/utils";

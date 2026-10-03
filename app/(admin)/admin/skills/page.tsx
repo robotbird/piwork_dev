@@ -1,16 +1,16 @@
 import { Suspense } from "react";
-import { AdminSkillManager } from "@/components/management/admin-skill-manager";
+import { AdminSkillManager } from "@/components/admin/admin-skill-manager";
 import { loadManagedProjectSkillSummaries } from "@/lib/ai/managed-skills";
 
-export default function SkillsManagementPage() {
+export default function SkillsAdminPage() {
   return (
     <Suspense fallback={<div className="min-h-dvh bg-background" />}>
-      <SkillsManagementContent />
+      <SkillsAdminContent />
     </Suspense>
   );
 }
 
-async function SkillsManagementContent() {
+async function SkillsAdminContent() {
   const { skills } = await loadManagedProjectSkillSummaries();
 
   return <AdminSkillManager initialSkills={skills} />;

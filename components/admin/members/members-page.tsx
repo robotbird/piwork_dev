@@ -15,7 +15,7 @@ import {
   type DepartmentOption,
   MemberDialog,
   type MemberFormValues,
-} from "@/components/management/members/member-dialog";
+} from "@/components/admin/members/member-dialog";
 import { usePreferences } from "@/components/preferences-provider";
 import {
   AlertDialog,
@@ -34,11 +34,11 @@ import {
   getAvatarInitial,
   getAvatarTone,
   isLastEnabledAdmin,
-  type ManagementMember,
+  type AdminMember,
   type MemberStatus,
   ROLE_LABELS,
   STATUS_LABELS,
-} from "@/lib/management/members";
+} from "@/lib/admin/members";
 import { cn } from "@/lib/utils";
 
 type StatCardProps = {
@@ -80,11 +80,11 @@ function StatCard({
 }
 
 /** 成员展示名：旧账号可能没有姓名，回退到邮箱 */
-function displayName(member: ManagementMember): string {
+function displayName(member: AdminMember): string {
   return member.name?.trim() || member.email;
 }
 
-function MemberAvatar({ member }: { member: ManagementMember }) {
+function MemberAvatar({ member }: { member: AdminMember }) {
   const name = displayName(member);
   return (
     <span
@@ -99,7 +99,7 @@ function MemberAvatar({ member }: { member: ManagementMember }) {
   );
 }
 
-function RoleBadge({ role }: { role: ManagementMember["role"] }) {
+function RoleBadge({ role }: { role: AdminMember["role"] }) {
   const { t } = usePreferences();
   return (
     <span
@@ -138,10 +138,10 @@ function StatusBadge({ status }: { status: MemberStatus }) {
 
 type MemberRowProps = {
   isSelf: boolean;
-  member: ManagementMember;
-  onDeleteRequest: (member: ManagementMember) => void;
-  onEdit: (member: ManagementMember) => void;
-  onToggleStatus: (member: ManagementMember) => void;
+  member: AdminMember;
+  onDeleteRequest: (member: AdminMember) => void;
+  onEdit: (member: AdminMember) => void;
+  onToggleStatus: (member: AdminMember) => void;
 };
 
 function MemberRow({
@@ -255,7 +255,7 @@ function MemberRow({
 
 type MembersData = {
   departments: DepartmentOption[];
-  members: ManagementMember[];
+  members: AdminMember[];
 };
 
 async function requestJson(
@@ -272,12 +272,12 @@ async function requestJson(
     } | null;
     if (!response.ok) {
       return {
-        error: body?.error ?? "management.somethingWentWrongTryAgainLater",
+        error: body?.error ?? "admin.somethingWentWrongTryAgainLater",
       };
     }
     return { data: body };
   } catch {
-    return { error: "management.networkErrorTryAgainLater" };
+    return { error: "admin.networkErrorTryAgainLater" };
   }
 }
 
@@ -291,7 +291,7 @@ export function MembersPage({
   initialData: MembersData;
 }) {
   const { t } = usePreferences();
-  const [members, setMembers] = useState<ManagementMember[]>(
+  const [members, setMembers] = useState<AdminMember[]>(
     initialData.members
   );
   const [departments, setDepartments] = useState<DepartmentOption[]>(
@@ -300,10 +300,10 @@ export function MembersPage({
   const [loadFailed, setLoadFailed] = useState(false);
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingMember, setEditingMember] = useState<ManagementMember | null>(
+  const [editingMember, setEditingMember] = useState<AdminMember | null>(
     null
   );
-  const [deleteTarget, setDeleteTarget] = useState<ManagementMember | null>(
+  const [deleteTarget, setDeleteTarget] = useState<AdminMember | null>(
     null
   );
   const [deleting, setDeleting] = useState(false);
@@ -358,7 +358,7 @@ export function MembersPage({
   );
 
   const handleEditRequest = useCallback(
-    (member: ManagementMember) => setEditingMember(member),
+    (member: AdminMember) => setEditingMember(member),
     []
   );
 
@@ -425,7 +425,7 @@ export function MembersPage({
   );
 
   const handleToggleStatus = useCallback(
-    async (member: ManagementMember) => {
+    async (member: AdminMember) => {
       if (member.status === "enabled" && isLastEnabledAdmin(members, member)) {
         toast.error(
           t("members.atLeastOneEnabledAdministratorIsRequiredMessage")
@@ -464,7 +464,7 @@ export function MembersPage({
   );
 
   const handleDeleteRequest = useCallback(
-    (member: ManagementMember) => {
+    (member: AdminMember) => {
       if (isLastEnabledAdmin(members, member)) {
         toast.error(
           t("members.atLeastOneEnabledAdministratorIsRequiredAction")

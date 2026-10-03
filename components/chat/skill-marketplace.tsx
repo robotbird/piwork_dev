@@ -1,1 +1,1 @@
-export { SkillManager as SkillMarketplace } from "@/components/management/skill-manager";
+export { SkillManager as SkillMarketplace } from "@/components/admin/skill-manager";

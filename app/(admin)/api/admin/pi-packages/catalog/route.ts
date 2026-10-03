@@ -1,12 +1,12 @@
 import { getTranslations } from "next-intl/server";
 
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementAdmin } from "@/lib/management/access";
+import { requireAdminRole } from "@/lib/admin/access";
 import { searchPiPackageCatalog } from "@/lib/pi-packages/catalog";
 
 /** npm pi-package 目录搜索代理(pi.dev/packages 同源);仅管理员可用。 */
 export async function GET(request: Request) {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    const t = await getTranslations("managementApi");
+    const t = await getTranslations("adminApi");
     return Response.json(
       {
         detail: error instanceof Error ? error.message : undefined,

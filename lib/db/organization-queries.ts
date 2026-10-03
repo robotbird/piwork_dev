@@ -4,8 +4,8 @@ import { asc, count, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { ChatbotError } from "../errors";
-import type { ManagementMember } from "../management/members";
-import type { Department, MemberSummary } from "../management/organization";
+import type { AdminMember } from "../admin/members";
+import type { Department, MemberSummary } from "../admin/organization";
 import { getUserById } from "./queries";
 import {
   chat,
@@ -73,7 +73,7 @@ export type OrganizationView = {
 
 export type MembersView = {
   departments: DepartmentOption[];
-  members: ManagementMember[];
+  members: AdminMember[];
 };
 
 async function wrapDatabase<T>(operation: () => Promise<T>): Promise<T> {
@@ -377,10 +377,10 @@ function toDepartment(record: DepartmentRecord): Department {
   };
 }
 
-function toManagementMember(
+function toAdminMember(
   item: MemberWithUser,
   departmentNames: Map<string, string>
-): ManagementMember {
+): AdminMember {
   return {
     addedAt: item.createdAt.toISOString(),
     departmentId: item.departmentId,
@@ -423,6 +423,6 @@ export async function loadMembersView(): Promise<MembersView> {
       id: item.id,
       name: item.name,
     })),
-    members: members.map((item) => toManagementMember(item, departmentNames)),
+    members: members.map((item) => toAdminMember(item, departmentNames)),
   };
 }

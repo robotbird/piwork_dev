@@ -1,19 +1,19 @@
 import { getTranslations } from "next-intl/server";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementAdmin } from "@/lib/management/access";
-import { SandboxManagementError } from "@/lib/management/sandbox-service";
-import { getSandboxManagement } from "@/lib/management/sandboxes";
+import { requireAdminRole } from "@/lib/admin/access";
+import { SandboxAdminError } from "@/lib/admin/sandbox-service";
+import { getSandboxAdminService } from "@/lib/admin/sandboxes";
 
 function unauthorized() {
   return new ChatbotError("unauthorized:chat").toResponse();
 }
 
 async function errorResponse(error: unknown, status = 400) {
-  const t = await getTranslations("managementApi");
+  const t = await getTranslations("adminApi");
   return Response.json(
     {
       error:
-        error instanceof SandboxManagementError
+        error instanceof SandboxAdminError
           ? t(`sandbox${error.code[0].toUpperCase()}${error.code.slice(1)}`)
           : status === 400 && error instanceof Error
             ? error.message
@@ -28,14 +28,14 @@ const ACTIONS = new Set(["destroy", "renew"]);
 
 /** 管理端沙箱实例列表；仅管理员可用（opensandbox-integration-spec.md §6 管理功能） */
 export async function GET(request: Request) {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }
   try {
     const activeOnly =
       new URL(request.url).searchParams.get("activeOnly") === "1";
-    const all = await getSandboxManagement().list();
+    const all = await getSandboxAdminService().list();
     const instances = activeOnly
       ? all.filter((item) => !["destroyed", "expired"].includes(item.status))
       : all;
@@ -50,8 +50,8 @@ export async function GET(request: Request) {
 
 /** Authenticated lifecycle operations; persist only after provider success. */
 export async function POST(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementAdmin();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       return errorResponse(new Error(t("sandboxInvalidAction")));
     }
 
-    await getSandboxManagement().act(
+    await getSandboxAdminService().act(
       body.provider as "test" | "docker" | "opensandbox",
       body.externalId.trim(),
       body.action as "destroy" | "renew"
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return errorResponse(
       error,
-      error instanceof SandboxManagementError ? error.status : 503
+      error instanceof SandboxAdminError ? error.status : 503
     );
   }
 }

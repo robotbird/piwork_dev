@@ -51,7 +51,7 @@ import type {
   ModelPluginCatalogItem,
   ModelPluginInstallationView,
   ModelPluginsView,
-} from "@/lib/management/model-plugins";
+} from "@/lib/admin/model-plugins";
 import { cn } from "@/lib/utils";
 
 type CredentialValues = Record<string, string>;
@@ -68,10 +68,10 @@ async function requestJson(url: string, init?: RequestInit) {
     return response.ok
       ? { data: body }
       : {
-          error: body?.error ?? "management.somethingWentWrongTryAgainLater",
+          error: body?.error ?? "admin.somethingWentWrongTryAgainLater",
         };
   } catch {
-    return { error: "management.networkErrorTryAgainLater" };
+    return { error: "admin.networkErrorTryAgainLater" };
   }
 }
 
@@ -447,7 +447,7 @@ function ConfigureDialog({
                         {defaultModelId === model.modelId ? (
                           <CheckIcon className="size-3.5" />
                         ) : null}
-                        {t("management.defaultBadge")}
+                        {t("admin.defaultBadge")}
                       </Button>
                     </div>
                   );
@@ -749,7 +749,7 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                                   </p>
                                   {item.defaultModelId === model.modelId ? (
                                     <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
-                                      {t("management.defaultBadge")}
+                                      {t("admin.defaultBadge")}
                                     </span>
                                   ) : null}
                                 </div>
@@ -802,12 +802,12 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
               <div className="relative w-full sm:w-72">
                 <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -t-y-1/2 text-muted-foreground" />
                 <Input
-                  aria-label={t("management.searchProviders")}
+                  aria-label={t("admin.searchProviders")}
                   className="pl-9"
                   onChange={(event: ChangeEvent<HTMLInputElement>) =>
                     setQuery(event.currentTarget.value)
                   }
-                  placeholder={t("management.searchProviderNameOrDescription")}
+                  placeholder={t("admin.searchProviderNameOrDescription")}
                   type="search"
                   value={query}
                 />

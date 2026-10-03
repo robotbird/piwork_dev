@@ -7,14 +7,14 @@ import {
   updateMcpServer,
 } from "@/lib/db/mcp-server-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementAdmin } from "@/lib/management/access";
+import { requireAdminRole } from "@/lib/admin/access";
 
 function unauthorized() {
   return new ChatbotError("unauthorized:chat").toResponse();
 }
 
 async function errorResponse(error: unknown, status = 400) {
-  const t = await getTranslations("managementApi");
+  const t = await getTranslations("adminApi");
   return Response.json(
     { error: error instanceof Error ? error.message : t("operationFailed") },
     { status }
@@ -41,8 +41,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementAdmin();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }
@@ -181,8 +181,8 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementAdmin();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }

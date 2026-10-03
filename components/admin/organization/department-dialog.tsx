@@ -36,7 +36,7 @@ import {
   getDescendantIds,
   getMemberDisplayName,
   type MemberSummary,
-} from "@/lib/management/organization";
+} from "@/lib/admin/organization";
 
 export type DepartmentFormValues = {
   leaderId: string | null;

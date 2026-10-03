@@ -6,8 +6,8 @@ import {
   updatePluginInstallation,
 } from "@/lib/db/model-plugin-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementAdmin } from "@/lib/management/access";
-import { asProviderDefinition } from "@/lib/management/model-plugins";
+import { requireAdminRole } from "@/lib/admin/access";
+import { asProviderDefinition } from "@/lib/admin/model-plugins";
 import { getBuiltinPluginPackage } from "@/lib/model-plugins/builtin-catalog";
 import {
   decryptPluginCredentials,
@@ -25,7 +25,7 @@ function unauthorized() {
 }
 
 async function errorResponse(error: unknown, status = 400) {
-  const t = await getTranslations("managementApi");
+  const t = await getTranslations("adminApi");
   return Response.json(
     { error: error instanceof Error ? error.message : t("operationFailed") },
     { status }
@@ -41,9 +41,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ installationId: string }> }
 ) {
-  const t = await getTranslations("managementApi");
+  const t = await getTranslations("adminApi");
   const locale = await getLocale();
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }
@@ -154,8 +154,8 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ installationId: string }> }
 ) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementAdmin();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }

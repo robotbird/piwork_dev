@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SandboxInstanceView } from "../../../lib/db/sandbox-queries";
 import {
-  SandboxManagementError,
-  SandboxManagementService,
-} from "../../../lib/management/sandbox-service";
+  SandboxAdminError,
+  SandboxAdminService,
+} from "../../../lib/admin/sandbox-service";
 import type { SandboxControl } from "../../../lib/runtime/sandbox";
 
 function harness(overrides: Partial<SandboxControl> = {}) {
@@ -44,7 +44,7 @@ function harness(overrides: Partial<SandboxControl> = {}) {
     inspect: async () => ({ expiresAt: expiry, status: "ready" }),
     ...overrides,
   };
-  const service = new SandboxManagementService({
+  const service = new SandboxAdminService({
     control: () => control,
     get: async () => ({ ...row, updatedAt: new Date() }),
     list: async () => [{ ...row }],
@@ -122,7 +122,7 @@ test("missing instance / stopped container cannot be renewed", async () => {
   const h = harness({ inspect: async () => null });
   await assert.rejects(
     h.service.act("opensandbox", "sandbox", "renew"),
-    (error) => error instanceof SandboxManagementError && error.status === 409
+    (error) => error instanceof SandboxAdminError && error.status === 409
   );
 });
 test("overlapping refresh and destroy cannot revive a destroyed instance", async () => {

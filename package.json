@@ -21,7 +21,7 @@
     "plugin:package": "tsx scripts/package-plugin.mts",
     "plugin:verify": "tsx tests/integration/plugin-chain.mts",
     "test:unit": "node --conditions=react-server --import tsx --test tests/unit/ai/*.test.ts tests/unit/mcp/*.test.ts tests/unit/pi-packages/*.test.ts",
-    "test:runtime": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/*.test.ts tests/unit/runtime/backends/local-rpc/*.test.ts tests/unit/runtime/backends/sandbox-rpc/*.test.ts tests/unit/runtime/inference-proxy/*.test.ts tests/unit/runtime/run/*.test.ts tests/unit/runtime/sandbox/*.test.ts tests/unit/chat/*.test.ts tests/unit/management/*.test.ts",
+    "test:runtime": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/*.test.ts tests/unit/runtime/backends/local-rpc/*.test.ts tests/unit/runtime/backends/sandbox-rpc/*.test.ts tests/unit/runtime/inference-proxy/*.test.ts tests/unit/runtime/run/*.test.ts tests/unit/runtime/sandbox/*.test.ts tests/unit/chat/*.test.ts tests/unit/admin/*.test.ts",
     "test:runtime:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/*.test.ts",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test",
     "test:documents:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/library-queries.test.ts",

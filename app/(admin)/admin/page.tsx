@@ -1,5 +1,5 @@
-import { DashboardOverview } from "@/components/management/dashboard-overview";
+import { DashboardOverview } from "@/components/admin/dashboard-overview";
 
-export default function ManagementOverviewPage() {
+export default function AdminOverviewPage() {
   return <DashboardOverview />;
 }

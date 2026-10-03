@@ -23,10 +23,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  type ManagementRole,
+  type AdminRole,
   ROLE_DESCRIPTION_MAX_LENGTH,
   ROLE_NAME_MAX_LENGTH,
-} from "@/lib/management/roles";
+} from "@/lib/admin/roles";
 
 export type RoleFormValues = {
   description: string | null;
@@ -37,9 +37,9 @@ type FieldName = "name";
 
 type RoleDialogProps = {
   /** 待编辑角色；null 表示新建 */
-  role: ManagementRole | null;
+  role: AdminRole | null;
   /** 现有角色列表，用于名称唯一性校验 */
-  roles: readonly ManagementRole[];
+  roles: readonly AdminRole[];
   onClose: () => void;
   onSubmit: (values: RoleFormValues) => void;
   open: boolean;
@@ -53,7 +53,7 @@ export function RoleDialog({
   open,
 }: RoleDialogProps) {
   const { t } = usePreferences();
-  const intl = useTranslations("management");
+  const intl = useTranslations("admin");
   const isEdit = role !== null;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -79,7 +79,7 @@ export function RoleDialog({
       if (!trimmedName) {
         setError({
           field: "name",
-          message: t("management.enterARoleName"),
+          message: t("admin.enterARoleName"),
         });
         return;
       }
@@ -96,7 +96,7 @@ export function RoleDialog({
       if (duplicated) {
         setError({
           field: "name",
-          message: t("management.aRoleWithThisNameAlreadyExists"),
+          message: t("admin.aRoleWithThisNameAlreadyExists"),
         });
         return;
       }
@@ -148,18 +148,18 @@ export function RoleDialog({
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? t("management.editRole") : t("management.createRole")}
+            {isEdit ? t("admin.editRole") : t("admin.createRole")}
           </DialogTitle>
           <DialogDescription>
             {isEdit
-              ? t("management.updateTheNameAndDescriptionOfThis")
-              : t("management.afterCreatingACustomRoleAddMembers")}
+              ? t("admin.updateTheNameAndDescriptionOfThis")
+              : t("admin.afterCreatingACustomRoleAddMembers")}
           </DialogDescription>
         </DialogHeader>
 
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="grid gap-2">
-            <Label htmlFor="role-name">{t("management.name")}</Label>
+            <Label htmlFor="role-name">{t("admin.name")}</Label>
             <Input
               aria-describedby={
                 error?.field === "name" ? "role-name-error" : undefined
@@ -167,7 +167,7 @@ export function RoleDialog({
               aria-invalid={error?.field === "name" ? true : undefined}
               id="role-name"
               onChange={handleNameChange}
-              placeholder={t("management.forExampleSkillDeveloper")}
+              placeholder={t("admin.forExampleSkillDeveloper")}
               value={name}
             />
             {error?.field === "name" ? (
@@ -182,13 +182,13 @@ export function RoleDialog({
 
           <div className="grid gap-2">
             <Label htmlFor="role-description">
-              {t("management.description")}
+              {t("admin.description")}
             </Label>
             <Textarea
               id="role-description"
               onChange={handleDescriptionChange}
               placeholder={t(
-                "management.optionalBrieflyDescribeWhatThisRoleIs"
+                "admin.optionalBrieflyDescribeWhatThisRoleIs"
               )}
               rows={3}
               value={description}
@@ -205,7 +205,7 @@ export function RoleDialog({
               ) : (
                 <PlusIcon data-icon="inline-start" />
               )}
-              {isEdit ? t("common.saveChanges") : t("management.createRole")}
+              {isEdit ? t("common.saveChanges") : t("admin.createRole")}
             </Button>
           </DialogFooter>
         </form>

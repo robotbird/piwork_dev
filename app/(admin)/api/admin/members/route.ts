@@ -15,9 +15,9 @@ import {
   syncMembershipsForLegacyRole,
 } from "@/lib/db/role-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementSession } from "@/lib/management/access";
-import type { ManagementMember } from "@/lib/management/members";
-import { isValidEmail } from "@/lib/management/members";
+import { requireAdminSession } from "@/lib/admin/access";
+import type { AdminMember } from "@/lib/admin/members";
+import { isValidEmail } from "@/lib/admin/members";
 
 const MIN_PASSWORD_LENGTH = 6;
 
@@ -32,7 +32,7 @@ function unauthorized() {
 function serializeMember(
   memberRecord: MemberWithUser,
   departmentNames: Map<string, string>
-): ManagementMember {
+): AdminMember {
   return {
     addedAt: memberRecord.createdAt.toISOString(),
     departmentId: memberRecord.departmentId,
@@ -69,8 +69,8 @@ function parseStatus(value: unknown): "enabled" | "disabled" | null {
 }
 
 export async function GET() {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }
@@ -86,8 +86,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }
@@ -154,8 +154,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }
@@ -250,8 +250,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }

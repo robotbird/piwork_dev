@@ -1,7 +1,7 @@
 import { auth } from "@/app/(auth)/auth";
-import { MembersPage } from "@/components/management/members/members-page";
-import { OrganizationPage } from "@/components/management/organization/organization-page";
-import { RolesPage } from "@/components/management/roles/roles-page";
+import { MembersPage } from "@/components/admin/members/members-page";
+import { OrganizationPage } from "@/components/admin/organization/organization-page";
+import { RolesPage } from "@/components/admin/roles/roles-page";
 import {
   ensureMemberForUserId,
   loadMembersView,
@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/organization-queries";
 import { loadRolesView } from "@/lib/db/role-queries";
 
-export default async function OrganizationManagementPage({
+export default async function OrganizationAdminPage({
   searchParams,
 }: {
   searchParams: Promise<{ view?: string | string[] }>;

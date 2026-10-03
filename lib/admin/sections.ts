@@ -7,7 +7,7 @@ import {
   WrenchIcon,
 } from "lucide-react";
 
-export type ManagementSection = {
+export type AdminSection = {
   /** 路由路径，同时作为导航激活匹配前缀 */
   href: string;
   /** 分类名称 */
@@ -23,7 +23,7 @@ export type ManagementSection = {
   ready?: boolean;
 };
 
-const SKILL_SECTION: ManagementSection = {
+const SKILL_SECTION: AdminSection = {
   description: "沉淀企业级技能资产，让智能体能力可上传、可共享、可复用。",
   features: ["技能库浏览", "创建与上传", "分发复用"],
   href: "/admin/skills",
@@ -33,7 +33,7 @@ const SKILL_SECTION: ManagementSection = {
   title: "Skill管理",
 };
 
-const TOOL_SECTION: ManagementSection = {
+const TOOL_SECTION: AdminSection = {
   description: "统一接入与管理 MCP 服务、API 与插件，扩展智能体的能力边界。",
   features: ["MCP 服务", "API 接入", "插件管理"],
   href: "/admin/tools",
@@ -43,7 +43,7 @@ const TOOL_SECTION: ManagementSection = {
   title: "工具管理",
 };
 
-const DATA_SECTION: ManagementSection = {
+const DATA_SECTION: AdminSection = {
   description: "管理企业知识库、数据库与企业文档，为智能体回答提供数据支撑。",
   features: ["知识库", "数据库", "企业文档"],
   href: "/admin/data",
@@ -52,7 +52,7 @@ const DATA_SECTION: ManagementSection = {
   title: "数据管理",
 };
 
-const MODEL_SECTION: ManagementSection = {
+const MODEL_SECTION: AdminSection = {
   description: "统一接入多模型与企业私有模型，管理模型的可用性与配置。",
   features: ["多模型接入", "私有模型", "接入配置"],
   href: "/admin/models",
@@ -62,7 +62,7 @@ const MODEL_SECTION: ManagementSection = {
   title: "模型管理",
 };
 
-const ORGANIZATION_SECTION: ManagementSection = {
+const ORGANIZATION_SECTION: AdminSection = {
   description: "维护组织架构与成员，配置角色与访问权限。",
   features: ["组织架构", "成员管理", "角色与权限"],
   href: "/admin/organization",
@@ -71,16 +71,16 @@ const ORGANIZATION_SECTION: ManagementSection = {
   title: "组织与用户",
 };
 
-export type ManagementNavGroup = {
+export type AdminNavGroup = {
   /** 组内导航项 */
-  items: ManagementSection[];
+  items: AdminSection[];
 };
 
 /**
  * 侧边栏导航分组：组与组之间以细分隔线区隔（参考 Codex 设置界面）。
  * 第一组为智能体能力资源，第二组为组织与账户。
  */
-export const MANAGEMENT_NAV_GROUPS: ManagementNavGroup[] = [
+export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     items: [SKILL_SECTION, TOOL_SECTION, DATA_SECTION, MODEL_SECTION],
   },
@@ -89,11 +89,11 @@ export const MANAGEMENT_NAV_GROUPS: ManagementNavGroup[] = [
   },
 ];
 
-export const MANAGEMENT_SECTIONS: ManagementSection[] =
-  MANAGEMENT_NAV_GROUPS.flatMap((group) => group.items);
+export const ADMIN_SECTIONS: AdminSection[] =
+  ADMIN_NAV_GROUPS.flatMap((group) => group.items);
 
-export function getManagementSection(href: string): ManagementSection {
-  const section = MANAGEMENT_SECTIONS.find((item) => item.href === href);
+export function getAdminSection(href: string): AdminSection {
+  const section = ADMIN_SECTIONS.find((item) => item.href === href);
 
   if (!section) {
     throw new Error(`Unknown management section: ${href}`);

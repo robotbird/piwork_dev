@@ -14,8 +14,8 @@ import { toast } from "sonner";
 import {
   RoleDialog,
   type RoleFormValues,
-} from "@/components/management/roles/role-dialog";
-import { RoleMembersDialog } from "@/components/management/roles/role-members-dialog";
+} from "@/components/admin/roles/role-dialog";
+import { RoleMembersDialog } from "@/components/admin/roles/role-members-dialog";
 import { usePreferences } from "@/components/preferences-provider";
 import {
   AlertDialog,
@@ -37,13 +37,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import type {
-  ManagementRole,
+  AdminRole,
   RoleMemberOption,
   RolesView,
-} from "@/lib/management/roles";
+} from "@/lib/admin/roles";
 import { cn } from "@/lib/utils";
 
-function RoleTypeBadge({ type }: { type: ManagementRole["type"] }) {
+function RoleTypeBadge({ type }: { type: AdminRole["type"] }) {
   const { t } = usePreferences();
   return (
     <span
@@ -56,22 +56,22 @@ function RoleTypeBadge({ type }: { type: ManagementRole["type"] }) {
     >
       {t(
         type === "system"
-          ? "management.systemRoleType"
-          : "management.customRoleType"
+          ? "admin.systemRoleType"
+          : "admin.customRoleType"
       )}
     </span>
   );
 }
 
 type RoleRowProps = {
-  onEdit: (role: ManagementRole) => void;
-  onDeleteRequest: (role: ManagementRole) => void;
-  onView: (role: ManagementRole) => void;
-  role: ManagementRole;
+  onEdit: (role: AdminRole) => void;
+  onDeleteRequest: (role: AdminRole) => void;
+  onView: (role: AdminRole) => void;
+  role: AdminRole;
 };
 
 function RoleRow({ onEdit, onDeleteRequest, onView, role }: RoleRowProps) {
-  const intl = useTranslations("management");
+  const intl = useTranslations("admin");
   const { t } = usePreferences();
   const isSystem = role.type === "system";
 
@@ -116,21 +116,21 @@ function RoleRow({ onEdit, onDeleteRequest, onView, role }: RoleRowProps) {
             <DropdownMenuContent align="end" className="min-w-36">
               <DropdownMenuItem onClick={handleViewClick}>
                 <ShieldCheckIcon />
-                {t("management.manageMembers")}
+                {t("admin.manageMembers")}
               </DropdownMenuItem>
               {isSystem ? null : (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleEditClick}>
                     <PencilIcon />
-                    {t("management.editRole")}
+                    {t("admin.editRole")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleDeleteClick}
                     variant="destructive"
                   >
                     <Trash2Icon />
-                    {t("management.deleteRole")}
+                    {t("admin.deleteRole")}
                   </DropdownMenuItem>
                 </>
               )}
@@ -156,12 +156,12 @@ async function requestJson(
     } | null;
     if (!response.ok) {
       return {
-        error: body?.error ?? "management.somethingWentWrongTryAgainLater",
+        error: body?.error ?? "admin.somethingWentWrongTryAgainLater",
       };
     }
     return { data: body };
   } catch {
-    return { error: "management.networkErrorTryAgainLater" };
+    return { error: "admin.networkErrorTryAgainLater" };
   }
 }
 
@@ -171,18 +171,18 @@ export function RolesPage({
   /** 服务端直出的角色列表与成员候选，变更后经接口刷新 */
   initialData: RolesView;
 }) {
-  const intl = useTranslations("management");
+  const intl = useTranslations("admin");
   const { t } = usePreferences();
-  const [roles, setRoles] = useState<ManagementRole[]>(initialData.roles);
+  const [roles, setRoles] = useState<AdminRole[]>(initialData.roles);
   const [members, setMembers] = useState<RoleMemberOption[]>(
     initialData.members
   );
   const [loadFailed, setLoadFailed] = useState(false);
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingRole, setEditingRole] = useState<ManagementRole | null>(null);
-  const [viewingRole, setViewingRole] = useState<ManagementRole | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<ManagementRole | null>(null);
+  const [editingRole, setEditingRole] = useState<AdminRole | null>(null);
+  const [viewingRole, setViewingRole] = useState<AdminRole | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminRole | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const refresh = useCallback(async (): Promise<RolesView | null> => {
@@ -229,15 +229,15 @@ export function RolesPage({
 
   const handleCreateOpen = useCallback(() => setCreateOpen(true), []);
 
-  const handleViewRequest = useCallback((role: ManagementRole) => {
+  const handleViewRequest = useCallback((role: AdminRole) => {
     setViewingRole(role);
   }, []);
 
-  const handleEditRequest = useCallback((role: ManagementRole) => {
+  const handleEditRequest = useCallback((role: AdminRole) => {
     setEditingRole(role);
   }, []);
 
-  const handleDeleteRequest = useCallback((role: ManagementRole) => {
+  const handleDeleteRequest = useCallback((role: AdminRole) => {
     setDeleteTarget(role);
   }, []);
 
@@ -246,7 +246,7 @@ export function RolesPage({
     setEditingRole(null);
   }, []);
 
-  const handleMembersSaved = useCallback((updated: ManagementRole) => {
+  const handleMembersSaved = useCallback((updated: AdminRole) => {
     setRoles((current) =>
       current.map((role) => (role.id === updated.id ? updated : role))
     );
@@ -336,10 +336,10 @@ export function RolesPage({
           <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-                {t("management.rolesPermissions")}
+                {t("admin.rolesPermissions")}
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                {t("management.createAndManageRolesAndAssignMembers")}
+                {t("admin.createAndManageRolesAndAssignMembers")}
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -349,17 +349,17 @@ export function RolesPage({
                   className="pointer-events-none absolute top-1/2 left-3 size-4 -t-y-1/2 text-muted-foreground/65"
                 />
                 <Input
-                  aria-label={t("management.searchRoles")}
+                  aria-label={t("admin.searchRoles")}
                   className="pl-9"
                   onChange={handleQueryChange}
-                  placeholder={t("management.searchNameOrDescription")}
+                  placeholder={t("admin.searchNameOrDescription")}
                   type="search"
                   value={query}
                 />
               </div>
               <Button className="shrink-0" onClick={handleCreateOpen}>
                 <PlusIcon data-icon="inline-start" />
-                {t("management.createRole")}
+                {t("admin.createRole")}
               </Button>
             </div>
           </header>
@@ -367,19 +367,19 @@ export function RolesPage({
           <div className="mt-8 overflow-hidden rounded-[14px] border border-border bg-card">
             <div className="overflow-x-auto">
               <table
-                aria-label={t("management.roleList")}
+                aria-label={t("admin.roleList")}
                 className="w-full min-w-[720px] text-left text-sm"
               >
                 <thead className="bg-muted/50 text-[13px] text-muted-foreground">
                   <tr>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {t("management.name")}
+                      {t("admin.name")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {t("management.description")}
+                      {t("admin.description")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
-                      {t("management.members")}
+                      {t("admin.members")}
                     </th>
                     <th className="h-10 px-4 font-medium" scope="col">
                       {t("common.type")}
@@ -399,7 +399,7 @@ export function RolesPage({
                         className="px-4 py-10 text-center text-sm text-muted-foreground"
                         colSpan={5}
                       >
-                        {t("management.failedToLoadRoles")}
+                        {t("admin.failedToLoadRoles")}
                         <Button
                           className="mt-3"
                           onClick={handleRetry}
@@ -427,8 +427,8 @@ export function RolesPage({
                         colSpan={5}
                       >
                         {roles.length > 0
-                          ? t("management.noMatchingRoles")
-                          : t("management.noRolesYetSystemRolesAreCreated")}
+                          ? t("admin.noMatchingRoles")
+                          : t("admin.noRolesYetSystemRolesAreCreated")}
                       </td>
                     </tr>
                   )}
@@ -462,7 +462,7 @@ export function RolesPage({
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t("management.confirmDeleteRole")}
+              {t("admin.confirmDeleteRole")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {intl("deleteRoleDescription", {

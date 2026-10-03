@@ -25,7 +25,7 @@ import {
 import { guestRegex } from "@/lib/constants";
 
 type UserNavProps = {
-  area: "app" | "management";
+  area: "app" | "admin";
   user: { email?: string | null; name?: string | null };
 };
 
@@ -41,7 +41,7 @@ export function UserNav({ area, user }: UserNavProps) {
   const initial = isGuest
     ? "R"
     : (user.email?.[0] ?? displayName[0] ?? "R").toUpperCase();
-  const testIdPrefix = area === "app" ? "user-nav" : "management-user-nav";
+  const testIdPrefix = area === "app" ? "user-nav" : "admin-user-nav";
 
   const handleThemeSelect = useCallback(() => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -72,7 +72,7 @@ export function UserNav({ area, user }: UserNavProps) {
               <span
                 className="truncate text-sm"
                 data-testid={
-                  area === "app" ? "user-email" : "management-user-name"
+                  area === "app" ? "user-email" : "admin-user-name"
                 }
               >
                 {displayName}
@@ -85,7 +85,7 @@ export function UserNav({ area, user }: UserNavProps) {
             data-testid={`${testIdPrefix}-menu`}
             side="top"
           >
-            {area === "management" ? (
+            {area === "admin" ? (
               <DropdownMenuItem asChild>
                 <Link className="cursor-pointer gap-2 text-sm" href="/">
                   <ArrowLeftIcon className="size-3.5" />
@@ -96,15 +96,15 @@ export function UserNav({ area, user }: UserNavProps) {
               <DropdownMenuItem asChild>
                 <Link
                   className="cursor-pointer gap-2 text-sm"
-                  data-testid="user-nav-item-management"
+                  data-testid="user-nav-item-admin"
                   href="/admin/skills"
                 >
                   <Settings2Icon className="size-3.5" />
-                  {t("chat.management")}
+                  {t("chat.admin")}
                 </Link>
               </DropdownMenuItem>
             )}
-            {area === "management" || !isGuest ? (
+            {area === "admin" || !isGuest ? (
               <DropdownMenuSeparator />
             ) : null}
             <DropdownMenuItem

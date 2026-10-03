@@ -4,7 +4,7 @@ import { listPluginInstallations } from "@/lib/db/model-plugin-queries";
 import {
   asProviderDefinition,
   type ModelPluginsView,
-} from "@/lib/management/model-plugins";
+} from "@/lib/admin/model-plugins";
 
 import { loadBuiltinPluginCatalog } from "./builtin-catalog";
 import { pickLocalizedText } from "./registry";

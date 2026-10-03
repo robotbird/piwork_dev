@@ -10,9 +10,9 @@ import {
   updateDepartmentRecord,
 } from "@/lib/db/organization-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementSession } from "@/lib/management/access";
-import type { Department, MemberSummary } from "@/lib/management/organization";
-import { getDescendantIds } from "@/lib/management/organization";
+import { requireAdminSession } from "@/lib/admin/access";
+import type { Department, MemberSummary } from "@/lib/admin/organization";
+import { getDescendantIds } from "@/lib/admin/organization";
 
 const MAX_DEPARTMENT_NAME_LENGTH = 128;
 
@@ -63,8 +63,8 @@ function serializeDepartment(record: {
 }
 
 export async function GET() {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }
@@ -80,8 +80,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }
@@ -123,8 +123,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }
@@ -193,8 +193,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }

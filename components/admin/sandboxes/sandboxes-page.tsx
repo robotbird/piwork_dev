@@ -379,7 +379,7 @@ export function SandboxesPage({
         const body = (await response.json()) as { error?: string };
         if (!response.ok) {
           throw new Error(
-            body.error || t("management.somethingWentWrongTryAgainLater")
+            body.error || t("admin.somethingWentWrongTryAgainLater")
           );
         }
         if (action === "destroy") {
@@ -406,7 +406,7 @@ export function SandboxesPage({
         toast.error(
           error instanceof Error
             ? error.message
-            : t("management.networkErrorTryAgainLater")
+            : t("admin.networkErrorTryAgainLater")
         );
       } finally {
         mutation.current = false;
@@ -508,7 +508,7 @@ export function SandboxesPage({
         <div>
           <h1 className="text-[30px] font-semibold tracking-tight">Sandbox</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("management.sandboxManagementDescription")}
+            {t("admin.sandboxManagementDescription")}
           </p>
         </div>
         <Button

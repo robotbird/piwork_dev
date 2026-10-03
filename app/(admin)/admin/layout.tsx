@@ -2,9 +2,9 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Toaster } from "sonner";
 import { auth } from "@/app/(auth)/auth";
-import { ManagementSidebar } from "@/components/management/management-sidebar";
+import { AdminSidebar } from "@/components/admin/admin-sidebar";
 
-export default function ManagementLayout({
+export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -12,7 +12,7 @@ export default function ManagementLayout({
   return (
     <>
       <Suspense fallback={<div className="min-h-dvh bg-background" />}>
-        <AuthenticatedManagement>{children}</AuthenticatedManagement>
+        <AuthenticatedAdmin>{children}</AuthenticatedAdmin>
       </Suspense>
       <Toaster
         position="top-center"
@@ -26,7 +26,7 @@ export default function ManagementLayout({
   );
 }
 
-async function AuthenticatedManagement({
+async function AuthenticatedAdmin({
   children,
 }: {
   children: React.ReactNode;
@@ -38,8 +38,8 @@ async function AuthenticatedManagement({
   }
 
   return (
-    <div className="openai-management flex min-h-dvh w-full flex-col bg-background text-foreground md:flex-row">
-      <ManagementSidebar
+    <div className="openai-admin flex min-h-dvh w-full flex-col bg-background text-foreground md:flex-row">
+      <AdminSidebar
         user={{ email: session.user.email, name: session.user.name }}
       />
       <div className="min-w-0 flex-1">{children}</div>

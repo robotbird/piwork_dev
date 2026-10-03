@@ -83,10 +83,10 @@ async function requestJson(url: string, init?: RequestInit) {
     return response.ok
       ? { data: body }
       : {
-          error: body?.error ?? "management.somethingWentWrongTryAgainLater",
+          error: body?.error ?? "admin.somethingWentWrongTryAgainLater",
         };
   } catch {
-    return { error: "management.networkErrorTryAgainLater" };
+    return { error: "admin.networkErrorTryAgainLater" };
   }
 }
 
@@ -440,10 +440,10 @@ export function PiPackagesPage({
       <div className="mx-auto max-w-[960px]">
         <header>
           <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-            {t("management.piPluginsTitle")}
+            {t("admin.piPluginsTitle")}
           </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {t("management.piPluginsDescription")}
+            {t("admin.piPluginsDescription")}
           </p>
         </header>
 

@@ -81,10 +81,10 @@ async function requestJson(url: string, init?: RequestInit) {
     return response.ok
       ? { data: body }
       : {
-          error: body?.error ?? "management.somethingWentWrongTryAgainLater",
+          error: body?.error ?? "admin.somethingWentWrongTryAgainLater",
         };
   } catch {
-    return { error: "management.networkErrorTryAgainLater" };
+    return { error: "admin.networkErrorTryAgainLater" };
   }
 }
 
@@ -281,10 +281,10 @@ export function McpServersPage({
         <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-              {t("management.mcpServicesTitle")}
+              {t("admin.mcpServicesTitle")}
             </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              {t("management.mcpServicesDescription")}
+              {t("admin.mcpServicesDescription")}
             </p>
           </div>
           <Button className="w-fit px-4" onClick={handleCreate}>

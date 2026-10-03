@@ -25,10 +25,10 @@ import {
   getRoleAvatarInitial,
   getRoleAvatarTone,
   getRoleMemberDisplayName,
-  type ManagementRole,
+  type AdminRole,
   type RoleMemberOption,
   SYSTEM_ROLE_CODES,
-} from "@/lib/management/roles";
+} from "@/lib/admin/roles";
 import { cn } from "@/lib/utils";
 
 type RoleMembersDialogProps = {
@@ -36,9 +36,9 @@ type RoleMembersDialogProps = {
   /** 关闭并清空查看中的角色 */
   onClose: () => void;
   /** 成员保存成功后回传最新的角色视图，用于刷新列表与弹窗内容 */
-  onSaved: (role: ManagementRole) => void;
+  onSaved: (role: AdminRole) => void;
   open: boolean;
-  role: ManagementRole | null;
+  role: AdminRole | null;
 };
 
 function MemberAvatar({ name }: { name: string }) {
@@ -126,7 +126,7 @@ function MemberChip({
   removing,
   showRemove,
 }: MemberChipProps) {
-  const intl = useTranslations("management");
+  const intl = useTranslations("admin");
   const displayName = getRoleMemberDisplayName(member);
   const handleRemoveClick = useCallback(
     () => onRemove(member.id),
@@ -167,7 +167,7 @@ export function RoleMembersDialog({
   open,
   role,
 }: RoleMembersDialogProps) {
-  const intl = useTranslations("management");
+  const intl = useTranslations("admin");
   const { t } = usePreferences();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -258,23 +258,23 @@ export function RoleMembersDialog({
           }
         );
         const body = (await response.json().catch(() => null)) as
-          | ManagementRole
+          | AdminRole
           | { error?: string }
           | null;
         if (!response.ok) {
           const error =
             body && "error" in body && body.error
               ? body.error
-              : t("management.somethingWentWrongTryAgainLater");
+              : t("admin.somethingWentWrongTryAgainLater");
           toast.error(t(error));
           return;
         }
-        const updated = body as ManagementRole;
+        const updated = body as AdminRole;
         onSaved(updated);
         setPickerOpen(false);
         toast.success(intl("roleMembersUpdated", { name: updated.name }));
       } catch {
-        toast.error(t("management.networkErrorTryAgainLater"));
+        toast.error(t("admin.networkErrorTryAgainLater"));
       } finally {
         setSaving(false);
       }
@@ -325,15 +325,15 @@ export function RoleMembersDialog({
             >
               {t(
                 role.type === "system"
-                  ? "management.systemRoleType"
-                  : "management.customRoleType"
+                  ? "admin.systemRoleType"
+                  : "admin.customRoleType"
               )}
             </span>
           </DialogTitle>
           <DialogDescription>
             {role.description
               ? role.description
-              : t("management.noDescriptionYet")}
+              : t("admin.noDescriptionYet")}
           </DialogDescription>
         </DialogHeader>
 
@@ -342,19 +342,19 @@ export function RoleMembersDialog({
             label={t("common.type")}
             value={t(
               role.type === "system"
-                ? "management.systemRoleType"
-                : "management.customRoleType"
+                ? "admin.systemRoleType"
+                : "admin.customRoleType"
             )}
           />
           <InfoCell
-            label={t("management.members")}
+            label={t("admin.members")}
             value={intl("memberCount", { count: roleMembers.length })}
           />
           <InfoCell
-            label={t("management.memberLimit")}
+            label={t("admin.memberLimit")}
             value={
               role.memberLimit === null
-                ? t("management.unlimited")
+                ? t("admin.unlimited")
                 : intl("memberCount", { count: role.memberLimit })
             }
           />
@@ -363,7 +363,7 @@ export function RoleMembersDialog({
         <section className="min-w-0">
           <div className="flex items-center justify-between">
             <h3 className="text-[15px] leading-6 font-semibold">
-              {t("management.roleMembers")}
+              {t("admin.roleMembers")}
             </h3>
             {pickerOpen ? null : (
               <Button
@@ -372,7 +372,7 @@ export function RoleMembersDialog({
                 size="sm"
                 variant="outline"
               >
-                {t("management.selectMembers")}
+                {t("admin.selectMembers")}
               </Button>
             )}
           </div>
@@ -382,7 +382,7 @@ export function RoleMembersDialog({
               <div className="border-b border-border/70 p-2.5">
                 {singleMemberMode ? (
                   <p className="px-1 pb-2 text-[12px] leading-5 text-muted-foreground">
-                    {t("management.thisRoleAllowsExactlyOneMemberSaving")}
+                    {t("admin.thisRoleAllowsExactlyOneMemberSaving")}
                   </p>
                 ) : null}
                 <div className="relative">
@@ -420,8 +420,8 @@ export function RoleMembersDialog({
                 <span className="text-[13px] leading-5 text-muted-foreground">
                   {singleMemberMode
                     ? selected.size === 1
-                      ? t("management.oneMemberSelected")
-                      : t("management.noMemberSelected")
+                      ? t("admin.oneMemberSelected")
+                      : t("admin.noMemberSelected")
                     : intl("selectedMemberCount", { count: selected.size })}
                 </span>
                 <div className="flex items-center gap-2">
@@ -438,7 +438,7 @@ export function RoleMembersDialog({
                     onClick={handlePickerSubmit}
                     size="sm"
                   >
-                    {saving ? t("management.saving") : t("management.save")}
+                    {saving ? t("admin.saving") : t("admin.save")}
                   </Button>
                 </div>
               </div>
@@ -459,15 +459,15 @@ export function RoleMembersDialog({
             <div className="mt-3 flex min-h-20 items-center justify-center gap-2 rounded-[10px] border border-dashed border-border bg-card text-sm text-muted-foreground">
               <UserRoundIcon aria-hidden="true" className="size-4" />
               {isSuperAdmin
-                ? t("management.noSuperAdministratorAssignedYetSelectA")
-                : t("management.noMembersYetClickSelectMembersTo")}
+                ? t("admin.noSuperAdministratorAssignedYetSelectA")
+                : t("admin.noMembersYetClickSelectMembersTo")}
             </div>
           )}
         </section>
 
         <DialogFooter className="mt-1">
           <Button onClick={onClose} variant="outline">
-            {t("management.close")}
+            {t("admin.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -4,7 +4,7 @@
 
 - HTTP 路由和页面放在 `app/`；路由负责解析输入、鉴权和调用业务层。聊天运行控制放在 `lib/runtime/run`，后端实现放在 `lib/runtime/backends`，Pi 会话与资源装配放在 `lib/ai`。
 - 平台与 Pi 的边界先扩展 `lib/runtime/protocol`，再改后端和 UI 映射；不要让页面或组件直接解析 Pi 内部事件。
-- 数据结构/迁移归 `lib/db/schema.ts` 与 `lib/db/migrations`；数据访问归 `lib/db/*-queries.ts`。管理业务规则归 `lib/management`。
+- 数据结构/迁移归 `lib/db/schema.ts` 与 `lib/db/migrations`；数据访问归 `lib/db/*-queries.ts`。管理业务规则归 `lib/admin`。
 - Pi 官方已有的会话、工具、状态或包管理能力应优先复用；修改 Pi 集成前按 [AGENTS.md](../AGENTS.md) 核对当前安装版本的官方资料。
 
 ## 测试目录
@@ -80,7 +80,7 @@ pnpm plugin:verify     # 模型插件链路验证
 ## 沙箱管理 MVP 验证（2026-10-03）
 
 - `pnpm db:migrate` 应用 `0016`（runtimeConfig 创建快照），旧实例不虚构额度或安全配置。
-- `pnpm test:runtime` 包含 `tests/unit/management/sandbox-service.test.ts`：刷新与销毁串行、服务故障不误标 destroyed、续期/销毁成功后落库；OpenSandbox 单测增加生命周期 Manager、传输释放与延期语义。`tests/unit/runtime/run/run-manager.test.ts` 验证 expectedRunId 不误停新 run；`pnpm test:runtime:db` 验证 UTC 到期往返、延长不被自动续期缩短、终态不被迟到刷新复活。
+- `pnpm test:runtime` 包含 `tests/unit/admin/sandbox-service.test.ts`：刷新与销毁串行、服务故障不误标 destroyed、续期/销毁成功后落库；OpenSandbox 单测增加生命周期 Manager、传输释放与延期语义。`tests/unit/runtime/run/run-manager.test.ts` 验证 expectedRunId 不误停新 run；`pnpm test:runtime:db` 验证 UTC 到期往返、延长不被自动续期缩短、终态不被迟到刷新复活。
 - 先启动 `pnpm dev`，再运行 `pnpm test:sandboxes:http`：需本机 Docker 和 `pi-runtime:dev` 镜像，使用独立管理员/聊天所有者，验证真实容器状态、外部暂停、续期、真实销毁、幂等、管理员鉴权、关联任务只读与跨聊天拒绝。仅创建/清理自己的测试容器及账号；默认自动清理。可设 `SANDBOX_TEST_URL`。脚本是 `tests/e2e/sandboxes-http.mts`，不纳入 Playwright 自动收集。
 - `tests/e2e/sandboxes.test.ts` 验证权限、搜索/筛选与详情；测试 Provider 行只作为历史记录，不提供真实生命周期操作，不再用数据库标记伪装容器销毁。
 - 手工验收：管理员打开 `/admin/sandboxes` → 发起开启执行工具的聊天 → 列表自动出现实例 → 打开详情 → 通过 Run ID 搜索 → 延长 1 小时并核对到期时间 → “查看任务”以只读查看关联聊天 → 确认销毁，检查 OpenSandbox/Docker 中容器消失。run 默认完成即销毁，因此运行中观察要在任务结束前完成。OpenSandbox 真实链路仍需环境中的 server 地址/密钥及 Inference Proxy；不以 Docker 联调替代 OpenSandbox 真实验收。

@@ -1,6 +1,6 @@
 import { listProjectSkillFiles, readProjectSkillFile } from "@/lib/ai/skills";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementAdmin } from "@/lib/management/access";
+import { requireAdminRole } from "@/lib/admin/access";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
@@ -8,7 +8,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ name: string }> }
 ) {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }

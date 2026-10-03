@@ -12,10 +12,10 @@ export type ManagedSandboxView = SandboxInstanceView & {
   controllable: boolean;
 };
 
-export class SandboxManagementError extends Error {
+export class SandboxAdminError extends Error {
   readonly code: "notFound" | "unavailable" | "notRenewable";
   readonly status: number;
-  constructor(code: SandboxManagementError["code"], status: number) {
+  constructor(code: SandboxAdminError["code"], status: number) {
     super(code);
     this.code = code;
     this.status = status;
@@ -42,7 +42,7 @@ type Dependencies = {
 };
 
 /** Admin orchestration. Providers own infrastructure; DB queries own persistence. */
-export class SandboxManagementService {
+export class SandboxAdminService {
   private readonly pending = new Map<string, Promise<unknown>>();
   private readonly deps: Dependencies;
   constructor(deps: Dependencies) {
@@ -132,14 +132,14 @@ export class SandboxManagementService {
     return this.exclusive(`${provider}:${externalId}`, async () => {
       const row = await this.deps.get(provider, externalId);
       if (!row) {
-        throw new SandboxManagementError("notFound", 404);
+        throw new SandboxAdminError("notFound", 404);
       }
       if (action === "destroy" && row.status === "destroyed") {
         return;
       }
       const control = this.deps.control(provider);
       if (!control) {
-        throw new SandboxManagementError("unavailable", 503);
+        throw new SandboxAdminError("unavailable", 503);
       }
       if (action === "destroy") {
         await this.deps.stopRun(row.chatId, row.lastRunId);
@@ -148,11 +148,11 @@ export class SandboxManagementService {
         return;
       }
       if (row.status === "destroyed") {
-        throw new SandboxManagementError("notRenewable", 409);
+        throw new SandboxAdminError("notRenewable", 409);
       }
       const live = await control.inspect(externalId);
       if (!live || !["ready", "paused"].includes(live.status)) {
-        throw new SandboxManagementError("notRenewable", 409);
+        throw new SandboxAdminError("notRenewable", 409);
       }
       const observation: SandboxObservation = await control.extend(
         externalId,

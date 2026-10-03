@@ -9,11 +9,11 @@ import {
   updateRoleRecord,
 } from "@/lib/db/role-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementSession } from "@/lib/management/access";
+import { requireAdminSession } from "@/lib/admin/access";
 import {
   ROLE_DESCRIPTION_MAX_LENGTH,
   ROLE_NAME_MAX_LENGTH,
-} from "@/lib/management/roles";
+} from "@/lib/admin/roles";
 
 function apiError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -46,8 +46,8 @@ function parseRoleInput(
 }
 
 export async function GET() {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }
@@ -63,8 +63,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }
@@ -92,8 +92,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }
@@ -137,8 +137,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementSession();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminSession();
   if (!session) {
     return unauthorized();
   }

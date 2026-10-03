@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import {
   DepartmentDialog,
   type DepartmentFormValues,
-} from "@/components/management/organization/department-dialog";
+} from "@/components/admin/organization/department-dialog";
 import { usePreferences } from "@/components/preferences-provider";
 import {
   AlertDialog,
@@ -42,7 +42,7 @@ import {
   type DepartmentNode,
   getMemberDisplayName,
   type MemberSummary,
-} from "@/lib/management/organization";
+} from "@/lib/admin/organization";
 import { cn } from "@/lib/utils";
 
 /** 成员超过该数量时折叠，显示「···」展开按钮 */
@@ -172,12 +172,12 @@ async function requestJson(
     } | null;
     if (!response.ok) {
       return {
-        error: body?.error ?? "management.somethingWentWrongTryAgainLater",
+        error: body?.error ?? "admin.somethingWentWrongTryAgainLater",
       };
     }
     return { data: body };
   } catch {
-    return { error: "management.networkErrorTryAgainLater" };
+    return { error: "admin.networkErrorTryAgainLater" };
   }
 }
 

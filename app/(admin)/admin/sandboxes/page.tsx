@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { SandboxesPage } from "@/components/management/sandboxes/sandboxes-page";
+import { SandboxesPage } from "@/components/admin/sandboxes/sandboxes-page";
 import { Button } from "@/components/ui/button";
-import { requireManagementAdmin } from "@/lib/management/access";
-import { getSandboxManagement } from "@/lib/management/sandboxes";
+import { requireAdminRole } from "@/lib/admin/access";
+import { getSandboxAdminService } from "@/lib/admin/sandboxes";
 
 /** 非管理员可见的占位说明（沙箱运行状态仅管理员可访问） */
 async function PermissionNotice() {
-  const t = await getTranslations("management");
+  const t = await getTranslations("admin");
   return (
     <section className="min-w-0 px-5 py-8 sm:px-8 md:px-10 md:py-14 lg:px-12 lg:py-16">
       <div className="mx-auto max-w-[960px]">
@@ -28,13 +28,13 @@ async function PermissionNotice() {
 }
 
 /** 沙箱管理：查看用户运行中的沙箱实例状态（SandboxInstance 注册表） */
-export default async function SandboxesManagementPage() {
-  const session = await requireManagementAdmin();
+export default async function SandboxesAdminPage() {
+  const session = await requireAdminRole();
   if (!session) {
     return <PermissionNotice />;
   }
 
-  const instances = await getSandboxManagement().list();
+  const instances = await getSandboxAdminService().list();
   return (
     <SandboxesPage
       initialInstances={instances.map((instance) => ({

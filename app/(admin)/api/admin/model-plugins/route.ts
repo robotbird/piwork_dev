@@ -5,7 +5,7 @@ import {
   getPluginInstallationByProviderKey,
 } from "@/lib/db/model-plugin-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireManagementAdmin } from "@/lib/management/access";
+import { requireAdminRole } from "@/lib/admin/access";
 import { getBuiltinPluginPackage } from "@/lib/model-plugins/builtin-catalog";
 import { encryptPluginCredentials } from "@/lib/model-plugins/credentials";
 import { ProviderPluginManager } from "@/lib/model-plugins/manager";
@@ -20,7 +20,7 @@ function unauthorized() {
 }
 
 async function errorResponse(error: unknown, status = 400) {
-  const t = await getTranslations("managementApi");
+  const t = await getTranslations("adminApi");
   return Response.json(
     { error: error instanceof Error ? error.message : t("operationFailed") },
     { status }
@@ -28,7 +28,7 @@ async function errorResponse(error: unknown, status = 400) {
 }
 
 export async function GET() {
-  const session = await requireManagementAdmin();
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }
@@ -41,8 +41,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const t = await getTranslations("managementApi");
-  const session = await requireManagementAdmin();
+  const t = await getTranslations("adminApi");
+  const session = await requireAdminRole();
   if (!session) {
     return unauthorized();
   }

@@ -30,12 +30,12 @@ import {
 import {
   isLastEnabledAdmin,
   isValidEmail,
-  type ManagementMember,
+  type AdminMember,
   MEMBER_ROLE_OPTIONS,
   MEMBER_STATUS_OPTIONS,
   type MemberRole,
   type MemberStatus,
-} from "@/lib/management/members";
+} from "@/lib/admin/members";
 
 /** Select 组件不接受空字符串值，未分配部门用哨兵值表示 */
 const NONE_DEPARTMENT = "__none__";
@@ -62,9 +62,9 @@ type FieldName = "email" | "name" | "password" | "role";
 
 type MemberDialogProps = {
   /** 待编辑成员；null 表示新建 */
-  member: ManagementMember | null;
+  member: AdminMember | null;
   /** 现有成员列表，用于邮箱唯一性与最后一名管理员校验 */
-  members: readonly ManagementMember[];
+  members: readonly AdminMember[];
   /** 当前登录账号（User 表）id，用于自我保护校验 */
   currentUserId: string | null;
   /** 可选部门（来自数据库） */

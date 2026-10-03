@@ -564,7 +564,7 @@ PATCH  /api/admin/model-providers/:id/models/:modelId
 POST   /api/admin/model-providers/:id/models/:modelId/test
 ```
 
-所有接口继续使用 `requireManagementAdmin()`，并增加上传限流、CSRF、幂等 key 与审计。模型测试必须通过插件管理模块和 Pi Provider path，不能直接拼供应商 URL。
+所有接口继续使用 `requireAdminRole()`，并增加上传限流、CSRF、幂等 key 与审计。模型测试必须通过插件管理模块和 Pi Provider path，不能直接拼供应商 URL。
 
 ## 11. 安全设计
 
