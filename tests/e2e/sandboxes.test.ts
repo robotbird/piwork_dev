@@ -3,7 +3,7 @@ import postgres from "postgres";
 
 import { cleanupTestData } from "./helpers/test-cleanup";
 
-const SANDBOXES_URL = "/management/sandboxes";
+const SANDBOXES_URL = "/admin/sandboxes";
 const DEFAULT_PASSWORD = "test123456";
 
 function uniqueSuffix() {
@@ -107,7 +107,7 @@ test.describe
         page.getByText(/沙箱管理仅管理员可用/).first()
       ).toBeVisible();
 
-      const denied = await page.request.get("/api/management/sandboxes");
+      const denied = await page.request.get("/api/admin/sandboxes");
       expect(denied.status()).toBe(401);
     });
 
@@ -120,7 +120,7 @@ test.describe
       await seedSandbox(email, externalId);
 
       // API 校验：列表含种子行，activeOnly 也含；非法操作 400
-      const listResponse = await page.request.get("/api/management/sandboxes");
+      const listResponse = await page.request.get("/api/admin/sandboxes");
       expect(listResponse.ok).toBeTruthy();
       const { instances } = (await listResponse.json()) as {
         instances: Array<{
@@ -134,7 +134,7 @@ test.describe
       expect(seeded?.userEmail).toBe(email);
 
       const activeList = await page.request.get(
-        "/api/management/sandboxes?activeOnly=1"
+        "/api/admin/sandboxes?activeOnly=1"
       );
       const activeBody = (await activeList.json()) as {
         instances: Array<{ externalId: string }>;
@@ -144,18 +144,18 @@ test.describe
       ).toBe(true);
 
       const invalidAction = await page.request.post(
-        "/api/management/sandboxes",
+        "/api/admin/sandboxes",
         { data: { action: "pause", externalId, provider: "test" } }
       );
       expect(invalidAction.status()).toBe(400);
 
       const invalidProvider = await page.request.post(
-        "/api/management/sandboxes",
+        "/api/admin/sandboxes",
         { data: { action: "destroy", externalId, provider: "k8s" } }
       );
       expect(invalidProvider.status()).toBe(400);
 
-      const missing = await page.request.post("/api/management/sandboxes", {
+      const missing = await page.request.post("/api/admin/sandboxes", {
         data: {
           action: "destroy",
           externalId: "no-such-sbx",
@@ -198,7 +198,7 @@ test.describe
       await expect(row).not.toBeVisible();
       await page.getByRole("button", { exact: true, name: "异常" }).click();
       await expect(row).toBeVisible();
-      const unsupported = await page.request.post("/api/management/sandboxes", {
+      const unsupported = await page.request.post("/api/admin/sandboxes", {
         data: { action: "destroy", externalId, provider: "test" },
       });
       expect(unsupported.status()).toBe(503);

@@ -95,7 +95,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     isNewChat
       ? null
       : sandboxView
-        ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/management/sandboxes/${encodeURIComponent(sandboxView)}/task?chatId=${chatId}`
+        ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/admin/sandboxes/${encodeURIComponent(sandboxView)}/task?chatId=${chatId}`
         : `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/messages?chatId=${chatId}`,
     fetcher,
     { revalidateOnFocus: false }

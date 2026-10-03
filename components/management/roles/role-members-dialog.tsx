@@ -250,7 +250,7 @@ export function RoleMembersDialog({
       setSaving(true);
       try {
         const response = await fetch(
-          `/api/management/roles/${role.id}/members`,
+          `/api/admin/roles/${role.id}/members`,
           {
             body: JSON.stringify({ memberIds }),
             headers: { "Content-Type": "application/json" },

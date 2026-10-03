@@ -27,7 +27,7 @@ async function main() {
   );
 
   // 角色与权限页列表
-  await page.goto(`${BASE_URL}/management/organization?view=permissions`);
+  await page.goto(`${BASE_URL}/admin/organization?view=permissions`);
   await page.getByRole("heading", { name: "角色与权限" }).waitFor();
   await page.getByRole("table").waitFor(); // 等待客户端水合完成后再交互
 

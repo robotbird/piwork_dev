@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { cleanupTestData } from "./helpers/test-cleanup";
 
-const ORGANIZATION_URL = "/management/organization";
+const ORGANIZATION_URL = "/admin/organization";
 
 type DepartmentView = {
   id: string;
@@ -36,7 +36,7 @@ async function createDepartmentViaApi(
   name: string,
   parentId: string | null = null
 ): Promise<DepartmentView> {
-  const response = await page.request.post("/api/management/organization", {
+  const response = await page.request.post("/api/admin/organization", {
     data: { leaderId: null, name, parentId },
   });
   expect(response.ok()).toBeTruthy();
@@ -48,7 +48,7 @@ async function createMemberViaApi(
   page: Page,
   input: { departmentId?: string | null; email: string; name: string }
 ) {
-  const response = await page.request.post("/api/management/members", {
+  const response = await page.request.post("/api/admin/members", {
     data: {
       departmentId: input.departmentId ?? null,
       email: input.email,
@@ -133,7 +133,7 @@ test.describe
 
       const name = `重名部-${suffix}`;
       await createDepartmentViaApi(page, name);
-      const response = await page.request.post("/api/management/organization", {
+      const response = await page.request.post("/api/admin/organization", {
         data: { leaderId: null, name, parentId: null },
       });
       expect(response.status()).toBe(409);
@@ -198,7 +198,7 @@ test.describe
 
       // 接口同样拒绝删除有下级部门的部门
       const response = await page.request.delete(
-        "/api/management/organization",
+        "/api/admin/organization",
         {
           data: { id: root.id },
         }

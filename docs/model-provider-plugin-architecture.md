@@ -545,23 +545,23 @@ stateDiagram-v2
 ## 10. 管理接口
 
 ```text
-POST   /api/management/model-plugins/inspect
-POST   /api/management/model-plugins/install
-GET    /api/management/model-plugin-jobs/:jobId
-GET    /api/management/model-plugins
-GET    /api/management/model-plugins/:packageId
+POST   /api/admin/model-plugins/inspect
+POST   /api/admin/model-plugins/install
+GET    /api/admin/model-plugin-jobs/:jobId
+GET    /api/admin/model-plugins
+GET    /api/admin/model-plugins/:packageId
 
-PUT    /api/management/model-providers/:id/credentials
-POST   /api/management/model-providers/:id/credentials/validate
-POST   /api/management/model-providers/:id/activate
-POST   /api/management/model-providers/:id/deactivate
-POST   /api/management/model-providers/:id/upgrade
-POST   /api/management/model-providers/:id/rollback
-DELETE /api/management/model-providers/:id
+PUT    /api/admin/model-providers/:id/credentials
+POST   /api/admin/model-providers/:id/credentials/validate
+POST   /api/admin/model-providers/:id/activate
+POST   /api/admin/model-providers/:id/deactivate
+POST   /api/admin/model-providers/:id/upgrade
+POST   /api/admin/model-providers/:id/rollback
+DELETE /api/admin/model-providers/:id
 
-GET    /api/management/model-providers/:id/models
-PATCH  /api/management/model-providers/:id/models/:modelId
-POST   /api/management/model-providers/:id/models/:modelId/test
+GET    /api/admin/model-providers/:id/models
+PATCH  /api/admin/model-providers/:id/models/:modelId
+POST   /api/admin/model-providers/:id/models/:modelId/test
 ```
 
 所有接口继续使用 `requireManagementAdmin()`，并增加上传限流、CSRF、幂等 key 与审计。模型测试必须通过插件管理模块和 Pi Provider path，不能直接拼供应商 URL。

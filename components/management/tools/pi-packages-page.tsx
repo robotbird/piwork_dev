@@ -210,7 +210,7 @@ export function PiPackagesPage({
 }) {
   const { t } = usePreferences();
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-  const endpoint = `${basePath}/api/management/pi-packages`;
+  const endpoint = `${basePath}/api/admin/pi-packages`;
   const catalogEndpoint = `${endpoint}/catalog`;
 
   const [packages, setPackages] = useState(initialPackages);

@@ -218,7 +218,7 @@ function PanelHeader({
   );
 }
 
-function ViewAll({ href = "/management" }: { href?: string }) {
+function ViewAll({ href = "/admin" }: { href?: string }) {
   const { t } = usePreferences();
 
   return (
@@ -567,7 +567,7 @@ export function DashboardOverview() {
 
           <article className={cn(panelClass, "xl:col-span-4")}>
             <PanelHeader
-              action={<ViewAll href="/management/skills" />}
+              action={<ViewAll href="/admin/skills" />}
               title={t("dashboard.popularSkills")}
             />
             <ol className="px-5 py-1">

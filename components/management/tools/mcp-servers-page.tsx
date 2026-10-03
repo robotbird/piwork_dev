@@ -135,7 +135,7 @@ export function McpServersPage({
   initialServers: McpServerView[];
 }) {
   const { t } = usePreferences();
-  const endpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/management/mcp-servers`;
+  const endpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/admin/mcp-servers`;
   const [servers, setServers] = useState(initialServers);
   const [dialogServer, setDialogServer] = useState<McpServerView | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);

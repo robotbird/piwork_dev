@@ -78,7 +78,7 @@ export function AdminSkillManager({
   initialSkills: SkillSummary[];
 }) {
   const { t } = usePreferences();
-  const endpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/management/skills`;
+  const endpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/admin/skills`;
   const folderInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [skills, setSkills] = useState(initialSkills);

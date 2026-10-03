@@ -66,7 +66,7 @@ v1.7（归档附录 F.5）的结论是"双执行后端、in-process 为生产默
 | 工具与 workspace | `lib/ai/agent-tools.ts` |
 | Package 安装 | `lib/pi-packages/manager.ts` |
 | Package 目录 | `lib/pi-packages/catalog.ts` |
-| Package 管理接口 | `app/(management)/api/management/pi-packages/` |
+| Package 管理接口 | `app/(admin)/api/admin/pi-packages/` |
 | Package 数据 | `lib/db/schema.ts` 的 `PiPackage` |
 
 当前风险：

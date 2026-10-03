@@ -19,7 +19,7 @@ async function PermissionNotice() {
             {t("sandboxPermissionRequired")}
           </p>
           <Button asChild className="mt-5" variant="outline">
-            <Link href="/management">{t("backToWorkspace")}</Link>
+            <Link href="/admin">{t("backToWorkspace")}</Link>
           </Button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 # 测试 MCP 服务
 
-零依赖纯 Node 实现的 MCP 服务，用来验证 `/management/tools` 的 MCP 服务管理端到端链路
+零依赖纯 Node 实现的 MCP 服务，用来验证 `/admin/tools` 的 MCP 服务管理端到端链路
 （管理端入库 → 聊天请求同步 `.piwork/pi-agent/mcp.json` → Pi 内置 MCP 扩展在会话启动时连接）。
 提供三个工具：
 

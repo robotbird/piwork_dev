@@ -231,7 +231,7 @@ function InstallDialog({
       return;
     }
     setInstalling(true);
-    const result = await requestJson("/api/management/model-plugins", {
+    const result = await requestJson("/api/admin/model-plugins", {
       body: JSON.stringify({ packageId: item.packageId }),
       method: "POST",
     });
@@ -345,7 +345,7 @@ function ConfigureDialog({
       value.trim()
     );
     const result = await requestJson(
-      `/api/management/model-plugins/${installation.id}`,
+      `/api/admin/model-plugins/${installation.id}`,
       {
         body: JSON.stringify({
           ...(hasCredentials ? { credentials } : {}),
@@ -495,7 +495,7 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const response = await fetch("/api/management/model-plugins", {
+    const response = await fetch("/api/admin/model-plugins", {
       cache: "no-store",
     });
     if (!response.ok) {
@@ -518,7 +518,7 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
     async (item: ModelPluginInstallationView) => {
       setBusyId(item.id);
       const result = await requestJson(
-        `/api/management/model-plugins/${item.id}`,
+        `/api/admin/model-plugins/${item.id}`,
         { body: JSON.stringify({ enabled: !item.enabled }), method: "PATCH" }
       );
       setBusyId(null);
@@ -545,7 +545,7 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
       const operationId = `${item.id}:${modelId}`;
       setBusyId(operationId);
       const result = await requestJson(
-        `/api/management/model-plugins/${item.id}`,
+        `/api/admin/model-plugins/${item.id}`,
         {
           body: JSON.stringify({
             defaultModelId: nextDefaultModelId,
@@ -570,7 +570,7 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
     const item = deleteTarget;
     setBusyId(item.id);
     const result = await requestJson(
-      `/api/management/model-plugins/${item.id}`,
+      `/api/admin/model-plugins/${item.id}`,
       { method: "DELETE" }
     );
     setBusyId(null);

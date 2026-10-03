@@ -199,7 +199,7 @@ export function SkillContentBrowser({
   const fileCache = useRef(new Map<string, SkillFileContent>());
 
   const endpoint = skill
-    ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/management/skills/${encodeURIComponent(skill.name)}`
+    ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/admin/skills/${encodeURIComponent(skill.name)}`
     : null;
   const treeRequestRef = useRef<{ cancelled: boolean } | null>(null);
 

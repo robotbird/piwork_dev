@@ -295,7 +295,7 @@ export function SandboxesPage({
   initialInstances: SandboxInstanceClientView[];
 }) {
   const { t, language } = usePreferences();
-  const endpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/management/sandboxes`;
+  const endpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/admin/sandboxes`;
   const [instances, setInstances] = useState(initialInstances);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");

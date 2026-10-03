@@ -27,7 +27,7 @@ async function main() {
   );
 
   // 成员管理页列表
-  await page.goto(`${BASE_URL}/management/organization?view=members`);
+  await page.goto(`${BASE_URL}/admin/organization?view=members`);
   await page.getByRole("heading", { name: "成员管理" }).waitFor();
   await page.getByRole("table").waitFor(); // 等待客户端水合完成后再交互
   await page.screenshot({ path: `${OUT_DIR}/members-list.png` });
@@ -43,7 +43,7 @@ async function main() {
   await page.keyboard.press("Escape");
 
   // 组织架构页
-  await page.goto(`${BASE_URL}/management/organization`);
+  await page.goto(`${BASE_URL}/admin/organization`);
   await page.getByRole("heading", { name: "组织架构" }).waitFor();
   await page.screenshot({ path: `${OUT_DIR}/organization.png` });
 

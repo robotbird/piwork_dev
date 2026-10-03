@@ -19,7 +19,7 @@ const secret = process.env.AUTH_SECRET;
 assert.ok(secret, "AUTH_SECRET is required");
 const cookie = `authjs.session-token=${await encode({ salt: "authjs.session-token", secret, token: { email, id: userId, sub: userId, type: "regular" } })}`;
 const request = (method: string, body?: unknown) =>
-  fetch(`${base}/api/management/sandboxes`, {
+  fetch(`${base}/api/admin/sandboxes`, {
     headers: { "Content-Type": "application/json", Cookie: cookie },
     method,
     ...(body ? { body: JSON.stringify(body) } : {}),
@@ -63,7 +63,7 @@ try {
   assert.equal(before.status, "ready");
   assert.equal(before.syncError, false);
   assert.equal(before.runtimeConfig.resource.cpuCores, 2);
-  const taskURL = `${base}/api/management/sandboxes/${before.id}/task?chatId=${chatId}`;
+  const taskURL = `${base}/api/admin/sandboxes/${before.id}/task?chatId=${chatId}`;
   const task = await fetch(taskURL, { headers: { Cookie: cookie } });
   assert.equal(task.status, 200);
   assert.equal((await task.json()).isReadonly, true);
@@ -78,7 +78,7 @@ try {
   assert.equal(
     (
       await fetch(
-        `${base}/api/management/sandboxes/${before.id}/task?chatId=${crypto.randomUUID()}`,
+        `${base}/api/admin/sandboxes/${before.id}/task?chatId=${crypto.randomUUID()}`,
         { headers: { Cookie: cookie } }
       )
     ).status,

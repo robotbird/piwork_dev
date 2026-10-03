@@ -310,7 +310,7 @@ export function MembersPage({
 
   const refresh = useCallback(async (): Promise<MembersData | null> => {
     try {
-      const response = await fetch("/api/management/members", {
+      const response = await fetch("/api/admin/members", {
         cache: "no-store",
       });
       if (!response.ok) {
@@ -371,7 +371,7 @@ export function MembersPage({
 
   const handleCreateSubmit = useCallback(
     async (values: MemberFormValues) => {
-      const { error } = await requestJson("/api/management/members", {
+      const { error } = await requestJson("/api/admin/members", {
         body: JSON.stringify(values),
         method: "POST",
       });
@@ -393,7 +393,7 @@ export function MembersPage({
       }
       const targetId = editingMember.id;
       const statusChanged = values.status !== editingMember.status;
-      const { error } = await requestJson("/api/management/members", {
+      const { error } = await requestJson("/api/admin/members", {
         body: JSON.stringify({
           departmentId: values.departmentId,
           id: targetId,
@@ -438,7 +438,7 @@ export function MembersPage({
       }
       const nextStatus: MemberStatus =
         member.status === "enabled" ? "disabled" : "enabled";
-      const { error } = await requestJson("/api/management/members", {
+      const { error } = await requestJson("/api/admin/members", {
         body: JSON.stringify({
           departmentId: member.departmentId,
           id: member.id,
@@ -487,7 +487,7 @@ export function MembersPage({
     const target = deleteTarget;
     const { id } = target;
     setDeleting(true);
-    const { error } = await requestJson("/api/management/members", {
+    const { error } = await requestJson("/api/admin/members", {
       body: JSON.stringify({ id }),
       method: "DELETE",
     });

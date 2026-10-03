@@ -26,7 +26,7 @@ export type ManagementSection = {
 const SKILL_SECTION: ManagementSection = {
   description: "沉淀企业级技能资产，让智能体能力可上传、可共享、可复用。",
   features: ["技能库浏览", "创建与上传", "分发复用"],
-  href: "/management/skills",
+  href: "/admin/skills",
   icon: BlocksIcon,
   ready: true,
   tagline: "企业技能库 · 沉淀与复用",
@@ -36,7 +36,7 @@ const SKILL_SECTION: ManagementSection = {
 const TOOL_SECTION: ManagementSection = {
   description: "统一接入与管理 MCP 服务、API 与插件，扩展智能体的能力边界。",
   features: ["MCP 服务", "API 接入", "插件管理"],
-  href: "/management/tools",
+  href: "/admin/tools",
   icon: WrenchIcon,
   ready: true,
   tagline: "MCP / API / 插件 · 接入与管理",
@@ -46,7 +46,7 @@ const TOOL_SECTION: ManagementSection = {
 const DATA_SECTION: ManagementSection = {
   description: "管理企业知识库、数据库与企业文档，为智能体回答提供数据支撑。",
   features: ["知识库", "数据库", "企业文档"],
-  href: "/management/data",
+  href: "/admin/data",
   icon: DatabaseIcon,
   tagline: "知识库 / 数据库 / 企业文档",
   title: "数据管理",
@@ -55,7 +55,7 @@ const DATA_SECTION: ManagementSection = {
 const MODEL_SECTION: ManagementSection = {
   description: "统一接入多模型与企业私有模型，管理模型的可用性与配置。",
   features: ["多模型接入", "私有模型", "接入配置"],
-  href: "/management/models",
+  href: "/admin/models",
   icon: BrainIcon,
   ready: true,
   tagline: "多模型接入 · 企业私有模型",
@@ -65,7 +65,7 @@ const MODEL_SECTION: ManagementSection = {
 const ORGANIZATION_SECTION: ManagementSection = {
   description: "维护组织架构与成员，配置角色与访问权限。",
   features: ["组织架构", "成员管理", "角色与权限"],
-  href: "/management/organization",
+  href: "/admin/organization",
   icon: UsersIcon,
   tagline: "组织架构 / 成员管理 · 角色与权限",
   title: "组织与用户",

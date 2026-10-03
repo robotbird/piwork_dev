@@ -1,7 +1,7 @@
 import { type APIResponse, expect, type Page, test } from "@playwright/test";
 import { cleanupTestData } from "./helpers/test-cleanup";
 
-const ROLES_URL = "/management/organization?view=permissions";
+const ROLES_URL = "/admin/organization?view=permissions";
 const DEFAULT_PASSWORD = "test123456";
 
 /** 与接口一致的角色视图（仅测试中用到的字段） */
@@ -61,7 +61,7 @@ async function registerAccount(page: Page): Promise<string> {
 
 /** 通过管理接口读取角色列表 */
 async function fetchRoles(page: Page): Promise<RoleView[]> {
-  const response = await page.request.get("/api/management/roles");
+  const response = await page.request.get("/api/admin/roles");
   expect(response.ok()).toBeTruthy();
   const data = (await response.json()) as { roles: RoleView[] };
   return data.roles;
@@ -90,7 +90,7 @@ async function createMemberViaApi(
   page: Page,
   input: { email: string; name: string; role?: "admin" | "member" }
 ): Promise<MemberView> {
-  const response = await page.request.post("/api/management/members", {
+  const response = await page.request.post("/api/admin/members", {
     data: {
       departmentId: null,
       email: input.email,
@@ -110,7 +110,7 @@ function setRoleMembersViaApi(
   roleId: string,
   memberIds: string[]
 ): Promise<APIResponse> {
-  return page.request.put(`/api/management/roles/${roleId}/members`, {
+  return page.request.put(`/api/admin/roles/${roleId}/members`, {
     data: { memberIds },
   });
 }
@@ -204,7 +204,7 @@ test.describe
       });
 
       const roleName = `数据分析师-${suffix}`;
-      const created = await page.request.post("/api/management/roles", {
+      const created = await page.request.post("/api/admin/roles", {
         data: { description: "可使用数据分析相关功能", name: roleName },
       });
       expect(created.ok()).toBeTruthy();
@@ -283,7 +283,7 @@ test.describe
         member.id,
       ]);
       expect(transfer.ok()).toBeTruthy();
-      const membersResponse = await page.request.get("/api/management/members");
+      const membersResponse = await page.request.get("/api/admin/members");
       const membersData = (await membersResponse.json()) as {
         members: MemberView[];
       };
@@ -303,12 +303,12 @@ test.describe
       await registerAccount(page);
       const auditor = await requireRoleByName(page, "审计员");
 
-      const patched = await page.request.patch("/api/management/roles", {
+      const patched = await page.request.patch("/api/admin/roles", {
         data: { description: "改描述", id: auditor.id, name: "审计员2" },
       });
       expect(patched.status()).toBe(403);
 
-      const deleted = await page.request.delete("/api/management/roles", {
+      const deleted = await page.request.delete("/api/admin/roles", {
         data: { id: auditor.id },
       });
       expect(deleted.status()).toBe(403);
@@ -320,12 +320,12 @@ test.describe
       await registerAccount(page);
 
       const roleName = `临时角色-${suffix}`;
-      const created = await page.request.post("/api/management/roles", {
+      const created = await page.request.post("/api/admin/roles", {
         data: { description: null, name: roleName },
       });
       const role = (await created.json()) as RoleView;
 
-      const patched = await page.request.patch("/api/management/roles", {
+      const patched = await page.request.patch("/api/admin/roles", {
         data: {
           description: "更新后的描述",
           id: role.id,
@@ -335,7 +335,7 @@ test.describe
       expect(patched.ok()).toBeTruthy();
       expect(await findRoleByName(page, `${roleName}改`)).toBeDefined();
 
-      const deleted = await page.request.delete("/api/management/roles", {
+      const deleted = await page.request.delete("/api/admin/roles", {
         data: { id: role.id },
       });
       expect(deleted.ok()).toBeTruthy();

@@ -187,7 +187,7 @@ export function RolesPage({
 
   const refresh = useCallback(async (): Promise<RolesView | null> => {
     try {
-      const response = await fetch("/api/management/roles", {
+      const response = await fetch("/api/admin/roles", {
         cache: "no-store",
       });
       if (!response.ok) {
@@ -255,7 +255,7 @@ export function RolesPage({
 
   const handleCreateSubmit = useCallback(
     async (values: RoleFormValues) => {
-      const { error } = await requestJson("/api/management/roles", {
+      const { error } = await requestJson("/api/admin/roles", {
         body: JSON.stringify(values),
         method: "POST",
       });
@@ -276,7 +276,7 @@ export function RolesPage({
         return;
       }
       const targetId = editingRole.id;
-      const { error } = await requestJson("/api/management/roles", {
+      const { error } = await requestJson("/api/admin/roles", {
         body: JSON.stringify({ id: targetId, ...values }),
         method: "PATCH",
       });
@@ -297,7 +297,7 @@ export function RolesPage({
     }
     const target = deleteTarget;
     setDeleting(true);
-    const { error } = await requestJson("/api/management/roles", {
+    const { error } = await requestJson("/api/admin/roles", {
       body: JSON.stringify({ id: target.id }),
       method: "DELETE",
     });

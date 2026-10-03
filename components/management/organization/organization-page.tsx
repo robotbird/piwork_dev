@@ -218,7 +218,7 @@ export function OrganizationPage({
 
   const refresh = useCallback(async (): Promise<OrganizationData | null> => {
     try {
-      const response = await fetch("/api/management/organization", {
+      const response = await fetch("/api/admin/organization", {
         cache: "no-store",
       });
       if (!response.ok) {
@@ -320,7 +320,7 @@ export function OrganizationPage({
   const handleCreateSubmit = useCallback(
     async (values: DepartmentFormValues) => {
       const { data, error } = await requestJson(
-        "/api/management/organization",
+        "/api/admin/organization",
         {
           body: JSON.stringify(values),
           method: "POST",
@@ -351,7 +351,7 @@ export function OrganizationPage({
         return;
       }
       const targetId = editingDepartment.id;
-      const { error } = await requestJson("/api/management/organization", {
+      const { error } = await requestJson("/api/admin/organization", {
         body: JSON.stringify({ id: targetId, ...values }),
         method: "PATCH",
       });
@@ -381,7 +381,7 @@ export function OrganizationPage({
     }
     const { id, name, parentId } = deleteTarget;
     setDeleting(true);
-    const { error } = await requestJson("/api/management/organization", {
+    const { error } = await requestJson("/api/admin/organization", {
       body: JSON.stringify({ id }),
       method: "DELETE",
     });

@@ -3,7 +3,7 @@ import postgres from "postgres";
 
 import { cleanupTestData } from "./helpers/test-cleanup";
 
-const MODELS_URL = "/management/models";
+const MODELS_URL = "/admin/models";
 const DEFAULT_PASSWORD = "test123456";
 
 function uniqueSuffix() {
@@ -96,20 +96,20 @@ test.describe
       const email = await registerAccount(page);
       await setMemberRole(email, "admin");
       const installed = await page.request.post(
-        "/api/management/model-plugins",
+        "/api/admin/model-plugins",
         { data: { packageId: "piwork-llm-deepseek" } }
       );
       expect(installed.status()).toBe(201);
       const { id } = (await installed.json()) as { id: string };
 
       const duplicate = await page.request.post(
-        "/api/management/model-plugins",
+        "/api/admin/model-plugins",
         { data: { packageId: "piwork-llm-deepseek" } }
       );
       expect(duplicate.status()).toBe(409);
 
       const prematureModelEnable = await page.request.patch(
-        `/api/management/model-plugins/${id}`,
+        `/api/admin/model-plugins/${id}`,
         { data: { enabledModels: ["deepseek-v4-pro"] } }
       );
       expect(prematureModelEnable.status()).toBe(400);
@@ -123,7 +123,7 @@ test.describe
       await expect(page.getByText("deepseek-v4-pro").first()).toBeVisible();
 
       const deleted = await page.request.delete(
-        `/api/management/model-plugins/${id}`
+        `/api/admin/model-plugins/${id}`
       );
       expect(deleted.ok()).toBeTruthy();
     });

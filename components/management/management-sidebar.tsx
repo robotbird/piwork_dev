@@ -54,7 +54,7 @@ const navigationGroups: NavigationGroup[] = [
   {
     items: [
       {
-        href: "/management",
+        href: "/admin",
         icon: LayoutDashboardIcon,
         labelKey: "overview",
         searchKeywordsKey: "overviewSearchKeywords",
@@ -65,31 +65,31 @@ const navigationGroups: NavigationGroup[] = [
   {
     items: [
       {
-        href: "/management/skills",
+        href: "/admin/skills",
         icon: BlocksIcon,
         labelKey: "skillManagement",
         searchKeywordsKey: "skillManagementSearchKeywords",
       },
       {
-        href: "/management/tools?view=mcp",
+        href: "/admin/tools?view=mcp",
         icon: PlugIcon,
         labelKey: "mcpServices",
         searchKeywordsKey: "mcpServicesSearchKeywords",
       },
       {
-        href: "/management/tools?view=pi-plugins",
+        href: "/admin/tools?view=pi-plugins",
         icon: PackageIcon,
         labelKey: "piPlugins",
         searchKeywordsKey: "piPluginsSearchKeywords",
       },
       {
-        href: "/management/data",
+        href: "/admin/data",
         icon: DatabaseIcon,
         labelKey: "dataManagement",
         searchKeywordsKey: "dataManagementSearchKeywords",
       },
       {
-        href: "/management/models",
+        href: "/admin/models",
         icon: BrainIcon,
         labelKey: "modelManagement",
         searchKeywordsKey: "modelManagementSearchKeywords",
@@ -100,19 +100,19 @@ const navigationGroups: NavigationGroup[] = [
   {
     items: [
       {
-        href: "/management/organization",
+        href: "/admin/organization",
         icon: Building2Icon,
         labelKey: "organization",
         searchKeywordsKey: "organizationSearchKeywords",
       },
       {
-        href: "/management/organization?view=members",
+        href: "/admin/organization?view=members",
         icon: UsersRoundIcon,
         labelKey: "members",
         searchKeywordsKey: "membersSearchKeywords",
       },
       {
-        href: "/management/organization?view=permissions",
+        href: "/admin/organization?view=permissions",
         icon: ShieldCheckIcon,
         labelKey: "rolesAndPermissions",
         searchKeywordsKey: "rolesAndPermissionsSearchKeywords",
@@ -123,7 +123,7 @@ const navigationGroups: NavigationGroup[] = [
   {
     items: [
       {
-        href: "/management/sandboxes",
+        href: "/admin/sandboxes",
         icon: ContainerIcon,
         labelKey: "sandboxManagement",
         searchKeywordsKey: "sandboxManagementSearchKeywords",
@@ -134,7 +134,7 @@ const navigationGroups: NavigationGroup[] = [
   {
     items: [
       {
-        href: "/management/settings",
+        href: "/admin/settings",
         icon: SettingsIcon,
         labelKey: "generalSettings",
         searchKeywordsKey: "generalSettingsSearchKeywords",
@@ -152,7 +152,7 @@ function isItemActive(
   const [hrefPath] = item.href.split("?");
   const itemView = new URLSearchParams(item.href.split("?")[1]).get("view");
 
-  if (hrefPath === "/management") {
+  if (hrefPath === "/admin") {
     return pathname === hrefPath;
   }
 

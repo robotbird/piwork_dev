@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { cleanupTestData } from "./helpers/test-cleanup";
 
-const MEMBER_URL = "/management/organization?view=members";
+const MEMBER_URL = "/admin/organization?view=members";
 const DEFAULT_PASSWORD = "test123456";
 
 /** 与页面/接口一致的成员视图（仅测试中用到的字段） */
@@ -48,7 +48,7 @@ async function submitLogin(page: Page, email: string, password: string) {
 
 /** 通过管理接口读取成员列表（page.request 复用浏览器会话 Cookie） */
 async function fetchMembers(page: Page): Promise<MemberView[]> {
-  const response = await page.request.get("/api/management/members");
+  const response = await page.request.get("/api/admin/members");
   expect(response.ok()).toBeTruthy();
   const data = (await response.json()) as { members: MemberView[] };
   return data.members;
@@ -65,7 +65,7 @@ async function createMemberViaApi(
     role?: "admin" | "member";
   }
 ): Promise<MemberView> {
-  const response = await page.request.post("/api/management/members", {
+  const response = await page.request.post("/api/admin/members", {
     data: {
       departmentId: input.departmentId ?? null,
       email: input.email,
@@ -87,7 +87,7 @@ async function patchMemberViaApi(
     Pick<MemberView, "departmentId" | "name" | "role" | "status" | "title">
   >
 ) {
-  const response = await page.request.patch("/api/management/members", {
+  const response = await page.request.patch("/api/admin/members", {
     data: {
       departmentId: overrides.departmentId ?? member.departmentId,
       id: member.id,
@@ -190,7 +190,7 @@ test.describe
       // 进入页面前先经接口创建部门，保证弹窗中的部门选项已包含它
       const departmentName = `研发部-${suffix}`;
       const departmentResponse = await page.request.post(
-        "/api/management/organization",
+        "/api/admin/organization",
         {
           data: { leaderId: null, name: departmentName, parentId: null },
         }
@@ -276,7 +276,7 @@ test.describe
 
       // 进入页面前先备好部门与成员，保证弹窗中的部门选项已包含它
       const departmentName = `市场部-${suffix}`;
-      await page.request.post("/api/management/organization", {
+      await page.request.post("/api/admin/organization", {
         data: { leaderId: null, name: departmentName, parentId: null },
       });
 

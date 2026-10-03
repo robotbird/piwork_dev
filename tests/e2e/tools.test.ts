@@ -6,7 +6,7 @@ import postgres from "postgres";
 
 import { cleanupTestData } from "./helpers/test-cleanup";
 
-const TOOLS_URL = "/management/tools";
+const TOOLS_URL = "/admin/tools";
 const DEFAULT_PASSWORD = "test123456";
 
 function uniqueSuffix() {
@@ -90,7 +90,7 @@ test.describe
         page.getByText(/工具管理仅管理员可用/).first()
       ).toBeVisible();
 
-      const denied = await page.request.get("/api/management/mcp-servers");
+      const denied = await page.request.get("/api/admin/mcp-servers");
       expect(denied.status()).toBe(401);
     });
 
@@ -101,7 +101,7 @@ test.describe
       await setMemberRole(email, "admin");
 
       const createdStdio = await page.request.post(
-        "/api/management/mcp-servers",
+        "/api/admin/mcp-servers",
         {
           data: {
             args: ["-y", "mcp-server-weather"],
@@ -118,7 +118,7 @@ test.describe
       const { id: stdioId } = (await createdStdio.json()) as { id: string };
 
       const createdHttp = await page.request.post(
-        "/api/management/mcp-servers",
+        "/api/admin/mcp-servers",
         {
           data: {
             description: "e2e http server",
@@ -133,7 +133,7 @@ test.describe
       expect(createdHttp.status()).toBe(201);
       const { id: httpId } = (await createdHttp.json()) as { id: string };
 
-      const duplicate = await page.request.post("/api/management/mcp-servers", {
+      const duplicate = await page.request.post("/api/admin/mcp-servers", {
         data: {
           command: "npx",
           name: stdioName,
@@ -143,13 +143,13 @@ test.describe
       expect(duplicate.status()).toBe(409);
 
       const badTransport = await page.request.post(
-        "/api/management/mcp-servers",
+        "/api/admin/mcp-servers",
         { data: { name: `e2e-bad-${uniqueSuffix()}`, transport: "grpc" } }
       );
       expect(badTransport.status()).toBe(400);
 
       const missingUrl = await page.request.post(
-        "/api/management/mcp-servers",
+        "/api/admin/mcp-servers",
         {
           data: { name: `e2e-nourl-${uniqueSuffix()}`, transport: "http" },
         }
@@ -157,7 +157,7 @@ test.describe
       expect(missingUrl.status()).toBe(400);
 
       const listResponse = await page.request.get(
-        "/api/management/mcp-servers"
+        "/api/admin/mcp-servers"
       );
       expect(listResponse.ok()).toBeTruthy();
       const { servers } = (await listResponse.json()) as {
@@ -167,13 +167,13 @@ test.describe
       expect(servers.some((server) => server.name === httpName)).toBe(true);
 
       const toggled = await page.request.patch(
-        `/api/management/mcp-servers/${stdioId}`,
+        `/api/admin/mcp-servers/${stdioId}`,
         { data: { enabled: false } }
       );
       expect(toggled.ok()).toBeTruthy();
 
       const edited = await page.request.patch(
-        `/api/management/mcp-servers/${httpId}`,
+        `/api/admin/mcp-servers/${httpId}`,
         { data: { description: "e2e http server edited" } }
       );
       expect(edited.ok()).toBeTruthy();
@@ -186,12 +186,12 @@ test.describe
       await expect(page.getByText(httpName).first()).toBeVisible();
 
       const deletedStdio = await page.request.delete(
-        `/api/management/mcp-servers/${stdioId}`
+        `/api/admin/mcp-servers/${stdioId}`
       );
       expect(deletedStdio.ok()).toBeTruthy();
 
       const reDeleted = await page.request.delete(
-        `/api/management/mcp-servers/${stdioId}`
+        `/api/admin/mcp-servers/${stdioId}`
       );
       expect(reDeleted.status()).toBe(404);
     });
@@ -224,12 +224,12 @@ test.describe
       const email = await registerAccount(page, "tools-pi-e2e");
       await setMemberRole(email, "admin");
 
-      const invalid = await page.request.post("/api/management/pi-packages", {
+      const invalid = await page.request.post("/api/admin/pi-packages", {
         data: { source: "not-a-valid-source" },
       });
       expect(invalid.status()).toBe(400);
 
-      const installed = await page.request.post("/api/management/pi-packages", {
+      const installed = await page.request.post("/api/admin/pi-packages", {
         data: { source: fixtureSource },
       });
       expect(installed.status()).toBe(201);
@@ -245,13 +245,13 @@ test.describe
       expect(installBody.resourceSummary.extensions).toBe(1);
       expect(installBody.resourceSummary.skills).toBeGreaterThanOrEqual(1);
 
-      const duplicate = await page.request.post("/api/management/pi-packages", {
+      const duplicate = await page.request.post("/api/admin/pi-packages", {
         data: { source: fixtureSource },
       });
       expect(duplicate.status()).toBe(409);
 
       const listResponse = await page.request.get(
-        "/api/management/pi-packages"
+        "/api/admin/pi-packages"
       );
       expect(listResponse.ok).toBeTruthy();
       const { packages } = (await listResponse.json()) as {
@@ -270,17 +270,17 @@ test.describe
       await expect(page.getByText("v1.2.3").first()).toBeVisible();
 
       // 跨模块断言:提取的技能出现在技能管理页(带 Pi 插件来源)
-      await page.goto("/management/skills");
+      await page.goto("/admin/skills");
       await expect(page.getByText("Fixture Echo Skill").first()).toBeVisible();
       await expect(page.getByText("Pi 插件").first()).toBeVisible();
 
-      const unknown = await page.request.delete("/api/management/pi-packages", {
+      const unknown = await page.request.delete("/api/admin/pi-packages", {
         data: { source: resolve("tests/fixtures/does-not-exist") },
       });
       expect(unknown.status()).toBe(404);
 
       const uninstalled = await page.request.delete(
-        "/api/management/pi-packages",
+        "/api/admin/pi-packages",
         { data: { source: fixtureSource } }
       );
       expect(uninstalled.ok).toBeTruthy();
@@ -289,7 +289,7 @@ test.describe
       };
       expect(uninstallBody.removedSkills).toEqual([fixtureSkillName]);
 
-      const afterList = await page.request.get("/api/management/pi-packages");
+      const afterList = await page.request.get("/api/admin/pi-packages");
       const afterBody = (await afterList.json()) as {
         packages: Array<{ source: string }>;
       };
@@ -298,7 +298,7 @@ test.describe
       ).toBe(false);
 
       // 卸载后技能页不再出现该技能
-      await page.goto("/management/skills");
+      await page.goto("/admin/skills");
       await expect(
         page.getByText("Fixture Echo Skill").first()
       ).not.toBeVisible();

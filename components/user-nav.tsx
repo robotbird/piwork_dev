@@ -97,7 +97,7 @@ export function UserNav({ area, user }: UserNavProps) {
                 <Link
                   className="cursor-pointer gap-2 text-sm"
                   data-testid="user-nav-item-management"
-                  href="/management/skills"
+                  href="/admin/skills"
                 >
                   <Settings2Icon className="size-3.5" />
                   {t("chat.management")}
