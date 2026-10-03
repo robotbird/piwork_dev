@@ -63,6 +63,7 @@ flowchart LR
 - **模型**：`lib/model-plugins` 检查并构建插件，在 Worker 中激活，暴露 Pi `Provider`；`lib/ai/pi.ts` 和 `agent-session.ts` 将可用 Provider 接入 Pi 模型运行时。`plugins/piwork-llm-deepseek` 是项目内示例插件。
 - **Package 与 Skill**：`lib/pi-packages/manager.ts` 使用 Pi `DefaultPackageManager.installAndPersist()` 管理受管目录；包内 Skill 由 Piwork 的 Skill 管线登记、启用和展示。聊天会话通过 `DefaultResourceLoader` 加载受管扩展，同时关闭全局 Skill/上下文自动发现，避免跨租户资源泄漏。旧系统插件 `pi-mcp-adapter` 已被 Pi 内置 MCP 取代，进程内会自动退役清理（见第 10 节）。
 - **MCP**：管理端记录服务配置，`lib/mcp/agent-config.ts` 在请求时把启用服务（`exposure: direct`）同步到受管 agentDir 的 `mcp.json`；Pi 内置 MCP 扩展以自定义 `loadConfig` 消费它，忽略工作区项目级配置。
+- **管理概览（2026-10-03）**：`/admin` 首页由服务端预取 `getAdminOverview()` 并传给客户端组件，手动刷新走 `GET /api/admin/overview`（仅管理员，只读，页面另有 `requireAdminRole` 占位）；聚合查询在 `lib/db/overview-queries.ts`，payload 组装与系统服务状态在 `lib/admin/overview.ts`。指标口径：「任务」= AgentRun（不含 ScheduledTaskRun），成功率 = settled / (settled + failed + aborted)（近 30 天，含上一窗口对比），活跃用户 = 窗口内有 run 的去重用户；趋势为近 30 天按日 settled/failed/aborted（SQL `generate_series` 补零，按数据库会话时区自然日，与 agent-run-queries 的写入时钟一致）；另含后端分布（in_process/sandbox_rpc）、最近 run（联 Chat 标题与 User 名）、最近 Skill（按 updatedAt，平台无使用计数）、五源合并动态（Skill/MCP/成员/沙箱/定时任务）与服务状态（数据库连通、启用模型插件健康聚合、定时任务与沙箱装配开关——沙箱实例实时状态仍归 /admin/sandboxes）。任何聚合查询失败整体 500，不输出部分结果。**时区口径**：输出 ISO 前在 SQL 内按各表写入时钟显式转 timestamptz——`now()` 经默认连接写入的表（AgentRun/Member/ScheduledTask.createdAt）按 `current_setting('TimeZone')` 解释，UTC 墙钟写入的表（Skill/McpServer 的 updatedAt、SandboxInstance.createdAt 经显式 UTC 连接）按 UTC 解释；不转换时服务端进程时区（如 UTC）与库会话时区（Asia/Shanghai）不一致会产生 ±8h 偏移。
 
 ## 5. 现状与目标的分界
 

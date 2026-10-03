@@ -77,6 +77,13 @@ pnpm plugin:verify     # 模型插件链路验证
 9. **OpenSandbox provider 真实 server 契约组（gated）**：`PIWORK_SANDBOX_CONTRACT_OPENSANDBOX=1 OPENSANDBOX_DOMAIN=127.0.0.1:8080 OPENSANDBOX_API_KEY=<key> node --conditions=react-server --import tsx --test tests/unit/runtime/sandbox/provider-contract.test.ts`（可选 `OPENSANDBOX_PROTOCOL`/`OPENSANDBOX_IMAGE`，默认 `pi-runtime:dev` 需已构建并预拉 `opensandbox/execd:v1.1.0`/`opensandbox/egress:v1.1.7`）。同一契约套件追加 `[OpenSandbox]` harness（12 用例，2026-10-02 实测 12/12）；离线单测 `opensandbox-provider.test.ts`（21 用例）常驻默认套件，不需要 server。
 10. 路由矩阵测试：`tests/unit/runtime/backends/routing.test.ts`（矩阵判定、分流、fail-closed 不回落、RunManager 逐 run 落库、真实 SandboxRpcBackend 分流闭环）随 `pnpm test:runtime` 常驻。冷启动为一次性实测（2026-10-03 colima docker 档 P50 490ms），无常驻测试。
 
+## 管理概览验证
+
+- `pnpm test:runtime:db` 覆盖 `tests/unit/db/overview-queries.test.ts`：30 天窗口口径（总量/成功率计数/活跃用户）、30 天按日趋势补零与回溯日期分桶、后端分布、最近 run 关联字段与耗时、最近 Skill、五源动态合并、资源计数与 DB 探测。开发库含真实存量数据，断言一律基于 seed 前快照的差值，并对共享窗口（今日写入者）只做下界断言；Skill/McpServer/SandboxInstance 夹具按生产写入方使用 UTC 墙钟。
+- `pnpm test:runtime` 包含 `tests/unit/admin/overview.test.ts`（变化率、插件健康聚合纯函数）。
+- 手工：管理员打开 `/admin` 应看到真实数据（服务端预取，右上角刷新按钮走 `GET /api/admin/overview`）；未登录由中间件 307 跳转，普通成员看到「仅管理员可见」占位、API 返回 401。「热门 Skill」面板已改为「最近更新 Skill」（平台未统计使用次数）。
+- 时区：概览输出的 ISO 时间戳已按写入时钟在 SQL 内显式转换（见 architecture.md §4）；若新增概览数据源，先确认该表的时间戳写入时钟归属（默认连接 `now()` = 会话墙钟；`new Date()` 或显式 UTC 连接 = UTC 墙钟）。
+
 ## 沙箱管理 MVP 验证（2026-10-03）
 
 - `pnpm db:migrate` 应用 `0016`（runtimeConfig 创建快照），旧实例不虚构额度或安全配置。

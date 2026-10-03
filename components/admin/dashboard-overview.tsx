@@ -1,6 +1,13 @@
 "use client";
 
-import type { EChartsCoreOption } from "echarts/core";
+import {
+  format,
+  formatDistanceToNow,
+  isToday,
+  isYesterday,
+  type Locale,
+} from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
 import {
   ActivityIcon,
   ArrowRightIcon,
@@ -13,194 +20,87 @@ import {
   FileTextIcon,
   PackageCheckIcon,
   PresentationIcon,
+  RefreshCwIcon,
   SearchCheckIcon,
   UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EChartsChart } from "@/components/admin/echarts-chart";
 import { usePreferences } from "@/components/preferences-provider";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import type { AdminOverview } from "@/lib/admin/overview";
 import { getChartTheme } from "@/lib/chart-theme";
 import { cn } from "@/lib/utils";
 
-const metrics = [
-  {
-    change: "12%",
-    icon: BoxIcon,
-    iconClass: "bg-primary/10 text-primary",
-    label: "总任务数",
-    value: "12,438",
-  },
-  {
-    change: "2.1%",
-    icon: CheckCircle2Icon,
-    iconClass: "bg-muted text-foreground",
-    label: "任务成功率",
-    value: "96.2%",
-  },
-  {
-    change: "18%",
-    icon: UsersIcon,
-    iconClass: "bg-muted text-foreground",
-    label: "活跃用户",
-    value: "892",
-  },
-  {
-    change: "24%",
-    icon: DatabaseIcon,
-    iconClass: "bg-muted text-foreground",
-    label: "已上架 Skill",
-    value: "156",
-  },
-  {
-    change: "8%",
-    icon: PackageCheckIcon,
-    iconClass: "bg-muted text-foreground",
-    label: "接入工具",
-    value: "78",
-  },
-] as const;
+type OverviewRunStatus =
+  | "aborted"
+  | "failed"
+  | "queued"
+  | "running"
+  | "settled"
+  | "starting"
+  | "waiting_user";
 
-const trendSuccess = [
-  214, 168, 174, 203, 258, 246, 251, 262, 222, 248, 277, 291, 306, 337, 296,
-  321, 365, 388, 462, 397, 352, 418, 477, 506, 386, 348, 402, 468, 462, 565,
-  581,
-];
-const trendFailed = [
-  94, 52, 62, 51, 79, 83, 76, 74, 58, 82, 66, 112, 104, 137, 85, 96, 121, 145,
-  206, 132, 105, 183, 129, 165, 82, 92, 74, 145, 139, 168, 221,
-];
-
-const taskTypes = [
-  { name: "数据分析", value: 28 },
-  { name: "文档处理", value: 20 },
-  { name: "内容生成", value: 18 },
-  { name: "办公效率", value: 14 },
-  { name: "业务系统", value: 12 },
-  { name: "其他", value: 8 },
-];
-
-const recentTasks = [
-  ["生成8月经营分析报告", "张三", "数据分析", "已完成", "今天 14:32", "2m 34s"],
-  ["审核XX项目合同", "李四", "文档处理", "已完成", "今天 11:20", "1m 12s"],
-  ["整理会议纪要", "王五", "内容生成", "运行中", "今天 10:15", "-"],
-  ["对比三家供应商方案", "赵六", "数据分析", "失败", "今天 09:48", "3m 21s"],
-  ["生成产品宣传PPT", "陈七", "内容生成", "已完成", "昨天 16:20", "2m 08s"],
-] as const;
-
-const popularSkills = [
-  [
-    "数据分析",
-    "自然语言分析企业数据",
-    "2.4k",
-    ActivityIcon,
-    "text-primary bg-primary/10",
-  ],
-  [
-    "PPT 生成",
-    "一键生成汇报PPT",
-    "1.8k",
-    PresentationIcon,
-    "text-foreground bg-muted",
-  ],
-  [
-    "文档撰写",
-    "生成方案、报告、邮件等",
-    "1.6k",
-    FileTextIcon,
-    "text-foreground bg-muted",
-  ],
-  [
-    "合同审核",
-    "风险识别与条款审查",
-    "1.2k",
-    SearchCheckIcon,
-    "text-foreground bg-muted",
-  ],
-  [
-    "会议纪要",
-    "生成结构化会议纪要",
-    "980",
-    UsersIcon,
-    "text-foreground bg-muted",
-  ],
-] as const;
-
-const activities = [
-  ["新版本发布", "Skill「数据分析」已发布 v2.1", "2分钟前", "bg-primary"],
-  ["用户加入", "张三 加入了「经营分析部」", "15分钟前", "bg-primary"],
-  ["工具接入", "已接入新的 Oracle 数据源", "1小时前", "bg-link"],
-  ["权限变更", "更新了「财务部」的数据访问权限", "2小时前", "bg-warning"],
-  ["系统告警", "模型服务 GPU 使用率超过 80%", "3小时前", "bg-destructive"],
-] as const;
-
-const systemServices = [
-  "Runtime 服务",
-  "模型服务",
-  "数据库连接",
-  "存储服务",
-  "消息队列",
-  "安全策略",
-];
+type OverviewServiceStatus =
+  | "degraded"
+  | "disabled"
+  | "error"
+  | "operational"
+  | "unknown";
 
 const panelClass = "rounded-xl border border-border bg-card";
 
-const englishDashboardCopy: Record<string, string> = {
-  "1小时前": "1 hour ago",
-  "2分钟前": "2 min ago",
-  "2小时前": "2 hours ago",
-  "3小时前": "3 hours ago",
-  "15分钟前": "15 min ago",
-  "PPT 生成": "PPT generation",
-  "Runtime 服务": "Runtime service",
-  "Skill「数据分析」已发布 v2.1": "Data Analysis skill v2.1 was published",
-  一键生成汇报PPT: "Generate presentation decks in one click",
-  业务系统: "Business systems",
-  "今天 09:48": "Today 09:48",
-  "今天 10:15": "Today 10:15",
-  "今天 11:20": "Today 11:20",
-  "今天 14:32": "Today 14:32",
-  任务成功率: "Task success rate",
-  会议纪要: "Meeting notes",
-  其他: "Other",
-  内容生成: "Content generation",
-  办公效率: "Productivity",
-  合同审核: "Contract review",
-  失败: "Failed",
-  存储服务: "Storage service",
-  安全策略: "Security policy",
-  审核XX项目合同: "Review the XX project contract",
-  对比三家供应商方案: "Compare three vendor proposals",
-  工具接入: "Tool connected",
-  "已上架 Skill": "Published skills",
-  已完成: "Completed",
-  "已接入新的 Oracle 数据源": "A new Oracle data source was connected",
-  "张三 加入了「经营分析部」": "Zhang San joined Business Analysis",
-  总任务数: "Total tasks",
-  接入工具: "Connected tools",
-  数据分析: "Data analysis",
-  数据库连接: "Database connection",
-  整理会议纪要: "Organize meeting notes",
-  文档处理: "Document processing",
-  文档撰写: "Document writing",
-  新版本发布: "New release",
-  "昨天 16:20": "Yesterday 16:20",
-  "更新了「财务部」的数据访问权限": "Finance data access was updated",
-  权限变更: "Permission updated",
-  模型服务: "Model service",
-  "模型服务 GPU 使用率超过 80%": "Model service GPU usage exceeded 80%",
-  活跃用户: "Active users",
-  消息队列: "Message queue",
-  生成8月经营分析报告: "Generate August business analysis report",
-  生成产品宣传PPT: "Create a product marketing deck",
-  "生成方案、报告、邮件等": "Create proposals, reports, emails, and more",
-  生成结构化会议纪要: "Create structured meeting notes",
-  用户加入: "User joined",
-  系统告警: "System alert",
-  自然语言分析企业数据: "Analyze enterprise data with natural language",
-  运行中: "Running",
-  风险识别与条款审查: "Risk identification and clause review",
+const SKILL_ICONS = [
+  ActivityIcon,
+  PresentationIcon,
+  FileTextIcon,
+  SearchCheckIcon,
+  UsersIcon,
+] as const;
+
+const RUN_STATUS_META: Record<
+  OverviewRunStatus,
+  { className: string; labelKey: string }
+> = {
+  aborted: { className: "text-muted-foreground", labelKey: "runAborted" },
+  failed: { className: "text-destructive", labelKey: "runFailed" },
+  queued: { className: "text-warning", labelKey: "runActive" },
+  running: { className: "text-warning", labelKey: "runActive" },
+  settled: { className: "text-link", labelKey: "runSettled" },
+  starting: { className: "text-warning", labelKey: "runActive" },
+  waiting_user: { className: "text-warning", labelKey: "runActive" },
+};
+
+const SERVICE_LABEL_KEYS: Record<string, string> = {
+  database: "serviceDatabase",
+  model_providers: "serviceModelProviders",
+  sandbox: "serviceSandbox",
+  scheduler: "serviceScheduler",
+};
+
+const SERVICE_STATUS_META: Record<
+  OverviewServiceStatus,
+  { className: string; labelKey: string }
+> = {
+  degraded: { className: "text-warning", labelKey: "statusDegraded" },
+  disabled: {
+    className: "text-muted-foreground",
+    labelKey: "statusDisabled",
+  },
+  error: { className: "text-destructive", labelKey: "statusError" },
+  operational: { className: "text-link", labelKey: "statusOperational" },
+  unknown: { className: "text-muted-foreground", labelKey: "statusUnknown" },
+};
+
+const ACTIVITY_META: Record<string, { className: string; labelKey: string }> = {
+  member: { className: "bg-primary", labelKey: "activityMember" },
+  sandbox: { className: "bg-link", labelKey: "activitySandbox" },
+  scheduled_task: { className: "bg-warning", labelKey: "activityTask" },
+  skill: { className: "bg-primary", labelKey: "activitySkill" },
+  tool: { className: "bg-link", labelKey: "activityTool" },
 };
 
 function PanelHeader({
@@ -244,23 +144,192 @@ function RangeButton() {
   );
 }
 
-export function DashboardOverview() {
+/** 数值环比（任务量/活跃用户）；delta 为 null 时无法定义（基线为 0） */
+function DeltaBadge({
+  delta,
+  unit = "%",
+}: {
+  delta: number | null;
+  unit?: string;
+}) {
+  const { t } = usePreferences();
+
+  return (
+    <div className="pb-0.5 text-right text-[12px]">
+      {delta === null ? (
+        <p className="font-semibold text-muted-foreground">—</p>
+      ) : delta >= 0 ? (
+        <p className="font-semibold text-link">
+          ↑ {delta}
+          {unit}
+        </p>
+      ) : (
+        <p className="font-semibold text-destructive">
+          ↓ {-delta}
+          {unit}
+        </p>
+      )}
+      <p className="mt-0.5 text-muted-foreground">
+        {t("dashboard.vsLastMonth")}
+      </p>
+    </div>
+  );
+}
+
+/** 指标卡：Skill / 工具为时点值，右侧展示启用数而非环比 */
+function EnabledBadge({ count }: { count: number }) {
+  const { t } = usePreferences();
+
+  return (
+    <div className="pb-0.5 text-right text-[12px]">
+      <p className="font-semibold text-foreground">
+        {t("dashboard.enabledCount", { count })}
+      </p>
+    </div>
+  );
+}
+
+function MetricCard({
+  change,
+  icon: Icon,
+  iconClass,
+  label,
+  value,
+}: {
+  change: React.ReactNode;
+  icon: typeof BoxIcon;
+  iconClass: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <article className="min-h-[126px] border-b border-border p-5 last:border-b-0 sm:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r xl:last:border-r-0 xl:[&:nth-child(odd)]:border-r">
+      <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            "grid size-11 place-items-center rounded-xl",
+            iconClass
+          )}
+        >
+          <Icon className="size-6" />
+        </div>
+        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+      </div>
+      <div className="mt-3 flex items-end justify-between gap-3">
+        <strong className="text-[27px] font-medium leading-none tracking-[-0.025em] text-foreground tabular-nums">
+          {value}
+        </strong>
+        {change}
+      </div>
+    </article>
+  );
+}
+
+function EmptyRow({ colSpan }: { colSpan: number }) {
+  const { t } = usePreferences();
+
+  return (
+    <tr>
+      <td
+        className="h-16 px-4 text-center text-muted-foreground"
+        colSpan={colSpan}
+      >
+        {t("dashboard.noData")}
+      </td>
+    </tr>
+  );
+}
+
+function formatDuration(ms: number | null): string {
+  if (ms === null) {
+    return "—";
+  }
+  const totalSeconds = Math.max(1, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function formatStamp(
+  iso: string,
+  labels: { today: string; yesterday: string },
+  locale: Locale,
+  english: boolean
+): string {
+  const date = new Date(iso);
+  const time = format(date, "HH:mm");
+  if (isToday(date)) {
+    return `${labels.today} ${time}`;
+  }
+  if (isYesterday(date)) {
+    return `${labels.yesterday} ${time}`;
+  }
+  return format(date, english ? "MMM d, HH:mm" : "M月d日 HH:mm", { locale });
+}
+
+function shortDay(date: string): string {
+  const [, month, day] = date.split("-");
+  return `${Number(month)}/${Number(day)}`;
+}
+
+export function DashboardOverview({
+  initialOverview,
+}: {
+  initialOverview: AdminOverview | null;
+}) {
   const { language, t } = usePreferences();
+  const english = language !== "zh";
+  const [overview, setOverview] = useState(initialOverview);
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
+  const inFlight = useRef(false);
+
+  const refresh = useCallback(async () => {
+    if (inFlight.current) {
+      return;
+    }
+    inFlight.current = true;
+    setFetching(true);
+    try {
+      const response = await fetch("/api/admin/overview", {
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error("overview refresh failed");
+      }
+      setOverview((await response.json()) as AdminOverview);
+      setFetchError(false);
+    } catch {
+      setFetchError(true);
+    } finally {
+      inFlight.current = false;
+      setFetching(false);
+    }
+  }, []);
+
+  const missingInitial = initialOverview === null;
+  useEffect(() => {
+    if (missingInitial) {
+      refresh();
+    }
+  }, [missingInitial, refresh]);
+
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const localize = useCallback(
-    (value: string) =>
-      language === "zh" ? value : (englishDashboardCopy[value] ?? value),
-    [language]
-  );
   const { resolvedTheme } = useTheme();
   const chart = useMemo(
     () => getChartTheme(mounted && resolvedTheme === "dark" ? "dark" : "light"),
     [mounted, resolvedTheme]
   );
-  const typeColors = useMemo(() => [...chart.palette, chart.other], [chart]);
 
-  const trendOption = useMemo<EChartsCoreOption>(
+  const locale = english ? enUS : zhCN;
+  const numberFormat = useMemo(
+    () => new Intl.NumberFormat(english ? "en-US" : "zh-CN"),
+    [english]
+  );
+
+  const trend = overview?.trend ?? [];
+  const trendOption = useMemo(
     () => ({
       animationDuration: 550,
       color: [chart.palette[0], chart.neutralSeries],
@@ -268,7 +337,7 @@ export function DashboardOverview() {
       series: [
         {
           barMaxWidth: 11,
-          data: trendSuccess,
+          data: trend.map((point) => point.succeeded),
           emphasis: { disabled: true },
           name: t("dashboard.success"),
           stack: "tasks",
@@ -276,7 +345,7 @@ export function DashboardOverview() {
         },
         {
           barMaxWidth: 11,
-          data: trendFailed,
+          data: trend.map((point) => point.failed),
           emphasis: { disabled: true },
           name: t("dashboard.failed"),
           stack: "tasks",
@@ -293,39 +362,51 @@ export function DashboardOverview() {
         axisLabel: { color: chart.axisLabel, fontSize: 11, interval: 4 },
         axisLine: { lineStyle: { color: chart.axisLine } },
         axisTick: { show: false },
-        data: Array.from({ length: 31 }, (_, index) => `8/${index + 1}`),
+        data: trend.map((point) => shortDay(point.date)),
         type: "category",
       },
       yAxis: {
         axisLabel: { color: chart.axisLabel, fontSize: 11 },
         axisLine: { show: false },
         axisTick: { show: false },
-        interval: 200,
-        max: 800,
         splitLine: { lineStyle: { color: chart.splitLine, type: "dashed" } },
         type: "value",
       },
     }),
-    [chart, t]
+    [chart, t, trend]
   );
 
-  const typeOption = useMemo<EChartsCoreOption>(
+  const distribution = overview?.distribution ?? [];
+  const distTotal = distribution.reduce((sum, item) => sum + item.count, 0);
+  const backendLabel = useCallback(
+    (backend: string) =>
+      backend === "sandbox_rpc"
+        ? t("dashboard.sandboxRpc")
+        : t("dashboard.inProcess"),
+    [t]
+  );
+  const backendColor = useCallback(
+    (backend: string) =>
+      backend === "sandbox_rpc" ? chart.palette[1] : chart.palette[0],
+    [chart]
+  );
+  const typeOption = useMemo(
     () => ({
       animationDuration: 550,
-      color: typeColors,
       series: [
         {
           avoidLabelOverlap: false,
-          data: taskTypes.map((item) => ({
-            name: localize(item.name),
-            value: item.value,
+          data: distribution.map((item) => ({
+            itemStyle: { color: backendColor(item.backend) },
+            name: backendLabel(item.backend),
+            value: item.count,
           })),
           emphasis: { scale: false },
           label: {
             color: chart.donutCenter,
             fontSize: 21,
             fontWeight: 600,
-            formatter: `12,438\n{small|${t("dashboard.totalTasks")}}`,
+            formatter: `${numberFormat.format(distTotal)}\n{small|${t("dashboard.totalTasks")}}`,
             lineHeight: 30,
             position: "center",
             rich: {
@@ -345,61 +426,150 @@ export function DashboardOverview() {
       tooltip: {
         backgroundColor: chart.tooltipBackground,
         borderWidth: 0,
-        formatter: "{b}: {c}%",
+        formatter: "{b}: {c} ({d}%)",
         textStyle: { color: chart.tooltipText, fontSize: 11 },
         trigger: "item",
       },
     }),
-    [chart, localize, t, typeColors]
+    [
+      backendColor,
+      backendLabel,
+      chart,
+      distTotal,
+      distribution,
+      numberFormat,
+      t,
+    ]
   );
+
+  if (!overview) {
+    return (
+      <main className="min-w-0 flex-1 bg-background px-5 py-8 sm:px-8 md:px-10 md:py-14 lg:px-12 lg:py-16">
+        <div className="mx-auto max-w-[1180px]">
+          <header>
+            <h1 className="text-2xl font-semibold tracking-[-0.025em] text-foreground">
+              {t("dashboard.overview")}
+            </h1>
+            <p className="mt-2 max-w-3xl text-[14px] leading-6 text-muted-foreground">
+              {t("dashboard.manageEnterpriseAiCapabilitiesToolsDataModels")}
+            </p>
+          </header>
+          {fetchError ? (
+            <div className="mt-10 rounded-[14px] border border-border bg-card px-6 py-16 text-center">
+              <p className="text-sm text-muted-foreground">
+                {t("adminApi.overviewLoadFailed")}
+              </p>
+              <Button className="mt-5" onClick={refresh} variant="outline">
+                {t("common.retry")}
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-16 flex justify-center">
+              <Spinner className="size-6" />
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  const { metrics } = overview;
+  const rateDelta =
+    metrics.successRate.rate === null ||
+    metrics.successRate.previousRate === null
+      ? null
+      : Math.round(
+          (metrics.successRate.rate - metrics.successRate.previousRate) * 10
+        ) / 10;
+
+  const { services } = overview;
+  const allOperational = services.every(
+    (service) => service.status === "operational"
+  );
+  const worstService = services.some((s) => s.status === "error")
+    ? "error"
+    : services.some((s) => s.status === "degraded")
+      ? "degraded"
+      : "partial";
 
   return (
     <main className="min-w-0 flex-1 bg-background px-5 py-8 sm:px-8 md:px-10 md:py-14 lg:px-12 lg:py-16">
       <div className="mx-auto max-w-[1180px]">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-[-0.025em] text-foreground">
-            {t("dashboard.overview")}
-          </h1>
-          <p className="mt-2 max-w-3xl text-[14px] leading-6 text-muted-foreground">
-            {t("dashboard.manageEnterpriseAiCapabilitiesToolsDataModels")}
-          </p>
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-[-0.025em] text-foreground">
+              {t("dashboard.overview")}
+            </h1>
+            <p className="mt-2 max-w-3xl text-[14px] leading-6 text-muted-foreground">
+              {t("dashboard.manageEnterpriseAiCapabilitiesToolsDataModels")}
+            </p>
+            {fetchError ? (
+              <p className="mt-3 text-xs text-destructive">
+                {t("adminApi.overviewLoadFailed")}
+              </p>
+            ) : null}
+          </div>
+          <Button
+            aria-label={t("dashboard.refresh")}
+            className="size-8 shrink-0"
+            disabled={fetching}
+            onClick={refresh}
+            size="icon"
+            variant="outline"
+          >
+            {fetching ? (
+              <Spinner className="size-4" />
+            ) : (
+              <RefreshCwIcon className="size-4" />
+            )}
+          </Button>
         </header>
 
         <section className="mt-8 grid grid-cols-1 overflow-hidden rounded-[14px] border border-border bg-card sm:grid-cols-2 xl:grid-cols-5">
-          {metrics.map((metric) => {
-            const Icon = metric.icon;
-            return (
-              <article
-                className="min-h-[126px] border-b border-border p-5 last:border-b-0 sm:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r xl:last:border-r-0 xl:[&:nth-child(odd)]:border-r"
-                key={metric.label}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "grid size-11 place-items-center rounded-xl",
-                      metric.iconClass
-                    )}
-                  >
-                    <Icon className="size-6" />
-                  </div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {localize(metric.label)}
-                  </p>
-                </div>
-                <div className="mt-3 flex items-end justify-between gap-3">
-                  <strong className="text-[27px] font-medium leading-none tracking-[-0.025em] text-foreground tabular-nums">
-                    {metric.value}
-                  </strong>
-                  <div className="pb-0.5 text-right text-[12px]">
-                    <p className="font-semibold text-link">↑ {metric.change}</p>
-                    <p className="mt-0.5 text-muted-foreground">
-                      {t("dashboard.vsLastMonth")}
-                    </p>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
+          <MetricCard
+            change={<DeltaBadge delta={metrics.tasks.changePct} />}
+            icon={BoxIcon}
+            iconClass="bg-primary/10 text-primary"
+            label={t("dashboard.totalTasks")}
+            value={numberFormat.format(metrics.tasks.total)}
+          />
+          <MetricCard
+            change={
+              <DeltaBadge
+                delta={rateDelta}
+                unit={` ${t("dashboard.percentagePoints")}`}
+              />
+            }
+            icon={CheckCircle2Icon}
+            iconClass="bg-muted text-foreground"
+            label={t("dashboard.successRate")}
+            value={
+              metrics.successRate.rate === null
+                ? "—"
+                : `${metrics.successRate.rate}%`
+            }
+          />
+          <MetricCard
+            change={<DeltaBadge delta={metrics.activeUsers.changePct} />}
+            icon={UsersIcon}
+            iconClass="bg-muted text-foreground"
+            label={t("dashboard.activeUsers")}
+            value={numberFormat.format(metrics.activeUsers.current)}
+          />
+          <MetricCard
+            change={<EnabledBadge count={metrics.skills.enabled} />}
+            icon={DatabaseIcon}
+            iconClass="bg-muted text-foreground"
+            label={t("dashboard.publishedSkills")}
+            value={numberFormat.format(metrics.skills.total)}
+          />
+          <MetricCard
+            change={<EnabledBadge count={metrics.tools.enabled} />}
+            icon={PackageCheckIcon}
+            iconClass="bg-muted text-foreground"
+            label={t("dashboard.connectedTools")}
+            value={numberFormat.format(metrics.tools.total)}
+          />
         </section>
 
         <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12">
@@ -433,59 +603,97 @@ export function DashboardOverview() {
               action={<RangeButton />}
               title={t("dashboard.taskDistribution")}
             />
-            <div className="flex min-h-[225px] items-center gap-2 px-4 py-3">
-              <EChartsChart
-                ariaLabel={t("dashboard.taskTypeDistributionChart")}
-                className="h-[190px] min-w-0 flex-1"
-                option={typeOption}
-              />
-              <ul className="w-[145px] shrink-0 space-y-2.5">
-                {taskTypes.map((item, index) => (
-                  <li
-                    className="flex items-center gap-2 text-xs"
-                    key={item.name}
-                  >
-                    <i
-                      className="size-2.5 rounded-full"
-                      style={{ backgroundColor: typeColors[index] }}
-                    />
-                    <span className="flex-1 text-muted-foreground">
-                      {localize(item.name)}
-                    </span>
-                    <strong className="font-medium text-foreground">
-                      {item.value}%
-                    </strong>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {distTotal === 0 ? (
+              <div className="flex min-h-[225px] items-center justify-center text-xs text-muted-foreground">
+                {t("dashboard.noData")}
+              </div>
+            ) : (
+              <div className="flex min-h-[225px] items-center gap-2 px-4 py-3">
+                <EChartsChart
+                  ariaLabel={t("dashboard.taskTypeDistributionChart")}
+                  className="h-[190px] min-w-0 flex-1"
+                  option={typeOption}
+                />
+                <ul className="w-[145px] shrink-0 space-y-2.5">
+                  {distribution.map((item) => (
+                    <li
+                      className="flex items-center gap-2 text-xs"
+                      key={item.backend}
+                    >
+                      <i
+                        className="size-2.5 rounded-full"
+                        style={{ backgroundColor: backendColor(item.backend) }}
+                      />
+                      <span className="flex-1 text-muted-foreground">
+                        {backendLabel(item.backend)}
+                      </span>
+                      <strong className="font-medium text-foreground">
+                        {Math.round((item.count / distTotal) * 100)}%
+                      </strong>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </article>
 
           <article className={cn(panelClass, "xl:col-span-3")}>
             <PanelHeader
               action={
-                <span className="flex items-center gap-2 text-xs font-medium text-link">
-                  <i className="size-2.5 rounded-full bg-link" />
-                  {t("dashboard.allOperational")}
+                <span
+                  className={cn(
+                    "flex items-center gap-2 text-xs font-medium",
+                    allOperational
+                      ? "text-link"
+                      : worstService === "error"
+                        ? "text-destructive"
+                        : worstService === "degraded"
+                          ? "text-warning"
+                          : "text-muted-foreground"
+                  )}
+                >
+                  <i
+                    className={cn(
+                      "size-2.5 rounded-full bg-current",
+                      !allOperational &&
+                        worstService === "error" &&
+                        "text-destructive"
+                    )}
+                  />
+                  {allOperational
+                    ? t("dashboard.allOperational")
+                    : worstService === "error"
+                      ? t("dashboard.servicesError")
+                      : worstService === "degraded"
+                        ? t("dashboard.statusDegraded")
+                        : t("dashboard.servicesPartial")}
                 </span>
               }
               title={t("dashboard.systemStatus")}
             />
             <ul className="px-5 py-1">
-              {systemServices.map((service) => (
-                <li
-                  className="flex h-[34px] items-center border-b border-border text-xs last:border-0"
-                  key={service}
-                >
-                  <CircleIcon className="mr-3 size-2.5 fill-link text-link" />
-                  <span className="flex-1 text-muted-foreground">
-                    {localize(service)}
-                  </span>
-                  <span className="font-medium text-link">
-                    {t("dashboard.operational")}
-                  </span>
-                </li>
-              ))}
+              {services.map((service) => {
+                const meta = SERVICE_STATUS_META[service.status];
+                return (
+                  <li
+                    className="flex h-[34px] items-center border-b border-border text-xs last:border-0"
+                    key={service.key}
+                  >
+                    <CircleIcon
+                      className={cn(
+                        "mr-3 size-2.5 fill-current",
+                        meta.className
+                      )}
+                    />
+                    <span className="flex-1 text-muted-foreground">
+                      {t(`dashboard.${SERVICE_LABEL_KEYS[service.key]}`)}
+                    </span>
+                    <span className={cn("font-medium", meta.className)}>
+                      {t(`dashboard.${meta.labelKey}`)}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </article>
         </section>
@@ -515,51 +723,60 @@ export function DashboardOverview() {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentTasks.map((task, index) => (
-                    <tr
-                      className="h-[42px] border-t border-border text-muted-foreground"
-                      key={task[0]}
-                    >
-                      <td className="h-[36px] whitespace-nowrap px-4 font-medium text-foreground">
-                        <span
-                          className={cn(
-                            "mr-2 inline-grid size-6 place-items-center rounded-md",
-                            index % 3 === 0
-                              ? "bg-primary/10 text-primary"
-                              : index % 3 === 1
-                                ? "bg-muted text-foreground"
-                                : "bg-muted text-foreground"
-                          )}
+                  {overview.recentRuns.length === 0 ? (
+                    <EmptyRow colSpan={6} />
+                  ) : (
+                    overview.recentRuns.map((run) => {
+                      const meta =
+                        RUN_STATUS_META[run.status as OverviewRunStatus] ??
+                        RUN_STATUS_META.running;
+                      return (
+                        <tr
+                          className="h-[42px] border-t border-border text-muted-foreground"
+                          key={run.runId}
                         >
-                          <FileBarChartIcon className="size-3.5" />
-                        </span>
-                        {localize(task[0])}
-                      </td>
-                      <td className="px-4">{task[1]}</td>
-                      <td className="whitespace-nowrap px-4">
-                        {localize(task[2])}
-                      </td>
-                      <td className="whitespace-nowrap px-4">
-                        <span
-                          className={cn(
-                            "flex items-center gap-1.5",
-                            task[3] === "已完成"
-                              ? "text-link"
-                              : task[3] === "运行中"
-                                ? "text-warning"
-                                : "text-destructive"
-                          )}
-                        >
-                          <i className="size-2 rounded-full bg-current" />
-                          {localize(task[3])}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-4">
-                        {localize(task[4])}
-                      </td>
-                      <td className="whitespace-nowrap px-4">{task[5]}</td>
-                    </tr>
-                  ))}
+                          <td className="h-[36px] max-w-[220px] truncate px-4 font-medium text-foreground">
+                            <span className="mr-2 inline-grid size-6 place-items-center rounded-md bg-muted text-foreground">
+                              <FileBarChartIcon className="size-3.5" />
+                            </span>
+                            {run.chatTitle}
+                          </td>
+                          <td className="px-4">{run.userName ?? "—"}</td>
+                          <td className="whitespace-nowrap px-4">
+                            {backendLabel(run.backend)}
+                          </td>
+                          <td className="whitespace-nowrap px-4">
+                            <span
+                              className={cn(
+                                "flex items-center gap-1.5",
+                                meta.className
+                              )}
+                            >
+                              <i className="size-2 rounded-full bg-current" />
+                              {t(`dashboard.${meta.labelKey}`)}
+                            </span>
+                          </td>
+                          <td
+                            className="whitespace-nowrap px-4"
+                            suppressHydrationWarning
+                          >
+                            {formatStamp(
+                              run.createdAt,
+                              {
+                                today: t("dashboard.today"),
+                                yesterday: t("dashboard.yesterday"),
+                              },
+                              locale,
+                              english
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-4">
+                            {formatDuration(run.durationMs)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -568,36 +785,50 @@ export function DashboardOverview() {
           <article className={cn(panelClass, "xl:col-span-4")}>
             <PanelHeader
               action={<ViewAll href="/admin/skills" />}
-              title={t("dashboard.popularSkills")}
+              title={t("dashboard.recentSkills")}
             />
             <ol className="px-5 py-1">
-              {popularSkills.map(
-                ([name, description, count, Icon, iconClass], index) => (
-                  <li className="flex h-[49px] items-center gap-3" key={name}>
-                    <span className="w-3 text-xs text-muted-foreground">
-                      {index + 1}
-                    </span>
-                    <span
-                      className={cn(
-                        "grid size-8 place-items-center rounded-md",
-                        iconClass
-                      )}
+              {overview.skills.length === 0 ? (
+                <li className="flex h-16 items-center justify-center text-xs text-muted-foreground">
+                  {t("dashboard.noData")}
+                </li>
+              ) : (
+                overview.skills.map((item, index) => {
+                  const Icon = SKILL_ICONS[index % SKILL_ICONS.length];
+                  return (
+                    <li
+                      className="flex h-[49px] items-center gap-3"
+                      key={item.name}
                     >
-                      <Icon className="size-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <strong className="block truncate text-xs font-medium text-foreground">
-                        {localize(name)}
-                      </strong>
-                      <span className="block truncate text-[10px] text-muted-foreground">
-                        {localize(description)}
+                      <span className="w-3 text-xs text-muted-foreground">
+                        {index + 1}
                       </span>
-                    </span>
-                    <span className="text-xs font-medium text-foreground">
-                      {count}
-                    </span>
-                  </li>
-                )
+                      <span
+                        className={cn(
+                          "grid size-8 place-items-center rounded-md",
+                          index === 0
+                            ? "text-primary bg-primary/10"
+                            : "text-foreground bg-muted"
+                        )}
+                      >
+                        <Icon className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate text-xs font-medium text-foreground">
+                          {item.displayName}
+                        </strong>
+                        <span className="block truncate text-[10px] text-muted-foreground">
+                          {item.description}
+                        </span>
+                      </span>
+                      <span className="text-xs font-medium text-foreground">
+                        {item.enabled
+                          ? item.version || "—"
+                          : t("dashboard.statusDisabled")}
+                      </span>
+                    </li>
+                  );
+                })
               )}
             </ol>
           </article>
@@ -608,30 +839,46 @@ export function DashboardOverview() {
               title={t("dashboard.latestActivity")}
             />
             <ol className="relative px-5 py-2 before:absolute before:bottom-6 before:left-[23px] before:top-6 before:w-px before:bg-border">
-              {activities.map(([title, description, time, color]) => (
-                <li
-                  className="relative flex min-h-[48px] gap-3 pl-5"
-                  key={title}
-                >
-                  <i
-                    className={cn(
-                      "absolute left-0 top-2 size-2.5 rounded-full ring-4 ring-card",
-                      color
-                    )}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <strong className="block text-xs font-medium text-foreground">
-                      {localize(title)}
-                    </strong>
-                    <span className="block truncate text-[10px] text-muted-foreground">
-                      {localize(description)}
-                    </span>
-                  </span>
-                  <time className="shrink-0 pt-0.5 text-[10px] text-muted-foreground">
-                    {localize(time)}
-                  </time>
+              {overview.activities.length === 0 ? (
+                <li className="flex h-16 items-center justify-center text-xs text-muted-foreground">
+                  {t("dashboard.noData")}
                 </li>
-              ))}
+              ) : (
+                overview.activities.map((activity) => {
+                  const meta =
+                    ACTIVITY_META[activity.type] ?? ACTIVITY_META.skill;
+                  return (
+                    <li
+                      className="relative flex min-h-[48px] gap-3 pl-5"
+                      key={`${activity.type}-${activity.at}-${activity.title}`}
+                    >
+                      <i
+                        className={cn(
+                          "absolute left-0 top-2 size-2.5 rounded-full ring-4 ring-card",
+                          meta.className
+                        )}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate text-xs font-medium text-foreground">
+                          {activity.title}
+                        </strong>
+                        <span className="block truncate text-[10px] text-muted-foreground">
+                          {t(`dashboard.${meta.labelKey}`)}
+                        </span>
+                      </span>
+                      <time
+                        className="shrink-0 pt-0.5 text-[10px] text-muted-foreground"
+                        suppressHydrationWarning
+                      >
+                        {formatDistanceToNow(new Date(activity.at), {
+                          addSuffix: true,
+                          locale,
+                        })}
+                      </time>
+                    </li>
+                  );
+                })
+              )}
             </ol>
           </article>
         </section>
