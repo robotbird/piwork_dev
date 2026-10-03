@@ -56,6 +56,7 @@ const primaryItems = [
 
 export function AppSidebar({ user }: { user: User | undefined }) {
   const t = useTranslations("appSidebar");
+  const tChat = useTranslations("chat");
   const _tp = useTranslations("projects");
   const pathname = usePathname();
   const router = useRouter();
@@ -274,7 +275,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               <UserRoundIcon className="size-4" />
             </span>
             <span className="group-data-[collapsible=icon]:hidden">
-              robotbird
+              {tChat("logInToYourAccount")}
             </span>
           </Link>
         )}

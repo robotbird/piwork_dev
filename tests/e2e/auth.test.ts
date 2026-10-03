@@ -1,4 +1,37 @@
 import { expect, test } from "@playwright/test";
+import { cleanupTestData } from "./helpers/test-cleanup";
+
+test("signing out replaces the account identity with the login prompt", async ({
+  page,
+}) => {
+  const username = `logout-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const email = `${username}@test.local`;
+  try {
+    await page.goto("/register");
+    await page.locator("#email").fill(email);
+    await page.locator("#password").fill("test123456");
+    await page.getByRole("button", { name: /^(注册|Sign up)$/ }).click();
+    await page.waitForURL("/");
+    await expect(page.getByTestId("user-email")).toHaveText(username);
+    await page.getByTestId("user-nav-button").click();
+    await page.getByTestId("user-nav-item-auth").click();
+    await expect(page.getByTestId("user-email")).toHaveText(
+      /^(登录账户|Log in to your account)$/
+    );
+    const session = await page.request.get("/api/auth/session");
+    expect((await session.json()).user.type).toBe("guest");
+    await page.reload();
+    await expect(page.getByTestId("user-email")).toHaveText(
+      /^(登录账户|Log in to your account)$/
+    );
+    await page.getByTestId("user-nav-button").click();
+    await expect(page.getByTestId("user-nav-item-admin")).toHaveCount(0);
+    await page.getByTestId("user-nav-item-auth").click();
+    await expect(page).toHaveURL("/login");
+  } finally {
+    await cleanupTestData({ emailPatterns: [email] });
+  }
+});
 
 test.describe("Authentication Pages", () => {
   test("login page renders correctly", async ({ page }) => {

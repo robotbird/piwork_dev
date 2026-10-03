@@ -8,6 +8,7 @@ import {
   MoonIcon,
   Settings2Icon,
   SunIcon,
+  UserRoundIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,11 +37,9 @@ export function UserNav({ area, user }: UserNavProps) {
 
   const isGuest = guestRegex.test(user.email ?? "");
   const displayName = isGuest
-    ? "robotbird"
+    ? t("chat.logInToYourAccount")
     : (user.email?.split("@")[0] ?? user.name?.trim() ?? t("common.user"));
-  const initial = isGuest
-    ? "R"
-    : (user.email?.[0] ?? displayName[0] ?? "R").toUpperCase();
+  const initial = (user.email?.[0] ?? displayName[0] ?? "R").toUpperCase();
   const testIdPrefix = area === "app" ? "user-nav" : "admin-user-nav";
 
   const handleThemeSelect = useCallback(() => {
@@ -67,13 +66,15 @@ export function UserNav({ area, user }: UserNavProps) {
               type="button"
             >
               <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/12 text-[12px] font-medium text-primary">
-                {initial}
+                {isGuest ? (
+                  <UserRoundIcon className="size-4" />
+                ) : (
+                  <span>{initial}</span>
+                )}
               </span>
               <span
                 className="truncate text-sm"
-                data-testid={
-                  area === "app" ? "user-email" : "admin-user-name"
-                }
+                data-testid={area === "app" ? "user-email" : "admin-user-name"}
               >
                 {displayName}
               </span>
@@ -104,9 +105,7 @@ export function UserNav({ area, user }: UserNavProps) {
                 </Link>
               </DropdownMenuItem>
             )}
-            {area === "admin" || !isGuest ? (
-              <DropdownMenuSeparator />
-            ) : null}
+            {area === "admin" || !isGuest ? <DropdownMenuSeparator /> : null}
             <DropdownMenuItem
               className="cursor-pointer gap-2 text-sm"
               data-testid={`${testIdPrefix}-item-theme`}
