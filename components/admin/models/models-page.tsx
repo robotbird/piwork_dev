@@ -5,6 +5,7 @@
 import {
   BrainCircuitIcon,
   CheckIcon,
+  ChevronDownIcon,
   KeyRoundIcon,
   MoreHorizontalIcon,
   SearchIcon,
@@ -28,6 +29,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -517,10 +523,10 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
   const toggle = useCallback(
     async (item: ModelPluginInstallationView) => {
       setBusyId(item.id);
-      const result = await requestJson(
-        `/api/admin/model-plugins/${item.id}`,
-        { body: JSON.stringify({ enabled: !item.enabled }), method: "PATCH" }
-      );
+      const result = await requestJson(`/api/admin/model-plugins/${item.id}`, {
+        body: JSON.stringify({ enabled: !item.enabled }),
+        method: "PATCH",
+      });
       setBusyId(null);
       if (result.error) {
         return toast.error(t(result.error));
@@ -544,16 +550,13 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
           : (item.defaultModelId ?? (enabled ? modelId : null));
       const operationId = `${item.id}:${modelId}`;
       setBusyId(operationId);
-      const result = await requestJson(
-        `/api/admin/model-plugins/${item.id}`,
-        {
-          body: JSON.stringify({
-            defaultModelId: nextDefaultModelId,
-            enabledModels: nextEnabledModels,
-          }),
-          method: "PATCH",
-        }
-      );
+      const result = await requestJson(`/api/admin/model-plugins/${item.id}`, {
+        body: JSON.stringify({
+          defaultModelId: nextDefaultModelId,
+          enabledModels: nextEnabledModels,
+        }),
+        method: "PATCH",
+      });
       setBusyId(null);
       if (result.error) {
         toast.error(t(result.error));
@@ -569,10 +572,9 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
     }
     const item = deleteTarget;
     setBusyId(item.id);
-    const result = await requestJson(
-      `/api/admin/model-plugins/${item.id}`,
-      { method: "DELETE" }
-    );
+    const result = await requestJson(`/api/admin/model-plugins/${item.id}`, {
+      method: "DELETE",
+    });
     setBusyId(null);
     if (result.error) {
       return toast.error(t(result.error));
@@ -723,60 +725,65 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                       </div>
                     </div>
                     <div className="border-t border-border/70 bg-muted/15 px-5 py-3">
-                      <p className="mb-2 text-xs font-medium text-muted-foreground">
-                        {t("modelPlugins.pluginModels", {
-                          count: item.models.length,
-                        })}
-                      </p>
-                      <div className="overflow-hidden rounded-xl border border-border bg-background">
-                        {item.models.map((model) => {
-                          const modelEnabled = item.enabledModels.includes(
-                            model.modelId
-                          );
-                          const modelBusy =
-                            busyId === `${item.id}:${model.modelId}`;
-                          return (
-                            <div
-                              className="flex flex-col gap-3 border-b border-border/70 px-4 py-3 last:border-b-0 sm:flex-row sm:items-center"
-                              key={model.modelId}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-sm font-medium">
-                                    {model.label["zh-CN"] ??
-                                      model.label.en ??
-                                      model.modelId}
-                                  </p>
-                                  {item.defaultModelId === model.modelId ? (
-                                    <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
-                                      {t("admin.defaultBadge")}
-                                    </span>
-                                  ) : null}
+                      <Collapsible defaultOpen={false}>
+                        <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-1.5 rounded-md text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+                          <ChevronDownIcon className="size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+                          {t("modelPlugins.pluginModels", {
+                            count: item.models.length,
+                          })}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="mt-2 overflow-hidden rounded-xl border border-border bg-background">
+                            {item.models.map((model) => {
+                              const modelEnabled = item.enabledModels.includes(
+                                model.modelId
+                              );
+                              const modelBusy =
+                                busyId === `${item.id}:${model.modelId}`;
+                              return (
+                                <div
+                                  className="flex flex-col gap-3 border-b border-border/70 px-4 py-3 last:border-b-0 sm:flex-row sm:items-center"
+                                  key={model.modelId}
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="text-sm font-medium">
+                                        {model.label["zh-CN"] ??
+                                          model.label.en ??
+                                          model.modelId}
+                                      </p>
+                                      {item.defaultModelId === model.modelId ? (
+                                        <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                                          {t("admin.defaultBadge")}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <div className="mt-1.5">
+                                      <ModelTags model={model} />
+                                    </div>
+                                  </div>
+                                  <Switch
+                                    aria-label={t("modelPlugins.enableModel", {
+                                      id: model.modelId,
+                                    })}
+                                    checked={modelEnabled}
+                                    disabled={
+                                      !item.credentialsConfigured || modelBusy
+                                    }
+                                    onCheckedChange={(checked) =>
+                                      toggleInstalledModel(
+                                        item,
+                                        model.modelId,
+                                        checked
+                                      )
+                                    }
+                                  />
                                 </div>
-                                <div className="mt-1.5">
-                                  <ModelTags model={model} />
-                                </div>
-                              </div>
-                              <Switch
-                                aria-label={t("modelPlugins.enableModel", {
-                                  id: model.modelId,
-                                })}
-                                checked={modelEnabled}
-                                disabled={
-                                  !item.credentialsConfigured || modelBusy
-                                }
-                                onCheckedChange={(checked) =>
-                                  toggleInstalledModel(
-                                    item,
-                                    model.modelId,
-                                    checked
-                                  )
-                                }
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
+                              );
+                            })}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                     </div>
                   </article>
                 ))}
