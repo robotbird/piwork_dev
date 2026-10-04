@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "piwork-llm-tongyi",
+  "provider": "tongyi",
+  "name": "Tongyi",
+  "version": "1.0.0",
+  "description": {
+    "zh-CN": "阿里云百炼通义千问系列模型，支持思考模式、工具调用与视觉理解",
+    "en": "Alibaba Cloud Model Studio (DashScope) Tongyi Qwen chat models with thinking mode, tool calling, and vision"
+  },
+  "runtime": {
+    "language": "typescript",
+    "node": ">=22.19.0",
+    "source": "src/index.ts",
+    "entry": "dist/index.js"
+  },
+  "capabilities": ["llm"],
+  "permissions": {
+    "network": ["dashscope.aliyuncs.com"],
+    "filesystem": "none",
+    "environment": []
+  },
+  "assets": {
+    "icon": "assets/icon.svg",
+    "iconDark": "assets/icon-dark.svg"
+  }
+}

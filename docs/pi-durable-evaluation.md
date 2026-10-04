@@ -1,73 +1,133 @@
-# Pi Durable 评估与采用计划
+# Pi Durable 评估与采用门禁
 
-> 核对日期：2026-10-01。对象：`@earendil-works/pi-durable@0.99.2`（2026-09-30 发布，官方公告同日）。
-> **状态：评估完成，结论为现阶段不替换主链路；P2 旁路原型已落地（`DurableBackend`，见 §5），生产默认路径不变。** 除原型外的 Pi Durable 能力未接入生产。
+> 状态：**评估与试点计划，不是生产恢复能力承诺**。当前 `DurableBackend` 已补持久存储与恢复安全基础，但仍未完成 Worker/平台映射/恢复投影接线；默认生产路径不改变，不能宣称已生产上线。
+> 本轮已核对 npm 最新发布并安装：pi-ai / pi-agent-core / pi-coding-agent / pi-durable / chord 均为 **1.0.2**。Durable 仍 Experimental。已适配新版 Registry/Extension/Agent configuration API 并移除旧选项兼容转型；存储继续官方 SQLite。
+> 完整执行顺序、企业 MVP 门禁与代码落点见 [企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)。本文替代旧版中“定时任务恰好一次”“版本化承诺部分成立”“全面迁移后退役 RunManager”等结论。
 
-## 1. Pi Durable 是什么
+## 1. 决策摘要
 
-官方定位：一个"耐久 agent harness"——存储 + 并行跑多路对话的执行机械。它**不取代** Pi coding agent，而是与其共享 `pi-ai` 与"极简/可塑"原则的平行框架，用于构建任意 agentic 应用。核心概念：
+1. **保留 Pi AgentSession 为办公 MVP 主 harness**，不全面替换聊天链路。
+2. **先稳定工具执行和平台运行账本，再把执行宿主移到单独 Worker，最后试点 Durable**。Worker 解耦 Web 与执行生命周期；Durable 提供内部 checkpoint 恢复，二者互补。
+3. Durable 仅从**文件处理、少外部副作用、不依赖 MCP 的定时任务**试点；不按模型预估时长自动迁移运行中的会话。
+4. 固定经测试的版本，以恢复测试和升级门禁管理 experimental 风险；`1.0.x`、依赖对齐、连续 patch 无 breaking 标注均不等于 API 稳定承诺。
+5. **同 requestId 提交去重不等于业务恰好一次执行**。工具副作用幂等、权限复核、产物归档与平台结果投影必须独立实现。
 
-- **Harness**：打开在一个存储后端之上，所有变更经一条原子提交线落盘，"先提交后可见"。
-- **Conversation / Entry**：对话是不可变条目转录（`pi.user`、`pi.assistant`、`pi.tool-result`、`pi.system`、`pi.reset` 及自定义 kind）；可 fork（按条目位置继承父历史，不复制）。
-- **Task**：每个模型请求/工具调用/压缩都是持久状态机任务，逐 checkpoint 落盘；进程死掉后新进程 `resume()` 从上个 checkpoint 继续。任务间有 ownership 树（abort 自底向上传播），`requestId` 让提交恰好一次。
-- **Registry / 扩展**：具名的 system prompt sections、tools（TypeBox schema、`replay: "safe"` 重放语义）、hooks（`beforeTool`/`onYield` 等）、自定义 tasks；对话只存名字不存代码，registry 可热替换。
-- **Document**：与转录同事务提交的类型化 JSON 应用状态（内置 `pi.conversation.config`、`pi.live`、`pi.inbox`、`pi.usage`）。
-- **观察面**：`viewState()`/`watch()` 输出结构化视图与提交级操作帧；`watchEvents()` 输出 coding-agent 风格事件（`message_start`/`message_update`/`text_delta`/`tool_execution_*`/`turn_*`/`run_*`/`compaction_*`/`snapshot`）。
-- **压缩**：后台 compaction 任务 + 上下文超限自动压缩重试一次；`reset()`/`control: { handoff }` 换语境而旧条目仍可查。
+## 2. 能力与明确边界
 
-依赖：`@earendil-works/pi-ai@^0.99.2`（与本项目当前版本一致）、`@earendil-works/chord@^0.99.2`（应用组合运行时，承担文档状态）、`typebox`、`diff`。存储后端自带 Memory/SQLite/JSONL（便携核不依赖 Node API），并带 conformance 套件供自研后端（如 Postgres）对齐。
-
-**稳定性**：包 README 第一行即 *"Experimental. The API changes without notice between releases."*；官方公告也称 experimental。本地已实证公告与发布版存在 API 漂移（见 §3）。
-
-## 2. 与 piwork 现状的映射
-
-| piwork 现有能力 | Pi Durable 对应 | 差口 |
+| 能力 | 已安装 0.99.2 的官方行为 | 平台需要补齐的部分 |
 | --- | --- | --- |
-| RunManager 生命周期、订阅、断线重放（lib/runtime/run） | `Harness` + `submission.wait()` + `viewState()/watch()`（快照 + 增量帧，天然支持晚加入/重连） | 可替代，且重连语义更优；需重写 stream-mapping 的输入源 |
-| AgentRun / RuntimeEvent / Message_v2 的 PostgreSQL 持久化 | 对话转录即持久化（SQLite/JSONL 自带；Postgres 需自研 Storage 后端 + conformance 套件对齐） | 自研 Postgres 后端是一块独立工程；数据模型与现有 Chat/Message_v2 完全不同，需迁移策略 |
-| InProcessBackend → Pi AgentSession（pi-coding-agent SDK） | Harness 内置 generation/tool 任务直接调 `pi-ai` | 会话装配、系统提示分段、`noTools`/cwd 等边界需在 registry/sections/env 上重建 |
-| 模型插件（lib/model-plugins → ModelRuntime + registerProvider 扩展） | `createModels({ credentials })` + `models.setProvider(provider)`（pi-ai 原生 Provider，插件产出的就是该类型） | 插件桥接可行；需把凭据存储适配为 pi-ai `CredentialStore`，Worker 激活链路要重接 |
-| 内置 MCP（0.99.2 builtin:mcp，刚完成的重构）/ codemode / tool_search | **无对应物**（README 与公告均未提及 MCP） | 最大差口；要么放弃要么在 durable tools 上重做 MCP 客户端 |
-| Skill 管线（系统提示段 + createSkillTools） | `registry.systemPrompt.section()` + 自定义 tools | 机制可承载，但注册/启停/管理端联动需重建 |
-| deliver_file 归档、聊天工作区（.pi/workspace/:chatId） | 自定义 tool + 每 conversation 的 `env`（NodeExecutionEnv 按 cwd 构建） | 可承载；归档回调语义需自定义工具实现 |
-| 定时任务（lib/scheduler：事务领取、lease、恢复） | Task 状态机 + checkpoint + resume + `background: true` | 可替代且更强（崩溃恢复、恰好一次）；执行编排需重写 |
-| 项目 Workspace、文档库、配额、管理端、鉴权 | 不涉及（应用层） | 不受影响 |
-| 多实例/分布式（当前 MVP 单实例约束） | 一个存储同一时刻只归一个进程所有，无跨进程锁 | 与现状约束相同；未来多实例需 Postgres 后端 + 单写者仲裁 |
+| Harness / Conversation / Task | 存储先提交后可见；转录、文档、任务 checkpoint 持久化 | 平台 AgentRun、用户归属、准入、取消与管理仍由 piwork 持有 |
+| resume | 重开存储、重新装配 registry 后恢复未完任务；模型请求可能重新发起 | 启动对账、运行所有权、权限复核、沙箱命令孤儿处理 |
+| requestId | 同 conversation 同 requestId 找回同 submission | 不保证模型计费、shell、邮件、外部 API 或文件交付只发生一次 |
+| tool replay | intent 中策略与当前注册策略均为 safe 才重跑；默认 unsafe；恢复重放不执行 beforeTool | 授权与幂等检查必须在 execute 入口再次执行，不仅放在 hook |
+| unsafe 工具中断 | 模型收到 interrupted 错误结果，工具 task failed | generation 使用 allSettled，仍可能继续回答；不能直接把 AgentRun 判 failed |
+| watchEvents | 首次快照 + commit 增量，消费积压超过阈值会以新 snapshot 替换 | snapshot 是替换视图，不是历史 delta 重放；现适配器须补恢复映射 |
+| SQLite | WAL + synchronous=NORMAL；进程崩溃安全，主机故障可能丢最新提交 | 持久盘、备份与恢复演练、RPO/RTO；不把同机文件等同于高可用 |
+| 单写者 | 一个 storage 同时只归一个进程，无跨进程锁 | 启动互斥、明确 owner；有多实例需求时需仲裁和 fencing，不仅改 Storage |
+| MCP / Skill | 本次核对未发现与 coding-agent 内置 MCP 等价的完整装配；Skill 可用 registry sections/tools 承载 | 不假定原有 MCP/Skill/Package 直接兼容；试点限制任务能力集合 |
 
-## 3. 本地 spike 实录（2026-10-01）
+**恢复不等于撤销：**进程崩溃时，外部命令可能仍在运行，已经发送的邮件无法由 checkpoint 自动回滚；模型请求重新发起也可能增加费用。
 
-环境：macOS arm64，Node 26.10，`npm pack @earendil-works/pi-durable@0.99.2` 解包后 `npm install`，独立于仓库。脚本化 faux provider（pi-ai 自带，无网络）。
+## 3. 当前原型与历史 spike
 
-结果：
+2026-10-01 的历史 spike 记录：MemoryStorage 一问一答、SQLite close-重开、requestId 去重、watchEvents 事件与公告/发布包 API 漂移均曾验证。临时脚本未入库，**不能替代可重复的发布门禁**。
 
-1. **内存存储一问一答**：`Harness.open(MemoryStorage) → root() → setModel() → submit() → wait()` 返回 `done`，读回 assistant 条目文本。✅
-2. **SQLite 持久化与恢复**：提交并 `close()` 后重开同一 sqlite 文件，`root()` 返回同一对话 id；同 `requestId` 重复提交返回同一 submission（恰好一次）。✅
-3. **事件流**：`watchEvents` 实测产出 `snapshot/message_start/message_end/turn_start/turn_end/run_start/run_end/submission` 等事件类型，与 pi-coding-agent 的 AgentEvent 命名高度同形。✅
-4. **API 漂移实证**：官方公告示例 `harness.root(context, { agent: { model, cwd } })` 在已发布的 0.99.2 中**不存在**（`ConversationCreateOptions` 仅 `{ ownership, init }`），须按 README 用 `root.setModel()` 设置。公告/仓库主分支领先于发布包，印证 README 的"API 随版本无预警变更"。
+当前 `lib/runtime/backends/durable/`：
 
-## 4. 结论：现阶段不替换主链路
+- 默认开发原型仍用 MemoryStorage；生产明确拒绝该默认值。可注入官方 SQLite 单写者存储与当前授权回调，尚未装配生产入口。
+- AgentTool 转 durable 工具，模型 Provider 与提示装配有桥接；历史回灌有损。
+- 存储/身份与输入 hash 绑定、进程强杀后的官方恢复、未知 intent 阻断已进入重复测试；平台工具桥、完整跨重启映射、snapshot 重建仍未完成生产验收。
+- 主包 1.0.0 与 durable 嵌套 pi-ai 0.99.2 共存；一处显式类型转型不构成跨版本兼容保证。
+- 实验开关不应开放给普通生产用户，不能宣称“已有 DurableBackend 即已有耐久执行”。
 
-不替换的四条理由（按权重）：
+升级时须核对**全部相关包与锁文件实际解析版本**，包括 chord 与使用它的 NodeExecutionEnv。只把 durable 升到依赖 `pi-ai ^1.0.2` 的版本，不能保证仍固定 1.0.0 的主包与嵌套版本自动合一。
 
-1. **实验期 API**：官方明示 experimental、API 无预警变更，且公告与发布包已经漂移。把生产聊天链路（route → RunManager → Backend → 会话装配 → stream-mapping → 前端协议）整体迁到会变的 API 上，维护成本不可控。
-2. **能力差口集中在刚投资的点上**：MCP（0.99.2 内置扩展，刚完成重构）、Skill 管线、模型插件 Worker 链路、deliver_file 归档在 Pi Durable 中均无现成对应物，迁移=重做。
-3. **数据面重构**：Chat/Message_v2/RuntimeEvent/AgentRun → 转录条目模型是一次性不可逆迁移，涉及项目聊天、定时任务运行记录、文档归档等所有下游。
-4. **当前痛点强度不足以抵消成本**：crash 恢复、无限长会话、多人协同是 Pi Durable 的核心收益；平台当前单实例 MVP 的崩溃恢复窗口小（run 状态已有 lease/恢复语义），痛点未到阈值。
+## 4. 为什么现阶段不全面替换
 
-**应当启动替换的触发条件**（满足其一即重评）：Pi Durable 宣布 stable/版本化承诺；或官方为 durable 提供 MCP/codemode 对应物；或产品明确需要长时运行（小时级）、多端协同、跨进程恢复；或决定自研 Postgres Storage 后端并愿意先在旁路链路试点。
+- 官方 README 明示 Experimental；API 漂移已有历史证据。
+- 办公能力装配优先于 harness 迁移：MCP、Skill、文件归档、模型插件和权限需逐项验证。
+- 当前 Message_v2 / RuntimeEvent 是产品投影，Durable 转录是内部恢复状态；两者不能无条件互换。
+- 当前失败标记、租约和用户重发能力**不是 loop checkpoint 恢复**，但也不应仅为恢复而同步重做整条产品链路。
 
-## 5. 分阶段采用计划
+启动试点的条件：产品明确要求跨进程恢复、基础执行安全已达标、独立执行宿主可用、有稳定维护责任人与故障演练预算。官方稳定承诺可以降低风险，但不是试点的唯一前提；没有承诺时禁止默认全面切流。
 
-- **P0 跟踪（已做）**：本文档留档；每次升级 Pi 三主包时顺带核对 `@earendil-works/pi-durable` 版本与 CHANGELOG，关注 MCP 支持与 stable 声明。
-- **P1 存储后端预研（可独立做）**：以 `@earendil-works/pi-durable/testing` 的 conformance 套件为目标，实现 Postgres Storage 原型（约 20 个方法的接口：`commit/mintId` + 各类 scan/get + `close`），放在 `tests/` 或独立目录，不进生产依赖。这一步不依赖 API 稳定，且无论最终是否迁移都不浪费。
-- **P2 旁路原型（已落地，2026-10-01）**：`lib/runtime/backends/durable/` 实现了满足 `lib/runtime/protocol` 契约的 `DurableBackend`——每个 `open()` 新建独立 Harness + MemoryStorage，模型桥复用 `lib/ai/pi` 的 provider 体系（测试环境即 faux），AgentTool 映射为 durable 工具，`spec.systemPrompt + appendSystemPrompt` 注册为 registry system prompt section，有损历史以 `pi.user`/`pi.assistant` 条目回灌，事件经 `DurableEventNormalizer`（`watchEvents` AgentEvent → RuntimeEvent，含块相位合成与失败推导）对齐现有事件语义。已挂入 `tests/unit/runtime/backends/backends.test.ts` 契约套件（`supportsPlatformTools: false`，与 LocalRpc 同层差口：平台侧工具闭包/deliver_file 归档未接入），文本+推理、工具差口跳过项、abort、失败、close、单消费者、clearQueue 用例全部通过。生产组装 `lib/runtime/run/index.ts` 默认恒为 InProcessBackend，设 `PIWORK_RUNTIME_BACKEND=durable` 才切换（实验开关）。注意：主包升级 Pi 1.0.0 后（2026-10-02），pi-durable 0.99.2 仍以 pi-ai 0.99.2 解析（pnpm 嵌套双版本），`DurableBackend` 在 Harness 选项处有一处显式转型——1.0.0 的 `TranscriptContext` brand 是 `unique symbol` 纯类型标记，运行时无足迹，契约测试全部通过；pi-durable 发布对齐 pi-ai 1.0.0 的版本后应移除该转型并重评。
-- **P3 单面试点**：选一个收益最大的受控面先行（首选定时任务执行：长时、可恢复、恰好一次语义天然匹配），用 feature flag 切流，保留可回退。试点前先补齐原型差口：Postgres/SQLite 持久存储（跨重启恢复才有意义）、平台工具桥（deliver_file 归档）、真实 provider 下的流式验证。
-- **P4 主链路迁移**：P3 稳定且框架出 experimental 后，按"数据迁移脚本 + 双写窗口 + 灰度"标准流程迁移聊天主链路，同步退役 RunManager/InProcessBackend。
+## 5. 工具 replay 门禁
 
-## 6. Pi 官方依据
+| 工具类别 | 初始策略 | 转为 safe 的必要证据 |
+| --- | --- | --- |
+| read | 可试点 safe | 每次 execute 复核归属与授权；接受恢复时读取新内容；审计副作用可去重 |
+| write | unsafe | 操作 ID、目标版本/hash 前置条件、原子替换、重复调用找回同结果，不能覆盖后续改写 |
+| edit | unsafe | 不能只依赖 oldText；例如 A→AA 重放可再次匹配。须有版本/hash 和操作结果日志 |
+| bash | **unsafe，默认禁止自动重放** | 任意 shell 无通用幂等证明；特定已批准作业应封装成独立工具而非放开通用 bash |
+| deliver_file | unsafe | 稳定 operationId/object key，存储、归档、事件投影重复执行均不重复交付 |
+| create_scheduled_task | unsafe，待验证 | 确定 ID 去重跨重启成立；恢复后身份、当前权限与调度参数再次复核 |
+| 邮件/OA/日程等 | unsafe，默认不进首轮试点 | 外部系统支持幂等键或查询对账；确认凭证绑定操作参数，结果未知时禁止自动重复发送 |
 
-- `@earendil-works/pi-durable@0.99.2` 包内 `README.md`（安装、概念、持久化/恢复、工具、观察面、存储表、示例索引）。
-- 公告文（官方博客 "Why Pi Durable?"，2026-09-30）：Harness 定位、示例、`npm install` 三包说明。
-- 已核对源码/类型：`dist/index.d.ts`（导出面）、`dist/types.d.ts`（`Storage` 接口约 20 方法、Tx/Entry/Task/EntryDraft/SubmissionRecord 类型）、`dist/harness/events.d.ts`（AgentEvent 事件名清单）、`dist/harness/types.d.ts`（`ConversationCreateOptions` 无 `agent` 项、`ToolRegistration`/`PromptSection`/`Conversation` 句柄、`HarnessOptions`）、`dist/harness/events.js`（MessageChange 派生：`*_start`/`*_delta`/`block`/`message` 的触发条件）、`dist/harness/live.js`（`endRun` 与 `tx.settleSubmission` 同 commit，run_end 送达时 submission 已是终态）、`dist/harness/generation.js`（`no_model`/`model_error` 结算路径）、`dist/harness/config.js`（`ConversationConfigState` 无 instructions 字段）；`pi-ai` 0.99.2 `dist/models.d.ts`（`createModels`/`MutableModels.setProvider`）与 `dist/providers/faux.d.ts`。
-- 本地 spike 四项实测（见 §3），脚本是临时文件未入库，结果以本文记录为准。
-- P2 原型实现依据同上类型面；事件映射的块相位合成与终态推导差异记录在 `lib/runtime/backends/durable/event-normalizer.ts` 头注释。
+当前 `storeFile` 使用本地随机后缀或 Blob `addRandomSuffix`，所以“按 userId,url upsert”不能证明 deliver_file 幂等。
+
+## 6. 分阶段执行
+
+### D0：固定版本与可重复恢复验证（可与基础工具开发并行）
+
+- 核对拟采用版本的 README、类型、tool/generation/scheduler/storage/events 源码；不猜 API。
+- 把历史 spike 固化到 `tests/unit/runtime/backends/durable/`，升级后跑完整 Backend 契约。
+- 使用独立子进程 kill/restart，不只 close；覆盖模型请求中断、工具 intent 前后、safe/unsafe、快照替换、requestId 去重。
+- 更新本文件中的版本证据，确认双版本与显式转型处理方式。
+
+**产出：**版本固定清单、恢复语义报告、可重复测试。D0 通过不等于允许生产切流。
+
+### 本批 D0 增量（已实现，仍非 D1 上线）
+
+- `lib/runtime/backends/durable/storage.ts` 复用官方 `openNodeSqliteDatabase` + `SqliteStorage.open`，WAL 上显式设 synchronous=FULL；私有目录/文件、O_EXCL owner marker、user/chat/run/inputHash 与固定版本绑定。并不以 FULL 推断主机故障 RPO：仍需真实盘/备份/故障验证。
+- 单写者 marker 不按 TTL/PID 自动偷取；异常退出留下锁，必须由未来 Worker/reaper 在确认旧进程/外部动作停止及权限仍有效后对账。当前没有生产自动解除锁 API；不是分布式 fencing，也不代表工作区独占。
+- `recovery.ts` 在官方调度开始前检查 execute intent 及已物化 interrupted/tool_error/aborted 结果，拒绝为 needs-review 错误；不注册 safe 重放。注意 submit/wait 同样启动调度，不能仅把保护放在 resume 前。
+- 持久 adapter 必须注入当前授权，open 与每次 execute 都复核；授权/工具失败触发异步 abort，终态强制 failed，不能被模型正常回答掩盖。执行工具的 AbortSignal 透传；close 单飞、等官方 Harness 关闭才释放存储归属，清理错误不吞掉。
+- 持久 adapter 当前拒绝 workspace 执行，因为沙箱与账本未接好；默认 prototype 的 `PIWORK_RUNTIME_BACKEND=durable` 仍不可与 sandbox 同开。没有静默丢工具、默认切流、修改 `.env.local` 或升级依赖。
+- `tests/unit/runtime/backends/durable/` 新增 **14 项**：官方 SQLite 转录/requestId、第二写者/绑定漂移/符号链接、真实子进程 SIGKILL 的模型请求恢复与 unsafe intent 不重放、已物化未知结果、授权撤销不可伪成功、生产 MemoryStorage 拒绝。`tests/support/durable/crash-child.ts` 仅测试；解除死进程锁只在测试取得 exit 证据后做。
+- 本批验证：全 Runtime **284 项，278 通过、6 既有跳过、0 失败**；TypeScript/定向 Biome 通过。未做容量、持续或突发测试；D0 的存储不可用/磁盘满/备份还原/全部 phase/snapshot 矩阵尚未全部验收。
+
+**剩余生产必需：**单 Worker 与持久 job/取消/所有权、run/conversation/submission/version 映射和输入快照、正式权限/删除恢复对账、源事件游标/快照替换与消息/Token/产物幂等投影、沙箱命令及平台副作用 ledger、部署卷/备份/回滚演练。仅 SQLite 接入不等于这一生产闭环完成。
+
+### D1：独立 Worker 内受控定时任务试点
+
+前置：实施方案 P0–P3 通过；平台运行与沙箱所有权、产物幂等、取消与存储备份已落实。
+
+- Worker 持有 Harness；SQLite 单写者、可靠持久盘；禁止第二进程同时 open。
+- 平台保存 runId / conversationId / submissionId 映射、harness 与工具版本。
+- claim 后、resume 前、每次工具执行复核当前权限；模型凭据只由运行宿主装配。
+- 完成时以幂等投影更新 AgentRun、ScheduledTaskRun、消息和产物。
+- 故障恢复时先对账旧命令，再 resume；工具 task failed 不直接等同于整 run failed。
+
+**产出：**管理员白名单可用的文件任务车道。试点不注册创建定时任务工具，避免递归调度。
+
+### D2：人工显式选择的后台任务
+
+D1 稳定后提供“后台处理”入口，共享平台运行账本和事件协议。新任务选定 lane，启动后固定，禁止中途迁移 harness。交互聊天仍走 AgentSession；MCP 不满足试点范围的请求拒绝或明确选择兼容车道，不能隐式丢工具。
+
+### D3：按需求扩展存储与多 Worker
+
+默认采用控制面 PostgreSQL + Runtime 私有 SQLite + 私有文件/对象存储三层分工，而非统一所有数据进 PostgreSQL。官方 Harness 继续负责执行与恢复语义，不重写 scheduler/checkpoint/task ownership。按用户决定，本轮 Postgres Storage 代码、专项测试与 0017/0018 迁移全部撤回；本地新建的两张空表及两条迁移记录已事务删除，平台原业务表未变。只有未来明确出现无法由 SQLite/部署模型满足的需求时才重新评估自定义 Storage，不因“企业版”预先替换。Cloudflare DO 的单写者/Alarm/PITR 是运行模型能力，并非 Pi 或本项目 Node 部署自动拥有；持久卷、Writer 归属、唤醒、备份与副作用对账仍须验收。不做容量测试或千人容量承诺。
+
+**不设必然的“全面迁移/退役 RunManager”阶段。** 后续只替换经验证可由 Durable 接管的内部执行状态；平台运行管理职责继续保留。
+
+## 7. 上线、回滚与恢复验收
+
+- 同 requestId 重提找回同 submission；unsafe 工具不自动重放；有副作用且结果未知时进入平台 needs_review，而非自动再执行。
+- snapshot 重建不能漏文本、工具状态、产物或重复计算 Token；投影游标和序号跨重启保持一致。
+- 用户停用、任务取消、工具撤权后不得通过恢复绕过权限。
+- 真正 kill/restart、主机重启、磁盘满、存储不可用、备份恢复全部有实测结果。
+- 灰度开关只影响**新任务**；存量任务绑定原 lane/版本。回滚停止新 Durable 准入，保留原 Worker 处理或挂起旧任务，不以 InProcess 自动接管未完成副作用。
+- SQLite 的 RPO/RTO 由实测和业务确认，不沿用“100ms partial 持久化”推断主机故障的数据损失上限。
+
+## 8. 官方与代码依据
+
+本次实际核对：
+
+- 安装的 `@earendil-works/pi-durable@1.0.2/README.md`：Experimental、resume、requestId、watch、Storage 单写者与 SQLite 持久性。
+- `dist/harness/tool.js`：safe×safe、默认 unsafe、恢复不走 beforeTool、interrupted 结果。
+- `dist/harness/generation.js`：工具 allSettled 与后续 generation，submission 终态不能从单个工具失败推断。
+- D0 初批依据 0.99.2 README 与 docs/pico-v5.md、pico-v5-handoff.md、pico-v5-chord-usage.md；本轮升级核对 1.0.2 README 与官方版本化 docs/spec.md 的 Storage/Backends 契约，以及 registry/define/harness types；dist/harness/types.d.ts、storage/sqlite/{node,storage}.{d.ts,js}。只用官方 SQLite facade/Storage/Harness/inspect/context，未重写 scheduler；核实普通 hooks 抛错会被忽略，所以安全拒绝不用 hooks throw，恢复前检查并在 live 工具失败时明确 abort/failed。
+- Pi coding-agent 1.0.0 `docs/sdk.md`：AgentSession、资源装配、customTools、SessionManager 与 agent_settled。
+- 项目 `lib/runtime/backends/durable/`、`lib/ai/file-store.ts`、`package.json` 与锁文件。
+
+后续升级与实现须补查对应版本官方源码、`dist/harness/types.d.ts`、`dist/types.d.ts`、scheduler/storage/events 与官方恢复示例；源码/测试优先于最新网页和公告。

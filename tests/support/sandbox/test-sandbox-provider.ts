@@ -12,6 +12,10 @@ import {
   SandboxUnavailableError,
 } from "@/lib/runtime/sandbox";
 import { createChildProcessChannel } from "@/lib/runtime/sandbox/child-process-channel";
+import {
+  createSandboxFilesystem,
+  type SandboxFilesystem,
+} from "@/lib/runtime/sandbox/filesystem";
 
 /**
  * TestSandboxProvider：契约测试替身（AGENTS.md 测试替身归 tests/support）。
@@ -98,8 +102,12 @@ export class TestSandboxProvider implements SandboxProvider {
 }
 
 class TestSandboxHandle implements SandboxHandle {
+  readonly filesystem: SandboxFilesystem;
   private lifecycle: SandboxStatus = "creating";
-  private readonly processes = new Set<ChildProcess>();
+  private readonly processes = new Map<
+    ChildProcess,
+    SandboxChannel["onExit"]
+  >();
   private readonly statusTimer?: ReturnType<typeof setTimeout>;
   readonly id: string;
   private readonly sandbox: TestSandbox;
@@ -107,6 +115,10 @@ class TestSandboxHandle implements SandboxHandle {
   constructor(id: string, sandbox: TestSandbox) {
     this.id = id;
     this.sandbox = sandbox;
+    this.filesystem = createSandboxFilesystem(this, {
+      allowUnanchoredTestPaths: true,
+      nodePath: process.execPath,
+    });
     // 模拟 OpenSandbox 异步 create→ready
     this.statusTimer = setTimeout(() => {
       this.lifecycle = "ready";
@@ -126,6 +138,7 @@ class TestSandboxHandle implements SandboxHandle {
     const [cmd, ...args] = command.argv;
     const child = spawn(cmd, args, {
       cwd: command.cwd ?? this.sandbox.workspaceDir,
+      detached: process.platform !== "win32",
       // 基础 env 最小化（模拟隔离：不整包继承宿主），command.env 为覆盖项
       env: {
         HOME: process.env.HOME ?? tmpdir(),
@@ -138,8 +151,8 @@ class TestSandboxHandle implements SandboxHandle {
       },
       stdio: ["pipe", "pipe", "pipe"],
     });
-    this.processes.add(child);
     const channel = createChildProcessChannel(child, `test-sandbox:${this.id}`);
+    this.processes.set(child, channel.onExit);
     channel.onExit
       .then(() => this.processes.delete(child))
       .catch(() => undefined);
@@ -170,19 +183,30 @@ class TestSandboxHandle implements SandboxHandle {
     return Promise.resolve(this.lifecycle);
   }
 
-  destroy(policy: SandboxReleasePolicy): Promise<void> {
+  async destroy(policy: SandboxReleasePolicy): Promise<void> {
     clearTimeout(this.statusTimer);
     if (policy === "kill") {
-      for (const child of this.processes) {
-        child.kill("SIGKILL");
+      const pending = [...this.processes.values()];
+      for (const child of this.processes.keys()) {
+        try {
+          if (process.platform !== "win32" && child.pid) {
+            process.kill(-child.pid, "SIGKILL");
+          } else {
+            child.kill("SIGKILL");
+          }
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
+            throw error;
+          }
+        }
       }
+      await Promise.all(pending);
       this.processes.clear();
       this.lifecycle = "destroyed";
     } else if (policy === "pause") {
       this.lifecycle = "paused";
     }
-    // keep：状态不变
-    return Promise.resolve();
+    // keep：状态不变；此替身不是安全隔离/生产强杀证明。
   }
 
   private assertLive(): void {

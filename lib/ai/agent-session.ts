@@ -13,6 +13,7 @@ import {
   type LoadExtensionsResult,
   ModelRuntime,
   SessionManager,
+  SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import { loadPiworkMcpConfig } from "@/lib/mcp/agent-config";
 import { createPluginCredentialStore } from "@/lib/model-plugins/pi-credential-store";
@@ -39,8 +40,10 @@ export type PiworkAgentSessionOptions = {
   appendSystemPrompt: string[];
   /** 会话 cwd:执行工具开启时为聊天工作区;关闭时为 MANAGED_AGENT_DIR */
   cwd: string;
-  /** PIWORK_DISABLE_EXECUTION_TOOLS 场景:关内建工具,保留扩展/自定义工具 */
+  /** 轻量会话：关闭内建工具、受管扩展与 MCP，只保留平台显式工具 */
   disableBuiltinTools?: boolean;
+  /** Session-local SDK resize suppression. Caller must also reject unsupported MIME to avoid conversion. */
+  disableImageAutoResize?: boolean;
   /** 既有对话(有损重建的文本消息) */
   historyMessages: Message[];
   model: Model<Api>;
@@ -100,7 +103,11 @@ export async function createPiworkAgentSession(
     credentials: createPluginCredentialStore(),
   });
 
+  const settingsManager = options.disableImageAutoResize
+    ? SettingsManager.inMemory({ images: { autoResize: false } })
+    : undefined;
   const loader = new DefaultResourceLoader({
+    ...(settingsManager ? { settingsManager } : {}),
     agentDir: MANAGED_AGENT_DIR,
     appendSystemPrompt: options.appendSystemPrompt,
     cwd: options.cwd,
@@ -108,7 +115,9 @@ export async function createPiworkAgentSession(
       // 内置 MCP 扩展(pi.dev/docs/latest/mcp):服务来自受管 agentDir 的
       // mcp.json,exposure=direct 时工具像内建工具一样声明给模型。
       // session_start 由下方 bindExtensions 触发,服务在后台连接。
-      createMcpExtension({ loadConfig: () => loadPiworkMcpConfig() }),
+      ...(options.disableBuiltinTools
+        ? []
+        : [createMcpExtension({ loadConfig: () => loadPiworkMcpConfig() })]),
       ...providers.map((provider) => ({
         factory: (pi: ExtensionAPI) => {
           pi.registerProvider(provider);
@@ -117,8 +126,9 @@ export async function createPiworkAgentSession(
         name: `piwork-model-bridge-${provider.id}`,
       })),
     ],
-    // 工作区是隔离沙箱:AGENTS.md 等上下文文件不自动注入(与现状对齐)
     noContextFiles: true,
+    // 工作区是隔离沙箱:AGENTS.md 等上下文文件不自动注入(与现状对齐)
+    noExtensions: options.disableBuiltinTools ?? false,
     noPromptTemplates: true,
     // 切断 ~/.agents/skills 与 ~/.pi 全局技能泄漏;piwork 技能走自有管线
     noSkills: true,
@@ -135,10 +145,15 @@ export async function createPiworkAgentSession(
     cwd: options.cwd,
     model: options.model,
     modelRuntime,
-    // 注意:不能传 tools/excludeTools 白名单——isAllowedTool 会把
-    // 内置 MCP(mcp__*)等扩展工具一并过滤掉(agent-session.js _refreshToolRegistry)
-    ...(options.disableBuiltinTools ? { noTools: "builtin" as const } : {}),
+    // 轻量会话显式限制平台工具；执行会话保留扩展工具发现。
+    ...(options.disableBuiltinTools
+      ? {
+          noTools: "builtin" as const,
+          tools: (options.tools ?? []).map((tool) => tool.name),
+        }
+      : {}),
     resourceLoader: loader,
+    ...(settingsManager ? { settingsManager } : {}),
     sessionManager: SessionManager.inMemory(
       options.cwd,
       undefined,

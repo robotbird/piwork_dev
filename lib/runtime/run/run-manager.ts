@@ -234,7 +234,19 @@ export class RunManager {
       throw new ChatbotError("conflict:chat");
     }
 
-    const session = await this.options.backend.open({ ...input.spec, runId });
+    let session: RuntimeSession;
+    try {
+      session = await this.options.backend.open({ ...input.spec, runId });
+    } catch (error) {
+      // open 失败时还没有 LiveRun/消费循环，必须在此收敛状态与 lease。
+      await this.options.runStore
+        .markRunStatus(runId, "failed", {
+          errorMessage: error instanceof Error ? error.message : String(error),
+        })
+        .catch(() => undefined);
+      await this.options.runStore.releaseLease(runId).catch(() => undefined);
+      throw error;
+    }
     const live = createLiveRun({ chatId, input, runId, session });
     this.liveByRun.set(runId, live);
     this.liveByChat.set(chatId, live);
@@ -307,7 +319,11 @@ export class RunManager {
   /** 显式中止（Stop 端点 / 删 chat）：无活跃 run 返回 false（幂等） */
   async abortByChat(chatId: string, expectedRunId?: string): Promise<boolean> {
     const live = this.liveByChat.get(chatId);
-    if (!live || live.terminal || (expectedRunId && live.runId !== expectedRunId)) {
+    if (
+      !live ||
+      live.terminal ||
+      (expectedRunId && live.runId !== expectedRunId)
+    ) {
       return false;
     }
     const ack = await live.session.send({ type: "abort" });

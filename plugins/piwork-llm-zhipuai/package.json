@@ -1,0 +1,12 @@
+{
+  "name": "piwork-llm-zhipuai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {},
+  "dependencies": {
+    "@earendil-works/pi-ai": "1.0.0",
+    "@piwork/model-provider-sdk": "0.1.0"
+  }
+}

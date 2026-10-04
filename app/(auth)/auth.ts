@@ -7,10 +7,10 @@ import {
   ensureMemberForUser,
   getMemberByUserId,
 } from "@/lib/db/organization-queries";
-import { createGuestUser, getUser } from "@/lib/db/queries";
+import { getUser } from "@/lib/db/queries";
 import { authConfig } from "./auth.config";
 
-export type UserType = "guest" | "regular";
+export type UserType = "regular";
 
 declare module "next-auth" {
   interface Session extends DefaultSession {
@@ -48,7 +48,8 @@ export const {
         token.type = user.type;
       }
 
-      return token;
+      // Invalidate old guest cookies; no guest provider is registered.
+      return token.type === "regular" ? token : null;
     },
     session({ session, token }) {
       if (session.user) {
@@ -72,6 +73,10 @@ export const {
         }
 
         const [user] = users;
+
+        if (user.isAnonymous) {
+          return null;
+        }
 
         if (!user.password) {
           await compare(password, DUMMY_PASSWORD);
@@ -100,14 +105,6 @@ export const {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-    }),
-    Credentials({
-      async authorize() {
-        const [guestUser] = await createGuestUser();
-        return { ...guestUser, type: "guest" };
-      },
-      credentials: {},
-      id: "guest",
     }),
   ],
 });

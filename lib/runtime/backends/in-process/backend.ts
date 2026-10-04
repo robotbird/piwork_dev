@@ -85,7 +85,18 @@ export class InProcessBackend implements RuntimeBackend {
   }
 }
 
-class InProcessRuntimeSession implements RuntimeSession {
+/** Optional single-run lifecycle for execution adapters. Terminal events must
+ * follow resource cleanup; SDK prompt/abort/event normalization stays shared.
+ */
+export type InProcessSessionLifecycle = {
+  runId: string;
+  beforeTerminal: () => Promise<void>;
+  failure: () => unknown;
+  onAbort: () => Promise<void>;
+  validateCommand?: (command: RuntimeCommand) => void;
+};
+
+export class InProcessRuntimeSession implements RuntimeSession {
   private readonly queue: AsyncEventQueue<RuntimeEvent>;
   private readonly unsubscribe: () => void;
   private readonly agentSession: AgentSession;
@@ -97,12 +108,17 @@ class InProcessRuntimeSession implements RuntimeSession {
   private aborted = false;
   private runInFlight = false;
   private lastError: string | undefined;
+  private finished = false;
+  private closing: Promise<void> | undefined;
+  private readonly lifecycle?: InProcessSessionLifecycle;
 
   constructor(
     dispose: () => void,
     agentSession: AgentSession,
-    queue: AsyncEventQueue<RuntimeEvent>
+    queue: AsyncEventQueue<RuntimeEvent>,
+    lifecycle?: InProcessSessionLifecycle
   ) {
+    this.lifecycle = lifecycle;
     this.dispose = dispose;
     this.agentSession = agentSession;
     this.queue = queue;
@@ -117,8 +133,16 @@ class InProcessRuntimeSession implements RuntimeSession {
   }
 
   async send(command: RuntimeCommand): Promise<RuntimeAck> {
-    if (this.closed) {
-      return { error: "backend_closed", ok: false };
+    if (this.closed || (this.lifecycle && this.finished)) {
+      return {
+        error: this.closed ? "backend_closed" : "backend_run_finished",
+        ok: false,
+      };
+    }
+    try {
+      this.lifecycle?.validateCommand?.(command);
+    } catch (error) {
+      return { error: messageOf(error), ok: false };
     }
     // biome-ignore lint/style/useDefaultSwitchClause: 联合已穷尽，保留 TS 未覆盖分支检查
     switch (command.type) {
@@ -129,7 +153,7 @@ class InProcessRuntimeSession implements RuntimeSession {
         this.runInFlight = true;
         this.aborted = false;
         this.lastError = undefined;
-        const runId = newRunId();
+        const runId = this.lifecycle?.runId ?? newRunId();
         this.queue.push({ runId, type: "run.started" });
         // 唯一 await prompt() 的位置在 backend 内；完成度由 run.* 事件表达。
         // _runAgentPrompt 的 finally 必发 agent_settled 且先于 prompt() resolve，
@@ -148,7 +172,17 @@ class InProcessRuntimeSession implements RuntimeSession {
       case "abort": {
         // 终态推导忠实移植原 route 判断：errorMessage && !aborted → failed
         this.aborted = true;
-        this.agentSession.abort().catch(() => undefined);
+        const aborting = this.agentSession.abort();
+        aborting.catch(() => undefined);
+        if (this.lifecycle) {
+          try {
+            await this.lifecycle.onAbort();
+            await aborting;
+          } catch (error) {
+            this.lastError = messageOf(error);
+            return { error: this.lastError, ok: false };
+          }
+        }
         return { ok: true };
       }
       case "steer": {
@@ -193,6 +227,9 @@ class InProcessRuntimeSession implements RuntimeSession {
     if (this.runInFlight) {
       return { status: "running" };
     }
+    if (this.lifecycle && this.lastError) {
+      return { errorMessage: this.lastError, status: "failed" };
+    }
     if (this.aborted) {
       return { status: "aborted" };
     }
@@ -202,15 +239,30 @@ class InProcessRuntimeSession implements RuntimeSession {
     return { status: "idle" };
   }
 
-  // biome-ignore lint/suspicious/useAwait: 接口契约要求返回 Promise，同步释放无异步工作
-  async close(_reason: string): Promise<void> {
-    if (this.closed) {
-      return;
+  close(_reason: string): Promise<void> {
+    if (this.closing) {
+      return this.closing;
     }
     this.closed = true;
-    this.unsubscribe();
-    this.dispose();
-    this.queue.end();
+    this.closing = this.closeResources();
+    this.closing.catch(() => undefined);
+    return this.closing;
+  }
+
+  private async closeResources(): Promise<void> {
+    try {
+      if (this.lifecycle) {
+        const aborting = this.agentSession.abort();
+        aborting.catch(() => undefined);
+        await this.lifecycle.onAbort();
+        await aborting;
+        await this.lifecycle.beforeTerminal();
+      }
+    } finally {
+      this.unsubscribe();
+      this.dispose();
+      this.queue.end();
+    }
   }
 
   /**
@@ -219,10 +271,23 @@ class InProcessRuntimeSession implements RuntimeSession {
    * steer/followUp 续跑的多周期终态由 LocalRpcBackend 的 agent_settled 推导；
    * in-process 单次 prompt 场景两者等价。
    */
-  private emitTerminal(runId: string, thrownError?: unknown): void {
+  private async emitTerminal(
+    runId: string,
+    thrownError?: unknown
+  ): Promise<void> {
+    let cleanupError: unknown;
+    if (this.lifecycle) {
+      this.finished = true;
+      try {
+        await this.lifecycle.beforeTerminal();
+      } catch (error) {
+        cleanupError = error;
+      }
+    }
     this.runInFlight = false;
-    const errorMessage = thrownError
-      ? messageOf(thrownError)
+    const failure = cleanupError ?? this.lifecycle?.failure() ?? thrownError;
+    const errorMessage = failure
+      ? messageOf(failure)
       : this.agentSession.state.errorMessage && !this.aborted
         ? this.agentSession.state.errorMessage
         : undefined;

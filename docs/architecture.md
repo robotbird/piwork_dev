@@ -1,8 +1,8 @@
 # Piwork 项目架构（当前实现）
 
-> 核对日期：2026-10-02。依据当前工作树的代码和 `package.json`。Pi 三个主包 `@earendil-works/pi-ai`、`@earendil-works/pi-agent-core`、`@earendil-works/pi-coding-agent` 均为 **1.0.0**。本文描述现状；目标架构见 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)。
+> 核对日期：2026-10-02。依据当前工作树的代码和 `package.json`。本轮升级后的 Pi 主包、Pi Durable 与 chord 均为 **1.0.2**；Durable 仍 experimental。本文描述现状；目标架构见 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)。
 
-Web、独立 Worker/Sandbox 与未来 Desktop 的整体演进方向见 [平台与 Agent Runtime 演进架构](platform-runtime-roadmap.md)。
+Web、独立 Worker/Sandbox 与未来 Desktop 的整体演进方向见 [平台与 Agent Runtime 演进架构](platform-runtime-roadmap.md)。最新实施基线见 [千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)：目标为工具级沙箱 → 单 Worker → 受控 Durable 车道。**执行路径改造尚未接入生产**；RunDescriptor/ExecutionState、LazySandbox、操作错误分类、限额/原子文件能力与四工具工厂已落地；已实现 SandboxToolsBackend 协议适配器、私有制品存储与交付回调，Docker 新契约已通过，生产接线与治理尚未完成，见 [实施记录](runtime-foundation-implementation.md)。现状中的 RPC、Next.js 内 RunManager、Docker 无 reaper 保持不变；Durable 新增 SQLite/单写者/恢复阻断基础，生产默认 MemoryStorage 路径已明确拒绝，但正式 Worker 接线仍未完成。
 
 ## 1. 系统边界
 
@@ -24,18 +24,27 @@ flowchart LR
   STREAM --> UI
 ```
 
+### 控制面与 Runtime 状态的存储分工
+
+- **PostgreSQL（控制面 System of Record）**：身份/组织/RBAC、Skill/MCP/模型配置、平台任务与运行归属、审计和用量/消息/产物投影。
+- **Pi Durable + 私有 SQLite（Runtime execution state）**：官方 transcript/inbox/task/checkpoint/工具执行状态。按运行绑定隔离并保持单 Writer；不把每个内部 checkpoint 转写为 PostgreSQL 业务表。
+- **私有文件/对象存储**：用户输入字节、交付制品与大型日志；归属和引用仍登记 PostgreSQL。
+
+本轮 PostgreSQL Storage 尝试已撤回；本地新增空表 DurableSession/DurableCommit 与对应两条迁移记录也已事务回滚，原业务表不变。1.0.2 升级及 registry.install/defineExtension/conversation.configure API 适配保留。Cloudflare DO 的 Actor 生命周期、Alarm 和 PITR 只作设计借鉴：本项目仍是 Node/Next.js，尚无这些部署能力。SQLite 上生产仍需可靠私有持久卷、单 Writer 与进程/工作区所有权、备份及恢复演练、Worker 唤醒和未知副作用对账；不承诺千人并发容量。
+
 ## 2. 代码目录与职责
 
 | 目录 | 职责与主要入口 |
 | --- | --- |
-| `app/(auth)` | Auth.js、访客登录、注册与鉴权动作 |
+| `app/(auth)` | Auth.js、正式账号登录、注册与鉴权动作（访客已关闭） |
+| `app/(account)/settings`、`components/profile` | 个人设置页与账户动作：资料编辑、密码修改、本人任务统计 |
 | `app/(chat)` | 聊天页、聊天/文档/上传/模型/Skill API；`api/chat/route.ts` 是请求入口，`stream-mapping.ts` 负责协议到 UI stream 的映射 |
 | `app/(admin)` | 组织、成员、角色、模型插件、Pi Package、MCP、Skill、沙箱的管理页与 API |
 | `components/chat`、`components/admin`、`components/ui`、`hooks` | 页面组合、业务组件、基础组件和前端状态/hooks |
-| `lib/runtime/protocol` | 平台内的 `RuntimeSpec`、命令、事件、`RuntimeBackend`/`RuntimeSession` 契约；服务端适配器和上层编排的边界 |
-| `lib/runtime/backends` | `in-process` 当前运行适配器；`local-rpc` 是已实现的本机子进程适配器，尚未接入生产默认路径；`sandbox-rpc` 把官方 `RpcClient` 经 bridge 泵接进沙箱内 pi，含 Artifact Gateway（deliver_file 出站）与 Inference Proxy 客户端装配（models.json/run token/egress 派生）；`routing` 按 v2.0 §8.1 矩阵逐 run 分流（执行工具 → 沙箱、纯对话 → in-process）；经 `PIWORK_SANDBOX_PROVIDER=docker\|opensandbox` 装配（默认关闭）；Pi 事件归一化和事件队列 |
+| `lib/runtime/protocol` | 平台内的 `RuntimeSpec`、命令、事件、`RuntimeBackend`/`RuntimeSession` 契约；新增 P0 `RunDescriptor` 严格 JSON 契约与独立 `ExecutionState` 转换检查，尚未接入 job/DB/路由 |
+| `lib/runtime/backends` | `in-process` 当前运行适配器；`local-rpc` 是已实现的本机子进程适配器，尚未接入生产默认路径；`sandbox-rpc` 把官方 `RpcClient` 经 bridge 泵接进沙箱内 pi，含 Artifact Gateway（deliver_file 出站）与 Inference Proxy 客户端装配（models.json/run token/egress 派生）；`routing` 按 v2.0 §8.1 矩阵逐 run 分流（执行工具 → 沙箱、纯对话 → in-process）；经 `PIWORK_SANDBOX_PROVIDER=docker\|opensandbox` 装配（默认关闭）；Pi 事件归一化和事件队列。新增 `sandbox-tools` 已实现 RuntimeBackend（复用 InProcessRuntimeSession/官方 SDK、资源回收后终结、未知结果/授权失败强制失败），可注入私有交付；尚未接入生产路由/DB backend 枚举 |
 | `lib/runtime/inference-proxy` | 控制面旁路 HTTP 反代（pi-messages wire 协议）：`server.ts`（鉴权/SSE 中继/审计）、`tokens.ts`（AgentRun 级短期窄 token）、`models-manifest.ts`（沙箱 agentDir models.json 生成）、`events.ts`（AssistantMessageEvent → SSE 行映射）；真实模型凭据只在本层内侧（模型插件 Worker host） |
-| `lib/runtime/sandbox` | Pi 无关的 `SandboxProvider`/`SandboxHandle`/`SandboxChannel` seam、DB 注册表/租约、UDS bridge 泵与 shim、`docker/` CLI provider（安全基线自持，egress 默认 deny-all / allowlist 网桥近似）与 `opensandbox/` 生产 provider（SDK 隔离在该目录）；详见 [OpenSandbox 接入 Spec](opensandbox-integration-spec.md) |
+| `lib/runtime/sandbox` | Pi 无关的 `SandboxProvider`/`SandboxHandle`/`SandboxChannel` seam、DB 注册表/租约、UDS bridge 泵与 shim、`docker/` CLI provider（安全基线自持，egress 默认 deny-all / allowlist 网桥近似）与 `opensandbox/` 生产 provider（SDK 隔离在该目录）；新增可选 `SandboxHandle.filesystem` 能力（Linux 固定 Node helper、限额/stat/原子写）与 `readCombined`（RPC stdout 不变），旧 RPC 文件 API 不变；详见 [OpenSandbox 接入 Spec](opensandbox-integration-spec.md) |
 | `lib/runtime/run` | `RunManager` 生命周期、订阅、事件日志、消息构建、事件存储接口；`index.ts` 组装当前后端和 PostgreSQL 实现 |
 | `lib/ai` | Pi session 装配、模型适配、系统提示、Skill、工具、附件和文件存储；`agent-session.ts` 调用 Pi SDK |
 | `lib/pi-packages`、`lib/mcp` | 受管 Pi 包安装/资源清点；将管理端 MCP 配置同步到受管 agentDir `mcp.json`，并提供 Pi 内置 MCP 扩展的自定义 `loadConfig` |
@@ -52,7 +61,8 @@ flowchart LR
 1. `app/(chat)/api/chat/route.ts` 校验请求、身份、配额及模型目录；读取/保存聊天消息，处理附件，加载启用的 Skill，按聊天创建工作区，并把启用的 MCP 服务同步进受管 agentDir 的 `mcp.json`。
 2. 请求将模型、历史、提示、工具和工作区组成 `RuntimeSpec`，交给 `getRunManager().start()`；页面流订阅运行事件。断线重连走 `api/chat/[id]/stream`，显式停止走 `api/chat/[id]/stop`。
 3. `lib/runtime/run/index.ts` 默认装配 `InProcessBackend`（未设 `PIWORK_SANDBOX_PROVIDER` 时）；设置了 provider 则按路由矩阵分流（执行工具 run → SandboxRpc、纯对话 → InProcess，`PIWORK_SANDBOX_ROUTING=matrix` 默认/`all`）。InProcess 后端通过 `lib/ai/agent-session.ts` 创建 Pi `AgentSession`，使用 `DefaultResourceLoader`、`ModelRuntime`、`SessionManager.inMemory()` 和自定义工具。Pi 的 agent loop、工具执行与扩展生命周期由 Pi SDK 掌管。
-4. Pi 事件由 `lib/runtime/backends/pi-event-normalizer.ts` 转为平台 `RuntimeEvent`。`RunManager` 管理运行状态、事件序号、订阅与重放；关键事件写入 `RuntimeEvent` 表，最终 assistant 消息落库。`stream-mapping.ts` 才把平台事件转成前端 UI message stream。
+4. 沙箱 argv 派生显式使用配置的 remoteCliPath，不调用宿主 `import.meta.resolve`（Next.js Turbopack 不支持）；宿主仍由官方 RpcClient 经 bridge shim 启动。backend.open 失败由 RunManager 记录 failed 与真实错误并释放 lease，避免遗留 queued；聊天流错误在服务端记录，客户端保持通用提示。
+5. Pi 事件由 `lib/runtime/backends/pi-event-normalizer.ts` 转为平台 `RuntimeEvent`。`RunManager` 管理运行状态、事件序号、订阅与重放；关键事件写入 `RuntimeEvent` 表，最终 assistant 消息落库。`stream-mapping.ts` 才把平台事件转成前端 UI message stream。
 
 **边界约束**：路由不直接依赖某个 Pi 事件格式；前端不直接消费 Pi SDK/RPC 事件。`RuntimeSpec` 目前仍含 Pi 类型，是服务端内部契约；不要将其宣称为可跨进程序列化的通用 DTO。数据库聊天历史重建为 Pi 会话消息，不能等同于 Pi 原生持久会话的完整状态。
 
@@ -74,9 +84,18 @@ flowchart LR
 | LocalRpcBackend | 已有实现与契约测试；生产组装尚未选用 |
 | SandboxRpcBackend + SandboxProvider seam | spec Phase 0/1/2/3 已落地（完成标准全部达成）：seam/契约测试/沙箱注册表与租约/管理页、DockerSandboxProvider（契约套件 12/12，含 egress allowlist 对照）、OpenSandboxProvider（离线 21 用例 + 真实 server 契约 gated 复验 12/12）、Artifact Gateway（deliver_file 出站）、`PIWORK_SANDBOX_PROVIDER=docker\|opensandbox` 装配开关（默认关闭 = InProcess 不变，fail-closed）、pi-runtime 镜像（`docker/pi-runtime`）与 Docker provider 上的 RPC 契约 gated 入口（`PIWORK_SANDBOX_DOCKER_RPC_TESTS=1`，7/7）。见 [OpenSandbox 接入 Spec](opensandbox-integration-spec.md) |
 | 路由矩阵（v2.0 §8.1） | spec Phase 5 MVP 已落地：`RoutingRuntimeBackend` 逐 run 分流（执行工具 → 沙箱、纯对话 → in-process 并存非降级），AgentRun.backend 落实际执行位，fail-closed 不回落；`PIWORK_SANDBOX_ROUTING=matrix`（默认）\|`all`；docker 档冷启动实测 P50 490ms（≤3s 达标）。Package/MCP 入沙箱、闭包工具桥接、Worker 化与资源审计未落地（spec §6 Phase 5 未落地清单） |
-| DurableBackend（Pi Durable） | 实验旁路原型（P2）：满足 RuntimeBackend 契约并进入契约测试套件；`PIWORK_RUNTIME_BACKEND=durable` 显式切换，生产默认恒为 InProcess。评估与采用计划见 [Pi Durable 评估](pi-durable-evaluation.md) |
+| DurableBackend（Pi Durable） | 开发旁路原型 + D0 持久化增量：可注入官方 SQLite/单写者/授权，恢复前阻断未知工具；NODE_ENV=production 禁用默认 MemoryStorage，持久路径拒绝未接线的 workspace 执行。14 项专项测试含真实 SIGKILL；`PIWORK_RUNTIME_BACKEND=durable` 仍仅实验开关，Worker/运行映射/快照投影未落地，不代表生产采用。评估与采用计划见 [Pi Durable 评估](pi-durable-evaluation.md) |
 | Inference Proxy、egress 派生、访问审计 | spec Phase 4 已落地：pi-messages wire 代理 + AgentRun 级 run token（真实凭据不出控制面）+ egress 只收紧派生 + `InferenceAccessAudit` 脱敏审计；`PIWORK_INFERENCE_URL` 显式启用。资源用量审计与生产档 FQDN 级硬拒绝（OpenSandbox egress sidecar/NetworkPolicy）后续完善（spec §6 Phase 5 未落地清单） |
+| 企业 Runtime 基础契约与 LazySandbox | `protocol/run-descriptor.ts`（版本、引用/hash、严格编解码/总量上限）、`execution-state.ts`（独立 job 状态检查）；`sandbox/lazy.ts`（单飞、取消/迟到 acquire 回收、kill-only）与 `operation-error.ts`（未知结果不建议重放）。35 项基础测试通过；文件/工具/后端新增 41 项通过（含 6 项真实 Docker，新增 SDK→Docker CSV→私有存储/归档回调→制品事件）；私有存储与 SDK 图像隔离另有 5 项单测，超时/取消/未知命令 kill-only 不重放。工具观察不是持久账本；SandboxToolsBackend 已实现但未装配生产，未提供 reaper/Worker。私有本地存储通过已有鉴权下载路由，但正式归档/权限接线仍待完成；OpenSandbox 新契约和 workspace 持久性待验收；本轮不做容量测试 |
 | 用户上传扩展/模型插件的强隔离与凭据网关 | 安全规划；现有 Worker 与进程内扩展不应被描述为强沙箱 |
+
+### MVP tools adapter 的当前边界
+
+- 运行宿主复用官方 AgentSession、已有 PiEventNormalizer 与 InProcessRuntimeSession；单 run 会话、资源停止核验后发 run.settled/run.failed，close 单飞且保留清理失败。
+- 无内建宿主执行工具、受管扩展或 MCP；显式平台工具白名单默认为空且不可覆盖沙箱工具。授权回调与未知结果会中止 Pi，不让模型继续回答掩盖失败；正式 DB 权限与 intent 尚未接线。
+- 新 tools 会话用官方 SettingsManager.inMemory 设置 images.autoResize=false，并拒绝不支持的 prompt/平台工具图像 MIME，防 SDK 工具结果二次宿主解码；仅影响此新路径，现有会话默认不变。
+- `lib/ai/private-file-store.ts` 提供不可覆盖的确定 key、本地原子字节/元数据发布和受保护 URL；回调必须绑定平台身份并先归档。既有上传/旧 Blob public 模式不在本批静默迁移，新的 publisher 不可使用旧 public storeFile。
+- 本轮首选 Docker deny-all 验证；OpenSandbox 新 tools 显式拒绝。生产须批准镜像/持久存储、Leasing reuse=false、持久账本/独占工作区及资源治理后再接线，不提供容量承诺。
 
 ## 6. Pi 官方依据
 
@@ -85,7 +104,7 @@ flowchart LR
 - [RPC 协议](https://pi.dev/docs/latest/rpc) 与 [RPC 命令](https://pi.dev/docs/latest/rpc-commands)：本机 RPC 适配器的命令、事件和进程生命周期依据。
 - [Extensions](https://pi.dev/docs/latest/extensions)、[Custom Providers](https://pi.dev/docs/latest/custom-provider)：扩展工厂、`registerProvider()` 与 Provider 接口的依据。
 - [Pi Packages](https://pi.dev/docs/latest/packages)、[Skills](https://pi.dev/docs/latest/skills)：安装与资源发现约定的依据。
-- 精确签名与行为以本仓库安装的 `node_modules/@earendil-works/pi-coding-agent`、`pi-ai`、`pi-agent-core` **1.0.0** 类型/源码为准（含 `dist/extensions/mcp/` 的 `index.d.ts`、`config.d.ts` 与 `examples/sdk/14-codemode-mcp.ts`）；文档 latest 可能超前于已安装版本。
+- 精确签名与行为以本仓库安装的 `node_modules/@earendil-works/pi-coding-agent`、`pi-ai`、`pi-agent-core` **1.0.2** 类型/源码为准（含 `dist/extensions/mcp/` 的 `index.d.ts`、`config.d.ts` 与 `examples/sdk/14-codemode-mcp.ts`）；文档 latest 可能超前于已安装版本。
 
 ## 7. 我的文档（2026-09-28）
 
@@ -158,3 +177,31 @@ flowchart LR
 ### 沙箱管理 MVP 官方依据
 
 核对安装的 Pi 1.0.0 `dist/modes/rpc/rpc-client.{js,d.ts}`（abort/stop/onEvent）与 [官方 RPC](https://pi.dev/docs/latest/rpc)：管理层复用 RunManager 的 abort → backend → 官方 RpcClient，不新增 agent loop。核对安装的 `@alibaba-group/opensandbox@1.1.0` `dist/index.{js,d.ts}`（SandboxManager；renew 设置 now + timeout，所以手动延期传剩余时长 + 3600 秒）、`dist/sandboxes-*.d.ts`（SandboxInfo.expiresAt/status）；最新仓库源码仅补充，以安装版为准。
+
+## 个人中心与登录要求（2026-10-03）
+
+- 应用必须正式账号登录：proxy 对未登录/历史访客的业务页面跳转 `/login`，业务 API 返回 401；`/login`、`/register` 和 Auth.js 接口公开。取消开发 `?preview` 鉴权旁路。Auth.js 仅注册 credentials provider，JWT 回调拒绝旧访客 token；旧 `/api/auth/guest` 只跳转登录，不创建账号。已有访客数据保留，不再提供访客创建函数。
+- 应用左下角个人菜单始终提供 `/settings/profile`，管理入口仅在服务端 `requireAdminRole` 判定通过时展示；主题切换与退出登录保留。管理布局拒绝普通成员访问，`requireAdminSession` 与 `requireAdminRole` 都要求真实成员记录中的 enabled/admin，不再兼容放行无成员账号；正式旧账号登录时沿用 ensureMemberForUser 补建成员。
+- `/settings/profile` 独立于聊天/管理布局，提供个人资料、账号密码、用量统计三个设置项。页面与 Server Action 校验正式身份和成员启用状态，userId 只取会话。查询/更新归 `lib/db/profile-queries.ts`，客户端不接触数据库及 Pi 内部事件。用户名可编辑，邮箱为登录标识只读；头像支持 PNG/JPEG/WebP（最多 2 MB），经 `/api/profile/avatar` 验证 MIME 与文件签名后复用 storeFile/registerLibraryFile 归档，将本人受保护的 LibraryItem 预览地址存 User.image；支持恢复用户名首字母默认头像。菜单与资料页共享已保存头像；旧头像保留在本人文档库，不自动删除。
+- 密码修改要求校验当前密码、新密码至少 8 字符/最多 72 字节（bcrypt），数据库以旧哈希做 CAS 防止并发修改覆盖；不返回密码哈希。任务统计取本人当前保留的 AgentRun：总次数、settled 次数、最近创建时间、已结束任务最长时长，热力图按数据库自然日展示近一年本人 AgentRun 次数（零值补齐）。删除聊天会级联删除运行记录，因此不是不可变的终身账单。日期由数据库写入时钟格式化，避免驱动/宿主时区二次解释。Token 从持久化 message.completed.usage 聚合；Skill 使用次数无持久化统计。
+- Pi 核对：主包与锁文件均为 1.0.0；参考 [官方 SDK](https://pi.dev/docs/latest/sdk) 与已安装 `pi-coding-agent/dist/core/agent-session.d.ts`（agent_settled）。本次仅消费平台已持久化运行记录，不修改 Pi 集成或另建 agent loop。
+
+个人设置使用独立二级路由 `/settings/profile`（资料）、`/settings/security`（密码）、`/settings/usage`（统计）；共享 settings/layout 与 SettingsSidebar，页面由 SettingsPage 复用正式身份校验和本人查询，链接导航支持直达、刷新与浏览器历史。`/settings` 与旧 `/profile` 重定向个人资料；账户动作归 settings/actions.ts，头像 API 保持 `/api/profile/avatar`。
+
+个人资料页仅展示账户信息（含只读角色与所在部门），活动统计和年度热力图归 `/settings/usage`。`profile-queries` 按本人 userId 左联 Member/Department，读取 MemberRole/Role 的实际角色名称；无关联角色时回退 Member.role，无部门或成员信息显示未分配。客户端不可修改组织归属和角色。
+
+用量页已移除最近任务列表及查询，以每日/每周/累计 Token 活动热力图替代（7 行按周排列、月份标记、蓝色色阶、悬停数值、移动端内部横向滚动）。指标为累计已记录 Token、近一年单日 Token 峰值、最长任务时长、近一年当前/最长连续活跃天数；今日无任务时当前连续记录从昨天回溯。热力图现改为 Token 活动：message.completed 可选 usage 保存 Pi 官方 message_end 的 input/output/cacheRead/cacheWrite/totalTokens，以官方 totalTokens 为准，不重复加 reasoning。每日按 RuntimeEvent 完成自然日与 AgentRun 用户归属聚合；旧任务无记录显示未记录，不能回填。每日/每周/累计模式悬停均显示当天 Token。
+
+个人设置三个页面复用管理 Skill 页面内容宽度（居中 max-width 960px）与响应式留白。Token 用量依据 Pi 1.0.0 官方 SDK message_end 和 pi-ai Usage 类型；归一化只保存五个数值字段，经现有 RuntimeEvent 持久化，未新增表。累计仅包含实际保留的用量记录。参考 https://pi.dev/docs/latest/sdk 与 node_modules/@earendil-works/pi-ai/dist/types.d.ts。
+
+## 官方执行需求分类（2026-10-03）
+
+聊天入口在创建工作区前调用 `lib/ai/execution-classifier.ts`，复用 Pi 1.0.0 `createModels()`、官方 TypeSafe/OpenRouter provider、`getModelOfType("classifier", ...)` 和 `Models.classify()`。配置 `PIWORK_CLASSIFIER_MODEL=typesafe/jev-latest` + `TYPESAFE_API_KEY`，或 `PIWORK_CLASSIFIER_MODEL=openrouter/typesafe/jev-1.13` + `OPENROUTER_API_KEY`，密钥仅在控制面环境中配置。普通聊天模型不能传给 classifier API。本地分类依据：https://pi.dev/packages/pi-auto-router 与固定 npm 0.3.0 `src/intent-classifier.ts`；该包原用途为模型路由，沙箱权限映射由平台持有，启发式误判不开放宿主执行权限。官方依据：https://pi.dev/docs/latest/models#use-classifier-models；安装源码 `pi-ai/dist/models.d.ts`、`types.d.ts`、`providers/typesafe.js`。
+
+分类发送当前输入（最多 8000 字符）、最近 6 条文本历史（每条最多 1500 字符）和附件数量，不发送附件字节、平台凭据或身份。三个结果为 conversation/platform_tools/workspace_execution；只有合法、成功且置信度至少 0.9 的前两类关闭工作区。未配置模型时使用 pi-auto-router 0.3.0 的纯函数 `classifyIntent()`（不加载它的扩展或模型路由）；补充中文执行、文件生成、附件和最近两条执行上下文规则。问候及文本创作等轻量请求关闭工作区，执行信号、code 类和附件保守开启工作区。配置模型后优先调用官方 API，非法模型、错误、2 秒超时、未知结果或低置信度均保守开启工作区；请求取消原样传播。配置分类器即会将上述文本发送到指定供应商。分类费用暂未计入 RuntimeEvent message.completed 的聊天 Token 聚合，不宣称统计含分类调用。
+
+`workspaceDir=null` 的 InProcess 会话禁用内建执行工具、受管扩展与 MCP 自动加载，并以平台 customTools 名称设置工具白名单；仅保留模型桥与平台显式注入工具。需要扩展/MCP/Skill 脚本、文件生成或工作区操作的请求分类到执行。不会在同一 run 中自动升级或迁移会话；误判时执行能力不可用，可在下一次明确请求执行。SandboxRpc 的 Package/MCP 与闭包工具边界仍存在，不因分类器接入变为已支持。显式 `PIWORK_SANDBOX_ROUTING=all` 仍全量沙箱；分类不改变未装配 sandbox provider 时的旧 InProcess 执行行为。定时任务路径暂不调用分类器。
+
+验证：`node --conditions=react-server --import tsx --test tests/unit/ai/execution-classifier.test.ts`（正常结果、低置信度/非法结果、供应商异常、上下文裁剪与请求取消），随 `test:unit` 通配收集；路由与后端契约测试随 `test:runtime`。真实效果需配置独立 classifier 凭据并重启服务，检查“你好”的 AgentRun.backend 为 in_process、执行请求为 sandbox_rpc；无模型配置时本地启发式已生效；配置模型但凭据缺失/异常仍保守执行。
+
+本地启发式验证：分类器与启发式 7 项测试、路由 5 项测试通过；真实 `/api/chat` 输入「你好」返回成功，AgentRun.backend=`in_process`、status=`settled`、errorMessage=null。pi-auto-router 发布的是 TS 源码，Next.js 通过 `transpilePackages` 编译其纯函数模块；未加载第三方扩展。规则有误判可能，附件与执行上下文保守进入执行路径。

@@ -27,7 +27,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { guestRegex } from "@/lib/constants";
 import type { Chat } from "@/lib/db/schema";
 import { fetcher } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
@@ -152,7 +151,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     }
   }, [hasReachedEnd, isValidating, setSize]);
 
-  if (!user || guestRegex.test(user.email ?? "")) {
+  if (!user) {
     return (
       <SidebarGroup className="mt-4 px-0 group-data-[collapsible=icon]:hidden">
         <RecentLabel />

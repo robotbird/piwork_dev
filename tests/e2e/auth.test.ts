@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { encode } from "next-auth/jwt";
 import { cleanupTestData } from "./helpers/test-cleanup";
 
-test("signing out replaces the account identity with the login prompt", async ({
+test("signing out requires login and does not create a guest session", async ({
   page,
 }) => {
   const username = `logout-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -15,19 +16,16 @@ test("signing out replaces the account identity with the login prompt", async ({
     await expect(page.getByTestId("user-email")).toHaveText(username);
     await page.getByTestId("user-nav-button").click();
     await page.getByTestId("user-nav-item-auth").click();
-    await expect(page.getByTestId("user-email")).toHaveText(
-      /^(登录账户|Log in to your account)$/
-    );
-    const session = await page.request.get("/api/auth/session");
-    expect((await session.json()).user.type).toBe("guest");
-    await page.reload();
-    await expect(page.getByTestId("user-email")).toHaveText(
-      /^(登录账户|Log in to your account)$/
-    );
-    await page.getByTestId("user-nav-button").click();
-    await expect(page.getByTestId("user-nav-item-admin")).toHaveCount(0);
-    await page.getByTestId("user-nav-item-auth").click();
     await expect(page).toHaveURL("/login");
+    const session = await page.request.get("/api/auth/session");
+    expect(await session.json()).toBeNull();
+    await page.goto("/");
+    await expect(page).toHaveURL("/login");
+    await page.goto("/api/auth/guest");
+    await expect(page).toHaveURL("/login");
+    const providers = await page.request.get("/api/auth/providers");
+    expect(await providers.json()).not.toHaveProperty("guest");
+    expect((await page.request.get("/api/projects")).status()).toBe(401);
   } finally {
     await cleanupTestData({ emailPatterns: [email] });
   }
@@ -37,7 +35,7 @@ test.describe("Authentication Pages", () => {
   test("login page renders correctly", async ({ page }) => {
     await page.goto("/login");
     await expect(
-      page.getByRole("heading", { name: /^(欢迎回来|Welcome back)$/ })
+      page.getByRole("heading", { name: /^(欢迎登录|Welcome back)$/ })
     ).toBeVisible();
     await expect(page.locator("#email")).toBeVisible();
     await expect(page.locator("#password")).toBeVisible();
@@ -75,4 +73,29 @@ test.describe("Authentication Pages", () => {
     await page.getByRole("link", { name: /^(登录|Sign in)$/ }).click();
     await expect(page).toHaveURL("/login");
   });
+});
+
+test("legacy guest sessions cannot access the app or business APIs", async ({
+  page,
+  context,
+}) => {
+  const token = await encode({
+    salt: "authjs.session-token",
+    secret: process.env.AUTH_SECRET ?? "",
+    token: { email: "guest-123456", id: crypto.randomUUID(), type: "guest" },
+  });
+  await context.addCookies([
+    {
+      domain: "localhost",
+      httpOnly: true,
+      name: "authjs.session-token",
+      path: "/",
+      sameSite: "Lax",
+      value: token,
+    },
+  ]);
+  await page.goto("/");
+  await expect(page).toHaveURL("/login");
+  expect((await page.request.get("/api/projects")).status()).toBe(401);
+  expect(await (await page.request.get("/api/auth/session")).json()).toBeNull();
 });

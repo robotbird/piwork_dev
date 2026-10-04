@@ -265,7 +265,10 @@ export class SandboxRpcBackend implements RuntimeBackend {
           sessionDir: "unused",
           sessionFile: remoteSessionFile,
         },
-        { extensions }
+        // 这里只派生 argv，实际宿主 spawn 用下方 bridge.shimPath。
+        // 显式给出远端 CLI，避免无意义地解析宿主包入口（Turbopack
+        // 不提供 import.meta.resolve，会在创建沙箱后使 open 中断）。
+        { cliPath: remoteCli, extensions }
       );
 
       const bridge = await startSandboxBridge(handle, {

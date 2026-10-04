@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -50,18 +51,24 @@ export default function Page() {
 
   return (
     <>
-      <h1 className="text-heading-lg">{t("auth.welcomeBack")}</h1>
-      <p className="text-sm text-muted-foreground">
-        {t("auth.signInToYourAccountToContinue")}
+      <h1 className="text-[34px] font-semibold leading-tight tracking-tight sm:text-[38px]">
+        {t("auth.welcomeLogin")}
+      </h1>
+      <p className="text-lg leading-relaxed text-[#8490aa]">
+        {t("auth.loginDescription")}
       </p>
-      <AuthForm action={handleSubmit} defaultEmail={email}>
-        <SubmitButton isSuccessful={isSuccessful}>
+      <AuthForm action={handleSubmit} defaultEmail={email} enhanced>
+        <SubmitButton
+          className="h-[50px] w-full gap-4 rounded-xl bg-[#202020] text-base font-semibold text-white shadow-sm hover:bg-[#333] focus-visible:ring-2 focus-visible:ring-[#176bff] focus-visible:ring-offset-2"
+          isSuccessful={isSuccessful}
+        >
           {t("auth.signIn")}
+          <ArrowRight aria-hidden="true" className="size-[18px]" />
         </SubmitButton>
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-sm text-[#8490aa]">
           {t("auth.confirmNoAccount")}
           <Link
-            className="text-foreground underline-offset-4 hover:underline"
+            className="ml-2 font-medium text-[#0668ff] underline-offset-4 hover:underline"
             href="/register"
           >
             {t("auth.signUp")}

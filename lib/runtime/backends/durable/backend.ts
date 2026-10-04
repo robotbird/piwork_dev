@@ -6,10 +6,12 @@ import { createModels, type Message } from "@earendil-works/pi-ai";
 import {
   AssistantEntry,
   createRegistry,
+  defineExtension,
   type Harness,
   Harness as HarnessClass,
   MemoryStorage,
   type Submission,
+  section,
   type ToolRegistration,
   UserEntry,
   watchEvents,
@@ -26,6 +28,8 @@ import type {
 } from "../../protocol";
 import { AsyncEventQueue } from "../event-queue";
 import { DurableEventNormalizer } from "./event-normalizer";
+import { assertDurableRecoverySafe } from "./recovery";
+import type { OwnedDurableStorage } from "./storage";
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -36,21 +40,39 @@ function newRunId(): string {
 }
 
 /** piwork AgentTool → durable 工具注册；schema 同形，execute 签名适配 */
-function toDurableTool(tool: AgentTool): ToolRegistration {
+function toDurableTool(
+  tool: AgentTool,
+  authorize?: () => Promise<void>,
+  onFailure?: (error: unknown) => void
+): ToolRegistration {
   return {
     description: tool.description,
-    execute: async (args, api) => {
-      const result = await tool.execute(api.callId, args as never);
-      return {
-        content: result.content,
-        ...(result.details === undefined
-          ? {}
-          : { details: result.details as never }),
-        ...(result.isError === undefined ? {} : { isError: result.isError }),
-      };
+    execute: async (args, api, context) => {
+      try {
+        await authorize?.();
+        const result = await tool.execute(
+          api.callId,
+          args as never,
+          context.abortSignal
+        );
+        if (result.isError) {
+          onFailure?.(new Error("runtime:durable:tool-reported-failure"));
+        }
+        return {
+          content: result.content,
+          ...(result.details === undefined
+            ? {}
+            : { details: result.details as never }),
+          ...(result.isError === undefined ? {} : { isError: result.isError }),
+        };
+      } catch (error) {
+        onFailure?.(error);
+        throw error;
+      }
     },
     name: tool.name,
     parameters: tool.parameters as never,
+    replay: "unsafe",
   };
 }
 
@@ -72,98 +94,167 @@ function toHistoryEntries(messages: Message[]): {
 
 /** watch 流回调闭包需要的会话内操作面（不暴露内部状态） */
 type StreamSink = {
-  consume(event: Parameters<DurableEventNormalizer["feed"]>[0]): RuntimeEvent[];
-  pushEvent(event: RuntimeEvent): void;
-  emitTerminal(): void;
+  consume: (
+    event: Parameters<DurableEventNormalizer["feed"]>[0]
+  ) => RuntimeEvent[];
+  pushEvent: (event: RuntimeEvent) => void;
+  emitTerminal: () => Promise<void>;
 };
 
 /**
  * DurableBackend：以 Pi Durable Harness 承载 RuntimeSpec 的实验后端
  * （docs/pi-durable-evaluation.md §5 P2 原型）。
  *
- * 每个 open() 新建独立 Harness + MemoryStorage（会话级持久化由 RunManager
- * 的 PostgreSQL 事件/消息存储继续承担；durable 的跨重启恢复属 P3 试点范围）。
+ * 默认仅开发 MemoryStorage；可注入单写者 SQLite + 当前授权，恢复前阻断
+ * 未决工具。生产禁用 MemoryStorage，正式 Worker/映射/投影接线尚未完成。
  * 模型桥复用 lib/ai/pi 的 provider 体系（测试环境即 faux 供应商）。
  * 已知差口：deliver_file 归档、执行工具沙箱边界、MCP/Skill 装配不在本原型内。
  */
+export type DurableBackendOptions = {
+  storageFactory?: (spec: RuntimeSpec) => Promise<OwnedDurableStorage>;
+  /** Platform current identity/grants, before open AND each execute; not only beforeTool. */
+  authorize?: (spec: RuntimeSpec) => Promise<void>;
+};
+
 export class DurableBackend implements RuntimeBackend {
+  private readonly options: DurableBackendOptions;
+  constructor(options: DurableBackendOptions = {}) {
+    this.options = options;
+  }
+
   async open(spec: RuntimeSpec): Promise<RuntimeSession> {
-    const models = createModels();
-    for (const provider of await getActivePiProviders()) {
-      models.setProvider(provider);
+    if (this.options.storageFactory && !this.options.authorize) {
+      throw new Error("runtime:durable:missing-authorization");
     }
-
-    const registry = createRegistry();
-    registry.systemPrompt.section(
-      "piwork",
-      () => [spec.systemPrompt, ...spec.appendSystemPrompt].join("\n\n"),
-      { tag: false }
-    );
-    for (const tool of spec.tools) {
-      registry.tools.add(toDurableTool(tool));
+    if (process.env.NODE_ENV === "production" && !this.options.storageFactory) {
+      throw new Error("runtime:durable:memory-storage-forbidden-in-production");
     }
+    const { authorize } = this.options;
+    await authorize?.(spec);
+    if (this.options.storageFactory && spec.workspaceDir !== null) {
+      throw new Error("runtime:durable:sandbox-execution-not-integrated");
+    }
+    const owned = await this.options.storageFactory?.(spec);
+    let harness: Harness | undefined;
+    let toolFailure: string | undefined;
+    let abortRun: (() => Promise<void>) | undefined;
+    const onFailure = (error: unknown) => {
+      toolFailure ??= messageOf(error);
+      // Never await an abort from the tool it has to join.
+      abortRun?.().catch(() => undefined);
+    };
+    try {
+      const models = createModels();
+      for (const provider of await getActivePiProviders()) {
+        models.setProvider(provider);
+      }
 
-    const harness = await HarnessClass.open(
-      new MemoryStorage(),
-      {
-        models,
-        // pi-durable 0.99.2 仍以 pi-ai 0.99.2 类型编译（1.0.0 给 TranscriptContext
-        // 加的 brand 是 unique symbol 纯类型标记，无运行时足迹，行为由契约测试
-        // 兜底）；待 pi-durable 发布对齐 pi-ai 1.0.0 的版本后移除此转型
-        registry,
-      } as never,
-      BACKGROUND_CONTEXT
-    );
-    const conversation = await harness.root(BACKGROUND_CONTEXT);
-    await conversation.setModel(
-      { modelId: spec.model.id, provider: spec.model.provider },
-      BACKGROUND_CONTEXT
-    );
+      const registry = createRegistry();
+      registry.install(
+        defineExtension({
+          name: "piwork",
+          sections: [
+            section(
+              "piwork",
+              () =>
+                [spec.systemPrompt, ...spec.appendSystemPrompt].join("\n\n"),
+              { tag: false }
+            ),
+          ],
+          tools: spec.tools.map((tool) =>
+            toDurableTool(
+              tool,
+              authorize ? () => authorize(spec) : undefined,
+              owned ? onFailure : undefined
+            )
+          ),
+        })
+      );
 
-    const historyEntries = toHistoryEntries(spec.historyMessages);
-    if (historyEntries.length > 0) {
-      await conversation.commit(
-        (tx) => {
-          for (const entry of historyEntries) {
-            tx.appendEntry(conversation.id, entry);
-          }
+      harness = await HarnessClass.open(
+        owned?.storage ?? new MemoryStorage(),
+        {
+          models,
+          registry,
+          settings: { toolExecution: "sequential" },
         },
         BACKGROUND_CONTEXT
       );
-    }
-
-    const queue = new AsyncEventQueue<RuntimeEvent>();
-    const session = new DurableRuntimeSession(harness, conversation, queue);
-    // 事件流自 open() 起挂接；队列同样自 open() 起缓冲，观察窗口不小于现状
-    const stream = await watchEvents(
-      harness,
-      conversation.id,
-      BACKGROUND_CONTEXT
-    );
-    stream.start(async (events) => {
-      for (const event of events) {
-        for (const normalized of session.consume(event)) {
-          session.pushEvent(normalized);
-        }
-        if (event.type === "run_end") {
-          session.emitTerminal();
-        }
+      if (owned) {
+        await assertDurableRecoverySafe(harness);
       }
-    });
-    session.attachWatchStop(() => {
-      void stream.stop().catch(() => undefined);
-    });
-    return session;
+      const conversation = await harness.root(BACKGROUND_CONTEXT);
+      abortRun = () => conversation.abort(BACKGROUND_CONTEXT);
+      await conversation.configure(
+        { model: { modelId: spec.model.id, provider: spec.model.provider } },
+        BACKGROUND_CONTEXT
+      );
+
+      const historyEntries = toHistoryEntries(spec.historyMessages);
+      const initialContext = await conversation.context(BACKGROUND_CONTEXT);
+      if (initialContext.entries.length === 0 && historyEntries.length > 0) {
+        await conversation.commit(async (tx) => {
+          for (const entry of historyEntries) {
+            // biome-ignore lint/performance/noAwaitInLoops: append history in transcript order before Tx seals
+            await tx.appendEntry(conversation.id, entry);
+          }
+        }, BACKGROUND_CONTEXT);
+      }
+
+      const queue = new AsyncEventQueue<RuntimeEvent>();
+      const session = new DurableRuntimeSession(
+        harness,
+        conversation,
+        queue,
+        owned,
+        () => toolFailure
+      );
+      // 事件流自 open() 起挂接；队列同样自 open() 起缓冲，观察窗口不小于现状
+      const stream = await watchEvents(
+        harness,
+        conversation.id,
+        BACKGROUND_CONTEXT
+      );
+      stream.start(async (events) => {
+        for (const event of events) {
+          for (const normalized of session.consume(event)) {
+            session.pushEvent(normalized);
+          }
+          if (event.type === "run_end") {
+            // biome-ignore lint/performance/noAwaitInLoops: preserve committed event/terminal order
+            await session.emitTerminal();
+          }
+        }
+      });
+      session.attachWatchStop(async () => {
+        await stream.stop();
+      });
+      return session;
+    } catch (error) {
+      try {
+        await harness?.close(BACKGROUND_CONTEXT);
+        await owned?.close();
+      } catch (cleanup) {
+        // biome-ignore lint/style/useErrorCause: both original and cleanup causes are preserved in AggregateError
+        throw new AggregateError(
+          [error, cleanup],
+          "runtime:durable:open-cleanup-failed",
+          { cause: error }
+        );
+      }
+      throw error;
+    }
   }
 }
 
 class DurableRuntimeSession implements RuntimeSession, StreamSink {
   private readonly queue: AsyncEventQueue<RuntimeEvent>;
   private readonly harness: Harness;
-  private readonly conversation: Awaited<
-    ReturnType<Harness["root"]>
-  >;
-  private unsubscribeWatch: (() => void) | undefined;
+  private readonly conversation: Awaited<ReturnType<Harness["root"]>>;
+  private unsubscribeWatch: (() => Promise<void>) | undefined;
+  private closing: Promise<void> | undefined;
+  private readonly owned?: OwnedDurableStorage;
+  private readonly readToolFailure?: () => string | undefined;
 
   private closed = false;
   private eventsConsumed = false;
@@ -178,18 +269,24 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
   constructor(
     harness: Harness,
     conversation: Awaited<ReturnType<Harness["root"]>>,
-    queue: AsyncEventQueue<RuntimeEvent>
+    queue: AsyncEventQueue<RuntimeEvent>,
+    owned?: OwnedDurableStorage,
+    readToolFailure?: () => string | undefined
   ) {
+    this.readToolFailure = readToolFailure;
+    this.owned = owned;
     this.harness = harness;
     this.conversation = conversation;
     this.queue = queue;
   }
 
-  attachWatchStop(stop: () => void): void {
+  attachWatchStop(stop: () => Promise<void>): void {
     this.unsubscribeWatch = stop;
   }
 
-  consume(event: Parameters<DurableEventNormalizer["feed"]>[0]): RuntimeEvent[] {
+  consume(
+    event: Parameters<DurableEventNormalizer["feed"]>[0]
+  ): RuntimeEvent[] {
     return this.normalizer.feed(event);
   }
 
@@ -306,14 +403,19 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
     return { status: "idle" };
   }
 
-  async close(_reason: string): Promise<void> {
-    if (this.closed) {
-      return;
-    }
+  close(_reason: string): Promise<void> {
     this.closed = true;
-    this.unsubscribeWatch?.();
-    await this.harness.close(BACKGROUND_CONTEXT).catch(() => undefined);
-    this.queue.end();
+    this.closing ??= (async () => {
+      try {
+        await this.unsubscribeWatch?.();
+        await this.harness.close(BACKGROUND_CONTEXT);
+        await this.owned?.close();
+      } finally {
+        this.queue.end();
+      }
+    })();
+    this.closing.catch(() => undefined);
+    return this.closing;
   }
 
   /**
@@ -329,13 +431,13 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
     this.terminalEmitted = true;
     this.runInFlight = false;
     const runId = this.currentRunId;
-    const failure = this.normalizer.failure;
+    const failure = this.readToolFailure?.() ?? this.normalizer.failure;
     if (!failure && !this.aborted && this.currentSubmission !== undefined) {
       const record = await this.currentSubmission
         .status(BACKGROUND_CONTEXT)
         .catch(() => undefined);
       if (record?.type === "input" && record.status === "unanswered") {
-        const detail = record.detail;
+        const { detail } = record;
         this.lastError =
           (typeof detail === "string" ? detail : undefined) ?? record.reason;
         this.queue.push({
@@ -346,7 +448,11 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
         return;
       }
       if (record === undefined) {
-        this.queue.push({ error: "submission_lost", runId, type: "run.failed" });
+        this.queue.push({
+          error: "submission_lost",
+          runId,
+          type: "run.failed",
+        });
         return;
       }
     }

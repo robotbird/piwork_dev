@@ -3,15 +3,14 @@
 import {
   ArrowLeftIcon,
   ChevronUp,
-  LogInIcon,
   LogOutIcon,
   MoonIcon,
   Settings2Icon,
   SunIcon,
   UserRoundIcon,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { useCallback } from "react";
@@ -23,23 +22,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { guestRegex } from "@/lib/constants";
 
 type UserNavProps = {
   area: "app" | "admin";
-  user: { email?: string | null; name?: string | null };
+  isAdmin?: boolean;
+  user: { image?: string | null; email?: string | null; name?: string | null };
 };
 
-export function UserNav({ area, user }: UserNavProps) {
+export function UserNav({ area, user, isAdmin = false }: UserNavProps) {
   const { t } = usePreferences();
-  const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
 
-  const isGuest = guestRegex.test(user.email ?? "");
-  const displayName = isGuest
-    ? t("chat.logInToYourAccount")
-    : (user.email?.split("@")[0] ?? user.name?.trim() ?? t("common.user"));
-  const initial = (user.email?.[0] ?? displayName[0] ?? "R").toUpperCase();
+  const displayName =
+    user.name?.trim() || user.email?.split("@")[0] || t("common.user");
+  const initial = (displayName[0] ?? "R").toUpperCase();
   const testIdPrefix = area === "app" ? "user-nav" : "admin-user-nav";
 
   const handleThemeSelect = useCallback(() => {
@@ -47,13 +43,8 @@ export function UserNav({ area, user }: UserNavProps) {
   }, [resolvedTheme, setTheme]);
 
   const handleAuthSelect = useCallback(() => {
-    if (isGuest) {
-      router.push("/login");
-      return;
-    }
-
-    signOut({ redirectTo: "/" });
-  }, [isGuest, router]);
+    signOut({ redirectTo: "/login" });
+  }, []);
 
   return (
     <ul className="flex w-full min-w-0 flex-col gap-1">
@@ -66,8 +57,15 @@ export function UserNav({ area, user }: UserNavProps) {
               type="button"
             >
               <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/12 text-[12px] font-medium text-primary">
-                {isGuest ? (
-                  <UserRoundIcon className="size-4" />
+                {user.image ? (
+                  <Image
+                    alt={displayName}
+                    className="size-7 rounded-full object-cover"
+                    height={28}
+                    src={user.image}
+                    unoptimized
+                    width={28}
+                  />
                 ) : (
                   <span>{initial}</span>
                 )}
@@ -93,7 +91,7 @@ export function UserNav({ area, user }: UserNavProps) {
                   {t("common.backToApp")}
                 </Link>
               </DropdownMenuItem>
-            ) : isGuest ? null : (
+            ) : isAdmin ? (
               <DropdownMenuItem asChild>
                 <Link
                   className="cursor-pointer gap-2 text-sm"
@@ -104,8 +102,18 @@ export function UserNav({ area, user }: UserNavProps) {
                   {t("chat.admin")}
                 </Link>
               </DropdownMenuItem>
-            )}
-            {area === "admin" || !isGuest ? <DropdownMenuSeparator /> : null}
+            ) : null}
+            <DropdownMenuItem asChild>
+              <Link
+                className="cursor-pointer gap-2 text-sm"
+                data-testid="user-nav-item-profile"
+                href="/settings/profile"
+              >
+                <UserRoundIcon className="size-3.5" />
+                {t("profile.title")}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               className="cursor-pointer gap-2 text-sm"
               data-testid={`${testIdPrefix}-item-theme`}
@@ -126,12 +134,8 @@ export function UserNav({ area, user }: UserNavProps) {
               data-testid={`${testIdPrefix}-item-auth`}
               onSelect={handleAuthSelect}
             >
-              {isGuest ? (
-                <LogInIcon className="size-3.5" />
-              ) : (
-                <LogOutIcon className="size-3.5" />
-              )}
-              {isGuest ? t("chat.logInToYourAccount") : t("chat.signOut")}
+              <LogOutIcon className="size-3.5" />
+              {t("chat.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

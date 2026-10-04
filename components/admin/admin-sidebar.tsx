@@ -218,7 +218,7 @@ function SidebarBody({
   user,
 }: {
   onNavigate?: () => void;
-  user: { email?: string | null; name?: string | null };
+  user: { image?: string | null; email?: string | null; name?: string | null };
 }) {
   const t = useTranslations("adminSidebar");
   const [query, setQuery] = useState("");
@@ -311,7 +311,7 @@ function SidebarBody({
 export function AdminSidebar({
   user,
 }: {
-  user: { email?: string | null; name?: string | null };
+  user: { image?: string | null; email?: string | null; name?: string | null };
 }) {
   const t = useTranslations("adminSidebar");
   const [mobileOpen, setMobileOpen] = useState(false);

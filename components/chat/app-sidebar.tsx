@@ -54,7 +54,13 @@ const primaryItems = [
   { href: "/skills", icon: Grid2X2Icon, labelKey: "skills" },
 ];
 
-export function AppSidebar({ user }: { user: User | undefined }) {
+export function AppSidebar({
+  user,
+  isAdmin = false,
+}: {
+  user: User | undefined;
+  isAdmin?: boolean;
+}) {
   const t = useTranslations("appSidebar");
   const tChat = useTranslations("chat");
   const _tp = useTranslations("projects");
@@ -265,7 +271,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
 
       <SidebarFooter className="px-3 py-3">
         {user ? (
-          <UserNav area="app" user={user} />
+          <UserNav area="app" isAdmin={isAdmin} user={user} />
         ) : (
           <Link
             className="flex h-9 items-center gap-2 rounded-md px-2 text-sm text-sidebar-foreground/75 hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center"

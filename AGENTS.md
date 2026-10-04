@@ -8,7 +8,7 @@
 
 - 官方文档（优先查看与当前版本匹配的页面）：<https://pi.dev/docs/latest>
 - 官方代码库及源码：<https://github.com/earendil-works/pi>
-- 本项目当前安装版本：以 `package.json` 和锁文件为准；2026-10-02 核对的 `@earendil-works/pi-ai`、`@earendil-works/pi-agent-core`、`@earendil-works/pi-coding-agent` 均为 `1.0.0`（`@earendil-works/pi-durable`/`chord` 仍为 0.99.2，见评估文档）。升级后同步更新这里和架构文档。
+- 本项目当前安装版本：以 `package.json` 和锁文件为准；本轮核对 npm 最新发布并将 `@earendil-works/pi-ai`、`@earendil-works/pi-agent-core`、`@earendil-works/pi-coding-agent`、`@earendil-works/pi-durable`、`@earendil-works/chord` 全部对齐到 `1.0.2`（Durable 仍 experimental，见评估文档）。升级后同步更新这里和架构文档。
 
 ### 必须遵守的工作流程
 
@@ -31,14 +31,14 @@
 
 ## 架构与目录约束
 
-新增或修改代码前先读 [当前架构](docs/architecture.md) 和 [开发与测试约定](docs/development.md)，文档导航见 [docs/README.md](docs/README.md)。`docs/pi-plugin-support-research.md` 是分阶段目标设计；其中的 Sandbox/RPC 目标不能当成已部署现状。
+新增或修改代码前先读 [当前架构](docs/architecture.md) 和 [开发与测试约定](docs/development.md)，文档导航见 [docs/README.md](docs/README.md)。企业 MVP 后续实施基线为 [千人企业 MVP 与沙箱执行面实施方案](docs/sandbox-execution-surface-design.md)：先工具执行安全/平台账本，再单 Worker，后受控 Durable 生产试点；RunDescriptor/独立执行状态、LazySandbox/操作错误分类、限额/原子文件能力与四工具工厂已落地但未接生产，进度见 docs/runtime-foundation-implementation.md；SandboxToolsBackend 协议适配器、私有本地制品与交付回调已实现，但生产路由/DB 枚举/权限与账本尚未接线；Durable 已补官方 SQLite 单写者/绑定/调度前未知结果阻断与 SIGKILL 测试基础；正式 Worker/reaper/Durable 生产恢复仍不得改写为当前能力。本轮容量/持续负载/突发并发测试已按要求排除，资源准入和安全契约实现仍保留，不能宣称千人容量已验证。RunDescriptor 校验不等于授权，独立执行状态不等于现有 DB enum；LazySandbox 当前 kill-only。shell 结果未知不自动重放，Docker keep 前须有 reaper，工具同名覆盖不是安全保证，Durable 提交去重不等于副作用恰好一次。`docs/pi-plugin-support-research.md` 是分阶段目标设计；其中的 Sandbox/RPC 目标不能当成已部署现状。
 
 | 目录 | 职责 |
 | --- | --- |
 | `app/(auth)`、`app/(chat)`、`app/(admin)` | 页面、Server Actions、HTTP API 与入口鉴权；聊天路由不实现 Pi agent loop |
 | `components/`、`hooks/` | UI 组件与客户端状态，不直接依赖 Pi SDK/RPC 内部事件 |
 | `lib/runtime/protocol` | 平台 Runtime 输入、命令、事件与 Backend/Session 契约 |
-| `lib/runtime/backends` | Pi 运行适配器与事件归一化；新增后端实现相同协议；`sandbox-rpc` 复用官方 RpcClient，只换 spawn 策略 |
+| `lib/runtime/backends` | Pi 运行适配器与事件归一化；新增后端实现相同协议；`sandbox-rpc` 复用官方 RpcClient，只换 spawn 策略；`sandbox-tools` 已有实验 RuntimeBackend（复用 InProcessRuntimeSession/官方 SDK）、工具/内存观察/交付回调，未装配生产 |
 | `lib/runtime/sandbox` | Pi 无关的 SandboxProvider/SandboxHandle/SandboxChannel seam、DB 注册表/租约与 UDS bridge；生产 Docker/OpenSandbox provider 见 OpenSandbox 接入 Spec，未落地不得当现状描述 |
 | `lib/runtime/run` | RunManager、订阅/重放、运行持久化和最终消息构建 |
 | `lib/ai` | Pi 会话、模型、工具、Skill、附件装配；优先调用官方 SDK |
@@ -51,7 +51,15 @@
 
 变更聊天链路时保持 `route → RunManager → RuntimeBackend → Pi AgentSession` 的职责方向，并通过 `RuntimeEvent → stream-mapping` 向前端输出。新后端先满足 `lib/runtime/protocol` 契约。数据访问留在 `lib/db` 查询层，路由负责鉴权和编排。跨模块边界、运行状态或目录发生变化时，同步更新 `docs/architecture.md`、`docs/development.md` 和本文件。
 
+P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/非原子 readFile/writeFile；生产 Linux helper 必须 pin directory fd、拒绝 symlink/hardlink/特殊文件；非 Linux fallback 仅测试显式启用。工具工厂复用 Pi 官方 schema/truncation 与 edit/write operations，不调用默认宿主执行、图片解码或临时日志；每次执行先调用注入 authorization，P2 前仍需持久 intent/fencing/归档。命令观察仅进程内，shell exit 不代表子孙退出；超时/取消/未知结果 kill 全沙箱并验证状态，不自动重放。Docker 新契约通过不能当 OpenSandbox、重启恢复或容量证明。SandboxToolsBackend 当前只支持 Docker/Test 注入，OpenSandbox 新 tools 明确拒绝，生产必须 Leasing reuse=false。SDK 自身会归一化 prompt/tool-result 图像，新 tools 会话须以 session-local images.autoResize=false 加受支持 MIME/体积校验，不能只关闭 read 自带 resize。私有制品必须平台绑定 user/run/tool-call key、存入不向沙箱暴露的持久私有根目录、先正式归档再发事件；不得用返回受保护 URL 的后验检查代替私有写入/身份授权。旧 public Blob 未静默迁移。
+
 测试文件放在 `tests/unit` 或 `tests/e2e`；测试专用环境、替身和 fixture 分别放 `tests/support`、`tests/fixtures`。更新运行脚本并执行相关测试，不要在 `app/` 或 `lib/` 中就地新建 `*.test.*`、`*.spec.*` 或测试专用代码。
+
+## Durable 生产化门禁
+
+控制面 PostgreSQL 持有身份/RBAC/配置、平台任务元数据与审计/用量投影；Runtime 的 Pi Durable transcript/inbox/tasks/checkpoint 继续使用每运行私有 SQLite。文件/制品走私有文件或对象存储。不得仅为“统一数据库”替换官方执行状态存储，也不得把 Cloudflare DO 的单写者/Alarm/PITR 当成本项目已有能力。Node 部署仍需可靠持久卷、单 Writer、备份恢复、唤醒与副作用对账。
+
+`backends/durable/storage.ts` 只复用官方 SQLite facade/Storage；可信私有持久卷、平台授权 user/chat/run/inputHash 绑定、O_EXCL owner marker，不按 PID/TTL 自动偷锁。恢复检查必须早于 submit/wait/resume（均启动官方调度）；未知 intent/已物化未知结果拒绝，不能自动重放。所有通用工具 unsafe，execute 内复核当前授权并透传 signal；不可仅依赖恢复会跳过的 beforeTool。持久 adapter 未接沙箱而 workspace 非 null 必须拒绝；生产默认 MemoryStorage 明确禁止，实验开关不是生产上线入口。Worker/映射/事件快照投影/正式权限与账本/取消删除恢复对账仍未完成；存储锁不等于 workspace fencing。测试与 fixture 在 tests/unit/runtime/backends/durable 与 tests/support/durable，不做容量测试。
 
 ## 文档库边界
 
@@ -71,4 +79,20 @@
 
 沙箱内模型访问只经 Inference Proxy（`lib/runtime/inference-proxy`）：控制面旁路 HTTP 反代讲官方 pi-messages wire 协议（pi-ai `dist/api/pi-messages.js`），沙箱内 pi 经 agentDir `models.json`（`apiKey: "${PIWORK_RUN_TOKEN}"` env 模板）对接；真实模型凭据只留在控制面模型插件 Worker host，沙箱内唯一凭据是 AgentRun 级 run token（sha256 存储、滑动 30min TTL、grant 限 provider/model，acquire 失败即撤销）。egress 白名单由 `deriveSandboxEgress` 派生（只收紧：无 proxy 恒 deny-all，有 = 代理主机 ∪ 装配基线 ∩ RuntimeSpec 申请）。代理访问审计落 `InferenceAccessAudit`（`lib/db/inference-audit-queries.ts`，迁移 0015；脱敏、chatId 无外键）。生产装配经 `PIWORK_INFERENCE_URL`（沙箱视角地址）显式启用，缺省 = deny-all 无模型通道；可选 `PIWORK_INFERENCE_PROXY_HOST`/`PIWORK_INFERENCE_PROXY_PORT`/`PIWORK_INFERENCE_EGRESS_ALLOWLIST`；listen 失败 fail-closed。
 
-路由矩阵（v2.0 §8.1）：`lib/runtime/backends/routing` 的 `requiresSandbox`（workspaceDir 非 null = 执行工具开启）逐 run 分流——执行工具 run 走 SandboxRpc、纯对话 in-process 并存非降级，`RunManager.backendKindFor` 把实际执行位落 AgentRun.backend；沙箱路由失败原样上抛绝不回落 in-process。装配 `PIWORK_SANDBOX_ROUTING=matrix`（默认）|`all`。已知边界（如实声明）：平台闭包工具（技能工具、create_scheduled_task）不跨进程，沙箱路由的 run 丢失它们；Package/MCP 未进 RuntimeSpec 仍走 in-process。生产装配走 `lib/runtime/run/index.ts` 的 `PIWORK_SANDBOX_PROVIDER=docker|opensandbox`（+ 必填 `PIWORK_SANDBOX_CLI_PATH`，指向 `docker/pi-runtime` 镜像内预装的完整 pi；opensandbox 另需 `OPENSANDBOX_DOMAIN`/`OPENSANDBOX_API_KEY`，走平台密钥存储落 env；fail-closed），测试替身 TestSandboxProvider 只在 `tests/support/sandbox`，禁止进生产装配。测试放 `tests/unit/runtime/sandbox`、`tests/unit/runtime/backends`、`tests/unit/runtime/inference-proxy` 与 `tests/unit/db`，契约测试默认用 TestSandboxProvider，Docker 契约组需本机 docker（无则跳过；含 egress allowlist 对照用例），真实容器上的 RPC 契约组需显式 `PIWORK_SANDBOX_DOCKER_RPC_TESTS=1` 并先构建 pi-runtime 镜像（默认关闭），OpenSandbox 真实 server 契约组需显式 `PIWORK_SANDBOX_CONTRACT_OPENSANDBOX=1`（+ `OPENSANDBOX_DOMAIN`/`OPENSANDBOX_API_KEY`，默认关闭）。
+路由矩阵（v2.0 §8.1）：`lib/runtime/backends/routing` 的 `requiresSandbox`（workspaceDir 非 null = 执行工具开启）逐 run 分流——执行工具 run 走 SandboxRpc、纯对话 in-process 并存非降级，`RunManager.backendKindFor` 把实际执行位落 AgentRun.backend；沙箱路由失败原样上抛绝不回落 in-process；backend.open 失败须由 RunManager 落 failed 并释放 lease，沙箱 argv 派生显式传 remoteCliPath，避免 Turbopack 不支持的宿主 import.meta.resolve。装配 `PIWORK_SANDBOX_ROUTING=matrix`（默认）|`all`。已知边界（如实声明）：平台闭包工具（技能工具、create_scheduled_task）不跨进程，沙箱路由的 run 丢失它们；Package/MCP 未进 RuntimeSpec 仍走 in-process。生产装配走 `lib/runtime/run/index.ts` 的 `PIWORK_SANDBOX_PROVIDER=docker|opensandbox`（+ 必填 `PIWORK_SANDBOX_CLI_PATH`，指向 `docker/pi-runtime` 镜像内预装的完整 pi；opensandbox 另需 `OPENSANDBOX_DOMAIN`/`OPENSANDBOX_API_KEY`，走平台密钥存储落 env；fail-closed），测试替身 TestSandboxProvider 只在 `tests/support/sandbox`，禁止进生产装配。测试放 `tests/unit/runtime/sandbox`、`tests/unit/runtime/backends`、`tests/unit/runtime/inference-proxy` 与 `tests/unit/db`，契约测试默认用 TestSandboxProvider，Docker 契约组需本机 docker（无则跳过；含 egress allowlist 对照用例），真实容器上的 RPC 契约组需显式 `PIWORK_SANDBOX_DOCKER_RPC_TESTS=1` 并先构建 pi-runtime 镜像（默认关闭），OpenSandbox 真实 server 契约组需显式 `PIWORK_SANDBOX_CONTRACT_OPENSANDBOX=1`（+ `OPENSANDBOX_DOMAIN`/`OPENSANDBOX_API_KEY`，默认关闭）。
+
+## 个人中心与账户边界
+
+`app/(account)/settings` 与 `components/profile` 持有个人设置入口和界面，`lib/db/profile-queries.ts` 持有本人资料、运行统计与更新查询；Server Action 从正式会话取 userId，不接受客户端身份。邮箱为登录标识只读，密码修改须校验旧密码并 CAS 更新哈希。任务统计取本人保留的 AgentRun，不虚构 Token/Skill 使用次数。应用不提供访客功能，历史访客 JWT 拒绝，未登录业务页面跳登录/API 返回 401；管理入口与管理 API 仅 enabled/admin 成员。测试放 tests/unit/db 与 tests/e2e。
+
+个人头像上传通过 `/api/profile/avatar`，仅正式启用账号可用，格式限 PNG/JPEG/WebP 且最多 2 MB，必须登记 LibraryItem；User.image 保存平台生成的本人 LibraryItem 预览地址，客户端不提交任意头像 URL 或 userId。恢复默认头像清空引用，保留已归档文件。
+
+个人设置使用独立二级路由 `/settings/profile`（资料）、`/settings/security`（密码）、`/settings/usage`（统计）；共享 settings/layout 与 SettingsSidebar，页面由 SettingsPage 复用正式身份校验和本人查询，链接导航支持直达、刷新与浏览器历史。`/settings` 与旧 `/profile` 重定向个人资料；账户动作归 settings/actions.ts，头像 API 保持 `/api/profile/avatar`。
+
+个人资料页仅展示账户信息（含只读角色与所在部门），统计和最近任务归 `/settings/usage`。`profile-queries` 按本人 userId 左联 Member/Department，读取 MemberRole/Role 的实际角色名称；无关联角色时回退 Member.role，无部门或成员信息显示未分配。客户端不可修改组织归属和角色。
+
+用量统计页展示本人已记录 Token 聚合指标、AgentRun 时长与连续活跃天数、近一年 Token 活动热力图（每日/每周/累计），不再展示最近任务列表。Token 使用量从本人 RuntimeEvent 的 message.completed.usage 聚合，旧任务无记录显示未记录，不得虚构。
+
+个人设置三个页面复用管理 Skill 页面内容宽度（居中 max-width 960px）与响应式留白。Token 用量依据 Pi 1.0.0 官方 SDK message_end 和 pi-ai Usage 类型；归一化只保存五个数值字段，经现有 RuntimeEvent 持久化，未新增表。累计仅包含实际保留的用量记录。参考 https://pi.dev/docs/latest/sdk 与 node_modules/@earendil-works/pi-ai/dist/types.d.ts。
+
+聊天执行分类归 `lib/ai/execution-classifier.ts`，复用 Pi 官方 classifier API；未配置模型时复用 pi-auto-router 0.3.0 纯函数进行本地分类，配置模型后优先官方 API；模型低置信度和失败保守保留执行路由。无工作区的 InProcess 会话关闭受管扩展/MCP 与内建执行工具，仅保留平台显式工具白名单。分类不负责迁移运行中的会话；定时任务尚未接入。配置与数据发送边界见 docs/development.md 的官方执行需求分类章节。

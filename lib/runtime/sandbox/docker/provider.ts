@@ -2,6 +2,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { createChildProcessChannel } from "../child-process-channel";
+import { createSandboxFilesystem, type SandboxFilesystem } from "../filesystem";
 import {
   type SandboxChannel,
   type SandboxControl,
@@ -376,6 +377,7 @@ export class DockerSandboxProvider implements SandboxProvider {
 }
 
 class DockerSandboxHandle implements SandboxHandle {
+  readonly filesystem: SandboxFilesystem;
   readonly id: string;
   readonly workspaceRoot = WORKSPACE_ROOT;
   private destroyed = false;
@@ -387,6 +389,7 @@ class DockerSandboxHandle implements SandboxHandle {
     this.provider = provider;
     this.id = id;
     this.network = network;
+    this.filesystem = createSandboxFilesystem(this);
   }
 
   startProcess(command: {

@@ -11,6 +11,8 @@
  * 目录内）。生命周期与状态经 SandboxRegistry 落库（沙箱管理页数据源）。
  */
 
+import type { SandboxFilesystem } from "./filesystem";
+
 /** 出站网络策略：默认拒绝；白名单只能显式放行（spec §8） */
 export type SandboxEgressPolicy =
   | { mode: "deny-all" }
@@ -57,6 +59,8 @@ export interface SandboxChannel {
   /** 进程退出（含连接断开推导的死亡）时 resolve；不应 reject */
   readonly onExit: Promise<SandboxExit>;
   read: () => AsyncIterable<Uint8Array>;
+  /** Optional combined output for execution tools; RPC always uses stdout read(). */
+  readCombined?: () => AsyncIterable<Uint8Array>;
   write: (chunk: Uint8Array) => Promise<void>;
 }
 
@@ -72,6 +76,8 @@ export type SandboxReleasePolicy = "kill" | "pause" | "keep";
 
 export interface SandboxHandle {
   destroy: (policy: SandboxReleasePolicy) => Promise<void>;
+  /** P1 bounded/atomic file capability; required by sandbox-tools, not legacy RPC. */
+  readonly filesystem?: SandboxFilesystem;
   readonly id: string;
   readFile: (path: string) => Promise<Uint8Array>;
   renew: () => Promise<void>;

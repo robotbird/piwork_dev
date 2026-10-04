@@ -9,4 +9,16 @@ export type {
   RuntimeRunStatus,
   RuntimeSnapshot,
 } from "./events";
+export {
+  canTransitionExecutionState,
+  type ExecutionState,
+} from "./execution-state";
+export {
+  MAX_RUN_DESCRIPTOR_BYTES,
+  parseRunDescriptor,
+  RUN_DESCRIPTOR_VERSION,
+  type RunDescriptor,
+  runDescriptorSchema,
+  serializeRunDescriptor,
+} from "./run-descriptor";
 export type { RuntimeSpec } from "./spec";

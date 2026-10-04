@@ -208,6 +208,37 @@ function makeFixture(
   };
 }
 
+test("backend open failure marks run failed, releases lease and preserves error", async () => {
+  const runStore = new RecordingRunStore();
+  const failure = new Error("sandbox startup failed");
+  let released: string | undefined;
+  const releaseLease = runStore.releaseLease.bind(runStore);
+  runStore.releaseLease = async (runId) => {
+    released = runId;
+    await releaseLease(runId);
+  };
+  const manager = new RunManager({
+    backend: { open: () => Promise.reject(failure) },
+    eventStore: new InMemoryEventStore(),
+    messageStore: new RecordingMessageStore(),
+    runStore,
+    workerId: "test-worker",
+  });
+  await assert.rejects(
+    manager.start({
+      prompt: { text: "hello", type: "prompt" },
+      spec: spec(),
+      userId: USER,
+    }),
+    (error) => error === failure
+  );
+  const failed = runStore.history.find((entry) => entry.status === "failed");
+  assert.ok(failed);
+  assert.equal(failed.errorMessage, failure.message);
+  assert.equal(released, failed.runId);
+  assert.equal(manager.getActiveRun(CHAT), null);
+});
+
 function spec(chatId = CHAT): RuntimeSpec {
   return {
     appendSystemPrompt: [],
@@ -463,7 +494,10 @@ test("abort：settled(reason=aborted) → 状态 aborted，部分文本以 strea
         entry.event.type === "message.delta" &&
         entry.event.phase === "delta"
       ) {
-        assert.equal(await fixture.manager.abortByChat(CHAT, "stale-sandbox-run"), false);
+        assert.equal(
+          await fixture.manager.abortByChat(CHAT, "stale-sandbox-run"),
+          false
+        );
         assert.equal(await fixture.manager.abortByChat(CHAT, run.runId), true);
       }
     }

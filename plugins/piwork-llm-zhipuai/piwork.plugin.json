@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "piwork-llm-zhipuai",
+  "provider": "zhipuai",
+  "name": "ZHIPU AI",
+  "version": "1.0.0",
+  "description": {
+    "zh-CN": "智谱 AI 官方模型：GLM 全系对话模型，支持思考模式、工具调用与视觉理解",
+    "en": "Official ZHIPU AI models: the GLM chat family with thinking mode, tool calling, and vision"
+  },
+  "runtime": {
+    "language": "typescript",
+    "node": ">=22.19.0",
+    "source": "src/index.ts",
+    "entry": "dist/index.js"
+  },
+  "capabilities": ["llm"],
+  "permissions": {
+    "network": ["open.bigmodel.cn"],
+    "filesystem": "none",
+    "environment": []
+  },
+  "assets": {
+    "icon": "assets/icon.svg",
+    "iconDark": "assets/icon-dark.svg"
+  }
+}

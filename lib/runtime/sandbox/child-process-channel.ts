@@ -12,8 +12,12 @@ export function createChildProcessChannel(
   child: ChildProcess,
   faultTag: string
 ): SandboxChannel {
+  // write() rejects via its callback; observe stream error as well so EPIPE is
+  // reported to the caller rather than crashing the host with an unhandled event.
+  child.stdin?.on("error", () => undefined);
   const onExit = new Promise<SandboxExit>((resolve) => {
     child.once("exit", (code, signal) => resolve({ code, signal }));
+    child.once("error", () => resolve({ code: null, signal: null }));
   });
   const processFault = onExit.then(() => {
     throw new Error(`${faultTag}:process-exited`);
@@ -34,6 +38,7 @@ export function createChildProcessChannel(
     },
     onExit,
     read: () => child.stdout ?? emptyReadable(),
+    readCombined: () => combineOutput(child),
     write: async (chunk) => {
       if (!child.stdin || child.stdin.destroyed) {
         throw new Error(`${faultTag}:stdin-closed`);
@@ -41,17 +46,56 @@ export function createChildProcessChannel(
       // processFault 仅在 write 等待 drain 期间进程死亡时打断
       await Promise.race([
         new Promise<void>((resolve, reject) => {
-          const ok = child.stdin?.write(chunk, (err) =>
-            err ? reject(err) : resolve()
-          );
-          if (ok) {
-            resolve();
-          }
+          child.stdin?.write(chunk, (err) => (err ? reject(err) : resolve()));
         }),
         processFault,
       ]);
     },
   };
+}
+
+/** Pull one chunk per stream: no unbounded merge queue and no stderr pollution
+ * of RPC stdout. read()/readCombined() are mutually exclusive consumers.
+ */
+async function* combineOutput(child: ChildProcess): AsyncGenerator<Uint8Array> {
+  const streams = [
+    child.stdout ?? emptyReadable(),
+    child.stderr ?? emptyReadable(),
+  ];
+  const iterators = streams.map((stream) => stream[Symbol.asyncIterator]());
+  const next = (index: number) =>
+    iterators[index].next().then(
+      (result) => ({ index, result }),
+      (error: unknown) => ({ error, index, result: undefined })
+    );
+  const pending = new Map(
+    iterators.map((_iterator, index) => [index, next(index)])
+  );
+  try {
+    while (pending.size) {
+      // biome-ignore lint/performance/noAwaitInLoops: pull-based merge must apply backpressure rather than accumulate output.
+      const event = await Promise.race(pending.values());
+      if ("error" in event) {
+        throw event.error;
+      }
+      if (event.result.done) {
+        pending.delete(event.index);
+      } else {
+        yield event.result.value;
+        pending.set(event.index, next(event.index));
+      }
+    }
+  } finally {
+    // Wake a pending next() on the other pipe before awaiting return(). This is
+    // required when a consumer stops on an output quota while stderr is idle.
+    child.stdout?.destroy();
+    child.stderr?.destroy();
+    await Promise.all(
+      iterators.map((iterator) =>
+        iterator.return?.(undefined).catch(() => undefined)
+      )
+    );
+  }
 }
 
 /** stdout 不可用时给出空流（防御性；stdio pipe 下不应发生） */

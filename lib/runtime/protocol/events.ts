@@ -23,6 +23,14 @@ export type RuntimeArtifact = {
   downloadUrl?: string;
 };
 
+export type RuntimeUsage = {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  totalTokens: number;
+};
+
 export type RuntimeEvent =
   | { type: "run.started"; runId: string }
   /**
@@ -41,7 +49,7 @@ export type RuntimeEvent =
       phase: "start" | "delta" | "end";
       delta?: string;
     }
-  | { type: "message.completed"; sequence: number }
+  | { type: "message.completed"; sequence: number; usage?: RuntimeUsage }
   | {
       type: "tool.started";
       toolCallId: string;

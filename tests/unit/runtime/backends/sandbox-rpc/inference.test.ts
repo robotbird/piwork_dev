@@ -187,7 +187,7 @@ test("acquire 失败：已签发 token 必须撤销（同一 runId）", async ()
 
 test("全链路：models.json + run token env + egress + 撤销闭环 + 代理回环出文本", {
   timeout: TEST_TIMEOUT_MS,
-}, async () => {
+}, async (t) => {
   // 控制面：真 HTTP 代理 + faux 上游（官方测试替身；真实凭据只在控制面）
   const faux = fauxProvider({
     models: [{ id: "deepseek-flash", name: "DeepSeek Flash" }],
@@ -210,6 +210,7 @@ test("全链路：models.json + run token env + egress + 撤销闭环 + 代理�
     tokens,
   });
   const { url: proxyUrl } = await server.listen();
+  t.after(() => server.close());
   const mintRequests: {
     chatId: string;
     grants: readonly { model: string; provider: string }[];
@@ -273,6 +274,9 @@ test("全链路：models.json + run token env + egress + 撤销闭环 + 代理�
       ["deepseek-flash"]
     );
 
+    // 官方 RpcClient.start() 只有 100ms 初始化延时，不是远端握手。
+    // prompt ack 证明 shim/bridge 已连接；事件在 session queue 中待 collect。
+    await session.send({ text: "你好", type: "prompt" });
     // 沙箱进程 env：run token 是唯一模型凭据，agentDir 指向 workspace
     assert.ok(processEnvs.length >= 1, "bridge 应已启动沙箱进程");
     const [sandboxEnv] = processEnvs;
@@ -283,7 +287,6 @@ test("全链路：models.json + run token env + egress + 撤销闭环 + 代理�
     );
 
     // 回环：沙箱内官方 pi → pi-messages 客户端 → 代理 → faux 上游
-    await session.send({ text: "你好", type: "prompt" });
     const events = await collect(session);
     assert.equal(events.at(-1)?.type, "run.settled");
     const text = events
@@ -312,5 +315,4 @@ test("全链路：models.json + run token env + egress + 撤销闭环 + 代理�
     mintRequests.map((request) => request.runId)
   );
   assert.equal(tokens.size, 0);
-  await server.close();
 });

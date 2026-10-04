@@ -3,6 +3,7 @@ import type {
   JsonAgentSessionEvent,
 } from "@earendil-works/pi-coding-agent";
 import type { RuntimeEvent } from "../protocol";
+import { normalizeUsage } from "./usage";
 
 /**
  * Pi 会话事件 → RuntimeEvent 归一化（v2.0 §5.3 映射表）。
@@ -103,8 +104,13 @@ export class PiEventNormalizer {
         if (event.message.role !== "assistant") {
           return [];
         }
+        const usage = normalizeUsage(event.message.usage);
         return [
-          { sequence: this.activeAssistantSequence, type: "message.completed" },
+          {
+            sequence: this.activeAssistantSequence,
+            type: "message.completed",
+            ...(usage ? { usage } : {}),
+          },
         ];
       }
       case "tool_execution_start":

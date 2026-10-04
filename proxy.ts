@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -17,13 +16,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (isDevelopmentEnvironment && request.nextUrl.searchParams.has("preview")) {
-    return NextResponse.next();
-  }
-
   // secureCookie 按请求协议而非 NODE_ENV 推导：authjs 服务端依协议决定
   // cookie 名（https → __Secure- 前缀）；本地 HTTP 下跑 next start 时两者
-  // 若不一致，会话 cookie 永远对不上号，全站陷入 guest 重定向环。
+  // 若不一致，会话 cookie 永远对不上号，全站陷入登录重定向环。
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
@@ -32,17 +27,15 @@ export async function proxy(request: NextRequest) {
 
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
-  if (!token) {
-    const redirectUrl = encodeURIComponent(new URL(request.url).pathname);
-
-    return NextResponse.redirect(
-      new URL(`${base}/api/auth/guest?redirectUrl=${redirectUrl}`, request.url)
-    );
+  const authenticated = token?.type === "regular";
+  const isAuthPage = ["/login", "/register"].includes(pathname);
+  if (!authenticated && !isAuthPage) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+    return NextResponse.redirect(new URL(`${base}/login`, request.url));
   }
-
-  const isGuest = guestRegex.test(token?.email ?? "");
-
-  if (token && !isGuest && ["/login", "/register"].includes(pathname)) {
+  if (authenticated && isAuthPage) {
     return NextResponse.redirect(new URL(`${base}/`, request.url));
   }
 

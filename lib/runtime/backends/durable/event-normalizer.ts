@@ -1,5 +1,6 @@
 import type { AgentEvent } from "@earendil-works/pi-durable";
 import type { RuntimeEvent } from "../../protocol";
+import { normalizeUsage } from "../usage";
 
 type Channel = "text" | "reasoning" | "tool";
 
@@ -21,9 +22,9 @@ export class DurableEventNormalizer {
   private assistantSequence = 0;
   private activeAssistantSequence = 0;
   /** 当前 assistant 消息中尚未关闭的块：contentIndex → channel */
-  private openBlocks = new Map<number, Channel>();
+  private readonly openBlocks = new Map<number, Channel>();
   /** 各块已合成进 delta 的字符数；delta 事件在其后追加 */
-  private emittedChars = new Map<number, number>();
+  private readonly emittedChars = new Map<number, number>();
 
   /** 运行失败消息（task_failed 捕获）；backend 在 run_end 时消费 */
   failure: string | undefined;
@@ -57,6 +58,7 @@ export class DurableEventNormalizer {
       case "message_update": {
         const events: RuntimeEvent[] = [];
         for (const change of event.changes) {
+          // biome-ignore lint/style/useDefaultSwitchClause: Official event change union is exhaustive.
           switch (change.type) {
             case "text_start":
             case "thinking_start":
@@ -116,9 +118,11 @@ export class DurableEventNormalizer {
           return [];
         }
         const events = this.closeOpenBlocks();
+        const usage = normalizeUsage(event.entry.model[0].usage);
         events.push({
           sequence: this.activeAssistantSequence,
           type: "message.completed",
+          ...(usage ? { usage } : {}),
         });
         return events;
       }

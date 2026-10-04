@@ -15,11 +15,11 @@
 #   PIWORK_SANDBOX_CLI_PATH=/opt/pi/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
 
 # 版本与仓库 package.json 的 @earendil-works/pi-coding-agent 精确一致；升级时同步（AGENTS.md Pi-first）
-ARG PI_CLI_VERSION=1.0.0
+ARG PI_CLI_VERSION=1.0.2
 FROM node:22-alpine
 
 # ARG 在 FROM 前声明的只在 FROM 行生效，stage 内需重新声明才能被 --build-arg 覆盖
-ARG PI_CLI_VERSION=1.0.0
+ARG PI_CLI_VERSION=1.0.2
 
 # npm 源可覆盖（默认官方源；受限网络构建：
 #   --build-arg NPM_REGISTRY=https://registry.npmmirror.com）

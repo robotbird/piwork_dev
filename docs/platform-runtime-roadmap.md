@@ -1,106 +1,79 @@
 # Piwork 平台与 Agent Runtime 演进架构
 
-> 状态：**目标架构与迁移路线**，不是当前系统拓扑。2026-10-02 按当前代码核对；Pi 主包 `@earendil-works/pi-ai`、`pi-agent-core`、`pi-coding-agent` 均为 1.0.0。
->
-> 本文吸收“Web 企业工作台 → 独立 Runtime → 未来 Desktop 本地 Runtime”的产品方向。当前事实和请求时序见 [项目架构](architecture.md)、[聊天业务链路与 RPC](rpc-business-flow.md)；Package、Sandbox 和 Worker 的详细设计见 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)。
+> 状态：**目标架构与迁移路线，不是当前部署拓扑。** 当前实现见 [architecture.md](architecture.md)。
+> 最新执行基线：[千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)；Durable 专项门禁见 [pi-durable-evaluation.md](pi-durable-evaluation.md)。
+> 本次修订将旧目标“Worker → Sandbox → Pi RPC”调整为“Worker 承载 Pi loop，Sandbox 承载工具执行”。现有 SandboxRpcBackend 保持当前事实，不因文档修订退役。
 
-## 1. 核心边界
+## 1. 平台与 Pi 的职责
 
-Piwork 是企业工作平台。平台拥有用户、权限、运行记录、资源授权、审计、持久化和产品界面；Pi 负责 Agent 会话、模型交互、工具调用与扩展执行。浏览器和未来可能的桌面客户端通过平台契约接入，不直接消费 Pi SDK/RPC 的内部事件。
+平台拥有身份、组织、资源授权、AgentRun、准入预算、运行/操作账本、审计、文件归档与用户界面。Pi 提供官方 AgentSession / harness、模型调用、工具轮次、会话状态与扩展机制。
 
-```mermaid
-flowchart TB
-  Web[Web 客户端：已实现] --> API[Piwork API / 平台控制面]
-  Desktop[Desktop 客户端：规划] -.-> API
-  API --> Auth[用户 / 组织 / 权限]
-  API --> Catalog[Skill / Package / 模型 / MCP 管理]
-  API --> Runs[Chat + AgentRun：当前；Task Center：规划]
-  Runs --> Protocol[Piwork Runtime Protocol：已有]
-  Protocol --> InProcess[Pi SDK InProcessBackend：当前默认]
-  Protocol --> LocalRpc[LocalRpcBackend：已实现，本机测试]
-  Protocol -.-> Worker[Runtime Worker：规划]
-  Worker -.-> Sandbox[Sandbox：规划]
-  Sandbox -.-> PiRpc[Pi RPC 进程：目标生产路径]
-  InProcess --> Pi[Pi Agent Runtime]
-  LocalRpc --> Pi
-  PiRpc --> Pi
-  Pi --> Providers[模型 Provider]
-  Pi --> Resources[工具 / MCP / Skill / 文件]
-```
+浏览器和未来 Desktop 通过平台 RuntimeEvent 与运行命令接入，不直接消费 Pi SDK/RPC 内部事件。当前 RuntimeSpec 仍含 Pi 类型和工具闭包，只作为运行宿主内部 seam；未来跨进程使用版本化 RunDescriptor，不能宣称当前 RuntimeSpec 已可序列化。
 
-这里的 `RuntimeBackend` 是**平台内部的执行契约**，RPC 是其中一种 Pi 适配方式。平台协议目前仍有 Pi `Model`、`Message` 和 `AgentTool` 类型，尚不是完全独立于 Pi 的跨进程 DTO。应先把它作为稳定的模块边界，再在 Worker 序列化边界逐步收敛，不需要现在重组仓库或预先支持其他 Agent。
+## 2. 当前事实与目标分界
 
-## 2. 原架构描述与当前代码的映射
-
-| 概念 | 当前落点 | 状态与说明 |
+| 能力 | 当前状态 | 目标增量 |
 | --- | --- | --- |
-| Web Client / API | `app/(chat)`、`app/(admin)`、`components/` | 已实现 Next.js Web；聊天经 HTTP UI message stream 返回 |
-| 用户、组织、RBAC | `app/(auth)`、`lib/admin`、`lib/db` | 已有身份和管理权限；更细的 Package/工具运行授权仍需完善 |
-| Task Center | `Chat`、`AgentRun`、`RuntimeLease`、`RuntimeEvent` | 当前以 chatId 组织运行；尚无独立 Task Service、任务队列或通用 Task API |
-| Workspace | `lib/ai/agent-tools.ts` 的聊天工作区 | 当前按 chat 隔离目录；不是经 Sandbox 强制的任务级文件边界 |
-| Runtime Protocol | `lib/runtime/protocol` | 已有 `RuntimeSpec`、命令、事件、Backend/Session 接口 |
-| Agent Runtime / Worker | `lib/runtime/run`、`lib/runtime/backends` | `RunManager` 在 Next.js 进程内；独立 Worker 尚未落地 |
-| Pi SDK / RPC | `in-process/backend.ts`、`local-rpc/backend.ts` | SDK 是聊天默认；本机 RPC adapter 已实现并通过契约测试，但尚未接入生产组装 |
-| Skill Store | `lib/ai/skills.ts`、`managed-skills.ts`、`lib/pi-packages` | 已有 Skill 管理、启用和聊天调用；企业审批、不可变制品与 Sandbox 内加载是后续工作 |
-| MCP / 文件交付 | `lib/mcp`、`lib/ai/agent-tools.ts` | 当前链路可用；RPC 模式的平台工具闭包和 `deliver_file` 仍需跨进程桥接 |
-| Sandbox / Desktop Local Runtime | 暂无对应生产实现 | 目标架构；本机 RPC 子进程本身不是企业多租户 Sandbox；Electron 只是候选桌面容器，不是既定选型 |
+| Web/API、用户/组织、模型/Skill/MCP 管理 | 已有实现 | 细化每次运行与工具授权、不可变配置引用 |
+| RunManager / RuntimeEvent / AgentRun | 在 Next.js 进程内管理执行 | 保留平台职责，执行宿主迁到独立 Worker |
+| InProcessBackend | 无 sandbox 配置时默认；矩阵纯对话路径 | AgentSession 仍为主 harness，执行类企业配置不允许静默宿主执行 |
+| SandboxRpcBackend | 已有 Docker/OpenSandbox、bridge、文件与模型代理链路 | 保留迁移兼容，按能力矩阵逐步 tools 灰度 |
+| SandboxProvider | 已有 seam、注册表、租约、管理与 provider | 强杀/操作查询、原子写、限额传输、持久 workspace、reaper |
+| DurableBackend | MemoryStorage 实验原型 | 单 Worker 内的受控文件任务恢复试点；不是默认耐久执行 |
+| Runtime 基础 / 沙箱工具工厂 | RunDescriptor/状态、lazy/限额文件、SandboxToolsBackend/私有存储与交付回调已落地，Docker 新契约通过；未接生产路由 | 首发先验 Docker deny-all；生产账本/权限/附件/治理与 P2/P3 尚缺，OpenSandbox tools 未开放；本轮容量测试排除；见 [实施记录](runtime-foundation-implementation.md) |
+| Worker / 通用持久 job 队列 | 未实施 | 单 Worker 起步，claim/取消/游标/发布排空；先不做多主 |
+| Desktop / 用户扩展强隔离 | 规划 | 独立需求和安全设计，不作为企业 MVP 前置 |
 
-## 3. 业务闭环：从当前聊天演进到任务执行
+## 3. 目标业务闭环
 
-当前已跑通的闭环是：用户提交聊天消息 → 平台鉴权、准备模型/Skill/附件/工作区 → `RunManager` 创建 `AgentRun` → `InProcessBackend` 驱动 Pi → 归一化 `RuntimeEvent` → 持久化关键事件及最终消息 → Web 流式展示。断线可对活跃 run 重新订阅，停止走显式端点。详见 [当前时序](rpc-business-flow.md)。
+平台鉴权并固定运行输入与资源引用，事务提交 AgentRun/RunDescriptor。运行宿主领取任务、复核授权，装配官方 Pi AgentSession；批准的 read/bash/edit/write 经 SandboxHandle 执行。关键事件和最终结果写回平台，客户端按游标订阅 RuntimeEvent。
 
-目标闭环在这一基础上增加**执行位置和资源治理**：
+单 Worker 将 Web 发布与运行生命周期解耦，但 Worker 崩溃时 AgentSession 运行仍需明确失败/复核，不能自动宣称恢复。Durable 车道后续接管批准任务的内部 checkpoint，与平台运行和操作账本对账。
 
-```text
-提交任务或聊天运行
-→ 平台检查身份、模型与 Package/工具授权
-→ 创建 AgentRun，固定 Workspace 和已批准资源
-→ Worker 领取运行并创建 Sandbox
-→ Sandbox 内启动 Pi RPC，加载会话历史和批准的资源
-→ Pi 执行模型与工具轮次；RPC 事件转为 RuntimeEvent
-→ 平台持久化事件、文件产物和最终消息
-→ Web/Desktop 通过平台事件接口观察、恢复、停止或继续
-```
-
-未来若推出 Task Center，应定义 `Task` 与 `Chat`、`AgentRun` 的关系：`Task` 表示长期工作目标，`AgentRun` 表示一次执行尝试，`Chat` 可作为用户交互和历史容器。当前代码没有这个模型，不应现在把 `chatId`、`runId` 混称 `taskId`，也不应把示例 `POST /api/tasks/:id/messages` 写成已存在接口。
-
-浏览器到平台仍用 HTTP 请求和流式响应；当前项目已有 `POST /api/chat`、`GET /api/chat/[id]/stream` 与 `POST /api/chat/[id]/stop`。未来 Task API 和独立事件订阅接口可以沿用同一 `RuntimeEvent` 语义。选用 SSE 或其他传输只影响客户端边界，Pi RPC 不直接暴露给浏览器。
+若未来新增 Task 对象，Task 表示长期目标，AgentRun 表示执行尝试，Chat 是交互容器；当前不把 chatId/runId 混称 taskId，也不预先虚构 Task API。
 
 ## 4. Runtime 与安全边界
 
-目标生产路径是 `Piwork API → Runtime Worker → Sandbox → Pi RPC`。平台发运行命令、授权和资源引用；Sandbox 内 Pi 负责 Agent loop；Worker 管理进程、心跳和回收。Pi 官方 RPC 是通过 stdin/stdout JSONL 控制独立 Pi 进程的协议，不提供租户权限、任务队列或 Sandbox 管理。`prompt` 响应表示受理，真正终态以 `agent_settled` 等事件判断。
+### 4.1 执行位置
 
-在切换生产后端前，需先完成：
+目标生产运行宿主为独立可信 Worker，loop 在 Worker 内；沙箱无 Pi 进程、无模型凭据，只运行受限工具/作业。MVP 内部 tools 验证可暂在 Next.js，正式企业放量前通过单 Worker 门禁。
 
-1. **跨进程能力桥接**：模型 Provider/凭据、平台工具闭包、MCP 和文件交付在独立 Pi 进程内可用；同一 Runtime 契约测试覆盖文本、工具、文件、中止与崩溃。
-2. **Sandbox 和资源约束**：工作区隔离、CPU/内存/进程/时间限制、网络和密钥边界；Sandbox 不可用时拒绝执行需要隔离的代码。
-3. **Package 制品与授权**：依 Pi 官方 Package/Skill 机制安装和发现资源；企业权限、版本、审批、依赖和审计记录由 Piwork 控制面承载。Pi Skill 的 `SKILL.md` 是指令与配套文件，不应把平台审批、密钥或网络策略直接塞进它来替代强制控制。
-4. **Worker 持有运行**：将进程生命周期与 HTTP 请求分离，运行租约和事件订阅能在 Web 实例变化时保持明确语义，然后灰度切换默认路径。
+平台 RuntimeBackend/RuntimeSession 契约保留。Worker 装配闭包工具，而不是跨进程传闭包。新增跨进程 Backend adapter 与持久化 DTO，不重写官方 Pi loop。
 
-`lib/runtime/run/index.ts` 当前仍组装 `InProcessBackend`，`RunManager` 创建记录时写 `in_process`；因此不能只替换一个构造函数就宣称完成 RPC 生产迁移。目标架构的安全、模型、工具和持久化依赖必须同时满足。
+### 4.2 安全要求
 
-## 5. Desktop 的演进边界
+- 同名工具覆盖不提供强隔离；受管扩展不能覆盖平台执行工具，未批准代码不进入运行宿主。
+- 沙箱网络默认 deny-all；现 raw-IP 绕过限制未修复前不得作为生产 allowlist 保证。
+- shell 启动后断连视为结果未知，不自动重放；终止必须确认进程树退出。
+- 容器是缓存，workspace 是持久数据；keep 前具备 reaper/空闲上限，Docker 不假定原生 TTL。
+- 权限、审计与外部动作确认独立于模型提示；副作用操作 intent 不可落库则拒绝执行。
+- 模型/存储凭据仅在可信运行宿主，企业文件私有访问；用户扩展强隔离另行设计。
 
-Desktop 是后续产品方向：同一账号和平台规则可以选择远端企业环境，或由本机 Runtime 处理本地目录、Git、CLI 和本地 MCP。两种执行位置应共享运行命令与归一化事件的**语义**，但权限来源、数据出站、本地确认和文件同步策略需要分别设计。桌面容器选型（Electron 或其他方案）、本地隔离底座及同步模型目前均未确定。
+RPC 对有明确整会话隔离需求的场景可另行评估，不能因保留旧代码便声称 tools/RPC 可无损互换。
 
-这个方向不要求现在把仓库改成 `apps/web`、`apps/desktop`、`platform/` 的目录树。当前先保持 `app/`、`lib/runtime/`、`lib/ai/` 等已存在的模块边界；只有第二个实际客户端或独立 Worker 出现时，再抽取可共享包。
+## 5. 顺序与验收
 
-## 6. 建议实施顺序与验收
-
-| 阶段 | 增量 | 可验收结果 |
+| 阶段 | 工作 | 上线门槛 |
 | --- | --- | --- |
-| A：RPC 业务纵向链路 | 为 RPC 进程提供可用模型、一个已批准工具/MCP 与文件交付桥 | 真实模型完成“提问 → 工具 → 文件产物 → UI 下载”，且不丢事件 |
-| B：隔离与制品 | Sandbox、只读 Package 制品、凭据/网络/资源边界 | 跨 Workspace、密钥读取和未授权网络访问均被阻止；故障拒绝执行 |
-| C：Worker 迁移 | Worker 领取 `AgentRun`、进程监控、跨 Web 实例事件恢复与灰度路由 | Web 请求断开后运行继续；Worker 故障可恢复或明确失败 |
-| D：Task Center | 在已验证的运行模型上增加任务对象、队列、用户等待态及管理界面 | Task 与 Chat/AgentRun 关系清楚，状态可审计 |
-| E：Desktop | 评估本地 Runtime、隔离、授权与同步，再实现客户端 | 同一平台契约可选择企业或本地执行位置 |
+| P0 | 稳定 DTO/状态/授权/幂等/资源策略 | 对齐首批办公任务和部署 SLO |
+| P1 | provider 能力与沙箱四工具 | 两档真实强杀/限额/原子写/隔离契约通过 |
+| P2 | tools 白名单、办公镜像/Skill、私有交付、审计/reaper/预算 | 安全与功能达标，默认仍 rpc |
+| P3 | 单 Worker、DB job/事件/取消、共享调度、发布排空 | 功能/安全、备份与故障演练通过，才翻默认；本轮不做容量测试，不承诺并发容量 |
+| D0–D2 | 固定 Durable 版本恢复验证 → 文件定时试点 → 显式后台任务 | 依赖 P3；快照、权限变化、未知副作用与幂等投影达标 |
+| P4 | 按需求多 Worker、Storage/HA | 以实测瓶颈与业务 SLA 决定，不预建完整分布式平台 |
 
-当前 Step 1–3（Runtime seam、运行记录/事件游标、本机 RpcClient adapter）已有实现；阶段 A 对应现有 [目标架构](pi-plugin-support-research.md) Step 4，后续阶段依次涉及其 Step 5–9。已完成的管理能力不必重做，重点是让现有控制面真正约束隔离执行路径。
+本轮按要求排除容量压测、持续负载和突发并发测试；资源限额与准入实现仍保留，功能完成不代表千人容量经过验证。
 
-## 7. 官方依据
+完整工作包、目录、初始保护值、测试门禁和回滚条件以 [实施方案](sandbox-execution-surface-design.md) §9–11 为准。新后端开关只影响新运行；存量运行绑定原 backend/版本，回滚需要能力矩阵和排空，不中途迁移。
 
-- [Pi SDK](https://pi.dev/docs/latest/sdk)：当前 `AgentSession`、`SessionManager`、`DefaultResourceLoader` 和事件订阅的职责。
-- [Pi RPC](https://pi.dev/docs/latest/rpc)：独立进程的命令、响应、事件与 `agent_settled` 终态语义；TypeScript 子进程集成使用官方 `RpcClient`。
-- [Pi Skills](https://pi.dev/docs/latest/skills)：Skill 是 `SKILL.md` 指令和配套文件，可带脚本/参考资料；支持的 frontmatter 与发现机制。
-- [Pi Packages](https://pi.dev/docs/latest/packages)：Package 分发 Skill、Extension 等资源及其依赖；企业审批与隔离是 Piwork 的额外控制面责任。
-- 精确接口仍以项目安装的 1.0.0 包类型为准，尤其是 `node_modules/@earendil-works/pi-coding-agent/dist/core/sdk.d.ts`、`dist/modes/rpc/rpc-client.d.ts`。
+## 6. Desktop 边界
+
+未来 Desktop 可以选择企业运行环境或本机 Runtime。共享运行命令与归一化事件语义，但本地目录权限、确认、凭据、出站和同步策略需单独设计。Electron 等选型未定。
+
+不要求当前改为 apps/web/apps/desktop 或抽取大量共享包；出现第二个真实客户端后再按实际依赖抽取。企业运行 DTO 和工具 seam 可降低后续迁移成本，但不承诺零重构。
+
+## 7. 依据和文档纪律
+
+Pi coding-agent 1.0.0 `docs/sdk.md`、官方 `examples/extensions/tool-override.ts`、安装版工具注册源码及 Durable 0.99.2 README/tool/generation 源码是本次决策依据。独立 RPC 适配继续复用官方 RpcClient，不自研 RPC 协议。
+
+本文件描述目标；每个阶段完成时才更新 architecture.md/development.md/AGENTS.md 的现状、实际目录和命令。旧 `pi-plugin-support-research.md` 的 RPC 目标属于历史设计，不再作为最新实施顺序；已实现部分仍按代码核对。

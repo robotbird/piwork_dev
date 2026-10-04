@@ -82,21 +82,26 @@ async function requestJson(url: string, init?: RequestInit) {
 }
 
 function ProviderMark({ providerKey }: { providerKey: string }) {
-  if (providerKey === "deepseek") {
+  // 插件包内图标经 /api/models/icon 按 provider key 下发（与聊天模型下拉同源）；
+  // 包内未声明图标的供应商回退通用占位图
+  const [failedFor, setFailedFor] = useState<string | null>(null);
+  if (failedFor === providerKey) {
     return (
-      <Image
-        alt="DeepSeek"
-        className="size-11 shrink-0 rounded-xl"
-        height={44}
-        src="/images/model-providers/deepseek.svg"
-        width={44}
-      />
+      <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-foreground">
+        <BrainCircuitIcon className="size-5" />
+      </div>
     );
   }
   return (
-    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-foreground">
-      <BrainCircuitIcon className="size-5" />
-    </div>
+    <Image
+      alt={providerKey}
+      className="size-11 shrink-0 rounded-xl"
+      height={44}
+      onError={() => setFailedFor(providerKey)}
+      src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/models/icon?provider=${providerKey}`}
+      unoptimized
+      width={44}
+    />
   );
 }
 

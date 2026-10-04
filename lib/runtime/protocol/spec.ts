@@ -4,7 +4,8 @@ import type { Api, Message, Model } from "@earendil-works/pi-ai";
 /**
  * RuntimeSpec：平台对一次 Agent Runtime 执行的完整声明（v2.0 §5.1）。
  * Step 1 形态：model/historyMessages/tools 暂保留 pi 原生类型——seam 在服务端内部；
- * Step 3 引入 RpcClient 时在序列化边界收敛为中性 DTO（模型引用 + 会话文件 seeding）。
+ * 运行宿主内部继续保留这些类型；跨进程/持久化边界使用独立的 RunDescriptor，
+ * 不向本类型继续添加附件字节或跨进程工具闭包（企业 MVP 方案 §2.1）。
  */
 export type RuntimeSpec = {
   /** Assigned by RunManager; shared with sandbox registry and inference audit. */

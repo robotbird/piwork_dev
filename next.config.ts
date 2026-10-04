@@ -58,6 +58,8 @@ const nextConfig: NextConfig = {
     "officeparser",
     "esbuild",
   ],
+  // pi-auto-router publishes TypeScript sources, including the pure classifier.
+  transpilePackages: ["pi-auto-router"],
 };
 
 export default withNextIntl(withBotId(nextConfig));

@@ -3,8 +3,8 @@
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { Toaster } from "sonner";
-import { SparklesIcon } from "@/components/chat/icons";
-import { Preview } from "@/components/chat/preview";
+import { PiLogo } from "@/components/auth/pi-logo";
+import { RuntimeIllustration } from "@/components/auth/runtime-illustration";
 import { usePreferences } from "@/components/preferences-provider";
 
 export default function AuthLayout({
@@ -15,36 +15,26 @@ export default function AuthLayout({
   const { t } = usePreferences();
 
   return (
-    <div className="flex h-dvh w-screen bg-sidebar">
-      <div className="flex w-full flex-col bg-background p-8 xl:w-[600px] xl:shrink-0 xl:border-r xl:border-border md:p-16">
+    <div className="flex min-h-dvh w-full bg-white lg:min-h-[760px] text-[#111827]">
+      <div className="relative flex min-h-dvh w-full flex-col px-7 py-8 sm:px-14 lg:w-[38%] lg:max-w-[580px] lg:shrink-0 lg:px-[clamp(40px,5vw,80px)] lg:py-10">
         <Link
-          className="flex w-fit items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+          className="flex w-fit items-center gap-2 text-sm text-[#8490aa] transition-colors hover:text-[#111827] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-[#176bff]"
           href="/"
         >
-          <ArrowLeftIcon className="size-3.5" />
+          <ArrowLeftIcon aria-hidden="true" className="size-4" />
           {t("auth.back")}
         </Link>
-        <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-10">
-          <div className="flex flex-col gap-2">
-            <div className="mb-2 flex size-10 items-center justify-center rounded-lg border border-border bg-card text-foreground">
-              <SparklesIcon size={14} />
-            </div>
-            {children}
+        <div className="mx-auto flex w-full max-w-[384px] flex-1 flex-col justify-center py-12 lg:-translate-y-16 lg:py-16">
+          <div className="mb-14 flex items-center gap-4 sm:mb-16">
+            <PiLogo className="size-12" />
+            <span className="text-[42px] font-semibold leading-none tracking-[-0.055em] text-[#070f26]">
+              piwork
+            </span>
           </div>
+          <div className="flex flex-col gap-3">{children}</div>
         </div>
       </div>
-
-      <div className="hidden flex-1 flex-col overflow-hidden pl-12 xl:flex">
-        <div className="flex items-center gap-1.5 pt-8 text-[13px] text-muted-foreground/50">
-          {t("auth.poweredBy")}
-          <span className="font-medium text-muted-foreground">
-            pi + DeepSeek
-          </span>
-        </div>
-        <div className="flex-1 pt-4">
-          <Preview />
-        </div>
-      </div>
+      <RuntimeIllustration />
 
       {/* 登录/注册失败等提示（sonner）需要挂载点，否则用户看不到任何反馈 */}
       <Toaster

@@ -94,6 +94,50 @@ test("fail-closed：底座 acquire 失败原样传播 SandboxUnavailableError", 
   );
 });
 
+test("registration failure destroys partially acquired resource before propagating", async () => {
+  const inner = new TestSandboxProvider();
+  const registry = new InMemorySandboxRegistry();
+  registry.acquired = () => Promise.reject(new Error("registry failed"));
+  const provider = new LeasingSandboxProvider(inner, registry, {
+    reuse: false,
+  });
+  await assert.rejects(provider.acquire(makeSpec()), /registry failed/);
+  assert.equal(inner.acquiredSpecs.length, 1);
+  assert.equal(await inner.sandbox("test-sbx-1")?.handle.status(), "destroyed");
+  assert.ok(registry.events.some((event) => event.kind === "released"));
+});
+
+test("registration error on reused resource cannot trigger automatic reconstruction", async () => {
+  const inner = new TestSandboxProvider();
+  const registry = new InMemorySandboxRegistry();
+  const provider = new LeasingSandboxProvider(inner, registry);
+  const first = await provider.acquire(makeSpec());
+  registry.acquired = () =>
+    Promise.reject(new SandboxUnavailableError("registry unavailable"));
+  await assert.rejects(provider.acquire(makeSpec()), /registry unavailable/);
+  assert.equal(inner.acquiredSpecs.length, 1);
+  assert.equal(await first.status(), "destroyed");
+});
+
+test("failed registration cleanup remains outcome unknown, not a fake destroyed row", async () => {
+  const inner = new TestSandboxProvider();
+  const registry = new InMemorySandboxRegistry();
+  registry.acquired = () => Promise.reject(new Error("registry failed"));
+  inner.release = () => Promise.reject(new Error("kill failed"));
+  const provider = new LeasingSandboxProvider(inner, registry, {
+    reuse: false,
+  });
+  await assert.rejects(
+    provider.acquire(makeSpec()),
+    /registration and cleanup failed/
+  );
+  assert.equal(
+    registry.events.filter((event) => event.kind === "released").length,
+    0
+  );
+  await inner.sandbox("test-sbx-1")?.handle.destroy("kill");
+});
+
 test("reuse 关闭时每次新建", async () => {
   const inner = new TestSandboxProvider();
   const provider = new LeasingSandboxProvider(

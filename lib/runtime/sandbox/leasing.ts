@@ -5,6 +5,7 @@ import type {
   SandboxSpec,
 } from "./index";
 import { SandboxUnavailableError } from "./index";
+import { sandboxCleanupFailure } from "./operation-error";
 import type { SandboxRegistry } from "./registry";
 
 /**
@@ -25,7 +26,7 @@ export class LeasingSandboxProvider implements SandboxProvider {
   constructor(
     inner: SandboxProvider,
     registry: SandboxRegistry,
-    options: { reuse?: boolean } = {},
+    options: { reuse?: boolean } = {}
   ) {
     this.inner = inner;
     this.registry = registry;
@@ -43,10 +44,9 @@ export class LeasingSandboxProvider implements SandboxProvider {
         spec
       );
       if (reusable) {
+        let handle: SandboxHandle | undefined;
         try {
-          const handle = await this.inner.attach(reusable);
-          await this.registry.acquired(this.inner.name, spec, handle.id);
-          return this.wrap(handle, spec);
+          handle = await this.inner.attach(reusable);
         } catch (error) {
           // 沙箱已不存在（TTL 到期被回收等）：记账后走新建
           if (!(error instanceof SandboxUnavailableError)) {
@@ -54,11 +54,13 @@ export class LeasingSandboxProvider implements SandboxProvider {
           }
           await this.registry.unavailable(this.inner.name, reusable);
         }
+        // Registration errors must not be mistaken for attach-not-found/rebuilt.
+        if (handle) {
+          return this.register(handle, spec);
+        }
       }
     }
-    const handle = await this.inner.acquire(spec);
-    await this.registry.acquired(this.inner.name, spec, handle.id);
-    return this.wrap(handle, spec);
+    return this.register(await this.inner.acquire(spec), spec);
   }
 
   async attach(externalId: string): Promise<SandboxHandle> {
@@ -73,6 +75,34 @@ export class LeasingSandboxProvider implements SandboxProvider {
     await this.registry.released(this.inner.name, handle.id, policy);
   }
 
+  private async register(
+    handle: SandboxHandle,
+    spec: SandboxSpec
+  ): Promise<SandboxHandle> {
+    try {
+      await this.registry.acquired(this.inner.name, spec, handle.id);
+      return this.wrap(handle, spec);
+    } catch (error) {
+      try {
+        await this.inner.release(handle, "kill");
+        if ((await handle.status()) !== "destroyed") {
+          throw new Error("Registration failed; termination unconfirmed", {
+            cause: error,
+          });
+        }
+        // acquired may have committed before its acknowledgement failed.
+        await this.registry.released(this.inner.name, handle.id, "kill");
+      } catch (cleanupError) {
+        throw sandboxCleanupFailure(
+          "Sandbox registration and cleanup failed",
+          error,
+          cleanupError
+        );
+      }
+      throw error;
+    }
+  }
+
   /** 包装 handle：renew/destroy 同步记账（spec 未定稿前保持透传语义） */
   private wrap(handle: SandboxHandle, spec: SandboxSpec | null): SandboxHandle {
     const { registry } = this;
@@ -83,6 +113,7 @@ export class LeasingSandboxProvider implements SandboxProvider {
         await handle.destroy(policy);
         await registry.released(provider, handle.id, policy);
       },
+      filesystem: handle.filesystem,
       id: handle.id,
       readFile: (path) => handle.readFile(path),
       renew: async () => {

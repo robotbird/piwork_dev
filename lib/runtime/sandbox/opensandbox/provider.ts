@@ -30,6 +30,7 @@ import {
   Sandbox as OpenSandboxSdkSandbox,
   SandboxManager,
 } from "@alibaba-group/opensandbox";
+import { createSandboxFilesystem, type SandboxFilesystem } from "../filesystem";
 import type {
   SandboxChannel,
   SandboxControl,
@@ -371,6 +372,7 @@ export class OpenSandboxProvider implements SandboxProvider {
 }
 
 class OpenSandboxHandle implements SandboxHandle {
+  readonly filesystem: SandboxFilesystem;
   private endpointBase: string | null = null;
   private readonly encoder = new TextEncoder();
   /**
@@ -382,6 +384,7 @@ class OpenSandboxHandle implements SandboxHandle {
 
   constructor(ctx: HandleContext) {
     this.ctx = ctx;
+    this.filesystem = createSandboxFilesystem(this);
   }
 
   get id(): string {

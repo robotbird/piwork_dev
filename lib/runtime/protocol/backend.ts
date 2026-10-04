@@ -4,7 +4,8 @@ import type { RuntimeSpec } from "./spec";
 
 /**
  * RuntimeBackend/RuntimeSession：平台驱动 Agent Runtime 的 seam（v2.0 §5.1）。
- * 生产目标态为 SandboxRpcBackend（Step 3–5）；开发、测试与迁移期为 InProcessBackend。
+ * 现有适配器包括 InProcess/SandboxRpc。新目标为可信宿主 Pi loop + 沙箱工具，
+ * 迁移按 sandbox-execution-surface-design.md 门禁进行，不改变本接口。
  */
 export type RuntimeSession = {
   /** 命令受理即返回；完成由 events() 中的 run.settled/run.failed 表达 */

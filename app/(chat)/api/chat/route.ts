@@ -17,6 +17,7 @@ import {
   prepareChatAttachments,
 } from "@/lib/ai/attachments";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
+import { classifyExecution } from "@/lib/ai/execution-classifier";
 import { loadEnabledManagedProjectSkills } from "@/lib/ai/managed-skills";
 import { getModelAvailability } from "@/lib/ai/models";
 import { getPiModel, toPiHistoryMessages } from "@/lib/ai/pi";
@@ -292,7 +293,26 @@ export async function POST(request: Request) {
 
     // 执行类工具（bash/read/write/edit + deliver_file）以每聊天独立工作区
     // 运行；用户上传的附件原始字节先落盘到工作区供 skill 脚本直接读取。
-    const workspaceDir = executionToolsEnabled()
+    const classification = executionToolsEnabled()
+      ? await classifyExecution({
+          attachmentCount:
+            currentUserMessage?.parts.filter((part) => part.type === "file")
+              .length ?? 0,
+          history: uiMessages
+            .slice(0, currentUserMessageIndex)
+            .map((historyMessage) => ({
+              role: historyMessage.role,
+              text: getTextFromMessage(historyMessage),
+            })),
+          message: currentUserText,
+          signal: request.signal,
+        })
+      : { reason: "disabled", requiresExecution: false };
+    console.info("[chat] execution classification", {
+      chatId: id,
+      ...classification,
+    });
+    const workspaceDir = classification.requiresExecution
       ? await ensureChatWorkspace(id)
       : null;
     // 管理端 MCP 服务配置同步进受管 agentDir 的 mcp.json（Pi 内置 MCP
@@ -506,7 +526,10 @@ export async function POST(request: Request) {
         }
       },
       generateId: generateUUID,
-      onError: () => t("modelUnavailable"),
+      onError: (error) => {
+        console.error("[chat] stream execution failed", { chatId: id }, error);
+        return t("modelUnavailable");
+      },
     });
 
     return createUIMessageStreamResponse({ stream });
