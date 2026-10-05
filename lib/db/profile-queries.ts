@@ -1,21 +1,10 @@
 import "server-only";
 
 import { and, eq, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { getDb } from "./client";
 import { agentRun, department, member, memberRole, role, user } from "./schema";
 
-// Preserve this small pool across development HMR and release idle connections.
-const profileGlobal = globalThis as typeof globalThis & {
-  piworkProfileClient?: ReturnType<typeof postgres>;
-};
-const client =
-  profileGlobal.piworkProfileClient ??
-  postgres(process.env.POSTGRES_URL ?? "", { idle_timeout: 20, max: 2 });
-if (process.env.NODE_ENV !== "production") {
-  profileGlobal.piworkProfileClient = client;
-}
-const db = drizzle(client);
+const db = getDb();
 
 export async function getProfile(userId: string) {
   const [[account], [stats], activity, roles] = await Promise.all([

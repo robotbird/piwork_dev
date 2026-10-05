@@ -1,15 +1,14 @@
 import "server-only";
 
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import { ChatbotError } from "../errors";
 import {
   type AdminRole,
   type RolesView,
   SYSTEM_ROLE_CODES,
   SYSTEM_ROLE_SEEDS,
 } from "../admin/roles";
+import { ChatbotError } from "../errors";
+import { getDb } from "./client";
 import {
   department,
   type MemberRecord,
@@ -21,8 +20,7 @@ import {
   user,
 } from "./schema";
 
-const client = postgres(process.env.POSTGRES_URL ?? "");
-const db = drizzle(client);
+const db = getDb();
 
 export type RoleInput = {
   description: string | null;

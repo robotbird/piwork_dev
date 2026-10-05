@@ -36,7 +36,11 @@ function makeSpec(overrides: Partial<RuntimeSpec> = {}): RuntimeSpec {
     appendSystemPrompt: [],
     chatId: CHAT_A,
     historyMessages: [],
-    model: null as unknown as RuntimeSpec["model"],
+    model: {
+      id: "test-model",
+      name: "Test model",
+      provider: "test-provider",
+    } as RuntimeSpec["model"],
     systemPrompt: "routing test",
     tools: [],
     workspaceDir: null,

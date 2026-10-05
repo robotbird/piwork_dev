@@ -73,6 +73,18 @@ P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/�
 
 `backends/durable/storage.ts` 只复用官方 SQLite facade/Storage；可信私有持久卷、平台授权 user/chat/run/inputHash 绑定、O_EXCL owner marker，不按 PID/TTL 自动偷锁。恢复检查必须早于 submit/wait/resume（均启动官方调度）；未知 intent/已物化未知结果拒绝，不能自动重放。所有通用工具 unsafe，execute 内复核当前授权并透传 signal；不可仅依赖恢复会跳过的 beforeTool。持久 adapter 未接沙箱而 workspace 非 null 必须拒绝；生产默认 MemoryStorage 明确禁止，实验开关不是生产上线入口。Worker/映射/事件快照投影/正式权限与账本/取消删除恢复对账仍未完成；存储锁不等于 workspace fencing。测试与 fixture 在 tests/unit/runtime/backends/durable 与 tests/support/durable，不做容量测试。
 
+## 数据库连接池边界
+
+应用查询统一复用 `lib/db/client.ts` 的 `getDb()`，按 POSTGRES_URL/时钟档进程缓存（含 HMR），默认池 max=5/UTC 沙箱池 max=2，idle_timeout=20。默认数据库时钟不变，沙箱显式 UTC；迁移独立单连接。不要在查询模块自建池，不把所有池改为 UTC，不终止其他应用连接；旧池需服务重启释放。test:db:client 验证复用/时钟/查询错误传播；test:runtime:db 文件串行以免测试进程耗尽额度，不代表容量验证。
+
+## RunManager 启动与孤儿清理边界
+
+首次 await 前预留 chat；创建 DB run/取得 lease/发布启动所有权与清理经本管理器短临界区串行，不能把 backend.open 或模型/工具执行放进锁。starting run 一并参与心跳与清理排除，向 LiveRun 同步交接。未知但持 lease 的 run 只按心跳过期清理，不能仅因缺少本进程 LiveRun 就失败；条件 UPDATE 保留非终态检查，实际更新行的 lease 删除须同事务。DB 清理测试限定自己的 runId，不清理真实会话。HMR 会保留旧 manager，修改后需服务重启。这不是完整 Worker/fencing/恢复，失败终态不自动翻转或重放；历史纠错需独立持久证据核验。
+
+## 后台对话记录边界
+
+`/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员只读访问；`lib/db/conversation-queries.ts` 持有 Chat/Message_v2/最新 AgentRun 的检索与分页，`lib/admin/conversations.ts` 持有共享校验/文本投影。仅 text parts，不返回 reasoning/工具载荷/附件地址，不读 Pi 原生 session/SQLite，不开放跨用户聊天写入。状态取最近 run；模型经 AgentRun.requestedModel（迁移 0017）请求快照与 SDK/RPC/Durable 的 message.completed.model 持久化。查询逐 run 优先实际 model/responseModel、其次请求快照、最后同 run/chat 的 allowed 代理审计证据，不用当前配置猜历史，支持跨轮模型筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，复用包内 Logo API，不显示内部 installation ID，未知/卸载与图标失败保守回退；当前展示元数据不能覆盖历史模型身份或读取凭据。Token 聚合会话所有已保留 message.completed.usage 五字段，totalTokens 以官方值为准、不重复 reasoning/缓存，不与代理审计相加；不含分类/标题/压缩/嵌套工具费用，未知不填零、记录缺口标部分。不能虚构会话归档状态或不可变审计能力，口径见 docs/conversation-model-usage.md。测试 test:conversations/:db 在 tests/unit/admin 与 tests/unit/db，:http 在 tests/e2e；新增模型快照需迁移和重启开发 RunManager 后生效。
+
 ## 文档库边界
 
 `components/documents` 与 `lib/documents` 持有文档库界面及可共享类型；`lib/db/library-queries.ts` 持有归档、文件夹和所有权查询。上传入口必须登记 LibraryItem；生产 Runtime 在组装处注入归档回调，Pi `deliver_file` 完成归档后才发送 `artifact.created`。不要将数据库访问或用户身份判断写入 Pi 通用工具。文件夹为用户目录，当前不是项目权限模型。

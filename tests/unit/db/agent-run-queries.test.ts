@@ -139,7 +139,11 @@ dbTest(
     }
     await renewLeases("worker-1", [renewed.runId]);
 
-    const hit = await failStaleRuns(30_000);
+    const hit = await failStaleRuns(30_000, [
+      stale.runId,
+      renewed.runId,
+      noLease.runId,
+    ]);
     assert.ok(hit >= 1, "至少命中回拨心跳的 stale run");
     assert.equal(await statusOf(stale.runId), "failed");
     assert.equal(await statusOf(renewed.runId), "running");
@@ -169,13 +173,79 @@ dbTest("failOrphanedRuns：排除本进程 LiveRun，终态不动", async () => 
     true
   );
 
-  const hit = await failOrphanedRuns([live.runId]);
-  // 开发库可能存在他人遗留的非终态 run，只保证下限与自身三个 run 的终态
-  assert.ok(hit >= 1);
+  const hit = await failOrphanedRuns(
+    [live.runId],
+    [orphan.runId, live.runId, done.runId]
+  );
+  assert.equal(hit, 1);
   assert.equal(await statusOf(orphan.runId), "failed");
   assert.equal(await statusOf(live.runId), "running");
   assert.equal(await statusOf(done.runId), "settled");
 });
+
+dbTest(
+  "orphan cleanup preserves leased starting runs and stays inside the requested fixture scope",
+  async () => {
+    const starting = await makeRun();
+    const orphan = await makeRun();
+    const outside = await makeRun();
+    await acquireLease(starting.runId, "live-worker");
+    await markRunStatus(starting.runId, "starting", {
+      allowedFrom: NON_TERMINAL,
+    });
+    assert.equal(await failOrphanedRuns([], [starting.runId, orphan.runId]), 1);
+    assert.equal(await statusOf(starting.runId), "starting");
+    assert.equal(await statusOf(orphan.runId), "failed");
+    assert.equal(await statusOf(outside.runId), "queued");
+    assert.equal(await failOrphanedRuns([], []), 0);
+    await releaseLease(starting.runId);
+    await markRunStatus(starting.runId, "settled", {
+      allowedFrom: NON_TERMINAL,
+    });
+    await markRunStatus(outside.runId, "settled", {
+      allowedFrom: NON_TERMINAL,
+    });
+  }
+);
+
+dbTest(
+  "cleanup rechecks terminal status after waiting for a row lock and only releases transitioned leases",
+  async () => {
+    const { runId } = await makeRun();
+    await acquireLease(runId, "live-worker");
+    await sql`update "RuntimeLease" set "heartbeatAt" = now() - interval '1 hour' where "runId" = ${runId}`;
+    let cleanup: Promise<number> | undefined;
+    try {
+      await sql.begin(async (tx) => {
+        await tx`select id from "AgentRun" where id = ${runId} for update`;
+        cleanup = failStaleRuns(30_000, [runId]);
+        const deadline = Date.now() + 5000;
+        let blocked = false;
+        while (Date.now() < deadline) {
+          // Wait for the competing UPDATE to really reach the row lock, not a sleep-based guess.
+          const [row] =
+            // biome-ignore lint/performance/noAwaitInLoops: deterministic lock-race orchestration
+            await tx`select exists (select 1 from pg_stat_activity a where pg_backend_pid() = any(pg_blocking_pids(a.pid))) as blocked`;
+          if (row.blocked) {
+            blocked = true;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        assert.ok(blocked, "cleanup must be blocked on this fixture's row");
+        await tx`update "AgentRun" set status = 'settled', "endedAt" = now() where id = ${runId}`;
+      });
+      assert.equal(await cleanup, 0);
+      assert.equal(await statusOf(runId), "settled");
+      const leases =
+        await sql`select id from "RuntimeLease" where "runId" = ${runId}`;
+      assert.equal(leases.length, 1);
+      await releaseLease(runId);
+    } finally {
+      await cleanup?.catch(() => undefined);
+    }
+  }
+);
 
 dbTest("getActiveRunByChatId：仅非终态，且为最新一条", async () => {
   const { chatId, runId: seedRun } = await makeRun();

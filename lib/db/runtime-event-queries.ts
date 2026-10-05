@@ -1,17 +1,15 @@
 import "server-only";
 
 import { and, asc, eq, gt, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import type {
   EventStore,
   PersistedRuntimeEvent,
 } from "@/lib/runtime/run/event-store";
 import { ChatbotError } from "../errors";
+import { getDb } from "./client";
 import { runtimeEvent } from "./schema";
 
-const client = postgres(process.env.POSTGRES_URL ?? "");
-const db = drizzle(client);
+const db = getDb();
 
 async function wrapDatabase<T>(operation: () => Promise<T>): Promise<T> {
   try {

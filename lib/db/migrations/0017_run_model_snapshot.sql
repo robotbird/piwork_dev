@@ -1,0 +1,1 @@
+ALTER TABLE "AgentRun" ADD COLUMN "requestedModel" json;

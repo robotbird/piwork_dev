@@ -1,20 +1,16 @@
 import "server-only";
 
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { ChatbotError } from "../errors";
 import type {
   SandboxProviderName,
   SandboxRuntimeConfig,
   SandboxStatus,
 } from "../runtime/sandbox";
+import { getDb } from "./client";
 import { chat, sandboxInstance, user } from "./schema";
 
-const client = postgres(process.env.POSTGRES_URL ?? "", {
-  connection: { TimeZone: "UTC" },
-});
-const db = drizzle(client);
+const db = getDb("UTC");
 
 /** 与 SandboxInstance.status 同源的业务状态（destroyed/expired 为终态） */
 export type SandboxInstanceStatus = SandboxStatus | "expired";

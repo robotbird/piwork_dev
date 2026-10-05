@@ -1,11 +1,10 @@
 import "server-only";
 
 import { asc, count, eq, inArray } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import { ChatbotError } from "../errors";
 import type { AdminMember } from "../admin/members";
 import type { Department, MemberSummary } from "../admin/organization";
+import { ChatbotError } from "../errors";
+import { getDb } from "./client";
 import { getUserById } from "./queries";
 import {
   chat,
@@ -22,8 +21,7 @@ import {
 } from "./schema";
 import { generateHashedPassword } from "./utils";
 
-const client = postgres(process.env.POSTGRES_URL ?? "");
-const db = drizzle(client);
+const db = getDb();
 
 export type MemberWithUser = {
   createdAt: Date;

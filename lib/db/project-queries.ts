@@ -1,11 +1,10 @@
 import "server-only";
 
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { getDb } from "./client";
 import { chat, message, project, source, vote } from "./schema";
 
-const db = drizzle(postgres(process.env.POSTGRES_URL ?? ""));
+const db = getDb();
 
 export type CreateSourceInput = {
   content: string;

@@ -1,5 +1,6 @@
 import type { AgentEvent } from "@earendil-works/pi-durable";
 import type { RuntimeEvent } from "../../protocol";
+import { completedModel } from "../model-identity";
 import { normalizeUsage } from "../usage";
 
 type Channel = "text" | "reasoning" | "tool";
@@ -119,10 +120,12 @@ export class DurableEventNormalizer {
         }
         const events = this.closeOpenBlocks();
         const usage = normalizeUsage(event.entry.model[0].usage);
+        const model = completedModel(event.entry.model[0]);
         events.push({
           sequence: this.activeAssistantSequence,
           type: "message.completed",
           ...(usage ? { usage } : {}),
+          ...(model ? { model } : {}),
         });
         return events;
       }

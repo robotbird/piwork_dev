@@ -30,3 +30,4 @@ __pycache__/
 # Build output
 packages/model-provider-sdk/dist/
 .pi/test-sandboxes/
+/dist/

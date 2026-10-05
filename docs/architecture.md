@@ -56,6 +56,10 @@ flowchart LR
 | `lib/artifacts`、`lib/editor`、`i18n` | 文档产物、编辑器功能和国际化 |
 | `tests`、`scripts` | 单元/集成/E2E 测试与构建、验证脚本；目录细节见 [开发与测试](development.md) |
 
+### PostgreSQL 连接生命周期
+
+所有应用查询复用 `lib/db/client.ts` 的 `getDb()`。按连接 URL + 时钟档缓存于进程 globalThis，跨 Next 路由 bundle/开发 HMR 复用；默认池最多 5 个连接，沙箱 UTC 池最多 2 个，空闲 20 秒释放。默认池不覆盖数据库 TimeZone，沙箱仍显式 UTC；迁移保留独立单连接。边界为单进程/单配置，多个进程和测试数据库 URL 仍各自占用额度；旧模块创建的池需重启开发服务释放，不通过杀其他应用连接解决。未改 Pi SDK、Durable SQLite 或运行状态持久化。
+
 ## 3. 聊天运行链路
 
 逐步时序图和 RPC 边界见 [聊天业务链路与 RPC](rpc-business-flow.md)。
@@ -64,6 +68,8 @@ flowchart LR
 2. 请求将模型、历史、提示、工具和工作区组成 `RuntimeSpec`，交给 `getRunManager().start()`；页面流订阅运行事件。断线重连走 `api/chat/[id]/stream`，显式停止走 `api/chat/[id]/stop`。
 3. `lib/runtime/run/index.ts` 默认装配 `InProcessBackend`（未设 `PIWORK_SANDBOX_PROVIDER` 时）；设置了 provider 则按路由矩阵分流（执行工具 run → SandboxRpc、纯对话 → InProcess，`PIWORK_SANDBOX_ROUTING=matrix` 默认/`all`）。InProcess 后端通过 `lib/ai/agent-session.ts` 创建 Pi `AgentSession`，使用 `DefaultResourceLoader`、`ModelRuntime`、`SessionManager.inMemory()` 和自定义工具。Pi 的 agent loop、工具执行与扩展生命周期由 Pi SDK 掌管。
 4. 沙箱 argv 派生显式使用配置的 remoteCliPath，不调用宿主 `import.meta.resolve`（Next.js Turbopack 不支持）；宿主仍由官方 RpcClient 经 bridge shim 启动。backend.open 失败由 RunManager 记录 failed 与真实错误并释放 lease，避免遗留 queued；聊天流错误在服务端记录，客户端保持通用提示。
+启动期生命周期：RunManager 在首次 await 前预留 chat；DB 创建/lease 发布与僵尸清理经短临界区串行，backend.open 不持锁。已获 lease 的 run 进入 starting，启动中映射与 LiveRun 一并受排除/心跳保护，交接不留空窗。未知但持 lease 的 run 仅在心跳过期时失败，无 lease 的孤儿可清理；DB 用单条条件 UPDATE 检查非终态/清理条件，并在事务内仅释放实际更新行的 lease，不覆盖正常终态。仍是单进程 MVP，不是完整 Worker/fencing 或自动恢复。
+
 5. Pi 事件由 `lib/runtime/backends/pi-event-normalizer.ts` 转为平台 `RuntimeEvent`。`RunManager` 管理运行状态、事件序号、订阅与重放；关键事件写入 `RuntimeEvent` 表，最终 assistant 消息落库。`stream-mapping.ts` 才把平台事件转成前端 UI message stream。
 
 服务端自动分流在原职责链上追加（class 名称中的 Explicit 指服务端选定的内部 lane，不是用户勾选）：`route → RunManager → ExplicitDurableRuntimeBackend → DurableChatBackend → 官方 Harness/owned SQLite → LazySandbox/filesystem`。只有一套 agent loop，宿主模型凭据/SQLite 不进入沙箱。`run/durable-chat.ts` 注入 `db/durable-chat-queries.ts` 的正式 enabled/归属/运行状态检查及启用模型目录复核，prompt/hash/配置绑定，工具执行前复核；目录缓存沿用最多 30 秒。附件是本人 LibraryItem 引用，最多 5 个/每个 20 MB/总计 50 MB，图像累计 8 MB；不在宿主解析 Office/图片。原始字节使用有界下载与 hash/size 复核，通过原子 filesystem 水合到相对 inputs 路径；授权/水合失败必须回收，不忽略附件或回退宿主。私有交付先保存并登记本人 LibraryItem，再经 RuntimeEvent 发文件。每条新消息是新 run/新工作区，仅复用文本历史；没有跨进程平台闭包支持。
@@ -80,6 +86,10 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 - **Package 与 Skill**：`lib/pi-packages/manager.ts` 使用 Pi `DefaultPackageManager.installAndPersist()` 管理受管目录；包内 Skill 由 Piwork 的 Skill 管线登记、启用和展示。聊天会话通过 `DefaultResourceLoader` 加载受管扩展，同时关闭全局 Skill/上下文自动发现，避免跨租户资源泄漏。旧系统插件 `pi-mcp-adapter` 已被 Pi 内置 MCP 取代，进程内会自动退役清理（见第 10 节）。
 - **MCP**：管理端记录服务配置，`lib/mcp/agent-config.ts` 在请求时把启用服务（`exposure: direct`）同步到受管 agentDir 的 `mcp.json`；Pi 内置 MCP 扩展以自定义 `loadConfig` 消费它，忽略工作区项目级配置。
 - **管理概览（2026-10-03）**：`/admin` 首页由服务端预取 `getAdminOverview()` 并传给客户端组件，手动刷新走 `GET /api/admin/overview`（仅管理员，只读，页面另有 `requireAdminRole` 占位）；聚合查询在 `lib/db/overview-queries.ts`，payload 组装与系统服务状态在 `lib/admin/overview.ts`。指标口径：「任务」= AgentRun（不含 ScheduledTaskRun），成功率 = settled / (settled + failed + aborted)（近 30 天，含上一窗口对比），活跃用户 = 窗口内有 run 的去重用户；趋势为近 30 天按日 settled/failed/aborted（SQL `generate_series` 补零，按数据库会话时区自然日，与 agent-run-queries 的写入时钟一致）；另含后端分布（in_process/sandbox_rpc）、最近 run（联 Chat 标题与 User 名）、最近 Skill（按 updatedAt，平台无使用计数）、五源合并动态（Skill/MCP/成员/沙箱/定时任务）与服务状态（数据库连通、启用模型插件健康聚合、定时任务与沙箱装配开关——沙箱实例实时状态仍归 /admin/sandboxes）。任何聚合查询失败整体 500，不输出部分结果。**时区口径**：输出 ISO 前在 SQL 内按各表写入时钟显式转 timestamptz——`now()` 经默认连接写入的表（AgentRun/Member/ScheduledTask.createdAt）按 `current_setting('TimeZone')` 解释，UTC 墙钟写入的表（Skill/McpServer 的 updatedAt、SandboxInstance.createdAt 经显式 UTC 连接）按 UTC 解释；不转换时服务端进程时区（如 UTC）与库会话时区（Asia/Shanghai）不一致会产生 ±8h 偏移。
+
+### 管理端对话记录
+
+`/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员可读；侧边栏「记录与统计 → 对话记录」。`components/admin/conversations` 复用后台组件与主题，提供真实 Chat 列表、标题/用户/项目检索、项目/最近运行状态/UTC 更新时间筛选、排序、分页、详情和只读消息文本分页。查询归 `lib/db/conversation-queries.ts`，只读 repeatable-read 保持计数与页内数据一致；共享校验与文本投影归 `lib/admin/conversations.ts`。不读 Pi JSONL/私有 SQLite，不启动或重建会话，不改变普通聊天所有权。模型已补运行级请求快照（AgentRun.requestedModel，迁移 0017）与完成事件实际模型（SDK/RPC 与 Durable 两类归一化器）；按 run 优先实际 model/responseModel，其次请求快照，最后同 run/chat 的 allowed 推理审计证据，保留跨轮模型切换并支持筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，列表/详情/筛选复用包内 Logo API，不显示内部 installation ID；未知/卸载与图标失败保守回退，不用当前模型目录覆盖历史模型身份。Token 按会话全部持久化 message.completed.usage 聚合五字段，官方 totalTokens 不重复加 reasoning/缓存；缺失显示未记录/部分记录，不与代理审计 Token 重复累计，不含分类/标题/压缩/工具嵌套费用。不虚构归档状态。完整链路与口径见 [对话模型与用量](conversation-model-usage.md)。仅投影 Message_v2 的 text parts，排除 reasoning/工具参数/结果/附件地址；这不是 Pi 完整 transcript 或不可变审计账本，删除聊天会删除相关记录。官方依据：Pi 1.0.2 `docs/sdk.md`、`docs/message-types.md`、`docs/session-format.md`（平台历史投影与 Pi 原生会话树不同）。
 
 ## 5. 现状与目标的分界
 

@@ -46,6 +46,7 @@ type StatusRecord = {
 
 class RecordingRunStore implements AgentRunStore {
   readonly history: StatusRecord[] = [];
+  readonly created: Parameters<AgentRunStore["createAgentRun"]>[0][] = [];
   readonly renewed: Array<{ runIds: string[]; workerId: string }> = [];
   private readonly runs = new Map<
     string,
@@ -64,11 +65,10 @@ class RecordingRunStore implements AgentRunStore {
   }
 
   // biome-ignore lint/suspicious/useAwait: 接口契约要求 Promise，同步测试替身无异步工作
-  async createAgentRun(input: {
-    backend: string;
-    chatId: string;
-    userId: string;
-  }): Promise<string> {
+  async createAgentRun(
+    input: Parameters<AgentRunStore["createAgentRun"]>[0]
+  ): Promise<string> {
+    this.created.push(input);
     const id = globalThis.crypto.randomUUID();
     this.runs.set(id, { chatId: input.chatId, status: "queued" });
     return id;
@@ -235,8 +235,144 @@ test("backend open failure marks run failed, releases lease and preserves error"
   const failed = runStore.history.find((entry) => entry.status === "failed");
   assert.ok(failed);
   assert.equal(failed.errorMessage, failure.message);
+  assert.deepEqual(runStore.created[0].requestedModel, {
+    id: "test-model",
+    name: "Test model",
+    provider: "test-provider",
+  });
   assert.equal(released, failed.runId);
   assert.equal(manager.getActiveRun(CHAT), null);
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+test("slow backend open stays owned during cleanup, receives heartbeats, and does not block another chat", async () => {
+  const runStore = new RecordingRunStore();
+  const entered = deferred<string>();
+  const release = deferred<void>();
+  const heartbeat = deferred<readonly string[]>();
+  const renew = runStore.renewLeases.bind(runStore);
+  runStore.renewLeases = async (worker, ids) => {
+    await renew(worker, ids);
+    heartbeat.resolve(ids);
+  };
+  const backend = new InMemoryBackend({ onPrompt: () => textSteps("done") });
+  const manager = new RunManager({
+    backend: {
+      open: async (input) => {
+        if (input.chatId === CHAT) {
+          assert.ok(input.runId);
+          entered.resolve(input.runId);
+          await release.promise;
+        }
+        return backend.open(input);
+      },
+    },
+    eventStore: new InMemoryEventStore(),
+    heartbeatIntervalMs: 5,
+    messageStore: new RecordingMessageStore(),
+    runStore,
+    workerId: "test-worker",
+  });
+  const pending = manager.start({
+    prompt: { text: "slow", type: "prompt" },
+    spec: spec(),
+    userId: USER,
+  });
+  try {
+    const runId = await entered.promise;
+    assert.equal(runStore.statusOf(runId), "starting");
+    assert.deepEqual(manager.getActiveRun(CHAT), { runId });
+    await manager.failZombieRuns();
+    assert.equal(runStore.statusOf(runId), "starting");
+    assert.ok((await heartbeat.promise).includes(runId));
+    await assert.rejects(
+      manager.start({
+        prompt: { text: "duplicate", type: "prompt" },
+        spec: spec(),
+        userId: USER,
+      }),
+      /active request|generating|response|wait/i
+    );
+    const other = await manager.start({
+      prompt: { text: "other", type: "prompt" },
+      spec: spec("other-chat"),
+      userId: USER,
+    });
+    assert.equal(await other.attach()?.settled, "settled");
+    assert.equal(runStore.statusOf(runId), "starting");
+    release.resolve();
+    const handle = await pending;
+    assert.equal(await handle.attach()?.settled, "settled");
+    assert.equal(runStore.statusOf(runId), "settled");
+  } finally {
+    release.resolve();
+    await pending.catch(() => undefined);
+  }
+});
+
+test("cleanup cannot race the gap between DB insertion and local ownership publication", async () => {
+  const runStore = new RecordingRunStore();
+  const visible = deferred<string>();
+  const returnId = deferred<void>();
+  const entered = deferred<void>();
+  const releaseOpen = deferred<void>();
+  const create = runStore.createAgentRun.bind(runStore);
+  runStore.createAgentRun = async (input) => {
+    const id = await create(input);
+    visible.resolve(id);
+    await returnId.promise; // DB row exists but caller has not received its id.
+    return id;
+  };
+  const backend = new InMemoryBackend({ onPrompt: () => textSteps("done") });
+  const manager = new RunManager({
+    backend: {
+      open: async (input) => {
+        entered.resolve();
+        await releaseOpen.promise;
+        return backend.open(input);
+      },
+    },
+    eventStore: new InMemoryEventStore(),
+    messageStore: new RecordingMessageStore(),
+    runStore,
+    workerId: "test-worker",
+  });
+  const pending = manager.start({
+    prompt: { text: "race", type: "prompt" },
+    spec: spec(),
+    userId: USER,
+  });
+  try {
+    const id = await visible.promise;
+    const cleanup = manager.failZombieRuns();
+    // Duplicate admission must fail even before a run id is locally published.
+    await assert.rejects(
+      manager.start({
+        prompt: { text: "duplicate", type: "prompt" },
+        spec: spec(),
+        userId: USER,
+      })
+    );
+    returnId.resolve();
+    await entered.promise;
+    await cleanup;
+    assert.equal(runStore.statusOf(id), "starting");
+    releaseOpen.resolve();
+    const handle = await pending;
+    assert.equal(await handle.attach()?.settled, "settled");
+    assert.equal(runStore.statusOf(id), "settled");
+  } finally {
+    returnId.resolve();
+    releaseOpen.resolve();
+    await pending.catch(() => undefined);
+  }
 });
 
 function spec(chatId = CHAT): RuntimeSpec {
@@ -244,7 +380,11 @@ function spec(chatId = CHAT): RuntimeSpec {
     appendSystemPrompt: [],
     chatId,
     historyMessages: [],
-    model: null as unknown as RuntimeSpec["model"],
+    model: {
+      id: "test-model",
+      name: "Test model",
+      provider: "test-provider",
+    } as RuntimeSpec["model"],
     systemPrompt: "",
     tools: [],
     workspaceDir: null,
@@ -339,7 +479,7 @@ async function until(
   }
 }
 
-test("seq 单调且仅持久事件携带；状态机经 running → settled，无 waiting_user", async () => {
+test("seq 单调且仅持久事件携带；状态机经 starting → running → settled，无 waiting_user", async () => {
   const fixture = makeFixture();
   fixture.setSteps(textSteps("你好，世界"));
   const run = await startRun(fixture);
@@ -363,7 +503,7 @@ test("seq 单调且仅持久事件携带；状态机经 running → settled，�
   const statuses = fixture.runStore.history
     .filter((record) => record.runId === run.runId)
     .map((record) => record.status);
-  assert.deepEqual(statuses, ["running", "settled"]);
+  assert.deepEqual(statuses, ["starting", "running", "settled"]);
   for (const record of fixture.runStore.history) {
     assert.notEqual(record.status, "waiting_user");
   }

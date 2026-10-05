@@ -1,13 +1,11 @@
 import "server-only";
 
 import { desc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import type { InferenceAuditEntry } from "../runtime/inference-proxy";
+import { getDb } from "./client";
 import { inferenceAccessAudit } from "./schema";
 
-const client = postgres(process.env.POSTGRES_URL ?? "");
-const db = drizzle(client);
+const db = getDb();
 
 /**
  * InferenceAccessAudit 读写（opensandbox-integration-spec.md §6 Phase 4）。

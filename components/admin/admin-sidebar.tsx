@@ -10,6 +10,7 @@ import {
   LayoutDashboardIcon,
   type LucideIcon,
   MenuIcon,
+  MessageSquareIcon,
   PackageIcon,
   PlugIcon,
   SearchIcon,
@@ -119,6 +120,17 @@ const navigationGroups: NavigationGroup[] = [
       },
     ],
     labelKey: "organizationAndAccess",
+  },
+  {
+    items: [
+      {
+        href: "/admin/conversations",
+        icon: MessageSquareIcon,
+        labelKey: "conversationRecords",
+        searchKeywordsKey: "conversationRecordsSearchKeywords",
+      },
+    ],
+    labelKey: "recordsAndStatistics",
   },
   {
     items: [

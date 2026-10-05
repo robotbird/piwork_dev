@@ -130,6 +130,28 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 9. **OpenSandbox provider 真实 server 契约组（gated）**：`PIWORK_SANDBOX_CONTRACT_OPENSANDBOX=1 OPENSANDBOX_DOMAIN=127.0.0.1:8080 OPENSANDBOX_API_KEY=<key> node --conditions=react-server --import tsx --test tests/unit/runtime/sandbox/provider-contract.test.ts`（可选 `OPENSANDBOX_PROTOCOL`/`OPENSANDBOX_IMAGE`，默认 `pi-runtime:dev` 需已构建并预拉 `opensandbox/execd:v1.1.0`/`opensandbox/egress:v1.1.7`）。同一契约套件追加 `[OpenSandbox]` harness（12 用例，2026-10-02 实测 12/12）；离线单测 `opensandbox-provider.test.ts`（21 用例）常驻默认套件，不需要 server。
 10. 路由矩阵测试：`tests/unit/runtime/backends/routing.test.ts`（矩阵判定、分流、fail-closed 不回落、RunManager 逐 run 落库、真实 SandboxRpcBackend 分流闭环）随 `pnpm test:runtime` 常驻。冷启动为一次性实测（2026-10-03 colima docker 档 P50 490ms），无常驻测试。
 
+## 数据库连接池验证
+
+- 所有应用查询从 `lib/db/client.ts` 取 `getDb()`，不就地创建 postgres 池；UTC 沙箱档保留独立时钟，禁止把默认池统一改成 UTC（现有 now() 数据依赖默认数据库时区）。默认/UTC 上限为 5/2，idle_timeout=20，按 URL/时钟进程内缓存；迁移脚本独立单连接不变。
+- `pnpm test:db:client` 验证池身份复用、URL/UTC 隔离、额度/空闲回收配置、真实时钟和 getUserById 查询/错误传播；也随 test:runtime:db 收集。全 DB 功能测试以 `--test-concurrency=1` 串行文件，防止多个测试进程自身耗尽连接；这不是容量测试。
+- 首次从旧模块池切换后需重启开发服务，旧池不在新注册表中且不会被 HMR 主动关闭。不要终止其他应用数据库连接，不靠增加 max_connections 掩盖连接生命周期问题。官方依据：安装的 postgres README「The Connection Pool」「Connection timeout」；本次无 Pi API 变更。
+
+## 运行启动与清理竞态验证
+
+- `pnpm test:runtime` 中 run-manager 回归覆盖延迟 backend.open、启动期心跳/清理、同 chat 同步预留、另一 chat 独立启动，以及 DB 行创建后返回 runId 前的清理窗口。状态为 queued → starting（已获 lease）→ running → settled；失败不解除终态保护，不重放模型或工具。
+- `pnpm test:runtime:db` 中 agent-run-queries 测试限定到自己的 runId 夹具，不全库清理真实会话；覆盖新鲜 lease 保留、无 lease 孤儿、过期心跳、已完成终态，以及用真实 PG 行锁复现清理与正常完成交错。条件 UPDATE 和 lease 删除同事务，只删除真正转 failed 的 lease。
+- 未知持 lease 的 run 要等心跳过期后惰性清理，不再仅因本管理器没有 LiveRun 就失败。不是完整 Worker/reaper/fencing 实现。修改 RunManager 后须重启开发服务（globalThis 的 HMR 缓存会保留旧实例），不直接从失败事件反向覆盖终态；历史纠错必须独立核验已落库成功事件和最终消息，不能回放副作用。
+- 官方依据：Pi 1.0.2 `pi-coding-agent/docs/sdk.md`、`examples/sdk/01-minimal.ts`；本次仅修正平台 RunManager/DB 生命周期，保持 backend → 官方 AgentSession 的事件/agent loop 不变。
+
+## 对话记录验证
+
+- `pnpm test:conversations:http`：真实本地 Next HTTP，独立身份/聊天夹具验证页面、供应商公开名称/providerKey、模型/Token 列表详情一致、筛选和管理员权限；不调用真实模型。`PIWORK_CONVERSATION_BROWSER_TESTS=1` 追加 Playwright Chromium 验证可见文本不含内部 installation ID、供应商 Logo/筛选/详情与加载失败回退。DB usage 测试另覆盖 installation/legacy key 精确映射、禁用与卸载、未知 provider、不泄露凭据、不改变历史模型/筛选 key，以及按供应商名称检索。
+- `pnpm test:conversations:db` 另覆盖模型快照、实际 responseModel、跨轮多模型、同 run/chat 审计证据、真实零/未知用量、事件幂等和 Token 累计；完整链路见 [对话模型与用量](conversation-model-usage.md)。
+- `pnpm test:conversations`：筛选 schema、分页限额与仅 text 的消息投影；也随 test:runtime 收集。
+- `pnpm test:conversations:db`：独立用户/项目/聊天夹具，验证文字搜索（含 `%_` 字面量）、真实最新 run 状态、无 run/无项目、时间筛选、页码钳制、UTC 输出和预览顺序；也随 test:runtime:db 收集。需要可用 PostgreSQL 连接额度。
+- 手工打开 `/admin/conversations`，检查后台侧栏与主题、筛选/分页/排序/刷新、桌面并列详情与窄屏上下布局、完整记录只读弹窗、复制 ID、空态/错误态。列表 10/20/50 条，全文消息每页 50 条，预览最近三条。模型按实际完成消息/请求快照/历史审计证据展示并可筛选；详情提供会话累计 Token、输入/输出/缓存明细与记录覆盖，状态是最近 run 而非会话归档状态。
+- 页面与两个 API 均复用 requireAdminRole；普通聊天 API 所有权不放宽。完整记录仅保存的文本，不返回 reasoning、工具载荷或附件地址。新增迁移 0017_run_model_snapshot（AgentRun.requestedModel 可空 json），需先 db:migrate，开发服务重启后让 RunManager 新请求快照生效。完成事件追加 model，复用既有 Pi SDK/RPC/Durable 归一化与事件持久化，不将平台聊天投影当原生 Pi session；参考 Pi 1.0.2 SDK、Message Types、Session Format。
+
 ## 管理概览验证
 
 - `pnpm test:runtime:db` 覆盖 `tests/unit/db/overview-queries.test.ts`：30 天窗口口径（总量/成功率计数/活跃用户）、30 天按日趋势补零与回溯日期分桶、后端分布、最近 run 关联字段与耗时、最近 Skill、五源动态合并、资源计数与 DB 探测。开发库含真实存量数据，断言一律基于 seed 前快照的差值，并对共享窗口（今日写入者）只做下界断言；Skill/McpServer/SandboxInstance 夹具按生产写入方使用 UTC 墙钟。

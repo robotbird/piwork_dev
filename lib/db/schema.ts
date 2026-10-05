@@ -386,6 +386,8 @@ export const agentRun = pgTable(
     })
       .notNull()
       .default("in_process"),
+    /** 请求时的模型身份快照；仅身份字段，不保存凭据或 URL。 */
+    requestedModel: json("requestedModel").$type<{ provider: string; id: string; name?: string }>(),
     /** 聊天被删除时连同执行记录一并删除 */
     chatId: uuid("chatId")
       .notNull()

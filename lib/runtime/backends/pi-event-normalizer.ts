@@ -3,6 +3,7 @@ import type {
   JsonAgentSessionEvent,
 } from "@earendil-works/pi-coding-agent";
 import type { RuntimeEvent } from "../protocol";
+import { completedModel } from "./model-identity";
 import { normalizeUsage } from "./usage";
 
 /**
@@ -105,11 +106,13 @@ export class PiEventNormalizer {
           return [];
         }
         const usage = normalizeUsage(event.message.usage);
+        const model = completedModel(event.message);
         return [
           {
             sequence: this.activeAssistantSequence,
             type: "message.completed",
             ...(usage ? { usage } : {}),
+            ...(model ? { model } : {}),
           },
         ];
       }

@@ -8,6 +8,7 @@ import type {
   RuntimeSession,
   RuntimeSpec,
 } from "../protocol";
+import type { RuntimeModel } from "../protocol/events";
 import { type LoggedRuntimeEvent, RunEventLog } from "./event-log";
 import {
   type EventStore,
@@ -49,11 +50,11 @@ export interface AgentRunStore {
     backend: RuntimeBackendKind;
     chatId: string;
     userId: string;
+    requestedModel?: RuntimeModel;
   }) => Promise<string>;
   /**
-   * 单进程 MVP 补充：非终态且不在 exclude（本进程 LiveRun）→ failed。
-   * in-process backend 的 run 不可能跨进程存活，进程重启后的孤儿即时清理；
-   * Step 8 Worker 化后由 lease 心跳语义取代。
+   * 非终态、无 lease 且不在 exclude（本进程启动中 + LiveRun）→ failed。
+   * 已有 lease 的未知 run 只由心跳过期路径处理，不能误杀其他存活管理器。
    */
   failOrphanedRuns: (excludeRunIds: readonly string[]) => Promise<number>;
   /** 心跳超时且非终态 → failed（多进程 zombie；返回命中数） */
@@ -165,6 +166,10 @@ function messageOf(error: unknown): string {
 export class RunManager {
   private readonly liveByRun = new Map<string, LiveRun>();
   private readonly liveByChat = new Map<string, LiveRun>();
+  private readonly startingByRun = new Map<string, string>();
+  private readonly startingChats = new Set<string>();
+  /** Serialize DB creation/lease publication with cleanup, not backend.open or tools. */
+  private lifecycleTail: Promise<void> = Promise.resolve();
   private readonly heartbeat: ReturnType<typeof setInterval>;
   private readonly options: RunManagerOptions;
 
@@ -181,7 +186,15 @@ export class RunManager {
   /** 进程内查询：是否存在未终态 run（POST 冲突检测） */
   getActiveRun(chatId: string): { runId: string } | null {
     const live = this.liveByChat.get(chatId);
-    return live && !live.terminal ? { runId: live.runId } : null;
+    if (live && !live.terminal) {
+      return { runId: live.runId };
+    }
+    for (const [runId, startingChatId] of this.startingByRun) {
+      if (startingChatId === chatId) {
+        return { runId };
+      }
+    }
+    return null;
   }
 
   /** AgentRun.backend 落库值：路由矩阵装配逐 run 解析，否则固定声明值 */
@@ -193,14 +206,35 @@ export class RunManager {
 
   /**
    * 惰性僵尸清理：先按心跳过期（多进程语义），再按"非终态且不在本进程
-   * LiveRun"（单进程孤儿，进程重启即时生效）。attach 落空时调用方可重试。
+   * 启动中或 LiveRun"（无 lease 的孤儿立即收敛，有 lease 需心跳过期）。
    */
   async failZombieRuns(): Promise<void> {
+    await this.withLifecycle(() => this.cleanupZombieRuns());
+  }
+
+  private async withLifecycle<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.lifecycleTail;
+    let release!: () => void;
+    this.lifecycleTail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
+  }
+
+  private async cleanupZombieRuns(): Promise<void> {
     try {
       await this.options.runStore.failStaleRuns(
         this.options.staleHeartbeatMs ?? STALE_HEARTBEAT_MS
       );
-      await this.options.runStore.failOrphanedRuns([...this.liveByRun.keys()]);
+      await this.options.runStore.failOrphanedRuns([
+        ...this.startingByRun.keys(),
+        ...this.liveByRun.keys(),
+      ]);
     } catch (error) {
       console.error("[run-manager] failZombieRuns failed", {
         error: messageOf(error),
@@ -210,63 +244,99 @@ export class RunManager {
 
   async start(input: RunStartInput): Promise<RunHandle> {
     const { chatId } = input.spec;
-    await this.failZombieRuns();
-    if (this.getActiveRun(chatId)) {
+    // Reserve synchronously, before cleanup/getActive/create can yield.
+    if (this.startingChats.has(chatId) || this.getActiveRun(chatId)) {
       throw new ChatbotError("conflict:chat");
     }
-    // 他进程持有新鲜 lease 的活跃 run（单进程下 failZombieRuns 后不会出现）
-    const dbActive = await this.options.runStore.getActiveRunByChatId(chatId);
-    if (dbActive) {
-      throw new ChatbotError("conflict:chat");
-    }
-    const runId = await this.options.runStore.createAgentRun({
-      backend: this.resolveBackendKind(input.spec),
-      chatId,
-      userId: input.userId,
-    });
-    if (
-      !(await this.options.runStore.acquireLease(runId, this.options.workerId))
-    ) {
-      await this.options.runStore
-        .markRunStatus(runId, "failed", {
-          errorMessage: "lease acquire conflict",
-        })
-        .catch(() => undefined);
-      throw new ChatbotError("conflict:chat");
-    }
-
-    let session: RuntimeSession;
+    this.startingChats.add(chatId);
+    let runId: string | undefined;
     try {
-      session = await this.options.backend.open({ ...input.spec, runId });
-    } catch (error) {
-      // open 失败时还没有 LiveRun/消费循环，必须在此收敛状态与 lease。
-      await this.options.runStore
-        .markRunStatus(runId, "failed", {
-          errorMessage: error instanceof Error ? error.message : String(error),
-        })
-        .catch(() => undefined);
-      await this.options.runStore.releaseLease(runId).catch(() => undefined);
-      throw error;
+      runId = await this.withLifecycle(async () => {
+        await this.cleanupZombieRuns();
+        if (await this.options.runStore.getActiveRunByChatId(chatId)) {
+          throw new ChatbotError("conflict:chat");
+        }
+        const created = await this.options.runStore.createAgentRun({
+          backend: this.resolveBackendKind(input.spec),
+          chatId,
+          requestedModel: {
+            id: input.spec.model.id,
+            name: input.spec.model.name,
+            provider: input.spec.model.provider,
+          },
+          userId: input.userId,
+        });
+        this.startingByRun.set(created, chatId);
+        let leased = false;
+        try {
+          leased = await this.options.runStore.acquireLease(
+            created,
+            this.options.workerId
+          );
+          if (!leased) {
+            throw new ChatbotError("conflict:chat", "lease acquire conflict");
+          }
+          if (
+            !(await this.options.runStore.markRunStatus(created, "starting", {
+              allowedFrom: ["queued"],
+            }))
+          ) {
+            throw new Error("runtime:startup:run-ownership-lost");
+          }
+          return created;
+        } catch (error) {
+          await this.options.runStore
+            .markRunStatus(created, "failed", {
+              allowedFrom: NON_TERMINAL_STATUSES,
+              errorMessage: messageOf(error),
+            })
+            .catch(() => undefined);
+          if (leased) {
+            await this.options.runStore
+              .releaseLease(created)
+              .catch(() => undefined);
+          }
+          this.startingByRun.delete(created);
+          throw error;
+        }
+      });
+      let session: RuntimeSession;
+      try {
+        session = await this.options.backend.open({ ...input.spec, runId });
+      } catch (error) {
+        await this.options.runStore
+          .markRunStatus(runId, "failed", {
+            allowedFrom: NON_TERMINAL_STATUSES,
+            errorMessage: messageOf(error),
+          })
+          .catch(() => undefined);
+        await this.options.runStore.releaseLease(runId).catch(() => undefined);
+        throw error;
+      }
+      const live = createLiveRun({ chatId, input, runId, session });
+      // Atomic handoff: cleanup always sees either starting or live ownership.
+      this.liveByRun.set(runId, live);
+      this.liveByChat.set(chatId, live);
+      this.startingByRun.delete(runId);
+      this.consume(live).catch(() => undefined);
+      const ack = await session.send(input.prompt);
+      if (!ack.ok) {
+        await this.discardFailedStart(live, ack.error ?? "unknown error");
+        throw new ChatbotError(
+          "bad_request:chat",
+          `runtime rejected prompt: ${ack.error ?? "unknown error"}`
+        );
+      }
+      return {
+        attach: (attachOptions) => this.attach(chatId, attachOptions),
+        runId,
+      };
+    } finally {
+      this.startingChats.delete(chatId);
+      if (runId) {
+        this.startingByRun.delete(runId);
+      }
     }
-    const live = createLiveRun({ chatId, input, runId, session });
-    this.liveByRun.set(runId, live);
-    this.liveByChat.set(chatId, live);
-    // 消费循环先于 prompt 启动：run.started 等早期事件经日志/广播路径可达
-    // （consume 内部自捕获异常，此处 catch 仅防御不可能到达的再抛）
-    this.consume(live).catch(() => undefined);
-
-    const ack = await session.send(input.prompt);
-    if (!ack.ok) {
-      await this.discardFailedStart(live, ack.error ?? "unknown error");
-      throw new ChatbotError(
-        "bad_request:chat",
-        `runtime rejected prompt: ${ack.error ?? "unknown error"}`
-      );
-    }
-    return {
-      attach: (attachOptions) => this.attach(chatId, attachOptions),
-      runId,
-    };
   }
 
   /**
@@ -500,9 +570,12 @@ export class RunManager {
   }
 
   private async tickHeartbeat(): Promise<void> {
-    const runIds = [...this.liveByRun.values()]
-      .filter((live) => !live.terminal)
-      .map((live) => live.runId);
+    const runIds = [
+      ...this.startingByRun.keys(),
+      ...[...this.liveByRun.values()]
+        .filter((live) => !live.terminal)
+        .map((live) => live.runId),
+    ];
     if (runIds.length === 0) {
       return;
     }

@@ -1,16 +1,15 @@
 import "server-only";
 import { and, desc, eq, isNull, lte, ne, or } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { getNextRunTime } from "@/lib/scheduler/cron-utils";
 import { type TaskInput, taskInputSchema } from "@/lib/scheduler/validation";
+import { getDb } from "./client";
 import {
   type ScheduledTaskRecord,
   scheduledTask,
   scheduledTaskRun,
 } from "./schema";
 
-const db = drizzle(postgres(process.env.POSTGRES_URL ?? ""));
+const db = getDb();
 const owned = (userId: string, id: string) =>
   and(eq(scheduledTask.id, id), eq(scheduledTask.userId, userId));
 

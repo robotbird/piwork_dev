@@ -1,9 +1,8 @@
 import "server-only";
 
 import { type AnyColumn, desc, eq, type SQL, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { ChatbotError } from "../errors";
+import { getDb } from "./client";
 import type { AgentRunRecord, SkillRecord } from "./schema";
 import {
   agentRun,
@@ -17,8 +16,7 @@ import {
   user,
 } from "./schema";
 
-const client = postgres(process.env.POSTGRES_URL ?? "");
-const db = drizzle(client);
+const db = getDb();
 
 /**
  * 管理端概览（/admin 首页）只读聚合查询。指标口径：

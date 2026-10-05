@@ -1,14 +1,11 @@
 import "server-only";
 
 import { asc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-
 import { ChatbotError } from "../errors";
+import { getDb } from "./client";
 import { type McpServerRecord, mcpServer } from "./schema";
 
-const client = postgres(process.env.POSTGRES_URL ?? "");
-const db = drizzle(client);
+const db = getDb();
 
 async function wrapDatabase<T>(operation: () => Promise<T>): Promise<T> {
   try {

@@ -1,15 +1,14 @@
 import "server-only";
 
-import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { and, desc, eq, inArray, notInArray, type SQL, sql } from "drizzle-orm";
 import { ChatbotError } from "../errors";
 import type { RuntimeBackendKind } from "../runtime/protocol";
+import type { RuntimeModel } from "../runtime/protocol/events";
 import type { AgentRunStatus, AgentRunStore } from "../runtime/run/run-manager";
+import { getDb } from "./client";
 import { agentRun, runtimeLease } from "./schema";
 
-const client = postgres(process.env.POSTGRES_URL ?? "");
-const db = drizzle(client);
+const db = getDb();
 
 const NON_TERMINAL_STATUSES: AgentRunStatus[] = [
   "queued",
@@ -23,7 +22,7 @@ const TERMINAL_STATUSES: AgentRunStatus[] = ["settled", "failed", "aborted"];
 /**
  * AgentRun + RuntimeLease 读写（v2.0 §8.2，RunManager 的持久化端口实现）。
  * markRunStatus 用 allowedFrom 条件更新防状态回退；lease 支撑心跳与 stale
- * 检测（多进程语义）；单进程孤儿由 failOrphanedRuns 即时收敛。
+ * 检测（多进程语义）；无租约孤儿即时收敛，持租约未知 run 等心跳过期。
  *
  * 时间戳一律经 SQL now() 写入与比较（不用 JS Date 参数）：drizzle 会把
  * Date 序列化为 UTC 无时区文本，与 defaultNow() 的会话本地时间相差时区偏移
@@ -34,6 +33,7 @@ export async function createAgentRun(input: {
   backend: RuntimeBackendKind;
   chatId: string;
   userId: string;
+  requestedModel?: RuntimeModel;
 }): Promise<string> {
   try {
     const [row] = await db
@@ -41,6 +41,7 @@ export async function createAgentRun(input: {
       .values({
         backend: input.backend,
         chatId: input.chatId,
+        requestedModel: input.requestedModel,
         userId: input.userId,
       })
       .returning({ id: agentRun.id });
@@ -152,74 +153,72 @@ export async function releaseLease(runId: string): Promise<void> {
   }
 }
 
-/** 心跳过期且非终态 → failed（多进程 zombie 语义；Step 8 主路径） */
-export async function failStaleRuns(
-  heartbeatTimeoutMs: number
-): Promise<number> {
-  try {
-    const stale = await db
-      .select({ runId: agentRun.id })
-      .from(agentRun)
-      .innerJoin(runtimeLease, eq(runtimeLease.runId, agentRun.id))
-      .where(
-        and(
-          inArray(agentRun.status, NON_TERMINAL_STATUSES),
-          sql`${runtimeLease.heartbeatAt} < now() - make_interval(secs => ${Math.ceil(heartbeatTimeoutMs / 1000)})`
-        )
-      );
-    if (stale.length === 0) {
-      return 0;
-    }
-    const runIds = stale.map((row) => row.runId);
-    return failRunIds(runIds, "lease heartbeat timed out");
-  } catch (error) {
-    throw new ChatbotError("bad_request:database", { cause: error });
-  }
-}
-
-/**
- * 单进程 MVP：非终态且不在 exclude（本进程 LiveRun）→ failed。
- * in-process backend 的 run 不可能跨进程存活，进程重启后的孤儿即时清理；
- * Step 8 Worker 化后由 lease 心跳语义取代。
+/** Update-time predicates avoid a select/update race with settled or renewed runs.
+ * Optional scopes are used by integration fixtures; an empty scope changes nothing.
  */
+export async function failStaleRuns(
+  heartbeatTimeoutMs: number,
+  scopeRunIds?: readonly string[]
+): Promise<number> {
+  const conditions = [
+    sql`exists (select 1 from "RuntimeLease" l where l."runId" = ${agentRun.id}
+    and l."heartbeatAt" < now() - make_interval(secs => ${Math.ceil(heartbeatTimeoutMs / 1000)}))`,
+  ];
+  if (scopeRunIds) {
+    conditions.push(inArray(agentRun.id, [...scopeRunIds]));
+  }
+  return await failMatchingRuns(conditions, "lease heartbeat timed out");
+}
+
+/** Unknown runs with a lease are not orphaned: only stale-heartbeat cleanup may fail them. */
 export async function failOrphanedRuns(
-  excludeRunIds: readonly string[]
+  excludeRunIds: readonly string[],
+  scopeRunIds?: readonly string[]
+): Promise<number> {
+  const conditions = [
+    sql`not exists (select 1 from "RuntimeLease" l where l."runId" = ${agentRun.id})`,
+  ];
+  if (excludeRunIds.length > 0) {
+    conditions.push(notInArray(agentRun.id, [...excludeRunIds]));
+  }
+  if (scopeRunIds) {
+    conditions.push(inArray(agentRun.id, [...scopeRunIds]));
+  }
+  return await failMatchingRuns(conditions, "worker lost (process restart)");
+}
+
+async function failMatchingRuns(
+  conditions: SQL[],
+  errorMessage: string
 ): Promise<number> {
   try {
-    const conditions = [inArray(agentRun.status, NON_TERMINAL_STATUSES)];
-    if (excludeRunIds.length > 0) {
-      conditions.push(notInArray(agentRun.id, [...excludeRunIds]));
-    }
-    const orphaned = await db
-      .select({ runId: agentRun.id })
-      .from(agentRun)
-      .where(and(...conditions));
-    if (orphaned.length === 0) {
-      return 0;
-    }
-    return failRunIds(
-      orphaned.map((row) => row.runId),
-      "worker lost (process restart)"
-    );
+    return await db.transaction(async (tx) => {
+      const rows = await tx
+        .update(agentRun)
+        .set({
+          endedAt: sql`now()`,
+          errorMessage,
+          status: "failed",
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(inArray(agentRun.status, NON_TERMINAL_STATUSES), ...conditions)
+        )
+        .returning({ id: agentRun.id });
+      // Release leases only for the rows actually transitioned, in the same transaction.
+      if (rows.length) {
+        await tx.delete(runtimeLease).where(
+          inArray(
+            runtimeLease.runId,
+            rows.map((row) => row.id)
+          )
+        );
+      }
+      return rows.length;
+    });
   } catch (error) {
     throw new ChatbotError("bad_request:database", { cause: error });
   }
-}
-
-async function failRunIds(runIds: string[], errorMessage: string) {
-  const rows = await db
-    .update(agentRun)
-    .set({
-      endedAt: sql`now()`,
-      errorMessage,
-      status: "failed",
-      updatedAt: sql`now()`,
-    })
-    .where(inArray(agentRun.id, runIds))
-    .returning({ id: agentRun.id });
-  // 僵尸 run 的 lease 一并清除，避免残留行
-  await db.delete(runtimeLease).where(inArray(runtimeLease.runId, runIds));
-  return rows.length;
 }
 
 /** RunManager 持久化端口组装（lib/runtime/run/index.ts 使用） */

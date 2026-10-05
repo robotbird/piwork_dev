@@ -5,6 +5,7 @@
 | 文档 | 用途 | 状态 |
 | --- | --- | --- |
 | [项目架构](architecture.md) | 模块职责、运行链路、数据边界、当前状态 | 当前实现；新开发先读 |
+| [对话模型与用量](conversation-model-usage.md) | 请求/实际模型持久化、SDK/RPC/Durable 全链路、会话 Token 累计口径与验证 | 当前实现；历史缺失不估算，非不可变账单 |
 | [聊天业务链路与 RPC](rpc-business-flow.md) | 从用户输入到模型回复；RPC 与 HTTP、Provider 的关系 | 当前实现与已实现适配器分开说明 |
 | [平台与 Runtime 演进架构](platform-runtime-roadmap.md) | Web → Worker/Sandbox → 未来 Desktop 的目标边界与分期 | 目标架构；含现有代码映射和验收条件 |
 | [开发与测试](development.md) | 目录约定、测试位置和验证命令 | 当前规范 |

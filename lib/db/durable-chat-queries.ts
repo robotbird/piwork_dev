@@ -1,13 +1,10 @@
 import "server-only";
 
 import { and, eq, inArray } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { getDb } from "./client";
 import { agentRun, chat, member, user } from "./schema";
 
-const db = drizzle(
-  postgres(process.env.POSTGRES_URL ?? "", { idle_timeout: 20, max: 2 })
-);
+const db = getDb();
 
 export async function isEnabledDurableChatUser(
   userId: string

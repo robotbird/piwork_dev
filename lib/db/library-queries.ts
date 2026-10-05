@@ -1,11 +1,10 @@
 import "server-only";
 import { and, desc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import type { StoredFile } from "@/lib/ai/file-store";
+import { getDb } from "./client";
 import { chat, document, libraryItem } from "./schema";
 
-const db = drizzle(postgres(process.env.POSTGRES_URL ?? ""));
+const db = getDb();
 
 export function listLibraryItems(userId: string) {
   return db

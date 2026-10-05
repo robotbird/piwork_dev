@@ -23,6 +23,13 @@ export type RuntimeArtifact = {
   downloadUrl?: string;
 };
 
+export type RuntimeModel = {
+  provider: string;
+  id: string;
+  name?: string;
+  responseModel?: string;
+};
+
 export type RuntimeUsage = {
   input: number;
   output: number;
@@ -49,7 +56,12 @@ export type RuntimeEvent =
       phase: "start" | "delta" | "end";
       delta?: string;
     }
-  | { type: "message.completed"; sequence: number; usage?: RuntimeUsage }
+  | {
+      type: "message.completed";
+      sequence: number;
+      usage?: RuntimeUsage;
+      model?: RuntimeModel;
+    }
   | {
       type: "tool.started";
       toolCallId: string;
