@@ -89,6 +89,96 @@ try {
   });
   assert.equal(moved.status, 200);
   assert.equal((await moved.json()).parentId, null);
+  assert.equal(
+    (
+      await request(`/api/library/${item.id}/attachment`, ownerCookie, {
+        method: "POST",
+      })
+    ).status,
+    400
+  );
+  assert.equal(
+    (
+      await request(`/api/library/${item.id}/attachment`, otherCookie, {
+        method: "POST",
+      })
+    ).status,
+    404
+  );
+  assert.equal(
+    (
+      await request(`/api/library/${folder.id}/attachment`, ownerCookie, {
+        method: "POST",
+      })
+    ).status,
+    404
+  );
+  assert.equal(
+    (
+      await request("/api/library/not-a-uuid/attachment", ownerCookie, {
+        method: "POST",
+      })
+    ).status,
+    400
+  );
+  const textForm = new FormData();
+  textForm.append(
+    "file",
+    new File(["document library question answering"], "问答资料.txt", {
+      type: "text/plain",
+    })
+  );
+  textForm.append("library", "true");
+  const textUpload = await request("/api/files/upload", ownerCookie, {
+    body: textForm,
+    method: "POST",
+  });
+  assert.equal(textUpload.status, 200);
+  const textFile = await textUpload.json();
+  if (textFile.url.startsWith("/api/files/")) {
+    storedPaths.push(textFile.pathname);
+  }
+  const textItems = await (await request("/api/library")).json();
+  const textItem = textItems.find(
+    (entry: { name: string }) => entry.name === "问答资料.txt"
+  );
+  assert.ok(textItem);
+  const resolved = await request(
+    `/api/library/${textItem.id}/attachment`,
+    ownerCookie,
+    { method: "POST" }
+  );
+  assert.equal(resolved.status, 200);
+  assert.deepEqual(await resolved.json(), {
+    contentType: "text/plain",
+    name: "问答资料.txt",
+    url: textFile.url,
+  });
+  assert.equal(
+    (
+      await request(`/api/library/${textItem.id}/attachment`, otherCookie, {
+        method: "POST",
+      })
+    ).status,
+    404
+  );
+  const noteId = crypto.randomUUID();
+  await sql`INSERT INTO "Document" (id,"createdAt",title,content,"text","userId") VALUES (${noteId},now(),'问答笔记','# 笔记内容','text',${owner})`;
+  await sql`INSERT INTO "LibraryItem" (id,"documentId","userId",name,kind,source,"contentType",size) VALUES (${noteId},${noteId},${owner},'问答笔记.md','file','manual','text/plain',20)`;
+  const noteResolved = await request(
+    `/api/library/${noteId}/attachment`,
+    ownerCookie,
+    { method: "POST" }
+  );
+  assert.equal(noteResolved.status, 200);
+  const noteFile = await noteResolved.json();
+  assert.equal(noteFile.name, "问答笔记.md");
+  assert.equal(noteFile.contentType, "text/markdown");
+  if (noteFile.url.startsWith("/api/files/")) {
+    storedPaths.push(noteFile.url.slice("/api/files/".length));
+  }
+  assert.equal(await (await request(noteFile.url)).text(), "# 笔记内容");
+  assert.equal((await request(noteFile.url, otherCookie)).status, 404);
   const badId = await request("/api/library/not-a-uuid");
   assert.equal(badId.status, 400);
   console.log(
@@ -96,6 +186,7 @@ try {
   );
 } finally {
   await sql`DELETE FROM "LibraryItem" WHERE "userId" IN (${owner}, ${other})`;
+  await sql`DELETE FROM "Document" WHERE "userId" IN (${owner}, ${other})`;
   await sql`DELETE FROM "User" WHERE id IN (${owner}, ${other})`;
   await Promise.all(
     storedPaths.flatMap((file) => [

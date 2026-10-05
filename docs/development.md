@@ -107,6 +107,13 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 - 沙箱启动排障：聊天流异常见服务端 `[chat] stream execution failed` 日志；backend.open 失败必须落 failed 并释放 lease。沙箱 argv 派生传显式 cliPath，不能依赖 Turbopack 的 import.meta.resolve。参考 Pi 1.0.0 `dist/modes/rpc/rpc-client.js` 的 cliPath 注入契约。
 - 开发模式 RunManager 单例跨 HMR 保留；更新 Runtime 组装回调后重启开发服务才能让已有单例加载新回调，避免替换仍有活跃运行的单例。
 
+### 聊天文档库选择验证
+
+- `pnpm test:chat:library` 验证搜索/最近排序、目录排除、跨文件夹选择、格式与20 MB限制、笔记 MIME 归一化；也由 `test:runtime` 收集。
+- `pnpm test:documents:http` 新增选择接口：本人文件解析、非本人/文件夹拒绝、无效 ID 与不支持扩展名拒绝。沿用独立账号与文件清理，不调用模型。
+- `pnpm test:chat:library:http` 使用本地服务和独立正式身份（`LIBRARY_TEST_URL`），Chromium 截获文档库、模型目录、附件解析与聊天 POST，验证搜索、图片/文件名、浏览全部、附件发送和390px布局；不调用真实模型，不等于真实附件问答或容量验收。
+- 上传文件复用现有存储引用；可编辑笔记选择时归档快照，沿用原存储模式（旧 public Blob 不迁移）。项目预建 query 链路仍不传附件。Pi 依据为安装版1.0.3 SDK/Message Types与PromptOptions.images/ImageContent，既有Runtime负责运行。
+
 ## 定时任务验证与运行
 
 1. `pnpm db:migrate` 应用 0012（增加 enabled/领取租约和运行记录，旧 cancelled 任务转为停用）。

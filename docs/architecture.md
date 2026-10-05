@@ -153,6 +153,10 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 - 已配置的 Vercel Blob 仍沿用原有 public 对象模式；文档库目录/API 按用户隔离，不等同于将已有 Blob URL 改成私有对象。当前未提供 Office 在线编辑、Office 页面缩略图、回收站或项目权限管理。工作区中间文件不归档，最终产物通过 `deliver_file` 归档。
 - Pi 依据：[SDK customTools](https://pi.dev/docs/latest/sdk)、[Extensions 工具契约](https://pi.dev/docs/latest/extensions)；当时（2026-09-28，主包尚为 0.87.1）以 `dist/core/sdk.d.ts` 与 `dist/core/extensions/types.d.ts`（ToolDefinition.execute）核对了自定义工具的异步执行和结果返回方式。
 
+### 聊天选择文档库文件
+
+聊天输入器的「文件」打开 `components/chat/library-file-picker.tsx`：搜索本人文档库、最近七条文件和「浏览全部」弹窗，已有对话也可选择。`POST /api/library/:id/attachment` 只解析本人文件，校验支持扩展名/20 MB，返回既有 Attachment；上传文件复用存储 URL，不重新上传。可编辑 Document 选择时保存并归档字节快照（沿用既有 file-store/Blob 模式，可能新增一条文档库记录），不把可变 Document URL 发给 Runtime。图片使用鉴权缩略图、非图像展示文件名，支持移除；最多五份，不支持格式显示不可选。新建项目的 `?query=` 文本入口仍禁止附件，避免静默丢失。附件仍经既有 route → RunManager → RuntimeBackend → Pi 会话处理，不新增 agent loop、检索或向量库。依据安装版 Pi 1.0.3 `docs/sdk.md` / `docs/message-types.md`、`dist/core/agent-session.d.ts` PromptOptions.images 与 pi-ai `dist/types.d.ts` ImageContent：图片保持 base64/MIME 输入，其他文件沿用现有提取/沙箱水合链路。
+
 ## 8. 定时任务 MVP（2026-09-28）
 
 - `/scheduled-tasks` 是任务中心：自然语言入口复用 `/?query=` 聊天，手动创建、编辑、暂停/恢复、立即运行、删除、最近 20 次运行记录和结果聊天。仅周期任务；无一次性提醒、事件监测、邮件或系统推送。

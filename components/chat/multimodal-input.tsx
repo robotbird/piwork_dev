@@ -7,7 +7,6 @@ import {
   CheckIcon,
   FolderIcon,
   HammerIcon,
-  LibraryBigIcon,
   MicIcon,
   PlusIcon,
   PuzzleIcon,
@@ -57,6 +56,7 @@ import {
 import { Button } from "../ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { ArrowUpIcon, ChevronDownIcon, StopIcon } from "./icons";
+import { LibraryFilePicker } from "./library-file-picker";
 import { PreviewAttachment } from "./preview-attachment";
 import {
   createSkillSlashCommands,
@@ -150,6 +150,7 @@ function PureMultimodalInput({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
+  const [librarySelecting, setLibrarySelecting] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
   const [slashIndex, setSlashIndex] = useState(0);
@@ -644,9 +645,16 @@ function PureMultimodalInput({
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
 
-  const handleFileBrowse = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
+  const handleLibrarySelect = useCallback(
+    (attachment: Attachment) => {
+      setAttachments((current) =>
+        current.some((item) => item.url === attachment.url)
+          ? current
+          : [...current, attachment].slice(0, MAX_CHAT_ATTACHMENT_COUNT)
+      );
+    },
+    [setAttachments]
+  );
 
   const handlePluginSelect = useCallback(() => {
     toast.info(t("chat.pluginSelectionIsComingSoon"));
@@ -665,6 +673,9 @@ function PureMultimodalInput({
         return;
       }
     }
+    if (librarySelecting || uploadQueue.length > 0) {
+      return;
+    }
     if (!(input.trim() || selectedSkill) && attachments.length === 0) {
       return;
     }
@@ -675,6 +686,8 @@ function PureMultimodalInput({
     }
   }, [
     attachments.length,
+    librarySelecting,
+    uploadQueue.length,
     chatT,
     handleSlashSelect,
     input,
@@ -836,7 +849,7 @@ function PureMultimodalInput({
         {(attachments.length > 0 || uploadQueue.length > 0) && (
           <div
             className={cn(
-              "flex w-full self-start flex-row gap-2 overflow-x-auto px-3 pt-3 no-scrollbar",
+              "flex w-full self-start flex-wrap items-start gap-3 px-5 pt-4",
               !isEmptyChat && "basis-full"
             )}
             data-testid="attachments-preview"
@@ -896,8 +909,20 @@ function PureMultimodalInput({
         </div>
         <PromptInputFooter className="px-3 pb-2.5 pt-1">
           <PromptInputTools>
+            {isEmptyChat ? null : (
+              <LibraryFilePicker
+                attachments={attachments}
+                disabled={
+                  isGenerating ||
+                  selectedProject !== null ||
+                  uploadQueue.length > 0
+                }
+                onBusyChange={setLibrarySelecting}
+                onSelect={handleLibrarySelect}
+              />
+            )}
             <AttachmentsButton
-              disabled={selectedProject !== null}
+              disabled={selectedProject !== null || librarySelecting}
               fileInputRef={fileInputRef}
               status={status}
             />
@@ -929,7 +954,10 @@ function PureMultimodalInput({
                 )}
                 data-testid="send-button"
                 disabled={
-                  !canSubmit || uploadQueue.length > 0 || creatingProjectChat
+                  !canSubmit ||
+                  uploadQueue.length > 0 ||
+                  librarySelecting ||
+                  creatingProjectChat
                 }
                 status={status}
                 variant="secondary"
@@ -1001,16 +1029,16 @@ function PureMultimodalInput({
                 ) : null}
               </PopoverContent>
             </Popover>
-            <button
-              aria-label={t("chat.addFiles")}
-              className="flex h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-              disabled={status !== "ready" || selectedProject !== null}
-              onClick={handleFileBrowse}
-              type="button"
-            >
-              <LibraryBigIcon className="size-[18px] shrink-0" />
-              <span>{t("chat.files")}</span>
-            </button>
+            <LibraryFilePicker
+              attachments={attachments}
+              disabled={
+                isGenerating ||
+                selectedProject !== null ||
+                uploadQueue.length > 0
+              }
+              onBusyChange={setLibrarySelecting}
+              onSelect={handleLibrarySelect}
+            />
             <button
               aria-label={t("chat.choosePlugins")}
               className="hidden h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground sm:flex"
@@ -1080,7 +1108,13 @@ function PureAttachmentPreviewItem({
     }
   }, [attachment.url, fileInputRef, setAttachments]);
 
-  return <PreviewAttachment attachment={attachment} onRemove={handleRemove} />;
+  return (
+    <PreviewAttachment
+      attachment={attachment}
+      composer
+      onRemove={handleRemove}
+    />
+  );
 }
 
 const AttachmentPreviewItem = memo(PureAttachmentPreviewItem);
