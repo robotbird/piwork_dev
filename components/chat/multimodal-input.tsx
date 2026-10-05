@@ -12,7 +12,7 @@ import {
   PlusIcon,
   PuzzleIcon,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import {
@@ -46,7 +46,7 @@ import {
 } from "@/lib/ai/attachment-types";
 import type { ChatModel } from "@/lib/ai/models";
 import type { Attachment, ChatMessage } from "@/lib/types";
-import { cn, fetcher } from "@/lib/utils";
+import { cn, fetcher, generateUUID } from "@/lib/utils";
 import {
   PromptInput,
   PromptInputFooter,
@@ -55,6 +55,7 @@ import {
   PromptInputTools,
 } from "../ai-elements/prompt-input";
 import { Button } from "../ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { ArrowUpIcon, ChevronDownIcon, StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
 import {
@@ -112,6 +113,7 @@ function PureMultimodalInput({
   disableSkillCommands?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { setTheme, resolvedTheme } = useTheme();
   const { t } = usePreferences();
   const chatT = useTranslations("chat");
@@ -161,6 +163,31 @@ function PureMultimodalInput({
   }>(disableSkillCommands ? null : skillsEndpoint, fetcher, {
     revalidateOnFocus: true,
   });
+
+  // 项目选择（对齐 ChatGPT）：空会话时从「项目」按钮挑选，选中后
+  // placeholder 提示将在此项目中新建对话；提交时复用项目主页的
+  // 预建聊天 + ?query= 链路，不引入第二条发送路径。
+  const [selectedProject, setSelectedProject] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [creatingProjectChat, setCreatingProjectChat] = useState(false);
+  const projectsEndpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/projects`;
+  const { data: projectsData, isLoading: projectsLoading } = useSWR<{
+    projects: { id: string; name: string; updatedAt: string }[];
+  }>(messages.length === 0 ? projectsEndpoint : null, fetcher, {
+    revalidateOnFocus: false,
+  });
+  const projects = projectsData?.projects ?? [];
+
+  // 跳转到项目聊天页后清空选择，避免残留状态影响新路径下的会话；
+  // pathname 是故意的触发依赖（不在 effect 体内读取）
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on every route change
+  useEffect(() => {
+    setSelectedProject(null);
+    setProjectPickerOpen(false);
+  }, [pathname]);
   // 技能在前、内置指令在后（与参考设计的分组顺序一致，键盘索引自洽）
   const availableSlashCommands = useMemo(
     () => [
@@ -299,17 +326,77 @@ function PureMultimodalInput({
     ]
   );
 
+  /** 选中项目后提交：预建项目聊天后带 ?query= 跳转，由聊天页自动发出首条消息
+   * （与项目主页 startChat 相同的既有链路，不新开辟发送路径） */
+  const startProjectChat = useCallback(
+    async (project: { id: string; name: string }, messageText: string) => {
+      setCreatingProjectChat(true);
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/projects/${project.id}/chats`,
+          {
+            body: JSON.stringify({ id: generateUUID() }),
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+          }
+        );
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as {
+            error?: unknown;
+          } | null;
+          throw new Error(
+            body && typeof body.error === "string"
+              ? body.error
+              : chatT("createProjectChatFailed")
+          );
+        }
+        const { chat } = (await response.json()) as { chat: { id: string } };
+        setAttachments([]);
+        setLocalStorageInput("");
+        setInput("");
+        setSelectedSkill(null);
+        setSlashOpen(false);
+        router.push(
+          `/projects/${project.id}/chat/${chat.id}?query=${encodeURIComponent(messageText)}`
+        );
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : chatT("createProjectChatFailed")
+        );
+      } finally {
+        setCreatingProjectChat(false);
+      }
+    },
+    [chatT, router, setAttachments, setInput, setLocalStorageInput]
+  );
+
   const submitForm = useCallback(() => {
+    const task = input.trim();
+    const messageText = selectedSkill
+      ? `/${selectedSkill.name}${task ? ` ${task}` : ""}`
+      : input;
+
+    // 选定了项目（仅空会话可选）：走项目聊天链路；附件无法经 ?query= 传递，
+    // fail-closed 提示先移除，避免静默丢失
+    if (selectedProject && messages.length === 0) {
+      if (attachments.length > 0) {
+        toast.error(t("chat.projectChatAttachmentsUnsupported"));
+        return;
+      }
+      if (!messageText.trim() || creatingProjectChat) {
+        return;
+      }
+      startProjectChat(selectedProject, messageText);
+      return;
+    }
+
     window.history.pushState(
       {},
       "",
       `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
     );
-
-    const task = input.trim();
-    const messageText = selectedSkill
-      ? `/${selectedSkill.name}${task ? ` ${task}` : ""}`
-      : input;
 
     sendMessage({
       parts: [
@@ -341,11 +428,16 @@ function PureMultimodalInput({
       textareaRef.current?.focus();
     }
   }, [
-    input,
-    selectedSkill,
-    setInput,
     attachments,
+    creatingProjectChat,
+    input,
+    messages.length,
+    selectedProject,
+    selectedSkill,
     sendMessage,
+    setInput,
+    startProjectChat,
+    t,
     setAttachments,
     setLocalStorageInput,
     width,
@@ -368,11 +460,11 @@ function PureMultimodalInput({
 
         if (response.ok) {
           const data = await response.json();
-          const { url, pathname, contentType, name } = data;
+          const { url, pathname: filePath, contentType, name } = data;
 
           return {
             contentType,
-            name: name ?? pathname,
+            name: name ?? filePath,
             url,
           };
         }
@@ -387,6 +479,12 @@ function PureMultimodalInput({
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
+      // 项目新对话暂不携带附件（?query= 链路只传文本），fail-closed 提示
+      if (selectedProject) {
+        toast.error(t("chat.projectChatAttachmentsUnsupported"));
+        event.target.value = "";
+        return;
+      }
       const availableSlots = Math.max(
         0,
         MAX_CHAT_ATTACHMENT_COUNT - attachments.length
@@ -424,11 +522,23 @@ function PureMultimodalInput({
         event.target.value = "";
       }
     },
-    [attachments.length, commonT, setAttachments, uploadFile]
+    [
+      attachments.length,
+      commonT,
+      selectedProject,
+      setAttachments,
+      t,
+      uploadFile,
+    ]
   );
 
   const handlePaste = useCallback(
     async (event: ClipboardEvent) => {
+      // 项目新对话暂不携带附件（?query= 链路只传文本），fail-closed 提示
+      if (selectedProject) {
+        toast.error(t("chat.projectChatAttachmentsUnsupported"));
+        return;
+      }
       const items = event.clipboardData?.items;
       if (!items) {
         return;
@@ -486,7 +596,14 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [attachments.length, commonT, setAttachments, uploadFile]
+    [
+      attachments.length,
+      commonT,
+      selectedProject,
+      setAttachments,
+      t,
+      uploadFile,
+    ]
   );
 
   useEffect(() => {
@@ -507,9 +624,25 @@ function PureMultimodalInput({
     [onCancelEdit]
   );
 
-  const handleProjectSelect = useCallback(() => {
-    toast.info(t("chat.projectSelectionIsComingSoon"));
-  }, [t]);
+  const handleProjectPick = useCallback(
+    (project: { id: string; name: string }) => {
+      setSelectedProject((current) =>
+        current?.id === project.id
+          ? null
+          : { id: project.id, name: project.name }
+      );
+      setProjectPickerOpen(false);
+      // 选中后立刻把焦点还给输入框，展示正常文本光标
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+    []
+  );
+
+  const handleClearProject = useCallback(() => {
+    setSelectedProject(null);
+    setProjectPickerOpen(false);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
 
   const handleFileBrowse = useCallback(() => {
     fileInputRef.current?.click();
@@ -753,7 +886,9 @@ function PureMultimodalInput({
                 ? t("chat.editYourMessage")
                 : selectedSkill
                   ? t("chat.describeYourTask")
-                  : t("chat.askAnything")
+                  : selectedProject
+                    ? t("chat.newChatInProject", { name: selectedProject.name })
+                    : t("chat.askAnything")
             }
             ref={textareaRef}
             value={input}
@@ -761,7 +896,11 @@ function PureMultimodalInput({
         </div>
         <PromptInputFooter className="px-3 pb-2.5 pt-1">
           <PromptInputTools>
-            <AttachmentsButton fileInputRef={fileInputRef} status={status} />
+            <AttachmentsButton
+              disabled={selectedProject !== null}
+              fileInputRef={fileInputRef}
+              status={status}
+            />
           </PromptInputTools>
           <PromptInputTools className="gap-1">
             <ModelSelectorCompact
@@ -789,7 +928,9 @@ function PureMultimodalInput({
                     : "bg-[#b8d4ff] text-white"
                 )}
                 data-testid="send-button"
-                disabled={!canSubmit || uploadQueue.length > 0}
+                disabled={
+                  !canSubmit || uploadQueue.length > 0 || creatingProjectChat
+                }
                 status={status}
                 variant="secondary"
               >
@@ -803,19 +944,67 @@ function PureMultimodalInput({
       {isEmptyChat ? (
         <div className="relative z-0 mx-5 -mt-4 flex h-12 items-end rounded-b-2xl bg-[#f7f7f7] px-1.5 pb-1.5 text-sm text-muted-foreground dark:bg-muted">
           <div className="flex min-w-0 items-center gap-2">
-            <button
-              aria-label={t("chat.chooseProject")}
-              className="flex h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground"
-              onClick={handleProjectSelect}
-              type="button"
+            <Popover
+              onOpenChange={setProjectPickerOpen}
+              open={projectPickerOpen}
             >
-              <FolderIcon className="size-[18px] shrink-0" />
-              <span>{t("chat.project")}</span>
-            </button>
+              <PopoverTrigger asChild>
+                <button
+                  aria-label={t("chat.chooseProject")}
+                  className={cn(
+                    "flex h-8 min-w-0 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground",
+                    selectedProject &&
+                      "bg-background/70 font-medium text-foreground"
+                  )}
+                  type="button"
+                >
+                  <FolderIcon className="size-[18px] shrink-0" />
+                  <span className="max-w-[180px] truncate">
+                    {selectedProject ? selectedProject.name : t("chat.project")}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-72 p-1.5"
+                data-testid="project-picker"
+                side="top"
+                sideOffset={8}
+              >
+                {projects.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-[13px] text-muted-foreground">
+                    {projectsLoading ? "…" : t("chat.noProjectsYet")}
+                  </p>
+                ) : (
+                  <div className="max-h-[260px] overflow-y-auto">
+                    {projects.map((project) => (
+                      <ProjectPickerItem
+                        isSelected={selectedProject?.id === project.id}
+                        key={project.id}
+                        onPick={handleProjectPick}
+                        project={project}
+                      />
+                    ))}
+                  </div>
+                )}
+                {selectedProject ? (
+                  <>
+                    <div className="mx-2 my-1 h-px bg-border" />
+                    <button
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      onClick={handleClearProject}
+                      type="button"
+                    >
+                      {t("chat.clearProjectSelection")}
+                    </button>
+                  </>
+                ) : null}
+              </PopoverContent>
+            </Popover>
             <button
               aria-label={t("chat.addFiles")}
               className="flex h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-              disabled={status !== "ready"}
+              disabled={status !== "ready" || selectedProject !== null}
               onClick={handleFileBrowse}
               type="button"
             >
@@ -896,10 +1085,51 @@ function PureAttachmentPreviewItem({
 
 const AttachmentPreviewItem = memo(PureAttachmentPreviewItem);
 
+function PureProjectPickerItem({
+  isSelected,
+  onPick,
+  project,
+}: {
+  isSelected: boolean;
+  onPick: (project: { id: string; name: string }) => void;
+  project: { id: string; name: string };
+}) {
+  const handleSelect = useCallback(() => {
+    onPick(project);
+  }, [onPick, project]);
+
+  return (
+    <button
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] transition-colors hover:bg-muted",
+        isSelected && "bg-muted"
+      )}
+      onClick={handleSelect}
+      type="button"
+    >
+      <FolderIcon
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted-foreground"
+      />
+      <span className="min-w-0 flex-1 truncate">{project.name}</span>
+      {isSelected ? (
+        <CheckIcon
+          aria-hidden="true"
+          className="size-4 shrink-0 text-foreground"
+        />
+      ) : null}
+    </button>
+  );
+}
+
+const ProjectPickerItem = memo(PureProjectPickerItem);
+
 function PureAttachmentsButton({
+  disabled = false,
   fileInputRef,
   status,
 }: {
+  disabled?: boolean;
   fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
   status: UseChatHelpers<ChatMessage>["status"];
 }) {
@@ -915,7 +1145,7 @@ function PureAttachmentsButton({
     <Button
       className="size-8 rounded-md border-0 p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       data-testid="attachments-button"
-      disabled={status !== "ready"}
+      disabled={disabled || status !== "ready"}
       onClick={handleClick}
       variant="ghost"
     >
