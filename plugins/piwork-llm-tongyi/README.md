@@ -35,12 +35,14 @@ piwork 模型供应商插件（TypeScript），由 Dify 官方插件
 - 视觉模型（`features.vision`，29 个）按图片输入装配；上游 `video`、
   `audio`、`document`、`structured-output` 等 feature 超出 piwork SDK
   首期模型定义，未迁移（omni 全模态模型仅保留文本对话输入）。
-- 凭据：`api_key`（secret）、`api_host`（可选，业务空间专属域名，
-  归一化逻辑与 Dify `models/_common.py` 的 `normalize_api_host` 一致，
-  接受裸 host 或完整 Base URL）、`validate_model`（可选，默认
-  `qwen-turbo`）。Dify 的 `dashscope_api_key` 变量名在本插件中为
-  `api_key`（piwork 插件约定）；`use_international_endpoint` 未迁移，
-  国际端点可用 `api_host=dashscope-intl.aliyuncs.com` 表达。
+- 凭据：仅 `api_key`（secret；Dify 变量名 `dashscope_api_key` 在本插件
+  中按 piwork 约定为 `api_key`），与 piwork-llm-deepseek 参考插件一致。
+  Base URL 固定为 DashScope 兼容模式
+  `https://dashscope.aliyuncs.com/compatible-mode/v1`（Dify
+  `models/_common.py` 默认值），探测模型固定为 `qwen-turbo`（Dify
+  `tongyi.py` 默认值），两者不作为凭据字段暴露在配置界面；业务空间
+  专属域名（api_host）与国际端点（use_international_endpoint /
+  dashscope-intl.aliyuncs.com）未迁移。
 - 模型目录：98 个对话模型按 `_position.yaml` 排序。上游标记
   `deprecated: true` 的 20 个历史模型保留并打 `deprecated` 标记；14 个
   存在 YAML 但未列入 `_position.yaml` 的模型（deepseek-v3.2、

@@ -87,6 +87,10 @@ P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/�
 
 Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 共享额度，默认 DB 自然日/月窗口，单任务为 run 汇总。任一 block 超额拒绝，warn 仅宿主日志；完成消息先落库再回调复核/请求官方 abort，失败收尾。无预留/硬请求预算，在途/并发/已调度后续操作可超支；缺失/标题/分类/嵌套费用不计入，成员变更/删除影响统计，不能当不可变计费账本或零超支保证。HMR 旧 manager 需重启。test:roles/:db/:http；HTTP 使用独立正式身份，不调用真实模型，PIWORK_ROLE_BROWSER_TESTS=1 追加 Chromium；通用 RunManager 保持 Pi 无关回调，不再建 agent loop。完整规则见 architecture.md/development.md。
 
+## 模型供应商配置边界
+
+公开默认 API 地址由插件 ProviderDefinition.defaultBaseUrl 提供，View 仅投影静态元数据，旧定义回退须精确匹配 packageId/version；不得通过解密凭据或猜 host 回显当前端点。新表单只初始化非 secret 字段默认值，必填 API Key 仍需用户填写；已配置供应商轮换不自动提交默认配置覆盖既有值。配置 Dialog 使用现有后台 960px 宽度、响应式两栏/单栏，头尾固定、长模型列表独立滚动。test:models:configuration 使用独立 disabled 夹具与浏览器截获 PATCH，不调用真实模型、不改现有供应商或凭据；单测在 tests/unit/admin 随 test:runtime 收集。
+
 ## 后台对话记录边界
 
 `/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员只读访问；`lib/db/conversation-queries.ts` 持有 Chat/Message_v2/最新 AgentRun 的检索与分页，`lib/admin/conversations.ts` 持有共享校验/文本投影。仅 text parts，不返回 reasoning/工具载荷/附件地址，不读 Pi 原生 session/SQLite，不开放跨用户聊天写入。状态取最近 run；模型经 AgentRun.requestedModel（迁移 0017）请求快照与 SDK/RPC/Durable 的 message.completed.model 持久化。查询逐 run 优先实际 model/responseModel、其次请求快照、最后同 run/chat 的 allowed 代理审计证据，不用当前配置猜历史，支持跨轮模型筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，复用包内 Logo API，不显示内部 installation ID，未知/卸载与图标失败保守回退；当前展示元数据不能覆盖历史模型身份或读取凭据。Token 聚合会话所有已保留 message.completed.usage 五字段，totalTokens 以官方值为准、不重复 reasoning/缓存，不与代理审计相加；不含分类/标题/压缩/嵌套工具费用，未知不填零、记录缺口标部分。不能虚构会话归档状态或不可变审计能力，口径见 docs/conversation-model-usage.md。测试 test:conversations/:db 在 tests/unit/admin 与 tests/unit/db，:http 在 tests/e2e；新增模型快照需迁移和重启开发 RunManager 后生效。

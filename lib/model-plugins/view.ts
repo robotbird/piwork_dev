@@ -1,10 +1,10 @@
 import "server-only";
 
-import { listPluginInstallations } from "@/lib/db/model-plugin-queries";
 import {
   asProviderDefinition,
   type ModelPluginsView,
 } from "@/lib/admin/model-plugins";
+import { listPluginInstallations } from "@/lib/db/model-plugin-queries";
 
 import { loadBuiltinPluginCatalog } from "./builtin-catalog";
 import { pickLocalizedText } from "./registry";
@@ -18,6 +18,7 @@ export async function loadModelPluginsView(): Promise<ModelPluginsView> {
   return {
     available: catalog.map((item) => ({
       credentialFields: item.definition.credentialFields,
+      defaultBaseUrl: item.definition.defaultBaseUrl,
       description: pickLocalizedText(item.definition.description),
       installed: installedKeys.has(item.providerKey),
       models: item.definition.models,
@@ -29,10 +30,17 @@ export async function loadModelPluginsView(): Promise<ModelPluginsView> {
     })),
     installed: records.map((record) => {
       const definition = asProviderDefinition(record.definition);
+      // Legacy installations keep their saved schema/models; only public endpoint metadata
+      // falls back to the matching packaged definition, never a provider name guess.
+      const packaged = catalog.find(
+        (item) =>
+          item.packageId === record.packageId && item.version === record.version
+      )?.definition;
       return {
         credentialFields: definition.credentialFields,
         credentialSummary: record.credentialSummary,
         credentialsConfigured: record.credentialsConfigured,
+        defaultBaseUrl: definition.defaultBaseUrl ?? packaged?.defaultBaseUrl,
         defaultModelId: record.defaultModelId,
         description: record.description ?? "",
         enabled: record.enabled,

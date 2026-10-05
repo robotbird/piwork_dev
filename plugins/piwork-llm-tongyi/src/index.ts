@@ -3,7 +3,7 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
 import type { PiworkLlmExtensionAPI } from "@piwork/model-provider-sdk";
 
 import { modelCatalog } from "./models";
-import { definition, resolveBaseUrl } from "./provider";
+import { DEFAULT_BASE_URL, definition } from "./provider";
 
 export { definition, validateCredentials } from "./provider";
 
@@ -56,7 +56,7 @@ export default function activate(pi: PiworkLlmExtensionAPI) {
     throw new Error("Tongyi plugin requires the api_key credential");
   }
 
-  const baseUrl = resolveBaseUrl(credentials);
+  const baseUrl = DEFAULT_BASE_URL;
 
   const provider = createProvider({
     api: openAICompletionsApi(),

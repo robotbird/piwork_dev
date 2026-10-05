@@ -5,19 +5,15 @@ import type {
 
 import { modelCatalog } from "./models";
 
-export const DEFAULT_API_HOST = "dashscope.aliyuncs.com";
-export const COMPATIBLE_API_PATH = "/compatible-mode/v1";
+/**
+ * DashScope OpenAI 兼容模式端点（Dify models/_common.py 的
+ * DEFAULT_API_HOST + COMPATIBLE_API_PATH）
+ */
+export const DEFAULT_BASE_URL =
+  "https://dashscope.aliyuncs.com/compatible-mode/v1";
 
-const DEFAULT_BASE_URL = `https://${DEFAULT_API_HOST}${COMPATIBLE_API_PATH}`;
-
-const DEFAULT_VALIDATE_MODEL = "qwen-turbo";
-
-/** DashScope 兼容模式固定携带的 API 路径，归一化 API Host 时需要剥掉 */
-const KNOWN_API_PATHS = [
-  "/compatible-mode/v1",
-  "/api-ws/v1/inference",
-  "/api/v1",
-];
+/** Dify tongyi.py 的连通性探测模型，仅插件内部使用 */
+const VALIDATION_MODEL = "qwen-turbo";
 
 export const definition: ProviderDefinition = {
   credentialFields: [
@@ -31,39 +27,8 @@ export const definition: ProviderDefinition = {
       type: "secret-input",
       variable: "api_key",
     },
-    {
-      help: {
-        text: {
-          en: "Optional. Workspace-specific host such as llm-xxx.cn-beijing.maas.aliyuncs.com, copied from the Model Studio console. Leave empty to keep using the shared DashScope host.",
-          "zh-CN":
-            "可选。业务空间专属域名，如 llm-xxx.cn-beijing.maas.aliyuncs.com，可从百炼控制台的 API Host 复制。留空则继续使用共享的 DashScope 域名。",
-        },
-        title: { en: "API Host", "zh-CN": "接入域名" },
-      },
-      label: { en: "API Host", "zh-CN": "接入域名" },
-      placeholder: {
-        en: "e.g. llm-xxx.cn-beijing.maas.aliyuncs.com",
-        "zh-CN": "例如 llm-xxx.cn-beijing.maas.aliyuncs.com",
-      },
-      required: false,
-      type: "text-input",
-      variable: "api_host",
-    },
-    {
-      default: DEFAULT_VALIDATE_MODEL,
-      label: {
-        en: "Validate Model Name",
-        "zh-CN": "验证模型名称",
-      },
-      placeholder: {
-        en: "Model name used to test credentials (default qwen-turbo)",
-        "zh-CN": "用于连通性测试的模型名称（默认 qwen-turbo）",
-      },
-      required: false,
-      type: "text-input",
-      variable: "validate_model",
-    },
   ],
+  defaultBaseUrl: DEFAULT_BASE_URL,
   description: {
     en: "Alibaba Cloud Model Studio (DashScope) Tongyi Qwen chat models with thinking mode, tool calling, and vision.",
     "zh-CN": "阿里云百炼通义千问系列模型，支持思考模式、工具调用与视觉理解。",
@@ -85,43 +50,9 @@ export const definition: ProviderDefinition = {
 };
 
 /**
- * 归一化 API Host：业务空间域名可能是裸 host，也可能被粘贴成完整
- * Base URL；去掉 scheme 与已知 API 路径后得到 host[:port]。
- * 与 Dify models/_common.py 的 normalize_api_host 行为一致。
- */
-export function normalizeApiHost(raw: unknown): string {
-  if (typeof raw !== "string") {
-    return "";
-  }
-  let host = raw.trim();
-  if (!host) {
-    return "";
-  }
-  host = host.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, "").replace(/\/+$/, "");
-  for (const path of KNOWN_API_PATHS) {
-    if (host.toLowerCase().endsWith(path)) {
-      host = host.slice(0, -path.length);
-      break;
-    }
-  }
-  return host.replace(/\/+$/, "");
-}
-
-/** 兼容模式 Base URL：api_host 优先，否则共享 DashScope 域名 */
-export function resolveBaseUrl(
-  credentials: Readonly<Record<string, unknown>>
-): string {
-  const host = normalizeApiHost(credentials.api_host);
-  if (host) {
-    return `https://${host}${COMPATIBLE_API_PATH}`;
-  }
-  return DEFAULT_BASE_URL;
-}
-
-/**
  * 凭据验证：发送一次 max_tokens=1 的最小补全请求。
  * 等价于 Dify TongyiProvider.validate_credentials 的探测行为；
- * qwen-turbo 在各开通层级普遍可用，可用 validate_model 覆盖。
+ * Base URL 与探测模型由插件固定提供，管理员只需填写 API Key。
  */
 export async function validateCredentials(
   ctx: ValidateCredentialsContext
@@ -133,29 +64,21 @@ export async function validateCredentials(
   if (!apiKey) {
     throw new Error("api_key is required");
   }
-  const validateModel =
-    typeof ctx.credentials.validate_model === "string" &&
-    ctx.credentials.validate_model.trim()
-      ? ctx.credentials.validate_model.trim()
-      : DEFAULT_VALIDATE_MODEL;
 
-  const response = await ctx.fetch(
-    `${resolveBaseUrl(ctx.credentials)}/chat/completions`,
-    {
-      body: JSON.stringify({
-        max_tokens: 1,
-        messages: [{ content: "ping", role: "user" }],
-        model: validateModel,
-        stream: false,
-      }),
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-      signal: ctx.signal,
-    }
-  );
+  const response = await ctx.fetch(`${DEFAULT_BASE_URL}/chat/completions`, {
+    body: JSON.stringify({
+      max_tokens: 1,
+      messages: [{ content: "ping", role: "user" }],
+      model: VALIDATION_MODEL,
+      stream: false,
+    }),
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+    signal: ctx.signal,
+  });
 
   if (response.ok) {
     return;

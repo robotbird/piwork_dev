@@ -22,6 +22,7 @@ export const definition: ProviderDefinition = {
       variable: "api_key",
     },
   ],
+  defaultBaseUrl: DEFAULT_BASE_URL,
   description: {
     en: "Official DeepSeek models with reasoning, tool calling, and native vision in V4.1 Flash.",
     "zh-CN":

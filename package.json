@@ -43,6 +43,7 @@
     "test:tokens": "node --conditions=react-server --import tsx --test tests/unit/admin/token-statistics.test.ts",
     "test:tokens:http": "node --conditions=react-server --import tsx tests/e2e/token-statistics-http.mts",
     "test:tokens:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/token-statistics-queries.test.ts",
+    "test:models:configuration": "node --conditions=react-server --import tsx tests/e2e/model-configuration-http.mts",
     "test:conversations": "node --conditions=react-server --import tsx --test tests/unit/admin/conversations.test.ts",
     "test:conversations:http": "node --conditions=react-server --import tsx tests/e2e/conversation-records-http.mts",
     "test:db:client": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/client.test.ts",

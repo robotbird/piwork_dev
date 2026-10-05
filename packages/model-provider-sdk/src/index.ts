@@ -84,6 +84,8 @@ export type ProviderDefinition = {
   description: LocalizedText;
   help: { title: LocalizedText; url: LocalizedText };
   credentialFields: CredentialFieldSchema[];
+  /** Public default endpoint for configuration UI; never derived from secret credentials. */
+  defaultBaseUrl?: string;
   models: ProviderModelDefinition[];
   /** 声明需要访问的网络 host；宿主据此放行 */
   networkHosts: string[];

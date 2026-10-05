@@ -35,10 +35,11 @@ piwork 模型供应商插件（TypeScript），由 Dify 官方插件
   ZhipuAI 内置搜索工具的装配逻辑，参数不透传。
 - 视觉模型（`features.vision`）按图片输入装配；上游 `video` 能力
   （`video_url` 内容分片）超出 piwork SDK 首期模型定义，未迁移。
-- 凭据：`api_key`（secret）、`base_url`（可选，默认
-  `https://open.bigmodel.cn/api/paas/v4`）、`validate_model`（可选，默认
-  `glm-5-turbo`），与 Dify provider_credential_schema 一致；探测请求与
-  Dify 的最小连通性验证等价（`max_tokens=1` 非流式补全）。
+- 凭据：仅 `api_key`（secret），与 piwork-llm-deepseek 参考插件一致。
+  Base URL 固定为 Dify provider yaml 的默认值
+  `https://open.bigmodel.cn/api/paas/v4`，探测模型固定为 `glm-5-turbo`
+  （Dify zhipuai.py 默认值），两者不作为凭据字段暴露在配置界面；探测
+  请求与 Dify 的最小连通性验证等价（`max_tokens=1` 非流式补全）。
 - 模型目录：43 个对话模型按 `_position.yaml` 排序。上游标记
   `deprecated: true` 且缺失 `context_size` 的 5 个遗留 ChatGLM 模型
   （chatglm_lite/32k/pro/std/turbo）未迁移；`glm-4.6v`/

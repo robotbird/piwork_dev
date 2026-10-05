@@ -53,10 +53,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import type {
-  ModelPluginCatalogItem,
-  ModelPluginInstallationView,
-  ModelPluginsView,
+import {
+  initialCredentialValues,
+  type ModelPluginCatalogItem,
+  type ModelPluginInstallationView,
+  type ModelPluginsView,
 } from "@/lib/admin/model-plugins";
 import { cn } from "@/lib/utils";
 
@@ -82,8 +83,9 @@ async function requestJson(url: string, init?: RequestInit) {
 }
 
 function ProviderMark({ providerKey }: { providerKey: string }) {
-  // 插件包内图标经 /api/models/icon 按 provider key 下发（与聊天模型下拉同源）；
-  // 包内未声明图标的供应商回退通用占位图
+  // 供应商 logo 取 public/images/model-providers/<providerKey>.svg（与
+  // 深度求索的既有静态路径一致，源文件来自插件包 _assets 原始图标）；
+  // 未提供 logo 文件的供应商回退通用占位图
   const [failedFor, setFailedFor] = useState<string | null>(null);
   if (failedFor === providerKey) {
     return (
@@ -98,7 +100,7 @@ function ProviderMark({ providerKey }: { providerKey: string }) {
       className="size-11 shrink-0 rounded-xl"
       height={44}
       onError={() => setFailedFor(providerKey)}
-      src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/models/icon?provider=${providerKey}`}
+      src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/model-providers/${providerKey}.svg`}
       unoptimized
       width={44}
     />
@@ -322,7 +324,9 @@ function ConfigureDialog({
   onSaved: () => Promise<void>;
 }) {
   const { t } = usePreferences();
-  const [credentials, setCredentials] = useState<CredentialValues>({});
+  const [credentials, setCredentials] = useState<CredentialValues>(() =>
+    initialCredentialValues(installation)
+  );
   const [enabledModels, setEnabledModels] = useState<string[]>(
     installation?.enabledModels ?? []
   );
@@ -330,9 +334,10 @@ function ConfigureDialog({
     installation?.defaultModelId ?? null
   );
   const [saving, setSaving] = useState(false);
-  const hasCredentialInput = Object.values(credentials).some((value) =>
-    value.trim()
-  );
+  const hasCredentialInput =
+    installation?.credentialFields
+      .filter((field) => field.required)
+      .every((field) => Boolean(credentials[field.variable]?.trim())) ?? false;
 
   const toggleModel = useCallback((modelId: string, enabled: boolean) => {
     setEnabledModels((current) =>
@@ -386,8 +391,8 @@ function ConfigureDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={installation !== null}>
-      <DialogContent className="max-h-[86dvh] max-w-[640px] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex h-[min(88dvh,800px)] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[960px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[960px]">
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-5 pr-14">
           <DialogTitle>{installation?.name ?? ""}</DialogTitle>
           <DialogDescription>
             {installation?.credentialsConfigured
@@ -396,8 +401,8 @@ function ConfigureDialog({
           </DialogDescription>
         </DialogHeader>
         {installation ? (
-          <div className="grid gap-6 py-2">
-            <section>
+          <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto p-6 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:overflow-hidden">
+            <section className="min-w-0 md:overflow-y-auto md:pr-2">
               <h3 className="mb-1 text-sm font-medium">
                 {installation.credentialsConfigured
                   ? t("modelPlugins.rotateApiKey")
@@ -408,17 +413,38 @@ function ConfigureDialog({
                   ? t("modelPlugins.keepCurrentApiKey")
                   : t("modelPlugins.apiEndpointProvided")}
               </p>
+              {installation.defaultBaseUrl ? (
+                <div className="mb-4 grid gap-2">
+                  <Label htmlFor="plugin-default-endpoint">
+                    {t("modelPlugins.defaultApiEndpoint")}
+                  </Label>
+                  <Input
+                    id="plugin-default-endpoint"
+                    readOnly
+                    tabIndex={-1}
+                    value={installation.defaultBaseUrl}
+                  />
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {t("modelPlugins.defaultApiEndpointHint")}
+                  </p>
+                </div>
+              ) : null}
               <CredentialFields
                 fields={installation.credentialFields}
                 onChange={changeCredential}
                 values={credentials}
               />
             </section>
-            <section>
-              <h3 className="mb-3 text-sm font-medium">
+            <section className="flex max-h-[44dvh] min-h-0 min-w-0 flex-col md:max-h-none">
+              <h3 className="mb-3 shrink-0 text-sm font-medium">
                 {t("modelPlugins.modelCatalog")}
               </h3>
-              <div className="overflow-hidden rounded-xl border border-border">
+              <section
+                aria-label={t("modelPlugins.modelCatalog")}
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-xl border border-border"
+                // biome-ignore lint/a11y/noNoninteractiveTabindex: allow keyboard scrolling even when model switches are disabled
+                tabIndex={0}
+              >
                 {installation.models.map((model) => {
                   const enabled = enabledModels.includes(model.modelId);
                   return (
@@ -463,11 +489,11 @@ function ConfigureDialog({
                     </div>
                   );
                 })}
-              </div>
+              </section>
             </section>
           </div>
         ) : null}
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t border-border bg-card px-6 py-4">
           <Button
             disabled={saving}
             onClick={() => onOpenChange(false)}

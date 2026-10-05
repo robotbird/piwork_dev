@@ -10,6 +10,7 @@ import { zipSync } from "fflate";
 import { ProviderPluginManager } from "./manager";
 
 export type BuiltinPluginPackage = {
+  /** Public plugin metadata, including the optional default API endpoint. */
   definition: ProviderDefinition;
   /** manifest assets.icon 声明的包内路径（例如 assets/icon.svg），未声明时为 null */
   iconPath: string | null;

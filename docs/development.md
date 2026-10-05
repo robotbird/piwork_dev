@@ -154,6 +154,13 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 - 原 Playwright `tests/e2e/roles.test.ts` 已改用角色列表按钮和右侧详情选择器，增加模型/额度保存场景；截图脚本 `tests/e2e/roles-screenshot.ts` 使用新布局。不要把 HTTP/浏览器回归当容量或强预算验证。
 - Token 基于官方 Usage.totalTokens，仅已记录完成消息；额度为共享角色统计，非每人限额、预留账本或请求硬上限。在途/并发可超支，缺失用量不计入；warn 为服务端日志，不能声称用户通知或自动降级。口径与授权合并规则见 architecture.md「角色工作台」。Pi 依据：安装版 1.0.2 docs/models.md、docs/custom-provider.md、pi-ai/dist/models.d.ts 和 types.d.ts；平台授权仍在可信宿主，复用现有 SDK/RPC/Durable 与 RuntimeEvent。
 
+## 模型供应商配置弹窗验证
+
+- `tests/unit/admin/model-configuration.test.ts` 随 test:runtime 收集：三个插件的公开默认地址与源码常量一致；新配置只初始化非秘密字段默认值；已配置供应商轮换时不注入默认地址、覆盖已有自定义连接配置。
+- `pnpm test:models:configuration`：先启动本地 Next 服务（可设 MODEL_CONFIGURATION_TEST_URL），使用独立管理员与 disabled 供应商夹具，验证包目录/公开地址投影及 1440/1280/768/390/320px Chromium 下弹窗比例、长列表滚动、底部按钮始终在视口、必填 API Key 与默认字段、密钥轮换请求。PATCH 在浏览器截获，只断言请求，不调用真实模型或保存真实凭据；不是生产网络/凭据验证或真实移动设备验收。
+- 公开 defaultBaseUrl 是插件静态定义，旧安装可回退同包/版本定义；不是后台通过解密取出的当前自定义端点。源码变化后需刷新插件目录缓存（服务重启），不改供应商实际请求地址、权限或 Pi Provider 注册。
+- 依据：Pi 1.0.2 pi-ai `dist/types.d.ts` 的 BaseModel.baseUrl、项目 model-provider-sdk/插件静态 definition，以及 Radix 官方 Dialog 可访问性契约；仅扩展平台公开展示元数据，保留官方 createProvider/AgentSession 调用链。
+
 ## 对话记录验证
 
 - `pnpm test:conversations:http`：真实本地 Next HTTP，独立身份/聊天夹具验证页面、供应商公开名称/providerKey、模型/Token 列表详情一致、筛选和管理员权限；不调用真实模型。`PIWORK_CONVERSATION_BROWSER_TESTS=1` 追加 Playwright Chromium 验证可见文本不含内部 installation ID、供应商 Logo/筛选/详情与加载失败回退。DB usage 测试另覆盖 installation/legacy key 精确映射、禁用与卸载、未知 provider、不泄露凭据、不改变历史模型/筛选 key，以及按供应商名称检索。

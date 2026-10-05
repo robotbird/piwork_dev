@@ -321,7 +321,7 @@ interface ProviderFactoryContext {
 `definition` 至少包含：
 
 - 国际化名称、描述和帮助链接；
-- 凭据与非秘密配置 schema；
+- 凭据与非秘密配置 schema；当前可选公开 `defaultBaseUrl` 用于配置弹窗只读展示默认 API 地址，由插件自身声明；它不是解密后的当前连接配置，也不参与宿主猜测/修改实际请求地址；
 - 模型目录与模型能力；
 - 参数规则、价格、弃用信息；
 - 声明的网络 host 权限。
