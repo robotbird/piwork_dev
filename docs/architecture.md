@@ -91,6 +91,12 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 
 `/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员可读；侧边栏「记录与统计 → 对话记录」。`components/admin/conversations` 复用后台组件与主题，提供真实 Chat 列表、标题/用户/项目检索、项目/最近运行状态/UTC 更新时间筛选、排序、分页、详情和只读消息文本分页。查询归 `lib/db/conversation-queries.ts`，只读 repeatable-read 保持计数与页内数据一致；共享校验与文本投影归 `lib/admin/conversations.ts`。不读 Pi JSONL/私有 SQLite，不启动或重建会话，不改变普通聊天所有权。模型已补运行级请求快照（AgentRun.requestedModel，迁移 0017）与完成事件实际模型（SDK/RPC 与 Durable 两类归一化器）；按 run 优先实际 model/responseModel，其次请求快照，最后同 run/chat 的 allowed 推理审计证据，保留跨轮模型切换并支持筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，列表/详情/筛选复用包内 Logo API，不显示内部 installation ID；未知/卸载与图标失败保守回退，不用当前模型目录覆盖历史模型身份。Token 按会话全部持久化 message.completed.usage 聚合五字段，官方 totalTokens 不重复加 reasoning/缓存；缺失显示未记录/部分记录，不与代理审计 Token 重复累计，不含分类/标题/压缩/工具嵌套费用。不虚构归档状态。完整链路与口径见 [对话模型与用量](conversation-model-usage.md)。仅投影 Message_v2 的 text parts，排除 reasoning/工具参数/结果/附件地址；这不是 Pi 完整 transcript 或不可变审计账本，删除聊天会删除相关记录。官方依据：Pi 1.0.2 `docs/sdk.md`、`docs/message-types.md`、`docs/session-format.md`（平台历史投影与 Pi 原生会话树不同）。
 
+### 管理端 Token 统计
+
+`/admin/token-statistics` 与 `GET /api/admin/token-statistics` 仅 enabled/admin 可读，侧栏归「记录与统计」。`lib/db/token-statistics-queries.ts` 使用共享 getDb/read-only repeatable-read，按 RuntimeEvent 完成自然日聚合 `message.completed.usage.totalTokens`；`lib/admin/token-statistics.ts` 校验最多 93 天窗口并组装指标、上一等长周期变化、每日模型堆叠趋势、部门/角色分布与明细；`components/admin/token-statistics-page.tsx` 复用 ECharts 与后台主题。无新表、Pi 调用或运行路径修改。
+
+活跃用户/对话为期间有完成消息的去重用户/Chat，人均按活跃用户计算。仅现存完成事件（含失败 run 中已完成消息），非请求次数或账单；缺失 Token 为 null，真实零保留，显示完成消息用量覆盖。不会重复加缓存/推理或代理审计用量，不含分类/标题/压缩/嵌套工具。部门使用 ID 隔离，归属为当前 Member/Department；多角色按名称组合计入一次，非历史组织快照。模型优先完成事件实际 responseModel，其次请求快照；供应商公开元数据仅展示，内部 installation ID 不输出。官方依据：安装版 Pi 1.0.2 `pi-ai/dist/types.d.ts` Usage 与 `pi-coding-agent/docs/sdk.md` message_end；不读取原生会话/SQLite。
+
 ## 5. 现状与目标的分界
 
 | 能力 | 当前状态 |

@@ -85,6 +85,10 @@ P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/�
 
 `/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员只读访问；`lib/db/conversation-queries.ts` 持有 Chat/Message_v2/最新 AgentRun 的检索与分页，`lib/admin/conversations.ts` 持有共享校验/文本投影。仅 text parts，不返回 reasoning/工具载荷/附件地址，不读 Pi 原生 session/SQLite，不开放跨用户聊天写入。状态取最近 run；模型经 AgentRun.requestedModel（迁移 0017）请求快照与 SDK/RPC/Durable 的 message.completed.model 持久化。查询逐 run 优先实际 model/responseModel、其次请求快照、最后同 run/chat 的 allowed 代理审计证据，不用当前配置猜历史，支持跨轮模型筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，复用包内 Logo API，不显示内部 installation ID，未知/卸载与图标失败保守回退；当前展示元数据不能覆盖历史模型身份或读取凭据。Token 聚合会话所有已保留 message.completed.usage 五字段，totalTokens 以官方值为准、不重复 reasoning/缓存，不与代理审计相加；不含分类/标题/压缩/嵌套工具费用，未知不填零、记录缺口标部分。不能虚构会话归档状态或不可变审计能力，口径见 docs/conversation-model-usage.md。测试 test:conversations/:db 在 tests/unit/admin 与 tests/unit/db，:http 在 tests/e2e；新增模型快照需迁移和重启开发 RunManager 后生效。
 
+## 管理端 Token 统计边界
+
+`/admin/token-statistics` 和 `/api/admin/token-statistics` 仅 enabled/admin 只读，归记录与统计；查询归 `lib/db/token-statistics-queries.ts`，窗口校验/投影归 `lib/admin/token-statistics.ts`。仅按已保留 message.completed 官方 totalTokens 累计，未记录为 null、真实零保留，显示完成消息覆盖，不加代理审计/缓存/推理子集。日期按默认数据库自然日，最多 93 天；活跃用户/对话为有完成消息的去重身份/Chat。部门按 ID 隔离，部门/角色为当前归属，多角色组合只计一次，不能当历史组织快照。模型用事件实际身份/请求快照，供应商元数据只展示、不输出内部 installation ID。无新表、无 Pi agent loop 改造；test:tokens/:db 位于 tests/unit/admin 与 tests/unit/db，:http 在 tests/e2e（独立身份夹具，PIWORK_TOKEN_BROWSER_TESTS=1 追加 Chromium 查询/移动布局检查）。HTTP/浏览器通过不等于容量验证。
+
 ## 文档库边界
 
 `components/documents` 与 `lib/documents` 持有文档库界面及可共享类型；`lib/db/library-queries.ts` 持有归档、文件夹和所有权查询。上传入口必须登记 LibraryItem；生产 Runtime 在组装处注入归档回调，Pi `deliver_file` 完成归档后才发送 `artifact.created`。不要将数据库访问或用户身份判断写入 Pi 通用工具。文件夹为用户目录，当前不是项目权限模型。

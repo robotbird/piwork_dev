@@ -152,6 +152,14 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 - 手工打开 `/admin/conversations`，检查后台侧栏与主题、筛选/分页/排序/刷新、桌面并列详情与窄屏上下布局、完整记录只读弹窗、复制 ID、空态/错误态。列表 10/20/50 条，全文消息每页 50 条，预览最近三条。模型按实际完成消息/请求快照/历史审计证据展示并可筛选；详情提供会话累计 Token、输入/输出/缓存明细与记录覆盖，状态是最近 run 而非会话归档状态。
 - 页面与两个 API 均复用 requireAdminRole；普通聊天 API 所有权不放宽。完整记录仅保存的文本，不返回 reasoning、工具载荷或附件地址。新增迁移 0017_run_model_snapshot（AgentRun.requestedModel 可空 json），需先 db:migrate，开发服务重启后让 RunManager 新请求快照生效。完成事件追加 model，复用既有 Pi SDK/RPC/Durable 归一化与事件持久化，不将平台聊天投影当原生 Pi session；参考 Pi 1.0.2 SDK、Message Types、Session Format。
 
+## 管理端 Token 统计验证
+
+- `pnpm test:tokens`：日期有效性/93 天限额、去重、未知/真实零、等长周期对比、同名部门隔离；随 test:runtime 收集。
+- `pnpm test:tokens:db`：独立用户/部门/角色/聊天夹具，验证默认数据库自然日边界、仅完成事件累计、覆盖率、部门筛选、实际模型/请求快照与多角色不重复；仅清理自己的夹具，随 test:runtime:db 收集。无需迁移。
+- `pnpm test:tokens:http`：本地 Next 服务，独立管理员/成员/部门/聊天夹具，验证真实用量、页面、no-store、未登录/非管理员拒绝与日期 400；`PIWORK_TOKEN_BROWSER_TESTS=1` 追加 Chromium 桌面查询、明细数值、390px 无页面横溢出与暗色重载检查（截图在 /tmp）。本轮 HTTP/浏览器通过；不代表容量验收。
+- 手工打开 `/admin/token-statistics`：检查中英文、明暗主题、日期与组织查询、加载/错误/重试、趋势悬停、部门明细与窄屏内部滚动；页面/API 必须复用 requireAdminRole。
+- 统计只读平台持久化 `message.completed`，不新增 Pi API；核对安装版 1.0.2 `pi-ai/dist/types.d.ts` Usage（totalTokens 为准，reasoning 为 output 子集）与 `pi-coding-agent/docs/sdk.md` message_end；统计口径见 architecture.md「管理端 Token 统计」。
+
 ## 管理概览验证
 
 - `pnpm test:runtime:db` 覆盖 `tests/unit/db/overview-queries.test.ts`：30 天窗口口径（总量/成功率计数/活跃用户）、30 天按日趋势补零与回溯日期分桶、后端分布、最近 run 关联字段与耗时、最近 Skill、五源动态合并、资源计数与 DB 探测。开发库含真实存量数据，断言一律基于 seed 前快照的差值，并对共享窗口（今日写入者）只做下界断言；Skill/McpServer/SandboxInstance 夹具按生产写入方使用 UTC 墙钟。

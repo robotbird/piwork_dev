@@ -2,6 +2,7 @@
 
 import { BarChart, PieChart } from "echarts/charts";
 import {
+  GraphicComponent,
   GridComponent,
   LegendComponent,
   TooltipComponent,
@@ -13,6 +14,7 @@ import { useEffect, useRef } from "react";
 use([
   BarChart,
   PieChart,
+  GraphicComponent,
   GridComponent,
   LegendComponent,
   TooltipComponent,

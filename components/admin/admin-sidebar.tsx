@@ -2,6 +2,7 @@
 
 import {
   ArrowLeftIcon,
+  BarChart3Icon,
   BlocksIcon,
   BrainIcon,
   Building2Icon,
@@ -128,6 +129,12 @@ const navigationGroups: NavigationGroup[] = [
         icon: MessageSquareIcon,
         labelKey: "conversationRecords",
         searchKeywordsKey: "conversationRecordsSearchKeywords",
+      },
+      {
+        href: "/admin/token-statistics",
+        icon: BarChart3Icon,
+        labelKey: "tokenStatistics",
+        searchKeywordsKey: "tokenStatisticsSearchKeywords",
       },
     ],
     labelKey: "recordsAndStatistics",
