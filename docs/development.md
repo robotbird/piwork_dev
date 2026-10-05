@@ -76,16 +76,23 @@ pnpm plugin:verify     # 模型插件链路验证
 - 取消中断水合并强杀沙箱，shell 未知结果允许 failed/outcome unknown，不能为了 Stop 测试强行改成干净 aborted；终态前核验停止、不自动重放。Leasing release 必须解包原 handle，不能向严格 provider 传 lease wrapper，单测覆盖归属与记账。
 - 新单测随 `test:runtime` 收集；DB 测试在 tests/unit/db；HTTP 入口 tests/e2e/durable-chat-http.mts，显式 PIWORK_DURABLE_CHAT_HTTP_TESTS=1（真实模型/provider）。测试 helper 在 tests/support/durable，创建唯一隔离 PG schema，无 public search_path fallback；迁移 public FK 仅 fixture 重映射，只复制加密模型配置，不复制用户/聊天/任务。避免第二个 Next 进程的 RunManager orphan sweep 改动日常 runs。独立 NEXT_DIST_DIR/NEXT_TSCONFIG_PATH 隔离构建并恢复仅本组生成的 next-env import，成功停服后删除仅本组 schema/目录，失败保留证据待人工核验。真实 HTTP 已通过，不代表浏览器 UI、生产权限治理、Worker/恢复/安全硬隔离/容量。
 
+## Pi / Durable 1.0.3 升级验证
+
+- 五包（pi-ai/pi-agent-core/pi-coding-agent/pi-durable/chord）与 pnpm 锁文件固定 1.0.3；Dockerfile 默认版本同步，已重建 pi-runtime:dev。依据官方 durable/coding-agent/ai CHANGELOG 1.0.3、安装版 durable README/dist/env/index.d.ts 和 coding-agent docs/sdk.md；继续复用官方 NodeExecutionEnv/Harness/SQLite/AgentSession，不新增 agent loop。
+- Durable 1.0.3 扩展 FileSystem/BinaryReader/Shell 的 breaking changes 无本地自定义 ExecutionEnv 需要补接口；SandboxHandle 是另一平台 seam，不自动获得官方 watch/reader 能力。Azure provider 改名 azure，旧外部 auth/models/settings 配置须人工核对，API id azure-openai-responses 不变。
+- storage binding 与 durable chat input hash 版本同步；1.0.2 及更旧运行拒绝跨版本静默重开，须另做迁移验收，不删除 owner marker、不重放 shell。新增 storage.test.ts 分别验证 durableVersion/piVersion 漂移拒绝。
+- 验证：tsc --noEmit；PIWORK_SANDBOX_DOCKER_TESTS=0 pnpm test:runtime（330 项，315 通过、15 跳过、0 失败）；pnpm test:unit（48/48）；PIWORK_SANDBOX_DOCKER_RPC_TESTS=1 的 backends.test.ts（49 项，41 通过、8 既有边界跳过、0 失败，SandboxDocker 实际 6 项通过），容器包版本核验 1.0.3；定向 Biome 与版本绑定回归 5/5 通过。真实模型/OpenSandbox HTTP、旧存储迁移、生产恢复和容量不在本次验收范围。重启服务以加载新 SDK 与 HMR 单例；外部部署镜像也须更新。
+
 ## Durable 持久化与恢复基础（未接生产）
 
-- 新实现为 `backends/durable/storage.ts` 与 `recovery.ts`；只复用官方 SQLite facade/storage/Harness/inspect/context，不重写 scheduler。本轮全 Pi/chord 对齐 1.0.2；registry.install(defineExtension)、section、conversation.configure 与 settings.toolExecution 按新版 API 迁移，移除了旧 HarnessOptions 兼容转型。SQLite 仍为 Runtime 状态存储；PostgreSQL 只持有控制面数据与平台投影，本轮 PostgreSQL Storage 代码/测试/两项迁移及本地新增空表已经撤回。
+- 新实现为 `backends/durable/storage.ts` 与 `recovery.ts`；只复用官方 SQLite facade/storage/Harness/inspect/context，不重写 scheduler。当前全 Pi/chord 对齐 1.0.3；registry.install(defineExtension)、section、conversation.configure 与 settings.toolExecution 按新版 API 迁移，移除了旧 HarnessOptions 兼容转型。SQLite 仍为 Runtime 状态存储；PostgreSQL 只持有控制面数据与平台投影，本轮 PostgreSQL Storage 代码/测试/两项迁移及本地新增空表已经撤回。
 - 私有根必须是可信持久卷；binding 由平台已授权的 user/chat/run 与不可变输入/配置 hash 组装。目录/文件不可公开，不挂入沙箱。SQLite FULL 不是已测主机容灾或备份。
 - owner marker 使用 O_EXCL，不因进程 PID/租约过期自动删除；崩溃后 fail-closed，需要未来 Worker/reaper 停止旧执行端并重新授权后对账。存储锁不是 workspace lock，不支持多 Writer/共享盘分布式恢复。
 - 先授权/open/inspect，后 submit/wait/resume；后者均可启动官方调度。所有通用工具 replay=unsafe，每次 execute 都授权并透传 signal；禁止只依赖恢复会跳过的 beforeTool hook。未知 intent/已物化未知结果拒绝恢复，当前返回 needs-review 错误，尚未落平台 needs_review DB 状态。
 - `DurableBackend` storageFactory 必须搭配 authorize；NODE_ENV=production 默认 MemoryStorage 抛错；持久路径 workspace 非 null 默认拒绝，仅可信 executionFactory + owned storage/authorize/runId 可承载受管执行。新 `DurableSandboxBackend` 本身生产拒绝，OpenSandbox 需显式非生产探针；fresh-run/单 prompt/deny-all，无平台工具/MCP/自动恢复。默认实验开关仍无正式持久 factory，不能用于生产部署，也不与 Sandbox provider 同启。装配/真实契约命令和剩余门禁见 [组合适配器](durable-sandbox-composition.md)。
 - `tests/unit/runtime/backends/durable/` 的 14 项由新 test:runtime:durable 与全 Runtime 收集；子进程 fixture 在 tests/support/durable，测试显式 kill/exit 后解锁不是生产策略。生产尚缺 Worker/job mapping、snapshot/source cursor、正式授权/账本/取消删除对账及部署演练；见 pi-durable-evaluation.md。
 
-SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选项。当前每个 run 的 SQLite 必须位于可靠私有持久卷，不得依赖容器临时盘；单 Writer、备份恢复、Worker 唤醒与崩溃副作用对账是独立上线门禁。旧版本 binding 数据不可静默重开到 1.0.2，须另做版本迁移验收。Cloudflare DO 的 SQLite/Alarm/PITR 不是当前 Node 部署的现状。
+SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选项。当前每个 run 的 SQLite 必须位于可靠私有持久卷，不得依赖容器临时盘；单 Writer、备份恢复、Worker 唤醒与崩溃副作用对账是独立上线门禁。旧版本 binding 数据不可静默重开到 1.0.3，须另做版本迁移验收。Cloudflare DO 的 SQLite/Alarm/PITR 不是当前 Node 部署的现状。
 
 ## 文档库验证
 

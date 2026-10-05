@@ -1,7 +1,7 @@
 # Pi Durable 评估与采用门禁
 
 > 状态：**评估与试点计划，不是生产恢复能力承诺**。当前 `DurableBackend` 已补持久存储与恢复安全基础，但仍未完成 Worker/平台映射/恢复投影接线；默认生产路径不改变，不能宣称已生产上线。
-> 本轮已核对 npm 最新发布并安装：pi-ai / pi-agent-core / pi-coding-agent / pi-durable / chord 均为 **1.0.2**。Durable 仍 Experimental。已适配新版 Registry/Extension/Agent configuration API 并移除旧选项兼容转型；存储继续官方 SQLite。
+> 本轮已核对 npm 最新发布并安装：pi-ai / pi-agent-core / pi-coding-agent / pi-durable / chord 均为 **1.0.3**。Durable 仍 Experimental；1.0.3 有 FileSystem/BinaryReader/Shell breaking changes，项目复用官方 NodeExecutionEnv，无自定义环境适配；旧 binding/input hash 不静默跨版本重开。升级验证见 architecture.md 与 development.md 的 1.0.3 章节。已适配新版 Registry/Extension/Agent configuration API 并移除旧选项兼容转型；存储继续官方 SQLite。
 > 完整执行顺序、企业 MVP 门禁与代码落点见 [企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)。本文替代旧版中“定时任务恰好一次”“版本化承诺部分成立”“全面迁移后退役 RunManager”等结论。
 
 ## 1. 决策摘要

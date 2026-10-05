@@ -65,8 +65,8 @@ export async function openOwnedDurableStorage(
     const manifest = JSON.stringify({
       schemaVersion: 1,
       ...binding,
-      durableVersion: "1.0.2",
-      piVersion: "1.0.2",
+      durableVersion: "1.0.3",
+      piVersion: "1.0.3",
     });
     try {
       const file = await open(

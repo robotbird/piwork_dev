@@ -8,7 +8,7 @@
 
 - 官方文档（优先查看与当前版本匹配的页面）：<https://pi.dev/docs/latest>
 - 官方代码库及源码：<https://github.com/earendil-works/pi>
-- 本项目当前安装版本：以 `package.json` 和锁文件为准；本轮核对 npm 最新发布并将 `@earendil-works/pi-ai`、`@earendil-works/pi-agent-core`、`@earendil-works/pi-coding-agent`、`@earendil-works/pi-durable`、`@earendil-works/chord` 全部对齐到 `1.0.2`（Durable 仍 experimental，见评估文档）。升级后同步更新这里和架构文档。
+- 本项目当前安装版本：以 `package.json` 和锁文件为准；本轮核对 npm 最新发布并将 `@earendil-works/pi-ai`、`@earendil-works/pi-agent-core`、`@earendil-works/pi-coding-agent`、`@earendil-works/pi-durable`、`@earendil-works/chord` 全部对齐到 `1.0.3`（官方 npm registry latest；Durable 仍 experimental，见评估文档）。Docker pi-runtime 同步重建；持久 binding/input hash 同步版本，旧版本运行拒绝静默重开，须独立迁移验收。1.0.3 的 Durable FileSystem/BinaryReader/Shell breaking changes 由官方 NodeExecutionEnv 承接，平台 SandboxHandle seam 不等同于该接口；Azure provider 改名为 azure（API id 不变），外部旧配置须人工检查。升级后同步更新这里和架构文档。
 
 ### 必须遵守的工作流程
 

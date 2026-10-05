@@ -1,6 +1,6 @@
 import "../../../../support/runtime-env";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, symlink } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
@@ -107,6 +107,36 @@ test("Durable storage: changed owner/input binding cannot reopen existing data",
     ).userId,
     binding.userId
   );
+});
+
+test("Durable storage: previous Pi version binding cannot silently reopen", async (t) => {
+  const root = await fixture(t);
+  const first = await openOwnedDurableStorage(root, binding);
+  await first.close();
+  const manifestPath = path.join(root, binding.runId, "binding.json");
+  const current = await readFile(manifestPath, "utf8");
+  const manifest = JSON.parse(current);
+  assert.equal(manifest.durableVersion, "1.0.3");
+  assert.equal(manifest.piVersion, "1.0.3");
+  await writeFile(
+    manifestPath,
+    JSON.stringify({ ...manifest, durableVersion: "1.0.2" })
+  );
+  await assert.rejects(
+    openOwnedDurableStorage(root, binding),
+    /binding-mismatch/
+  );
+  await writeFile(
+    manifestPath,
+    JSON.stringify({ ...manifest, piVersion: "1.0.2" })
+  );
+  await assert.rejects(
+    openOwnedDurableStorage(root, binding),
+    /binding-mismatch/
+  );
+  await writeFile(manifestPath, current);
+  const reopened = await openOwnedDurableStorage(root, binding);
+  await reopened.close();
 });
 
 test("Durable storage: invalid paths and symlinked SQLite files fail closed", async (t) => {

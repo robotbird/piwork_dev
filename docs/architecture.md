@@ -1,6 +1,6 @@
 # Piwork 项目架构（当前实现）
 
-> 核对日期：2026-10-02。依据当前工作树的代码和 `package.json`。本轮升级后的 Pi 主包、Pi Durable 与 chord 均为 **1.0.2**；Durable 仍 experimental。本文描述现状；目标架构见 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)。
+> 核对日期：2026-10-02。依据当前工作树的代码和 `package.json`。本轮升级后的 Pi 主包、Pi Durable 与 chord 均为 **1.0.3**；Durable 仍 experimental。本文描述现状；目标架构见 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)。
 
 Web、独立 Worker/Sandbox 与未来 Desktop 的整体演进方向见 [平台与 Agent Runtime 演进架构](platform-runtime-roadmap.md)。最新实施基线见 [千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)：目标为工具级沙箱 → 单 Worker → 受控 Durable 车道。**执行路径改造尚未接入生产**；RunDescriptor/ExecutionState、LazySandbox、操作错误分类、限额/原子文件能力与四工具工厂已落地；已实现 SandboxToolsBackend 协议适配器、私有制品存储与交付回调，Docker 新契约已通过，生产接线与治理尚未完成，见 [实施记录](runtime-foundation-implementation.md)。现状中的 RPC、Next.js 内 RunManager、Docker 无 reaper 保持不变；Durable 新增 SQLite/单写者/恢复阻断基础，生产默认 MemoryStorage 路径已明确拒绝，但正式 Worker 接线仍未完成。
 
@@ -141,7 +141,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 - [RPC 协议](https://pi.dev/docs/latest/rpc) 与 [RPC 命令](https://pi.dev/docs/latest/rpc-commands)：本机 RPC 适配器的命令、事件和进程生命周期依据。
 - [Extensions](https://pi.dev/docs/latest/extensions)、[Custom Providers](https://pi.dev/docs/latest/custom-provider)：扩展工厂、`registerProvider()` 与 Provider 接口的依据。
 - [Pi Packages](https://pi.dev/docs/latest/packages)、[Skills](https://pi.dev/docs/latest/skills)：安装与资源发现约定的依据。
-- 精确签名与行为以本仓库安装的 `node_modules/@earendil-works/pi-coding-agent`、`pi-ai`、`pi-agent-core` **1.0.2** 类型/源码为准（含 `dist/extensions/mcp/` 的 `index.d.ts`、`config.d.ts` 与 `examples/sdk/14-codemode-mcp.ts`）；文档 latest 可能超前于已安装版本。
+- 精确签名与行为以本仓库安装的 `node_modules/@earendil-works/pi-coding-agent`、`pi-ai`、`pi-agent-core` **1.0.3** 类型/源码为准（含 `dist/extensions/mcp/` 的 `index.d.ts`、`config.d.ts` 与 `examples/sdk/14-codemode-mcp.ts`）；文档 latest 可能超前于已安装版本。
 
 ## 7. 我的文档（2026-09-28）
 
@@ -191,6 +191,12 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 - **Skill API 形态变化**：`loadSkills(env, dirs, ctx)`（异步、env 驱动）→ `loadSkillsFromDir({dir, source})`（同步，直接 fs）；`formatSkillsForSystemPrompt` → `formatSkillsForPrompt`；`ResourceDiagnostic` 的 `code` 字段改名为 `type`（管理/聊天 API wire 格式保持 `code` 字段映射 `type`）；`formatSkillInvocation` 不再导出——`invokeSkill`/`load_skill` 工具按官方 `_expandSkillCommand` 同构实现（读 SKILL.md → `stripFrontmatter` → `<skill name location>` 块，`References are relative to ${skill.baseDir}`），`invokeSkill` 因此异步化。
 - `AgentTool`/`AgentSession`/SDK 会话装配/MCP 扩展契约在 1.0.0 无破坏（仅新增字段，如 MCP `oauth.authServerMetadataUrl`）。
 - **1.0.2 全量对齐（2026-10-04，本条关闭上文的“对齐后移除”遗留项）**：五包（三主包 + pi-durable + chord）全部对齐 **1.0.2**，pnpm 下不再存在 pi-ai 双版本嵌套；`toDurableTool` 的 3 处 `as never` 转型移除后 `tsc --noEmit` 直接全绿（类型自然兼容，无需任何适配）。验证：DurableBackend 契约套件 35/35、手动 spike 16/16（含 kill -9 恢复与 replay 双重门，`scripts/pi-durable-manual-spike.mts`）、全量 Runtime 套件 284 项 278 通过 0 失败。待办：`docker/pi-runtime` 镜像内 pi-coding-agent 仍为 1.0.0，需按新版本重建镜像。
+
+### Pi / Durable 1.0.3 升级
+
+五包及锁文件按官方 npm registry latest 精确固定 **1.0.3**，Dockerfile 两处默认版本同步并重建 `pi-runtime:dev`。官方 `packages/durable/CHANGELOG.md` 1.0.3 为 breaking release：FileSystem 增加 bounded reader、paged directory reader、watch，BinaryReader 增加 scanLines，Shell 支持 argv 与输出流信息；项目使用官方 NodeExecutionEnv，不自建该接口。组合后端仍经平台 SandboxHandle 四工具，不开启官方宿主 CodingTools 或新的自动恢复能力。官方 coding-agent/pi-ai CHANGELOG 的 Azure provider 从 azure-openai-responses 改为 azure（API id 不变）；源码未引用旧 provider，外部配置仍须人工检查。
+
+`storage.ts` 的 durableVersion/piVersion 与 `chat-input.ts` 的 input hash 版本同步 1.0.3；旧 binding 拒绝重开，无静默迁移、自动解锁或副作用重放。回归新增逐项旧版本 binding 拒绝测试。类型检查通过；Runtime 330 项（315 通过、15 跳过、0 失败；Docker 组显式关闭），test:unit 48/48；重建镜像的 Docker RPC 专项 49 项（41 通过、8 既有能力边界跳过、0 失败），其中 SandboxDocker 6 项实际通过；容器内 package version 核验为 1.0.3。官方依据：安装版 durable README、dist/env/index.d.ts 与 coding-agent docs/sdk.md；生产门禁不变。
 
 ## 12. Runtime Sandbox seam 与 SandboxRpcBackend（2026-10-02）
 
