@@ -382,12 +382,20 @@ export function DashboardOverview({
     (backend: string) =>
       backend === "sandbox_rpc"
         ? t("dashboard.sandboxRpc")
-        : t("dashboard.inProcess"),
+        : backend === "durable_sandbox"
+          ? "Durable + Sandbox (experimental)"
+          : backend === "in_process"
+            ? t("dashboard.inProcess")
+            : backend,
     [t]
   );
   const backendColor = useCallback(
     (backend: string) =>
-      backend === "sandbox_rpc" ? chart.palette[1] : chart.palette[0],
+      backend === "sandbox_rpc"
+        ? chart.palette[1]
+        : backend === "durable_sandbox"
+          ? chart.palette[2]
+          : chart.palette[0],
     [chart]
   );
   const typeOption = useMemo(

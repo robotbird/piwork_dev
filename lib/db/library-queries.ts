@@ -33,6 +33,21 @@ export async function getLibraryItem(userId: string, id: string) {
   return item;
 }
 
+export async function getLibraryFileByUrl(userId: string, url: string) {
+  const [item] = await db
+    .select()
+    .from(libraryItem)
+    .where(
+      and(
+        eq(libraryItem.userId, userId),
+        eq(libraryItem.url, url),
+        eq(libraryItem.kind, "file")
+      )
+    )
+    .limit(1);
+  return item;
+}
+
 export async function assertLibraryFolder(
   userId: string,
   parentId: string | null

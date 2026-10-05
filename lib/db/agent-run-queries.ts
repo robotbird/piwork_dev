@@ -4,6 +4,7 @@ import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { ChatbotError } from "../errors";
+import type { RuntimeBackendKind } from "../runtime/protocol";
 import type { AgentRunStatus, AgentRunStore } from "../runtime/run/run-manager";
 import { agentRun, runtimeLease } from "./schema";
 
@@ -30,7 +31,7 @@ const TERMINAL_STATUSES: AgentRunStatus[] = ["settled", "failed", "aborted"];
  */
 
 export async function createAgentRun(input: {
-  backend: "in_process" | "sandbox_rpc";
+  backend: RuntimeBackendKind;
   chatId: string;
   userId: string;
 }): Promise<string> {

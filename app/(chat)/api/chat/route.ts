@@ -30,6 +30,8 @@ import {
   parseSkillCommand,
 } from "@/lib/ai/skills";
 import { canReadStoredFile } from "@/lib/db/library-queries";
+import { listMcpServers } from "@/lib/db/mcp-server-queries";
+import { listPiPackages } from "@/lib/db/pi-package-queries";
 import { getProject } from "@/lib/db/project-queries";
 import {
   deleteChatById,
@@ -44,7 +46,19 @@ import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import { syncManagedAgentMcpConfig } from "@/lib/mcp/agent-config";
 import { buildProjectSourcesContext } from "@/lib/projects/context";
+import { durableChatExecutionPrompt } from "@/lib/runtime/backends/durable/chat-attachments";
+import { hashDurablePrompt } from "@/lib/runtime/backends/durable/chat-input";
+import { readDurableChatConfig } from "@/lib/runtime/backends/durable/chat-policy";
+import {
+  chatNeedsCompatibility,
+  selectChatRuntime,
+} from "@/lib/runtime/backends/routing/chat-routing";
+import type { RuntimeCommand } from "@/lib/runtime/protocol";
 import { getRunManager } from "@/lib/runtime/run";
+import {
+  assertDurableChatAdmission,
+  prepareDurableChatTurn,
+} from "@/lib/runtime/run/durable-chat";
 import type { RunSubscription } from "@/lib/runtime/run/run-manager";
 import { scheduledTaskTools } from "@/lib/scheduler/service";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
@@ -218,7 +232,94 @@ export async function POST(request: Request) {
       longitude,
     };
 
+    const modelConfig = modelCatalog.models.find((m) => m.id === chatModel);
+    const currentUserMessageIndex = uiMessages.findLastIndex(
+      (currentMessage) => currentMessage.role === "user"
+    );
+    const currentUserMessage = uiMessages[currentUserMessageIndex];
+    const currentUserText = currentUserMessage
+      ? getTextFromMessage(currentUserMessage).trim()
+      : "";
+    const currentUserFileCount =
+      currentUserMessage?.parts.filter((part) => part.type === "file").length ??
+      0;
+    if (!(currentUserText || currentUserFileCount > 0)) {
+      return new ChatbotError("bad_request:api").toResponse();
+    }
+    const skillCommand = parseSkillCommand(currentUserText);
+    const history = uiMessages.slice(0, currentUserMessageIndex);
+    // Decide before parsing attachments or creating a host workspace. Metadata
+    // discovery is not execution; only names, never integration credentials, are used.
+    const discovered = await loadEnabledManagedProjectSkills();
+    const durableConfig = readDurableChatConfig();
+    const [mcpServers, packages] = durableConfig
+      ? await Promise.all([listMcpServers(), listPiPackages()])
+      : [[], []];
+    const classification = executionToolsEnabled()
+      ? skillCommand
+        ? { reason: "skill-command", requiresExecution: true }
+        : await classifyExecution({
+            attachmentCount: currentUserFileCount,
+            history: history.map((item) => ({
+              role: item.role,
+              text: getTextFromMessage(item),
+            })),
+            message: currentUserText,
+            signal: request.signal,
+          })
+      : { reason: "disabled", requiresExecution: false };
+    const routing = selectChatRuntime({
+      approvalContinuation: isToolApprovalFlow,
+      classificationReason: classification.reason,
+      durableEnabled: durableConfig !== null,
+      needsCompatibility: chatNeedsCompatibility({
+        capabilityNames: [
+          ...discovered.skills.map((skill) => skill.name),
+          ...mcpServers
+            .filter((server) => server.enabled)
+            .map((server) => server.name),
+          ...packages
+            .filter((item) => item.resourceSummary.extensions > 0)
+            .map((item) => item.name),
+        ],
+        history,
+        message: currentUserText,
+      }),
+      requiresExecution: classification.requiresExecution,
+      skillCommand: Boolean(skillCommand),
+    });
+    const isDurable = routing.lane === "durable_sandbox";
+    if (isDurable) {
+      // Authorization failure after selection is fatal, not a reroute to host tools.
+      await assertDurableChatAdmission(session.user.id);
+    }
+    console.info("[chat] execution routing", {
+      chatId: id,
+      ...classification,
+      ...routing,
+    });
+
+    let durableTurn:
+      | Awaited<ReturnType<typeof prepareDurableChatTurn>>
+      | undefined;
     if (message?.role === "user") {
+      if (isDurable) {
+        try {
+          durableTurn = await prepareDurableChatTurn(
+            session.user.id,
+            message,
+            request.signal
+          );
+        } catch (error) {
+          if (error instanceof ChatbotError) {
+            throw error;
+          }
+          return new Response(
+            "附件不可用：仅支持本人已归档、未变更且符合大小限制的文件。",
+            { status: 400 }
+          );
+        }
+      }
       const fileAccess = await Promise.all(
         message.parts
           .filter((part) => part.type === "file" && isChatFileUrl(part.url))
@@ -245,27 +346,13 @@ export async function POST(request: Request) {
       });
     }
 
-    const modelConfig = modelCatalog.models.find((m) => m.id === chatModel);
-    const currentUserMessageIndex = uiMessages.findLastIndex(
-      (currentMessage) => currentMessage.role === "user"
-    );
-    const currentUserMessage = uiMessages[currentUserMessageIndex];
-    const currentUserText = currentUserMessage
-      ? getTextFromMessage(currentUserMessage).trim()
-      : "";
-
-    const currentUserFileCount =
-      currentUserMessage?.parts.filter((part) => part.type === "file").length ??
-      0;
-    if (!(currentUserText || currentUserFileCount > 0)) {
-      return new ChatbotError("bad_request:api").toResponse();
-    }
-
     let preparedAttachments: PreparedChatAttachments;
     try {
-      preparedAttachments = currentUserMessage
-        ? await prepareChatAttachments(currentUserMessage, request.signal)
-        : { images: [], text: "" };
+      preparedAttachments = isDurable
+        ? { images: durableTurn?.images ?? [], text: "" }
+        : currentUserMessage
+          ? await prepareChatAttachments(currentUserMessage, request.signal)
+          : { images: [], text: "" };
     } catch (error) {
       return Response.json(
         {
@@ -285,44 +372,32 @@ export async function POST(request: Request) {
       return Response.json({ error: t("modelNoImages") }, { status: 400 });
     }
 
-    const { skills, diagnostics: skillDiagnostics } =
-      await loadEnabledManagedProjectSkills();
+    // No platform closures silently cross the Durable seam.
+    const { skills, diagnostics: skillDiagnostics } = isDurable
+      ? { diagnostics: [], skills: [] }
+      : discovered;
     if (skillDiagnostics.length > 0) {
       console.warn("Skill discovery warnings:", skillDiagnostics);
     }
 
     // 执行类工具（bash/read/write/edit + deliver_file）以每聊天独立工作区
     // 运行；用户上传的附件原始字节先落盘到工作区供 skill 脚本直接读取。
-    const classification = executionToolsEnabled()
-      ? await classifyExecution({
-          attachmentCount:
-            currentUserMessage?.parts.filter((part) => part.type === "file")
-              .length ?? 0,
-          history: uiMessages
-            .slice(0, currentUserMessageIndex)
-            .map((historyMessage) => ({
-              role: historyMessage.role,
-              text: getTextFromMessage(historyMessage),
-            })),
-          message: currentUserText,
-          signal: request.signal,
-        })
-      : { reason: "disabled", requiresExecution: false };
-    console.info("[chat] execution classification", {
-      chatId: id,
-      ...classification,
-    });
-    const workspaceDir = classification.requiresExecution
-      ? await ensureChatWorkspace(id)
-      : null;
+    const workspaceDir = isDurable
+      ? "ephemeral"
+      : classification.requiresExecution
+        ? await ensureChatWorkspace(id)
+        : null;
     // 管理端 MCP 服务配置同步进受管 agentDir 的 mcp.json（Pi 内置 MCP
     // 扩展的全局发现位置，pi.dev/docs/latest/mcp）；幂等（内容未变不写盘），
-    // 失败仅记日志不阻断聊天。与执行工具开关无关：无工作区也可用 MCP。
-    await syncManagedAgentMcpConfig().catch((error) => {
-      console.warn("Failed to sync managed agent mcp.json:", error);
-    });
+    // 失败仅记日志不阻断聊天。无工作区会话本来就禁用受管扩展/MCP，
+    // 不必写共享配置；自动选定的 Durable 路径也不装配 MCP。
+    if (!isDurable && workspaceDir) {
+      await syncManagedAgentMcpConfig().catch((error) => {
+        console.warn("Failed to sync managed agent mcp.json:", error);
+      });
+    }
     let workspaceAttachmentFiles: string[] = [];
-    if (workspaceDir && currentUserMessage) {
+    if (!isDurable && workspaceDir && currentUserMessage) {
       try {
         workspaceAttachmentFiles = await writeAttachmentsToWorkspace(
           currentUserMessage,
@@ -341,14 +416,15 @@ export async function POST(request: Request) {
       requestHints,
       supportsTools: false,
     });
-    const executionPrompt = workspaceDir
-      ? buildExecutionSystemPrompt(workspaceDir, workspaceAttachmentFiles)
-      : "";
+    const executionPrompt = isDurable
+      ? durableChatExecutionPrompt(durableTurn?.attachments ?? [])
+      : workspaceDir
+        ? buildExecutionSystemPrompt(workspaceDir, workspaceAttachmentFiles)
+        : "";
     const historyMessages = toPiHistoryMessages(
       uiMessages.slice(0, currentUserMessageIndex),
       chatModel
     );
-    const skillCommand = parseSkillCommand(currentUserText);
 
     let agentPrompt = currentUserText || "请分析并处理附件。";
     if (skillCommand) {
@@ -388,6 +464,12 @@ export async function POST(request: Request) {
       }
     }
 
+    const runtimePrompt: Extract<RuntimeCommand, { type: "prompt" }> = {
+      expandPromptTemplates: false,
+      images: preparedAttachments.images,
+      text: agentPrompt,
+      type: "prompt",
+    };
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
         const modelName = modelConfig?.name ?? chatModel;
@@ -460,28 +542,39 @@ export async function POST(request: Request) {
           const run = await getRunManager().start({
             baseAssistantMessageId,
             baseParts,
-            prompt: {
-              // expandPromptTemplates:false——技能命令已在上方自行展开,
-              // 否则用户消息以 /mcp 等开头会派发扩展命令
-              expandPromptTemplates: false,
-              images: preparedAttachments.images,
-              text: agentPrompt,
-              type: "prompt",
-            },
+            prompt: runtimePrompt,
             spec: {
-              appendSystemPrompt: [
-                buildSkillsSystemPrompt(skills),
-                schedulingPrompt + new Date().toISOString(),
-                ...(executionPrompt ? [executionPrompt] : []),
-              ],
+              lane: routing.lane,
+              ...(isDurable
+                ? {
+                    durableChat: {
+                      attachments: durableTurn?.attachments ?? [],
+                      catalogModelId: chatModel,
+                      promptHash: hashDurablePrompt(runtimePrompt),
+                      userId: session.user.id,
+                    },
+                  }
+                : {}),
+              appendSystemPrompt: isDurable
+                ? [executionPrompt]
+                : [
+                    buildSkillsSystemPrompt(skills),
+                    schedulingPrompt + new Date().toISOString(),
+                    ...(executionPrompt ? [executionPrompt] : []),
+                  ],
               chatId: id,
               historyMessages,
               model: piModel,
               systemPrompt: baseSystemPrompt,
-              tools: [
-                ...createSkillTools(skills),
-                ...scheduledTaskTools(session.user.id, currentUserMessage.id),
-              ],
+              tools: isDurable
+                ? []
+                : [
+                    ...createSkillTools(skills),
+                    ...scheduledTaskTools(
+                      session.user.id,
+                      currentUserMessage.id
+                    ),
+                  ],
               workspaceDir,
             },
             userId: session.user.id,

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import { overlap } from "@earendil-works/chord/delta";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { createModels, type Message } from "@earendil-works/pi-ai";
 import {
@@ -48,21 +49,31 @@ function toDurableTool(
   return {
     description: tool.description,
     execute: async (args, api, context) => {
+      let previousOutput = "";
       try {
         await authorize?.();
         const result = await tool.execute(
           api.callId,
-          args as never,
-          context.abortSignal
+          args,
+          context.abortSignal,
+          (update) => {
+            const text = update.content
+              .filter((block) => block.type === "text")
+              .map((block) => block.text)
+              .join("");
+            const shared = text.startsWith(previousOutput)
+              ? previousOutput.length
+              : overlap(previousOutput, text, 65_536);
+            api.output(text.slice(shared));
+            previousOutput = text;
+          }
         );
         if (result.isError) {
           onFailure?.(new Error("runtime:durable:tool-reported-failure"));
         }
         return {
           content: result.content,
-          ...(result.details === undefined
-            ? {}
-            : { details: result.details as never }),
+          ...(result.details === undefined ? {} : { details: result.details }),
           ...(result.isError === undefined ? {} : { isError: result.isError }),
         };
       } catch (error) {
@@ -71,7 +82,7 @@ function toDurableTool(
       }
     },
     name: tool.name,
-    parameters: tool.parameters as never,
+    parameters: tool.parameters,
     replay: "unsafe",
   };
 }
@@ -110,10 +121,28 @@ type StreamSink = {
  * 模型桥复用 lib/ai/pi 的 provider 体系（测试环境即 faux 供应商）。
  * 已知差口：deliver_file 归档、执行工具沙箱边界、MCP/Skill 装配不在本原型内。
  */
+export type DurableExecution = {
+  tools: AgentTool[];
+  /** Idempotent stop + termination verification, before terminal/owner release. */
+  close: () => Promise<void>;
+};
+
 export type DurableBackendOptions = {
   storageFactory?: (spec: RuntimeSpec) => Promise<OwnedDurableStorage>;
   /** Platform current identity/grants, before open AND each execute; not only beforeTool. */
   authorize?: (spec: RuntimeSpec) => Promise<void>;
+  /** Trusted execution adapter; requires owned storage and authorization.
+   * Called after recovery inspection, before submit/wait/resume.
+   * Managed execution is single-run (no steer/follow-up/second prompt).
+   */
+  executionFactory?: (
+    spec: RuntimeSpec,
+    context: {
+      harness: Harness;
+      conversation: Awaited<ReturnType<Harness["root"]>>;
+      emit: (event: RuntimeEvent) => void;
+    }
+  ) => Promise<DurableExecution>;
 };
 
 export class DurableBackend implements RuntimeBackend {
@@ -123,6 +152,12 @@ export class DurableBackend implements RuntimeBackend {
   }
 
   async open(spec: RuntimeSpec): Promise<RuntimeSession> {
+    if (
+      this.options.executionFactory &&
+      (!this.options.storageFactory || !this.options.authorize || !spec.runId)
+    ) {
+      throw new Error("runtime:durable:managed-execution-requires-owned-run");
+    }
     if (this.options.storageFactory && !this.options.authorize) {
       throw new Error("runtime:durable:missing-authorization");
     }
@@ -131,11 +166,17 @@ export class DurableBackend implements RuntimeBackend {
     }
     const { authorize } = this.options;
     await authorize?.(spec);
-    if (this.options.storageFactory && spec.workspaceDir !== null) {
+    if (
+      this.options.storageFactory &&
+      spec.workspaceDir !== null &&
+      !this.options.executionFactory
+    ) {
       throw new Error("runtime:durable:sandbox-execution-not-integrated");
     }
     const owned = await this.options.storageFactory?.(spec);
     let harness: Harness | undefined;
+    let execution: DurableExecution | undefined;
+    const queue = new AsyncEventQueue<RuntimeEvent>();
     let toolFailure: string | undefined;
     let abortRun: (() => Promise<void>) | undefined;
     const onFailure = (error: unknown) => {
@@ -150,27 +191,7 @@ export class DurableBackend implements RuntimeBackend {
       }
 
       const registry = createRegistry();
-      registry.install(
-        defineExtension({
-          name: "piwork",
-          sections: [
-            section(
-              "piwork",
-              () =>
-                [spec.systemPrompt, ...spec.appendSystemPrompt].join("\n\n"),
-              { tag: false }
-            ),
-          ],
-          tools: spec.tools.map((tool) =>
-            toDurableTool(
-              tool,
-              authorize ? () => authorize(spec) : undefined,
-              owned ? onFailure : undefined
-            )
-          ),
-        })
-      );
-
+      // No NodeExecutionEnv, CodingTools, extensions or MCP are installed.
       harness = await HarnessClass.open(
         owned?.storage ?? new MemoryStorage(),
         {
@@ -185,6 +206,32 @@ export class DurableBackend implements RuntimeBackend {
       }
       const conversation = await harness.root(BACKGROUND_CONTEXT);
       abortRun = () => conversation.abort(BACKGROUND_CONTEXT);
+      execution = await this.options.executionFactory?.(spec, {
+        conversation,
+        emit: (event) => queue.push(event),
+        harness,
+      });
+      registry.install(
+        defineExtension({
+          name: "piwork",
+          sections: [
+            section(
+              "piwork",
+              () =>
+                [spec.systemPrompt, ...spec.appendSystemPrompt].join("\n\n"),
+              { tag: false }
+            ),
+          ],
+          tools: (execution?.tools ?? spec.tools).map((tool) =>
+            toDurableTool(
+              tool,
+              authorize ? () => authorize(spec) : undefined,
+              owned ? onFailure : undefined
+            )
+          ),
+        })
+      );
+
       await conversation.configure(
         { model: { modelId: spec.model.id, provider: spec.model.provider } },
         BACKGROUND_CONTEXT
@@ -201,13 +248,14 @@ export class DurableBackend implements RuntimeBackend {
         }, BACKGROUND_CONTEXT);
       }
 
-      const queue = new AsyncEventQueue<RuntimeEvent>();
       const session = new DurableRuntimeSession(
         harness,
         conversation,
         queue,
         owned,
-        () => toolFailure
+        () => toolFailure,
+        execution,
+        spec.runId
       );
       // 事件流自 open() 起挂接；队列同样自 open() 起缓冲，观察窗口不小于现状
       const stream = await watchEvents(
@@ -232,6 +280,8 @@ export class DurableBackend implements RuntimeBackend {
       return session;
     } catch (error) {
       try {
+        // Retain ownership when sandbox termination is unconfirmed.
+        await execution?.close();
         await harness?.close(BACKGROUND_CONTEXT);
         await owned?.close();
       } catch (cleanup) {
@@ -255,6 +305,9 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
   private closing: Promise<void> | undefined;
   private readonly owned?: OwnedDurableStorage;
   private readonly readToolFailure?: () => string | undefined;
+  private readonly execution?: DurableExecution;
+  private readonly platformRunId?: string;
+  private prompted = false;
 
   private closed = false;
   private eventsConsumed = false;
@@ -271,8 +324,12 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
     conversation: Awaited<ReturnType<Harness["root"]>>,
     queue: AsyncEventQueue<RuntimeEvent>,
     owned?: OwnedDurableStorage,
-    readToolFailure?: () => string | undefined
+    readToolFailure?: () => string | undefined,
+    execution?: DurableExecution,
+    platformRunId?: string
   ) {
+    this.execution = execution;
+    this.platformRunId = platformRunId;
     this.readToolFailure = readToolFailure;
     this.owned = owned;
     this.harness = harness;
@@ -298,17 +355,26 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
     if (this.closed) {
       return { error: "backend_closed", ok: false };
     }
+    if (
+      this.execution &&
+      (command.type === "steer" ||
+        command.type === "followUp" ||
+        (command.type === "prompt" && this.prompted))
+    ) {
+      return { error: "managed_execution_single_run", ok: false };
+    }
     // biome-ignore lint/style/useDefaultSwitchClause: 联合已穷尽，保留 TS 未覆盖分支检查
     switch (command.type) {
       case "prompt": {
         if (this.runInFlight) {
           return { error: "prompt_in_flight", ok: false };
         }
+        this.prompted = true;
         this.runInFlight = true;
         this.aborted = false;
         this.lastError = undefined;
         this.terminalEmitted = false;
-        this.currentRunId = newRunId();
+        this.currentRunId = this.platformRunId ?? newRunId();
         this.queue.push({ runId: this.currentRunId, type: "run.started" });
         // 终态由 watch 流的 run_end 推导：endRun 与提交结算在同一 commit，
         // run_end 送达时当前 submission 已是终态记录，可查 reason/detail
@@ -319,20 +385,29 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
                 ? [{ text: command.text, type: "text" }, ...command.images]
                 : command.text,
               type: "input",
+              ...(this.execution
+                ? { requestId: `${this.currentRunId}:prompt` }
+                : {}),
             },
             BACKGROUND_CONTEXT
           )
           .then((submission) => {
             this.currentSubmission = submission;
           })
-          .catch((error: unknown) => this.failTerminal(messageOf(error)));
+          .catch(async (error: unknown) => {
+            await this.stopExecution();
+            this.failTerminal(this.lastError ?? messageOf(error));
+          });
         return { ok: true };
       }
       case "abort": {
         this.aborted = true;
         // 不等待 idle：与 InProcess 的 abort 一致，受理即返回
         this.conversation.abort(BACKGROUND_CONTEXT).catch(() => undefined);
-        return { ok: true };
+        await this.stopExecution();
+        return this.lastError
+          ? { error: this.lastError, ok: false }
+          : { ok: true };
       }
       case "steer": {
         try {
@@ -407,8 +482,19 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
     this.closed = true;
     this.closing ??= (async () => {
       try {
+        let executionError: unknown;
+        try {
+          await this.execution?.close();
+        } catch (error) {
+          executionError = error;
+        }
+        // Stop the scheduler/watch even when sandbox cleanup fails, but never
+        // release the storage owner marker in that uncertain state.
         await this.unsubscribeWatch?.();
         await this.harness.close(BACKGROUND_CONTEXT);
+        if (executionError) {
+          throw executionError;
+        }
         await this.owned?.close();
       } finally {
         this.queue.end();
@@ -431,7 +517,9 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
     this.terminalEmitted = true;
     this.runInFlight = false;
     const runId = this.currentRunId;
-    const failure = this.readToolFailure?.() ?? this.normalizer.failure;
+    await this.stopExecution();
+    const failure =
+      this.lastError ?? this.readToolFailure?.() ?? this.normalizer.failure;
     if (!failure && !this.aborted && this.currentSubmission !== undefined) {
       const record = await this.currentSubmission
         .status(BACKGROUND_CONTEXT)
@@ -466,6 +554,14 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
         ? { reason: "aborted", runId, type: "run.settled" }
         : { reason: "completed", runId, type: "run.settled" }
     );
+  }
+
+  private async stopExecution(): Promise<void> {
+    try {
+      await this.execution?.close();
+    } catch (error) {
+      this.lastError ??= messageOf(error);
+    }
   }
 
   /** submit 受理失败的兜底终态（正常路径不会走到） */

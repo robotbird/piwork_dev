@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
     : {}),
   cacheComponents: true,
   devIndicators: false,
+  // Separate build output supports isolated validation servers without touching an active dev build.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
   },
@@ -60,6 +62,9 @@ const nextConfig: NextConfig = {
   ],
   // pi-auto-router publishes TypeScript sources, including the pure classifier.
   transpilePackages: ["pi-auto-router"],
+  typescript: {
+    tsconfigPath: process.env.NEXT_TSCONFIG_PATH || "tsconfig.json",
+  },
 };
 
 export default withNextIntl(withBotId(nextConfig));

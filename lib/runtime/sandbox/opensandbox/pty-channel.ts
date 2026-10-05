@@ -122,11 +122,14 @@ function defaultPtyWebSocketFactory(
 }
 
 class ByteQueue {
-  private readonly chunks: Uint8Array[] = [];
-  private readonly waiters: Array<(chunk: Uint8Array | null) => void> = [];
+  private readonly chunks: Array<{ data: Uint8Array; stderr: boolean }> = [];
+  private readonly waiters: Array<
+    (chunk: { data: Uint8Array; stderr: boolean } | null) => void
+  > = [];
   private ended = false;
 
-  push(chunk: Uint8Array): void {
+  push(data: Uint8Array, stderr = false): void {
+    const chunk = { data, stderr };
     if (this.ended) {
       return;
     }
@@ -145,7 +148,7 @@ class ByteQueue {
     }
   }
 
-  pull(): Promise<Uint8Array | null> {
+  pull(): Promise<{ data: Uint8Array; stderr: boolean } | null> {
     const chunk = this.chunks.shift();
     if (chunk !== undefined) {
       return Promise.resolve(chunk);
@@ -211,14 +214,19 @@ function withTimeout<T>(
   });
 }
 
-async function* readFromQueue(queue: ByteQueue): AsyncGenerator<Uint8Array> {
+async function* readFromQueue(
+  queue: ByteQueue,
+  combined = false
+): AsyncGenerator<Uint8Array> {
   while (true) {
     // biome-ignore lint/performance/noAwaitInLoops: 逐块消费队列即语义本身
     const chunk = await queue.pull();
     if (chunk === null) {
       return;
     }
-    yield chunk;
+    if (combined || !chunk.stderr) {
+      yield chunk.data;
+    }
   }
 }
 
@@ -298,7 +306,10 @@ export async function openPtyExecChannel(
   let closed = false;
   let sentinelSeen = false;
   const stdout = new ByteQueue();
+  let reading = false;
   const preReadyStderr: string[] = [];
+  let readyStderr = Buffer.alloc(0);
+  const readyMarker = Buffer.from(`${EXEC_READY_SENTINEL}\n`);
   const opened = defer();
   const ready = defer();
   let exitResolve: ((info: SandboxExit) => void) | null = null;
@@ -332,13 +343,38 @@ export async function openPtyExecChannel(
         stdout.push(frame.data);
         return;
       case "stderr": {
-        if (!sentinelSeen) {
-          const text = decoder.decode(frame.data);
-          if (text.includes(EXEC_READY_SENTINEL)) {
+        if (sentinelSeen) {
+          stdout.push(frame.data, true);
+        } else {
+          // A WS frame boundary is not a line boundary. Keep a bounded startup
+          // buffer and preserve bytes following the marker in the same frame.
+          if (readyStderr.length + frame.data.length > 64 * 1024) {
+            ready.reject(
+              new SandboxUnavailableError(
+                "opensandbox: startup stderr limit exceeded"
+              )
+            );
+            return;
+          }
+          readyStderr = Buffer.concat([readyStderr, frame.data]);
+          const marker = readyStderr.indexOf(readyMarker);
+          if (marker >= 0) {
+            preReadyStderr.push(
+              decoder.decode(readyStderr.subarray(0, marker))
+            );
             sentinelSeen = true;
+            const remainder = readyStderr.subarray(marker + readyMarker.length);
+            if (remainder.length) {
+              stdout.push(remainder, true);
+            }
+            readyStderr = Buffer.alloc(0);
             ready.resolve();
           } else {
-            preReadyStderr.push(text);
+            preReadyStderr.splice(
+              0,
+              preReadyStderr.length,
+              decoder.decode(readyStderr)
+            );
           }
         }
         return;
@@ -446,7 +482,18 @@ export async function openPtyExecChannel(
     },
     onExit,
     async *read() {
+      if (reading) {
+        throw new Error("opensandbox: channel output is single-consumer");
+      }
+      reading = true;
       yield* readFromQueue(stdout);
+    },
+    async *readCombined() {
+      if (reading) {
+        throw new Error("opensandbox: channel output is single-consumer");
+      }
+      reading = true;
+      yield* readFromQueue(stdout, true);
     },
     write(chunk) {
       if (exitInfo || closed) {

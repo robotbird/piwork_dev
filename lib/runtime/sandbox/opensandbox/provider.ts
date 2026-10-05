@@ -478,6 +478,11 @@ class OpenSandboxHandle implements SandboxHandle {
   }
 
   async destroy(policy: SandboxReleasePolicy): Promise<void> {
+    // kill already succeeded; SDK.close() has released its transport. A second
+    // kill through that closed client is not a new lifecycle observation.
+    if (this.destroyedStatus === "destroyed") {
+      return;
+    }
     const { sandbox } = this.ctx;
     try {
       if (policy === "kill") {

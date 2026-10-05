@@ -427,6 +427,9 @@ test("release：kill/pause/keep 策略映射与幂等销毁", async () => {
   assert.ok(killHarness.sandbox.killed);
   assert.ok(killHarness.sandbox.closed);
   assert.equal(await killHandle.status(), "destroyed");
+  killHarness.sandbox.kill = () =>
+    Promise.reject(new Error("closed client must not be called"));
+  await killHarness.provider.release(killHandle, "kill");
 
   const pauseHarness = makeHarness();
   const pauseHandle = await pauseHarness.provider.acquire(makeSpec());
@@ -710,6 +713,56 @@ test("PTY 通道：建会话→WS→exec 行→哨兵后可用，帧双向保真
   socket.simulateMessage('{"type":"exit","exit_code":42}');
   assert.deepEqual(await channel.onExit, { code: 42, signal: null });
   await reader.return?.();
+});
+
+test("PTY startup handles a fragmented sentinel and preserves same-frame stderr", async () => {
+  const harness = channelHarness();
+  await new Promise((resolve) => setImmediate(resolve));
+  const [socket] = harness.sockets;
+  socket.simulateOpen();
+  const encoder = new TextEncoder();
+  socket.simulateBinary(0x02, encoder.encode("piwork:exec-"));
+  socket.simulateBinary(0x02, encoder.encode("ready\ncommand-stderr"));
+  const channel = await harness.promise;
+  socket.simulateMessage('{"type":"exit","exit_code":0}');
+  assert.ok(channel.readCombined);
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of channel.readCombined()) {
+    chunks.push(chunk);
+  }
+  assert.equal(Buffer.concat(chunks).toString(), "command-stderr");
+  await channel.close();
+});
+
+test("PTY tools output preserves stdout/stderr arrival order; RPC read stays stdout-only", async () => {
+  await Promise.all(
+    [false, true].map(async (combined) => {
+      const harness = channelHarness();
+      const channel = await driveUntilReady(harness);
+      const [socket] = harness.sockets;
+      const encoder = new TextEncoder();
+      socket.simulateBinary(0x01, encoder.encode("out1"));
+      socket.simulateBinary(0x02, encoder.encode("err"));
+      socket.simulateBinary(0x01, encoder.encode("out2"));
+      socket.simulateMessage('{"type":"exit","exit_code":0}');
+      const chunks: Uint8Array[] = [];
+      assert.ok(channel.readCombined);
+      for await (const chunk of combined
+        ? channel.readCombined()
+        : channel.read()) {
+        chunks.push(chunk);
+      }
+      assert.equal(
+        Buffer.concat(chunks).toString(),
+        combined ? "out1errout2" : "out1out2"
+      );
+      await assert.rejects(
+        channel.read()[Symbol.asyncIterator]().next(),
+        /single-consumer/
+      );
+      await channel.close();
+    })
+  );
 });
 
 test("PTY 通道：endInput 映射 SIGTERM 信号帧；close 发 DELETE 并收尾", async () => {

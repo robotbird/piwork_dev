@@ -1,4 +1,3 @@
-import type { SandboxRuntimeConfig } from "../runtime/sandbox";
 import type { InferSelectModel } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
@@ -15,6 +14,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import type { SandboxRuntimeConfig } from "../runtime/sandbox";
 
 export const user = pgTable("User", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
@@ -380,9 +380,9 @@ export type Suggestion = InferSelectModel<typeof suggestion>;
 export const agentRun = pgTable(
   "AgentRun",
   {
-    /** 执行后端：in_process（MVP）| sandbox_rpc（Step 3+） */
+    /** durable_sandbox is an explicit non-production probe; SQL remains varchar. */
     backend: varchar("backend", {
-      enum: ["in_process", "sandbox_rpc"],
+      enum: ["in_process", "sandbox_rpc", "durable_sandbox"],
     })
       .notNull()
       .default("in_process"),

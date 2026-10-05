@@ -22,6 +22,7 @@ export class LeasingSandboxProvider implements SandboxProvider {
   private readonly inner: SandboxProvider;
   private readonly registry: SandboxRegistry;
   private readonly options: { reuse?: boolean };
+  private readonly underlying = new WeakMap<SandboxHandle, SandboxHandle>();
 
   constructor(
     inner: SandboxProvider,
@@ -71,7 +72,11 @@ export class LeasingSandboxProvider implements SandboxProvider {
     handle: SandboxHandle,
     policy: SandboxReleasePolicy
   ): Promise<void> {
-    await this.inner.release(handle, policy);
+    const raw = this.underlying.get(handle);
+    if (!raw) {
+      throw new Error("sandbox:leasing:foreign-handle");
+    }
+    await this.inner.release(raw, policy);
     await this.registry.released(this.inner.name, handle.id, policy);
   }
 
@@ -108,7 +113,7 @@ export class LeasingSandboxProvider implements SandboxProvider {
     const { registry } = this;
     const { name: provider } = this.inner;
     const { ttlSeconds: ttl = 3600 } = spec ?? {};
-    return {
+    const wrapped: SandboxHandle = {
       destroy: async (policy) => {
         await handle.destroy(policy);
         await registry.released(provider, handle.id, policy);
@@ -125,6 +130,8 @@ export class LeasingSandboxProvider implements SandboxProvider {
       workspaceRoot: handle.workspaceRoot,
       writeFile: (path, content) => handle.writeFile(path, content),
     };
+    this.underlying.set(wrapped, handle);
+    return wrapped;
   }
 }
 

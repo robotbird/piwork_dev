@@ -1,5 +1,6 @@
 import "../../../support/runtime-env";
 import assert from "node:assert/strict";
+import { rm } from "node:fs/promises";
 import test from "node:test";
 import {
   type SandboxSpec,
@@ -14,6 +15,39 @@ import { TestSandboxProvider } from "../../../support/sandbox/test-sandbox-provi
  * 粒度）：chat 复用、attach 失败重建、生命周期记账、fail-closed 传播。
  * 底座用 TestSandboxProvider（本机进程替身），registry 用内存替身——不触 DB。
  */
+
+test("leased release unwraps raw handle for strict providers, rejects foreign handles and does not double-account", async (t) => {
+  const inner = new TestSandboxProvider();
+  const raw = await inner.acquire(makeSpec());
+  t.after(async () => {
+    await raw.destroy("kill");
+    await rm(raw.workspaceRoot, { force: true, recursive: true });
+  });
+  inner.acquire = () => Promise.resolve(raw);
+  let released = 0;
+  inner.release = async (received, policy) => {
+    assert.equal(
+      received,
+      raw,
+      "OpenSandbox/Docker require their actual handle, not the lease wrapper"
+    );
+    released += 1;
+    await received.destroy(policy);
+  };
+  const registry = new InMemorySandboxRegistry();
+  const leased = new LeasingSandboxProvider(inner, registry, { reuse: false });
+  const handle = await leased.acquire(makeSpec());
+  assert.notEqual(handle, raw);
+  await assert.rejects(leased.release(raw, "kill"), /foreign-handle/);
+  assert.equal(released, 0);
+  await leased.release(handle, "kill");
+  assert.equal(released, 1);
+  assert.equal(
+    registry.events.filter((event) => event.kind === "released").length,
+    1
+  );
+  assert.equal(await handle.status(), "destroyed");
+});
 
 function makeSpec(overrides: Partial<SandboxSpec> = {}): SandboxSpec {
   return {

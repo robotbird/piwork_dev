@@ -7,11 +7,13 @@ import { registerGeneratedFile } from "@/lib/db/library-queries";
 import { upsertMessage } from "@/lib/db/queries";
 import { PostgresEventStore } from "@/lib/db/runtime-event-queries";
 import { DurableBackend } from "../backends/durable/backend";
+import { readDurableChatConfig } from "../backends/durable/chat-policy";
 import { InProcessBackend } from "../backends/in-process/backend";
 import {
   RoutingRuntimeBackend,
   requiresSandbox,
 } from "../backends/routing/backend";
+import { ExplicitDurableRuntimeBackend } from "../backends/routing/explicit-durable";
 import {
   type SandboxInferenceOptions,
   SandboxRpcBackend,
@@ -22,9 +24,13 @@ import {
   type UpstreamResolver,
 } from "../inference-proxy";
 import type { RuntimeBackend, RuntimeSpec } from "../protocol";
-import { buildSandboxProvider, parseOptionalInt } from "../sandbox/configuration";
+import {
+  buildSandboxProvider,
+  parseOptionalInt,
+} from "../sandbox/configuration";
 import { LeasingSandboxProvider } from "../sandbox/leasing";
 import { dbSandboxRegistry } from "../sandbox/registry";
+import { buildDurableChatBackend } from "./durable-chat";
 import { RunManager } from "./run-manager";
 
 /**
@@ -131,7 +137,6 @@ function buildInferenceOptions(): SandboxInferenceOptions | undefined {
   };
 }
 
-
 function resolveBackend(): {
   backend: RuntimeBackend;
   backendKind?: "in_process" | "sandbox_rpc";
@@ -187,14 +192,23 @@ const globalScope = globalThis as Record<symbol, RunManagerGlobal | undefined>;
 globalScope[RUN_MANAGER_KEY] ??= {};
 const runtimeGlobal = globalScope[RUN_MANAGER_KEY];
 
-const resolved = resolveBackend();
+const normal = resolveBackend();
+const durableChatConfig = readDurableChatConfig();
+const resolved = {
+  backend: new ExplicitDurableRuntimeBackend(
+    normal.backend,
+    durableChatConfig ? buildDurableChatBackend(durableChatConfig) : undefined
+  ),
+  backendKindFor: (spec: RuntimeSpec) =>
+    spec.lane === "durable_sandbox"
+      ? ("durable_sandbox" as const)
+      : (normal.backendKindFor?.(spec) ?? normal.backendKind ?? "in_process"),
+};
 
 runtimeGlobal.workerId ??= globalThis.crypto.randomUUID();
 runtimeGlobal.manager ??= new RunManager({
   backend: resolved.backend,
-  ...(resolved.backendKindFor
-    ? { backendKindFor: resolved.backendKindFor }
-    : { backendKind: resolved.backendKind ?? "in_process" }),
+  backendKindFor: resolved.backendKindFor,
   eventStore: new PostgresEventStore(),
   messageStore: {
     upsertAssistantMessage: async ({ chatId, id, parts }) => {

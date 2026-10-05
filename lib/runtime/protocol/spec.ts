@@ -7,7 +7,23 @@ import type { Api, Message, Model } from "@earendil-works/pi-ai";
  * 运行宿主内部继续保留这些类型；跨进程/持久化边界使用独立的 RunDescriptor，
  * 不向本类型继续添加附件字节或跨进程工具闭包（企业 MVP 方案 §2.1）。
  */
+export type DurableChatAttachment = {
+  libraryItemId: string;
+  path: string;
+  sha256: string;
+  size: number;
+};
+
 export type RuntimeSpec = {
+  /** Explicit request lane. Selection is not authorization. */
+  lane?: "default" | "durable_sandbox";
+  /** Server-assembled, reference-only grant; never accepted from request JSON. */
+  durableChat?: {
+    userId: string;
+    catalogModelId: string;
+    promptHash: string;
+    attachments: DurableChatAttachment[];
+  };
   /** Assigned by RunManager; shared with sandbox registry and inference audit. */
   runId?: string;
   /** 关联聊天；Step 2 起映射 AgentRun，Step 1 仅透传 */

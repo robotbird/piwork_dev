@@ -4,6 +4,8 @@
 
 Web、独立 Worker/Sandbox 与未来 Desktop 的整体演进方向见 [平台与 Agent Runtime 演进架构](platform-runtime-roadmap.md)。最新实施基线见 [千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)：目标为工具级沙箱 → 单 Worker → 受控 Durable 车道。**执行路径改造尚未接入生产**；RunDescriptor/ExecutionState、LazySandbox、操作错误分类、限额/原子文件能力与四工具工厂已落地；已实现 SandboxToolsBackend 协议适配器、私有制品存储与交付回调，Docker 新契约已通过，生产接线与治理尚未完成，见 [实施记录](runtime-foundation-implementation.md)。现状中的 RPC、Next.js 内 RunManager、Docker 无 reaper 保持不变；Durable 新增 SQLite/单写者/恢复阻断基础，生产默认 MemoryStorage 路径已明确拒绝，但正式 Worker 接线仍未完成。
 
+本轮新增 [Durable + Sandbox 受控组合](durable-sandbox-composition.md)：`DurableSandboxBackend` 复用官方 Harness/私有 owned SQLite 与现有 lazy 四工具，已通过真实 OpenSandbox 功能契约；fresh-run、单 prompt、deny-all、非生产显式探针。执行映射存官方 document；终态前回收，清理失败保留归属。**已接非生产自动聊天分流：开发环境所有正式启用成员无需勾选，test 保留 UUID 白名单；未启用时默认矩阵不变，Worker/自动恢复不变**；全局 env 互斥仍保留，现有 SandboxToolsBackend 的 OpenSandbox 拒绝门禁不变。`/api/chat/runtime-options` 仅保留能力查询，UI 不选择后端；分类不是授权；正式 DB 授权、水合/私有归档在服务端装配，实际后端落 `AgentRun.backend=durable_sandbox`（varchar，仅扩 TS 值域，无 SQL enum/迁移）。
+
 ## 1. 系统边界
 
 Piwork 是 Next.js 16 App Router 企业智能体平台。浏览器负责聊天、文件、Skill 与管理界面；Next.js 服务端负责身份鉴权、管理权限、会话编排、Pi 会话宿主、流转发和持久化；PostgreSQL/Drizzle 保存用户、组织、聊天、运行事件和管理配置。模型能力由 Pi Provider 提供，前端通过 AI SDK UI message stream 消费结果。文件可写入 Vercel Blob 或本地存储，聊天执行工作区位于 `.pi/workspace/<chatId>`，受管 Pi 包位于 `.piwork/pi-agent`。
@@ -41,7 +43,7 @@ flowchart LR
 | `app/(chat)` | 聊天页、聊天/文档/上传/模型/Skill API；`api/chat/route.ts` 是请求入口，`stream-mapping.ts` 负责协议到 UI stream 的映射 |
 | `app/(admin)` | 组织、成员、角色、模型插件、Pi Package、MCP、Skill、沙箱的管理页与 API |
 | `components/chat`、`components/admin`、`components/ui`、`hooks` | 页面组合、业务组件、基础组件和前端状态/hooks |
-| `lib/runtime/protocol` | 平台内的 `RuntimeSpec`、命令、事件、`RuntimeBackend`/`RuntimeSession` 契约；新增 P0 `RunDescriptor` 严格 JSON 契约与独立 `ExecutionState` 转换检查，尚未接入 job/DB/路由 |
+| `lib/runtime/protocol` | 平台内的 `RuntimeSpec`、命令、事件、`RuntimeBackend`/`RuntimeSession` 契约；RuntimeSpec 的 durableChat 是宿主 reference-only 授权输入（无附件字节/闭包），仍非 Worker DTO；新增 P0 `RunDescriptor` 严格 JSON 契约与独立 `ExecutionState` 转换检查，尚未接入 job/DB/路由 |
 | `lib/runtime/backends` | `in-process` 当前运行适配器；`local-rpc` 是已实现的本机子进程适配器，尚未接入生产默认路径；`sandbox-rpc` 把官方 `RpcClient` 经 bridge 泵接进沙箱内 pi，含 Artifact Gateway（deliver_file 出站）与 Inference Proxy 客户端装配（models.json/run token/egress 派生）；`routing` 按 v2.0 §8.1 矩阵逐 run 分流（执行工具 → 沙箱、纯对话 → in-process）；经 `PIWORK_SANDBOX_PROVIDER=docker\|opensandbox` 装配（默认关闭）；Pi 事件归一化和事件队列。新增 `sandbox-tools` 已实现 RuntimeBackend（复用 InProcessRuntimeSession/官方 SDK、资源回收后终结、未知结果/授权失败强制失败），可注入私有交付；尚未接入生产路由/DB backend 枚举 |
 | `lib/runtime/inference-proxy` | 控制面旁路 HTTP 反代（pi-messages wire 协议）：`server.ts`（鉴权/SSE 中继/审计）、`tokens.ts`（AgentRun 级短期窄 token）、`models-manifest.ts`（沙箱 agentDir models.json 生成）、`events.ts`（AssistantMessageEvent → SSE 行映射）；真实模型凭据只在本层内侧（模型插件 Worker host） |
 | `lib/runtime/sandbox` | Pi 无关的 `SandboxProvider`/`SandboxHandle`/`SandboxChannel` seam、DB 注册表/租约、UDS bridge 泵与 shim、`docker/` CLI provider（安全基线自持，egress 默认 deny-all / allowlist 网桥近似）与 `opensandbox/` 生产 provider（SDK 隔离在该目录）；新增可选 `SandboxHandle.filesystem` 能力（Linux 固定 Node helper、限额/stat/原子写）与 `readCombined`（RPC stdout 不变），旧 RPC 文件 API 不变；详见 [OpenSandbox 接入 Spec](opensandbox-integration-spec.md) |
@@ -64,6 +66,10 @@ flowchart LR
 4. 沙箱 argv 派生显式使用配置的 remoteCliPath，不调用宿主 `import.meta.resolve`（Next.js Turbopack 不支持）；宿主仍由官方 RpcClient 经 bridge shim 启动。backend.open 失败由 RunManager 记录 failed 与真实错误并释放 lease，避免遗留 queued；聊天流错误在服务端记录，客户端保持通用提示。
 5. Pi 事件由 `lib/runtime/backends/pi-event-normalizer.ts` 转为平台 `RuntimeEvent`。`RunManager` 管理运行状态、事件序号、订阅与重放；关键事件写入 `RuntimeEvent` 表，最终 assistant 消息落库。`stream-mapping.ts` 才把平台事件转成前端 UI message stream。
 
+服务端自动分流在原职责链上追加（class 名称中的 Explicit 指服务端选定的内部 lane，不是用户勾选）：`route → RunManager → ExplicitDurableRuntimeBackend → DurableChatBackend → 官方 Harness/owned SQLite → LazySandbox/filesystem`。只有一套 agent loop，宿主模型凭据/SQLite 不进入沙箱。`run/durable-chat.ts` 注入 `db/durable-chat-queries.ts` 的正式 enabled/归属/运行状态检查及启用模型目录复核，prompt/hash/配置绑定，工具执行前复核；目录缓存沿用最多 30 秒。附件是本人 LibraryItem 引用，最多 5 个/每个 20 MB/总计 50 MB，图像累计 8 MB；不在宿主解析 Office/图片。原始字节使用有界下载与 hash/size 复核，通过原子 filesystem 水合到相对 inputs 路径；授权/水合失败必须回收，不忽略附件或回退宿主。私有交付先保存并登记本人 LibraryItem，再经 RuntimeEvent 发文件。每条新消息是新 run/新工作区，仅复用文本历史；没有跨进程平台闭包支持。
+
+Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知可能落 failed，不能重写为 settled/aborted，仍 kill/核验、不重放。Leasing release 通过 WeakMap 把本层 wrapper 解包为原 provider handle，保持严格 provider 的归属校验与单次记账。HTTP fixture 在唯一 PG schema 隔离平台表、独立 build/tsconfig 和私有 SQLite；不把 Runtime checkpoint 改存 PG，也不把功能测试当 UI/恢复/容量证明。
+
 **边界约束**：路由不直接依赖某个 Pi 事件格式；前端不直接消费 Pi SDK/RPC 事件。`RuntimeSpec` 目前仍含 Pi 类型，是服务端内部契约；不要将其宣称为可跨进程序列化的通用 DTO。数据库聊天历史重建为 Pi 会话消息，不能等同于 Pi 原生持久会话的完整状态。
 
 ## 4. 管理与资源链路
@@ -84,6 +90,7 @@ flowchart LR
 | LocalRpcBackend | 已有实现与契约测试；生产组装尚未选用 |
 | SandboxRpcBackend + SandboxProvider seam | spec Phase 0/1/2/3 已落地（完成标准全部达成）：seam/契约测试/沙箱注册表与租约/管理页、DockerSandboxProvider（契约套件 12/12，含 egress allowlist 对照）、OpenSandboxProvider（离线 21 用例 + 真实 server 契约 gated 复验 12/12）、Artifact Gateway（deliver_file 出站）、`PIWORK_SANDBOX_PROVIDER=docker\|opensandbox` 装配开关（默认关闭 = InProcess 不变，fail-closed）、pi-runtime 镜像（`docker/pi-runtime`）与 Docker provider 上的 RPC 契约 gated 入口（`PIWORK_SANDBOX_DOCKER_RPC_TESTS=1`，7/7）。见 [OpenSandbox 接入 Spec](opensandbox-integration-spec.md) |
 | 路由矩阵（v2.0 §8.1） | spec Phase 5 MVP 已落地：`RoutingRuntimeBackend` 逐 run 分流（执行工具 → 沙箱、纯对话 → in-process 并存非降级），AgentRun.backend 落实际执行位，fail-closed 不回落；`PIWORK_SANDBOX_ROUTING=matrix`（默认）\|`all`；docker 档冷启动实测 P50 490ms（≤3s 达标）。Package/MCP 入沙箱、闭包工具桥接、Worker 化与资源审计未落地（spec §6 Phase 5 未落地清单） |
+| Durable 聊天自动分流 | route 在附件解析/宿主 workspace 创建前复用执行分类器与 `routing/chat-routing.ts` 选择内部 lane；客户端不指定后端。问答走轻量路径，四工具执行任务走 Durable；Skill/平台能力关键词、已登记能力名称、近期非四工具调用、审批与分类不确定保守留原矩阵，不扩张其已有能力。`ExplicitDurableRuntimeBackend` 接服务端选定的 lane；正式启用成员 + 非生产（development 无需白名单，test 仍要求 UUID 白名单），owned SQLite 留宿主，四工具/私有交付进 fresh 临时沙箱，水合前复核 LibraryItem/hash/size。backendKindFor 落 durable_sandbox，Skill/MCP/Package/定时任务/审批续跑不支持，失败无 fallback；真实 OpenSandbox/模型 `/api/chat` HTTP 验收通过。无 Worker、自动恢复、持久 workspace 或容量承诺 |
 | DurableBackend（Pi Durable） | 开发旁路原型 + D0 持久化增量：可注入官方 SQLite/单写者/授权，恢复前阻断未知工具；NODE_ENV=production 禁用默认 MemoryStorage，持久路径拒绝未接线的 workspace 执行。14 项专项测试含真实 SIGKILL；`PIWORK_RUNTIME_BACKEND=durable` 仍仅实验开关，Worker/运行映射/快照投影未落地，不代表生产采用。评估与采用计划见 [Pi Durable 评估](pi-durable-evaluation.md) |
 | Inference Proxy、egress 派生、访问审计 | spec Phase 4 已落地：pi-messages wire 代理 + AgentRun 级 run token（真实凭据不出控制面）+ egress 只收紧派生 + `InferenceAccessAudit` 脱敏审计；`PIWORK_INFERENCE_URL` 显式启用。资源用量审计与生产档 FQDN 级硬拒绝（OpenSandbox egress sidecar/NetworkPolicy）后续完善（spec §6 Phase 5 未落地清单） |
 | 企业 Runtime 基础契约与 LazySandbox | `protocol/run-descriptor.ts`（版本、引用/hash、严格编解码/总量上限）、`execution-state.ts`（独立 job 状态检查）；`sandbox/lazy.ts`（单飞、取消/迟到 acquire 回收、kill-only）与 `operation-error.ts`（未知结果不建议重放）。35 项基础测试通过；文件/工具/后端新增 41 项通过（含 6 项真实 Docker，新增 SDK→Docker CSV→私有存储/归档回调→制品事件）；私有存储与 SDK 图像隔离另有 5 项单测，超时/取消/未知命令 kill-only 不重放。工具观察不是持久账本；SandboxToolsBackend 已实现但未装配生产，未提供 reaper/Worker。私有本地存储通过已有鉴权下载路由，但正式归档/权限接线仍待完成；OpenSandbox 新契约和 workspace 持久性待验收；本轮不做容量测试 |
@@ -153,6 +160,7 @@ flowchart LR
 - **pi-agent-core 1.0.0 拆出 harness**：`index` 不再 re-export telemetry/`agent-harness`/`skills`/`NodeExecutionEnv`。项目侧迁移：`Skill`/`loadSkillsFromDir`/`formatSkillsForPrompt`/`stripFrontmatter` 改自 `pi-coding-agent`（`core/skills.ts`）；`NodeExecutionEnv` 改自 `@earendil-works/pi-durable/env/node`；`BACKGROUND_CONTEXT` 改自 `@earendil-works/chord/context`；`@earendil-works/pi-agent-core/node` 子路径已不存在。
 - **Skill API 形态变化**：`loadSkills(env, dirs, ctx)`（异步、env 驱动）→ `loadSkillsFromDir({dir, source})`（同步，直接 fs）；`formatSkillsForSystemPrompt` → `formatSkillsForPrompt`；`ResourceDiagnostic` 的 `code` 字段改名为 `type`（管理/聊天 API wire 格式保持 `code` 字段映射 `type`）；`formatSkillInvocation` 不再导出——`invokeSkill`/`load_skill` 工具按官方 `_expandSkillCommand` 同构实现（读 SKILL.md → `stripFrontmatter` → `<skill name location>` 块，`References are relative to ${skill.baseDir}`），`invokeSkill` 因此异步化。
 - `AgentTool`/`AgentSession`/SDK 会话装配/MCP 扩展契约在 1.0.0 无破坏（仅新增字段，如 MCP `oauth.authServerMetadataUrl`）。
+- **1.0.2 全量对齐（2026-10-04，本条关闭上文的“对齐后移除”遗留项）**：五包（三主包 + pi-durable + chord）全部对齐 **1.0.2**，pnpm 下不再存在 pi-ai 双版本嵌套；`toDurableTool` 的 3 处 `as never` 转型移除后 `tsc --noEmit` 直接全绿（类型自然兼容，无需任何适配）。验证：DurableBackend 契约套件 35/35、手动 spike 16/16（含 kill -9 恢复与 replay 双重门，`scripts/pi-durable-manual-spike.mts`）、全量 Runtime 套件 284 项 278 通过 0 失败。待办：`docker/pi-runtime` 镜像内 pi-coding-agent 仍为 1.0.0，需按新版本重建镜像。
 
 ## 12. Runtime Sandbox seam 与 SandboxRpcBackend（2026-10-02）
 

@@ -38,7 +38,10 @@ test("未知 / 篡改 token 一律 null，不区分原因", () => {
   const tokens = new RunTokenRegistry();
   const { token } = tokens.mint(GRANT);
   assert.equal(tokens.validate("deadbeef"), null);
-  assert.equal(tokens.validate(`${token.slice(0, -1)}0`), null);
+  // Always change the byte: a random token already ending in 0 is not tampered.
+  const tampered = `${token.slice(0, -1)}${token.endsWith("0") ? "1" : "0"}`;
+  assert.notEqual(tampered, token);
+  assert.equal(tokens.validate(tampered), null);
   // 长度正确的随机串同样 null
   assert.equal(tokens.validate("0".repeat(64)), null);
 });

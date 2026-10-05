@@ -104,6 +104,32 @@ node --conditions=react-server --import tsx --input-type=module -e '...provider.
 
 用 §6 F2 的最小探针思路：临时沙箱内 `node -e fetch(...)` 预期 401，`release(h,"kill")` 清理。
 
+### 7) 非生产 Durable + Sandbox 自动聊天分流（默认关闭）
+
+普通部署继续上面的 matrix/RPC 设置；**不切全局后端，不设置 PIWORK_RUNTIME_BACKEND=durable**。仅开发/test 环境可额外配置：
+
+```bash
+PIWORK_DURABLE_CHAT_ENABLED=1
+PIWORK_DURABLE_STORAGE_DIR=/absolute/private/durable
+UPLOAD_DIR=/absolute/path/to/existing/uploads
+```
+
+- 私有目录必须持久、沙箱不可见、不公开、不与彼此或 `.pi/workspace` 重叠，祖先目录由部署方保护；UPLOAD_DIR 指向旧上传根，不自动迁移已有文件。production/未知 NODE_ENV、禁用执行工具或配错均拒绝。development 所有正式启用成员可自动分流，无需用户白名单且忽略旧名单；test 仍要求非空 UUID 名单（PIWORK_DURABLE_CHAT_USER_IDS），不接受通配符/邮箱。
+- 重启应用后无需勾选：问答走轻量链路，适配四工具的文件/命令任务自动走 Durable；Skill/平台能力关键词、已登记名称、近期非四工具调用、审批及分类不确定保守留既有链路，不扩张其能力。客户端 runtimeLane 被剥离；本人能力 API `/api/chat/runtime-options` 仅保留查询，执行前仍复核 enabled/归属/运行状态/模型。分流不是授权，选定后失败不 fallback，活跃运行不迁移。
+- Durable 四工具+私有交付，每条消息新工作区，无 Skill/MCP/Package/定时任务/审批续跑/Worker/自动恢复。附件需本人 LibraryItem，20 MB/文件、总计 50 MB、最多五个，图像累计 8 MB；水合变更/缺失失败，不在宿主解析 Office/图片或回退宿主。制品私有保存、正式归档后才可下载。
+- 验证看 AgentRun.backend=durable_sandbox、RuntimeEvent/Message_v2 文件引用、本人文档库/跨用户下载拒绝和 `/admin/sandboxes` 销毁记录。Stop 命令受理不等于干净取消，shell 未知效果可能 failed；清理失败保留 SQLite owner，禁止 PID/TTL 偷锁、自动重放或假装成功。
+- SQLite 留控制面私有 root，临时 workspace 终态强杀并核验；此车道的工具沙箱不需要模型代理，仍需保留普通 RPC provider/CLI 配置。生产平台账本、Worker、reaper、持久 workspace/恢复与安全硬隔离验收未完成。
+
+可选真实 HTTP 验证（**会调用真实模型和 provider**，不是容量/UI/恢复测试）：
+
+```bash
+PIWORK_DURABLE_CHAT_HTTP_TESTS=1 \
+node --env-file=.env.local --conditions=react-server --import tsx \
+  tests/e2e/durable-chat-http.mts
+```
+
+需要非生产 DB 的 CREATE SCHEMA 权限；fixture 创建唯一 schema（无 public fallback，只复制加密模型配置）、独立 build/tsconfig、私有 SQLite/文件，并启动 3011 测试服务器（PIWORK_DURABLE_CHAT_HTTP_PORT 可覆盖）。这样不触碰日常 RunManager 的运行表/构建；NEXT_DIST_DIR/NEXT_TSCONFIG_PATH 为可选构建隔离配置，普通启动仍使用 `.next`/`tsconfig.json`。成功后停测试服并清理仅该 schema/目录；失败保留隔离 schema/owner/文件证据，先独立核验并销毁**本组** provider 实例再清理，不自动偷锁。真实 OpenSandbox/模型 HTTP 验证已通过。
+
 ## 3. 日常维护
 
 ### 沙箱生命周期
@@ -144,7 +170,7 @@ docker volume ls -q | grep '^opensandbox-runtime-'     # 孤儿 runtime 卷一�
 2. 停 `pnpm dev` → 停 OpenSandbox server → （需要时）`colima stop`。
 3. 启动按 §2 逆序回放：colima → server（带 `no_proxy`）→ dev。
 4. colima 重启后所有沙箱容器消失；登记实例由页面核验收敛为 destroyed/过期，不需要手工改库。
-5. **改 `.env.local` 的 runtime 装配（provider/routing/inference）后必须重启 `pnpm dev`**：开发模式 RunManager 单例跨 HMR 保留，热更新不会加载新回调。
+5. **改 `.env.local` 的 runtime 装配（provider/routing/inference/durable chat 开关与私有根）后必须重启 `pnpm dev`**：开发模式 RunManager 单例跨 HMR 保留，热更新不会加载新回调。
 
 ## 6. 已知故障与处置（实测）
 

@@ -39,6 +39,10 @@ pnpm test:unit          # 无数据库的 node:test
 pnpm test:runtime:foundation # P0 DTO/状态与 P1 lazy/操作错误分类，无 DB/容器
 pnpm test:runtime:tools # 文件/工具/后端与私有交付契约；Docker 可用时运行真实组
 pnpm test:runtime:durable # SQLite/单写者/恢复阻断与真实子进程 SIGKILL
+pnpm test:runtime:durable-sandbox # 组合适配器/PTY；真实 OpenSandbox 默认跳过
+pnpm test:runtime:durable-chat # 开发准入/test 白名单/绑定/水合/私有交付，无 DB
+pnpm test:runtime:durable-chat:db # 正式 DB enabled/归属/状态与附件授权
+pnpm test:runtime:durable-chat:http # 默认跳过；显式 opt-in 才调用真实模型/provider
 pnpm test:runtime       # 含 Durable 基础、沙箱 tools、RPC、RunManager 与聊天流映射
 pnpm test:runtime:db    # PostgreSQL 集成测试；需 .env.local 中 POSTGRES_URL
 pnpm test              # Playwright E2E；会启动本地 Next.js 服务
@@ -64,13 +68,21 @@ pnpm plugin:verify     # 模型插件链路验证
 - 新 `private-file-store.test.ts` 验证私有 URL/幂等并发发布/冲突/元数据修复；真实 Docker 新增完整 SDK→CSV→私有存储/归档回调→制品事件契约，归档回调用替身，不当作真实 DB/HTTP 权限验收。全部随既有 test:unit/test:runtime 收集。
 - 无独立 pnpm PATH 时可用 `corepack pnpm` 执行现有脚本。本批次未增加 DB 表、配置开关或 Pi 依赖版本。
 
+## 非生产 Durable 聊天自动分流
+
+- `PIWORK_DURABLE_CHAT_ENABLED=1` 仅 development/test 的正式启用成员：development 无需用户白名单，所有正式启用账号可自动分流（忽略旧名单）；test 仍要求非空 UUID 白名单。生产/未知环境拒绝；必须 private absolute `PIWORK_DURABLE_STORAGE_DIR`/`UPLOAD_DIR`，不重叠/不在宿主 workspace，env 改动重启。不能用全局 `PIWORK_RUNTIME_BACKEND=durable` 开这个车道，原 provider/global Durable 互斥不删。启动配置见 [组合说明](durable-sandbox-composition.md) 与 [运行手册](operations.md)。本地启用只需车道开关和私有绝对目录；未启用时保持原矩阵。
+- `run/durable-chat.ts` 注入 DB 授权（查询 `db/durable-chat-queries.ts`）、Leasing reuse=false、库文件查询/有界读取与私有归档；`backends/durable/chat-*` 负责策略/hash/binding/水合/受管执行。RuntimeSpec 仅包含服务端 reference-only grant（身份、最终 promptHash、模型目录 ID、LibraryItem/hash/size/相对路径），不传附件字节/闭包，也不冒充跨进程 RunDescriptor。AgentRun.backend 新增 durable_sandbox，数据库原列是 varchar，无 SQL enum/迁移。
+- UI 无后端勾选框，客户端 runtimeLane 被 schema 剥离。route 在附件解析/宿主工作区创建前复用执行分类器，由 routing/chat-routing.ts 决定内部 lane；问答走轻量链路，四工具执行任务走 Durable。Skill 命令、平台关键词/启用技能与 MCP/extension Package 名称、近期非四工具调用、审批与分类不确定保守留既有链路，不扩张其原有闭包/MCP/Package 能力。元数据只在宿主用于准入保护，不向模型发送凭据。Durable 不装配 Skill/Package/MCP/定时任务，组合适配器非空 tools 仍拒绝。每消息是 fresh-run，不能续用上次临时文件。附件先核验本人归档 metadata/限额，再首次工具命令前重新查归属/hash/size，经 filesystem 原子水合；不在宿主解析 Office/解码图片。私有写入/正式 LibraryItem 归档完成才发制品事件。未启用 Durable 时保持原矩阵，选定后授权/附件/后端失败不 fallback；无工作区普通会话本就禁用受管扩展/MCP，现在也不写共享 MCP 配置。
+- 取消中断水合并强杀沙箱，shell 未知结果允许 failed/outcome unknown，不能为了 Stop 测试强行改成干净 aborted；终态前核验停止、不自动重放。Leasing release 必须解包原 handle，不能向严格 provider 传 lease wrapper，单测覆盖归属与记账。
+- 新单测随 `test:runtime` 收集；DB 测试在 tests/unit/db；HTTP 入口 tests/e2e/durable-chat-http.mts，显式 PIWORK_DURABLE_CHAT_HTTP_TESTS=1（真实模型/provider）。测试 helper 在 tests/support/durable，创建唯一隔离 PG schema，无 public search_path fallback；迁移 public FK 仅 fixture 重映射，只复制加密模型配置，不复制用户/聊天/任务。避免第二个 Next 进程的 RunManager orphan sweep 改动日常 runs。独立 NEXT_DIST_DIR/NEXT_TSCONFIG_PATH 隔离构建并恢复仅本组生成的 next-env import，成功停服后删除仅本组 schema/目录，失败保留证据待人工核验。真实 HTTP 已通过，不代表浏览器 UI、生产权限治理、Worker/恢复/安全硬隔离/容量。
+
 ## Durable 持久化与恢复基础（未接生产）
 
 - 新实现为 `backends/durable/storage.ts` 与 `recovery.ts`；只复用官方 SQLite facade/storage/Harness/inspect/context，不重写 scheduler。本轮全 Pi/chord 对齐 1.0.2；registry.install(defineExtension)、section、conversation.configure 与 settings.toolExecution 按新版 API 迁移，移除了旧 HarnessOptions 兼容转型。SQLite 仍为 Runtime 状态存储；PostgreSQL 只持有控制面数据与平台投影，本轮 PostgreSQL Storage 代码/测试/两项迁移及本地新增空表已经撤回。
 - 私有根必须是可信持久卷；binding 由平台已授权的 user/chat/run 与不可变输入/配置 hash 组装。目录/文件不可公开，不挂入沙箱。SQLite FULL 不是已测主机容灾或备份。
 - owner marker 使用 O_EXCL，不因进程 PID/租约过期自动删除；崩溃后 fail-closed，需要未来 Worker/reaper 停止旧执行端并重新授权后对账。存储锁不是 workspace lock，不支持多 Writer/共享盘分布式恢复。
 - 先授权/open/inspect，后 submit/wait/resume；后者均可启动官方调度。所有通用工具 replay=unsafe，每次 execute 都授权并透传 signal；禁止只依赖恢复会跳过的 beforeTool hook。未知 intent/已物化未知结果拒绝恢复，当前返回 needs-review 错误，尚未落平台 needs_review DB 状态。
-- `DurableBackend` storageFactory 必须搭配 authorize；NODE_ENV=production 默认 MemoryStorage 抛错；持久路径 workspace 非 null 拒绝。默认实验开关仍无正式持久 factory，不能用于生产部署，也不与 Sandbox provider 同启。
+- `DurableBackend` storageFactory 必须搭配 authorize；NODE_ENV=production 默认 MemoryStorage 抛错；持久路径 workspace 非 null 默认拒绝，仅可信 executionFactory + owned storage/authorize/runId 可承载受管执行。新 `DurableSandboxBackend` 本身生产拒绝，OpenSandbox 需显式非生产探针；fresh-run/单 prompt/deny-all，无平台工具/MCP/自动恢复。默认实验开关仍无正式持久 factory，不能用于生产部署，也不与 Sandbox provider 同启。装配/真实契约命令和剩余门禁见 [组合适配器](durable-sandbox-composition.md)。
 - `tests/unit/runtime/backends/durable/` 的 14 项由新 test:runtime:durable 与全 Runtime 收集；子进程 fixture 在 tests/support/durable，测试显式 kill/exit 后解锁不是生产策略。生产尚缺 Worker/job mapping、snapshot/source cursor、正式授权/账本/取消删除对账及部署演练；见 pi-durable-evaluation.md。
 
 SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选项。当前每个 run 的 SQLite 必须位于可靠私有持久卷，不得依赖容器临时盘；单 Writer、备份恢复、Worker 唤醒与崩溃副作用对账是独立上线门禁。旧版本 binding 数据不可静默重开到 1.0.2，须另做版本迁移验收。Cloudflare DO 的 SQLite/Alarm/PITR 不是当前 Node 部署的现状。

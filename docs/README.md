@@ -10,6 +10,7 @@
 | [开发与测试](development.md) | 目录约定、测试位置和验证命令 | 当前规范 |
 | [运行手册](operations.md) | 本地/单机启动顺序与命令、健康检查、日常维护、已知故障处置 | 当前实现；组件/配置变化时同步维护 |
 | [Pi Package 与 Runtime 架构](pi-plugin-support-research.md) | Package、RPC、Sandbox 的分阶段目标设计 | 含已实现步骤与后续规划；逐节核对状态 |
+| [Durable + Sandbox 组合](durable-sandbox-composition.md) | 官方 Harness + 沙箱四工具、私有 SQLite、执行映射与验证命令 | 非生产自动聊天分流已接线（开发环境正式启用成员无需白名单/勾选），真实 OpenSandbox/模型 HTTP 验证通过；未启用时原矩阵不变，无 Worker/自动恢复 |
 | [Pi Durable 评估与采用门禁](pi-durable-evaluation.md) | 恢复/提交去重/replay 边界、现原型差口、Worker 内试点与升级回滚门禁 | 评估与计划；现原型不提供生产耐久执行承诺 |
 | [OpenSandbox 接入 Spec](opensandbox-integration-spec.md) | SandboxProvider 分阶段接入、选型审计与安全基线映射 | Phase 0–4 完整落地；Phase 5 MVP 落地（路由矩阵 + 冷启动达标，未落地项见 §6）；契约 §7 为落地版；含对外部分析的逐条裁决 |
 | [千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md) | 工具级沙箱、运行契约、私有交付/幂等、预算/reaper、安全、单 Worker、Durable 试点；含工作包/验收/回滚 | 已开始基础组件实现，未接生产；先 P0–P3，再生产 Durable 试点 |

@@ -1,4 +1,8 @@
-export type { RuntimeBackend, RuntimeSession } from "./backend";
+export type {
+  RuntimeBackend,
+  RuntimeBackendKind,
+  RuntimeSession,
+} from "./backend";
 export type {
   RuntimeAck,
   RuntimeCommand,
@@ -21,4 +25,4 @@ export {
   runDescriptorSchema,
   serializeRunDescriptor,
 } from "./run-descriptor";
-export type { RuntimeSpec } from "./spec";
+export type { DurableChatAttachment, RuntimeSpec } from "./spec";

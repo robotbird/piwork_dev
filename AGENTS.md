@@ -55,6 +55,18 @@ P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/�
 
 测试文件放在 `tests/unit` 或 `tests/e2e`；测试专用环境、替身和 fixture 分别放 `tests/support`、`tests/fixtures`。更新运行脚本并执行相关测试，不要在 `app/` 或 `lib/` 中就地新建 `*.test.*`、`*.spec.*` 或测试专用代码。
 
+## Durable + Sandbox 组合适配器（非生产）
+
+`lib/runtime/backends/durable/sandbox-backend.ts` 的 DurableSandboxBackend 已实现 fresh-run 组合：官方 Harness/owned SQLite 留可信宿主，四工具经 LazySandbox/SandboxHandle；sandbox 映射存官方 defineDoc/commit。OpenSandbox 仅显式 experimentalOpenSandbox 非生产探针，现 SandboxToolsBackend 默认拒绝不变；组合后端生产拒绝、单 prompt/deny-all、平台 tools 非空拒绝、已登记会话重开 needs-review，不提供自动恢复。终态前回收并验证，清理失败保留 owner；通用工具 unsafe。默认聊天/环境开关互斥保持不变。测试为 tests/unit/runtime/backends/durable，新增 test:runtime:durable-sandbox；真实组 PIWORK_DURABLE_OPENSANDBOX_TESTS=1，默认跳过。真实四工具/超时契约通过不等于 launcher 控制路径、持久 workspace、生产授权治理/账本/Worker/snapshot 投影/容量已验收；见 docs/durable-sandbox-composition.md。不得把这个适配器变成绕过 P2/P3/D1 的生产入口。
+
+### 非生产自动聊天分流
+
+`PIWORK_DURABLE_CHAT_ENABLED=1` 仅 NODE_ENV=development|test；development 对所有正式启用成员开放自动分流，无需用户白名单且忽略旧名单；test 仍要求 `PIWORK_DURABLE_CHAT_USER_IDS` 为非空 UUID 白名单。生产/未知环境拒绝；必须配置私有绝对 PIWORK_DURABLE_STORAGE_DIR/UPLOAD_DIR，彼此及宿主 chat workspace 不重叠。不要打开全局 PIWORK_RUNTIME_BACKEND=durable。`/api/chat/runtime-options` 仅保留本人能力查询；UI 不选择后端，客户端 runtimeLane 被 schema 剥离。route 在附件解析/宿主 workspace 创建前复用执行分类器，并由 routing/chat-routing.ts 选择一次内部 lane：问答走既有轻量链路，适配四工具的执行任务走 Durable；Skill 命令、平台能力关键词/已登记名称/近期非四工具调用、审批续跑与分类不确定保守留既有链路。不扩张既有 SandboxRpc 的闭包/MCP/Package 支持；分类不等于授权，选定后失败不 fallback。`run/durable-chat.ts` 装配正式 DB 授权（查询在 db/durable-chat-queries.ts）、Leasing reuse=false、私有交付/LibraryItem 归档，`backends/durable/chat-*` 绑定最终 prompt/模型/历史/附件/hash/config。RuntimeSpec 仅增加宿主 reference-only grant，不放附件字节/跨进程闭包，不宣称可序列化 Worker DTO。Durable 每个新消息 fresh-run/临时 workspace；Durable 不接 Skill/MCP/Package/定时任务，兼容请求在执行前留既有链路；不绕过组合适配器 spec.tools 非空拒绝门禁。
+
+附件只取本人 LibraryItem，采用可信文件名/MIME和限额，宿主不解析 Office/图片；首次工具命令前复核所有权及 hash/size，经 SandboxHandle.filesystem 原子写入相对 inputs 路径；水合失败/取消不得忽略或回退宿主。制品绑定 user/chat/run/tool-call，私有存储并正式归档后才发事件，旧公开 Blob 未迁移。AgentRun.backend 新增 durable_sandbox（DB 实为 varchar，无 SQL enum 迁移），未启用时保持原矩阵，选定后失败不 fallback。Stop 受理不等于干净取消；未知 shell 效果可落 failed，kill/状态核验后仍不自动重放。Leasing release 必须向底座传原始 handle 而非 wrapper，严格 provider 不接受外来 handle。
+
+测试新增 test:runtime:durable-chat（unit）、:db、:http；HTTP 仅 PIWORK_DURABLE_CHAT_HTTP_TESTS=1，使用真实模型/provider，fixture 在 tests/support/durable 创建唯一 PG schema（无 public search_path fallback，迁移 FK 仅 fixture 重映射）、独立 build/tsconfig 与私有 SQLite，不触碰日常 runs；失败保留证据待人工核验，不能自动偷锁。真实 HTTP 通过不等于浏览器 UI、Worker/自动恢复、安全硬隔离或容量验收；生产门禁不变。
+
 ## Durable 生产化门禁
 
 控制面 PostgreSQL 持有身份/RBAC/配置、平台任务元数据与审计/用量投影；Runtime 的 Pi Durable transcript/inbox/tasks/checkpoint 继续使用每运行私有 SQLite。文件/制品走私有文件或对象存储。不得仅为“统一数据库”替换官方执行状态存储，也不得把 Cloudflare DO 的单写者/Alarm/PITR 当成本项目已有能力。Node 部署仍需可靠持久卷、单 Writer、备份恢复、唤醒与副作用对账。

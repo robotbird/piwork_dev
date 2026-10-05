@@ -2,6 +2,7 @@ import { ChatbotError } from "@/lib/errors";
 import { AsyncEventQueue } from "../backends/event-queue";
 import type {
   RuntimeBackend,
+  RuntimeBackendKind,
   RuntimeCommand,
   RuntimeEvent,
   RuntimeSession,
@@ -45,7 +46,7 @@ const TERMINAL_TTL_MS = 60_000;
 export interface AgentRunStore {
   acquireLease: (runId: string, workerId: string) => Promise<boolean>;
   createAgentRun: (input: {
-    backend: "in_process" | "sandbox_rpc";
+    backend: RuntimeBackendKind;
     chatId: string;
     userId: string;
   }) => Promise<string>;
@@ -138,9 +139,9 @@ export type RunManagerOptions = {
    * 反射 backend 类型。与 backendKindFor 二选一：路由矩阵装配用后者逐
    * run 记录实际执行位（requiresSandbox）。
    */
-  backendKind?: "in_process" | "sandbox_rpc";
+  backendKind?: RuntimeBackendKind;
   /** 逐 run 解析 AgentRun.backend（v2.0 §8.1 路由矩阵；与 backendKind 互斥，优先） */
-  backendKindFor?: (spec: RuntimeSpec) => "in_process" | "sandbox_rpc";
+  backendKindFor?: (spec: RuntimeSpec) => RuntimeBackendKind;
   eventStore: EventStore;
   runStore: AgentRunStore;
   messageStore: AssistantMessageStore;
@@ -184,7 +185,7 @@ export class RunManager {
   }
 
   /** AgentRun.backend 落库值：路由矩阵装配逐 run 解析，否则固定声明值 */
-  private resolveBackendKind(spec: RuntimeSpec): "in_process" | "sandbox_rpc" {
+  private resolveBackendKind(spec: RuntimeSpec): RuntimeBackendKind {
     return this.options.backendKindFor
       ? this.options.backendKindFor(spec)
       : (this.options.backendKind ?? "in_process");

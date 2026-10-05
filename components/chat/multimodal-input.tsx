@@ -88,6 +88,7 @@ function PureMultimodalInput({
   onModelChange,
   editingMessage,
   onCancelEdit,
+  disableSkillCommands = false,
 }: {
   chatId: string;
   input: string;
@@ -108,6 +109,7 @@ function PureMultimodalInput({
   editingMessage?: ChatMessage | null;
   onCancelEdit?: () => void;
   isLoading?: boolean;
+  disableSkillCommands?: boolean;
 }) {
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
@@ -156,17 +158,25 @@ function PureMultimodalInput({
   const skillsEndpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/skills`;
   const { data: skillsData, mutate: refreshSkills } = useSWR<{
     skills: SkillSummary[];
-  }>(skillsEndpoint, fetcher, {
+  }>(disableSkillCommands ? null : skillsEndpoint, fetcher, {
     revalidateOnFocus: true,
   });
   // 技能在前、内置指令在后（与参考设计的分组顺序一致，键盘索引自洽）
   const availableSlashCommands = useMemo(
     () => [
-      ...createSkillSlashCommands(skillsData?.skills ?? []),
+      ...createSkillSlashCommands(
+        disableSkillCommands ? [] : (skillsData?.skills ?? [])
+      ),
       ...slashCommands,
     ],
-    [skillsData?.skills]
+    [skillsData?.skills, disableSkillCommands]
   );
+  useEffect(() => {
+    if (disableSkillCommands) {
+      setSelectedSkill(null);
+      setSlashOpen(false);
+    }
+  }, [disableSkillCommands]);
   const previousStatusRef = useRef(status);
 
   useEffect(() => {
@@ -207,6 +217,9 @@ function PureMultimodalInput({
     (cmd: SlashCommand) => {
       setSlashOpen(false);
       if (cmd.action === "skill" && cmd.skillName) {
+        if (disableSkillCommands) {
+          return;
+        }
         setSelectedSkill({
           displayName: cmd.displayName ?? cmd.skillName,
           name: cmd.skillName,
@@ -274,7 +287,16 @@ function PureMultimodalInput({
           break;
       }
     },
-    [chatId, chatT, resolvedTheme, router, setInput, setMessages, setTheme]
+    [
+      chatId,
+      chatT,
+      resolvedTheme,
+      router,
+      setInput,
+      setMessages,
+      setTheme,
+      disableSkillCommands,
+    ]
   );
 
   const submitForm = useCallback(() => {
@@ -832,6 +854,9 @@ export const MultimodalInput = memo(
       return false;
     }
     if (prevProps.selectedModelId !== nextProps.selectedModelId) {
+      return false;
+    }
+    if (prevProps.disableSkillCommands !== nextProps.disableSkillCommands) {
       return false;
     }
     if (prevProps.editingMessage !== nextProps.editingMessage) {
