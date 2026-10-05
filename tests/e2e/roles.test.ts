@@ -117,9 +117,7 @@ function setRoleMembersViaApi(
 
 /** 按名称精确定位角色行 */
 function roleRowByName(page: Page, name: string) {
-  return page
-    .getByRole("row")
-    .filter({ has: page.getByText(name, { exact: true }) });
+  return page.getByRole("button", { name: new RegExp(`^${name}\\s`) });
 }
 
 test.describe
@@ -157,8 +155,23 @@ test.describe
 
       // 系统角色行展示「系统」徽章与成员数
       const superAdminRow = roleRowByName(page, "超级管理员");
-      await expect(superAdminRow).toContainText("系统");
-      await expect(superAdminRow).toContainText("拥有系统所有权限");
+      await superAdminRow.click();
+      await expect(
+        page.getByText("拥有系统所有权限，可管理企业全部资源", { exact: true })
+      ).toBeVisible();
+      await expect(page.getByRole("tab", { name: "成员管理" })).toHaveAttribute(
+        "data-state",
+        "active"
+      );
+      await page.getByRole("tab", { name: "模型权限" }).click();
+      await expect(page.getByRole("tabpanel")).toContainText(
+        "配置该角色可以使用的模型"
+      );
+      await page.getByRole("tab", { name: "Token 额度" }).click();
+      await expect(
+        page.getByLabel("每月 Token 额度", { exact: true })
+      ).toBeVisible();
+      await page.getByRole("tab", { name: "成员管理" }).click();
     });
 
     test("creates a custom role via the dialog", async ({ page }) => {
@@ -178,8 +191,11 @@ test.describe
       await expect(dialog).toBeHidden();
 
       const row = roleRowByName(page, roleName);
-      await expect(row).toContainText("自定义");
-      await expect(row).toContainText("可创建、管理和发布 Skill");
+      await row.click();
+      await expect(page.getByText("自定义", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText("可创建、管理和发布 Skill", { exact: true })
+      ).toBeVisible();
       await expect(row).toContainText("0");
 
       // 重名创建被拒绝
@@ -214,8 +230,8 @@ test.describe
       const row = roleRowByName(page, roleName);
 
       // 通过行内「⋯」菜单打开角色详情并进入成员选择
-      await row.getByRole("button", { name: /更多操作/ }).click();
-      await page.getByRole("menuitem", { name: "管理成员" }).click();
+      await row.click();
+      await page.getByRole("button", { exact: true, name: "管理成员" }).click();
       const dialog = page.getByRole("dialog");
       await dialog.getByRole("button", { name: "选择成员" }).click();
 
@@ -297,6 +313,75 @@ test.describe
         originalId,
       ]);
       expect(restore.ok()).toBeTruthy();
+    });
+
+    test("saves role model and Token policies and restores defaults", async ({
+      page,
+    }) => {
+      await registerAccount(page);
+      const name = `临时角色-策略-${uniqueSuffix()}`;
+      const created = await page.request.post("/api/admin/roles", {
+        data: { description: null, name },
+      });
+      expect(created.ok()).toBeTruthy();
+      const role = (await created.json()) as RoleView;
+      await page.goto(ROLES_URL);
+      await roleRowByName(page, name).click();
+      await page.getByRole("tab", { name: "模型权限" }).click();
+      const panel = page.getByRole("tabpanel");
+      await expect(
+        panel.getByRole("button", { name: "保存配置" })
+      ).toBeVisible();
+      await panel.getByRole("switch", { name: "允许成员切换模型" }).click();
+      await panel.getByRole("button", { name: "保存配置" }).click();
+      await expect(page.getByText("配置已保存", { exact: true })).toBeVisible();
+      const saved = await page.request.get(
+        `/api/admin/roles/${role.id}/policies`
+      );
+      const savedData = await saved.json();
+      expect(savedData.role.modelPolicy.allowSwitch).toBe(false);
+      await page.getByRole("tab", { name: "Token 额度" }).click();
+      await page
+        .getByLabel("每月 Token 额度", { exact: true })
+        .fill("20000000");
+      await page.getByLabel("每日 Token 额度", { exact: true }).fill("800000");
+      await page.getByLabel("单次任务上限", { exact: true }).fill("200000");
+      await panel.getByRole("button", { name: "保存配置" }).click();
+      await expect(
+        panel.getByText("已配置角色级策略", { exact: true })
+      ).toBeVisible();
+      const quota = await page.request.get(
+        `/api/admin/roles/${role.id}/policies`
+      );
+      expect((await quota.json()).role.tokenPolicy).toEqual({
+        action: "block",
+        daily: 800_000,
+        monthly: 20_000_000,
+        perRun: 200_000,
+      });
+      const invalid = await page.request.put(
+        `/api/admin/roles/${role.id}/policies`,
+        {
+          data: {
+            tokenPolicy: {
+              action: "block",
+              daily: null,
+              monthly: -1,
+              perRun: null,
+            },
+          },
+        }
+      );
+      expect(invalid.status()).toBe(400);
+      await panel.getByRole("button", { name: "恢复默认" }).click();
+      await expect(panel.getByText(/尚未设置独立策略/)).toBeVisible();
+      expect(
+        (
+          await (
+            await page.request.get(`/api/admin/roles/${role.id}/policies`)
+          ).json()
+        ).role.tokenPolicy
+      ).toBeNull();
     });
 
     test("protects system roles from edit and delete", async ({ page }) => {

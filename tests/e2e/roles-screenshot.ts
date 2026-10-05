@@ -42,12 +42,8 @@ async function main() {
   await page.screenshot({ path: `${OUT_DIR}/roles-list.png` });
 
   // 系统角色详情弹窗（超级管理员：单成员、成员上限 1 人），经「⋯」菜单打开
-  await page
-    .getByRole("row")
-    .filter({ hasText: "超级管理员" })
-    .getByRole("button", { name: /更多操作/ })
-    .click();
-  await page.getByRole("menuitem", { name: "管理成员" }).click();
+  await page.getByRole("button", { name: /^超级管理员\s/ }).click();
+  await page.getByRole("button", { exact: true, name: "管理成员" }).click();
   await dialog.getByRole("heading", { name: /超级管理员/ }).waitFor();
   await page.screenshot({ path: `${OUT_DIR}/role-members.png` });
 

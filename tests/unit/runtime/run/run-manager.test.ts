@@ -181,7 +181,12 @@ type Fixture = {
 };
 
 function makeFixture(
-  options?: Partial<Pick<RunManagerOptions, "terminalTtlMs">>
+  options?: Partial<
+    Pick<
+      RunManagerOptions,
+      "terminalTtlMs" | "authorizeStart" | "checkRecordedQuota"
+    >
+  >
 ): Fixture {
   let steps: InMemoryScriptStep[] = [];
   const backend = new InMemoryBackend({ onPrompt: () => steps });
@@ -189,7 +194,9 @@ function makeFixture(
   const runStore = new RecordingRunStore();
   const messageStore = new RecordingMessageStore();
   const manager = new RunManager({
+    authorizeStart: options?.authorizeStart,
     backend,
+    checkRecordedQuota: options?.checkRecordedQuota,
     eventStore,
     heartbeatIntervalMs: 3_600_000,
     messageStore,
@@ -836,6 +843,44 @@ test("终态后 TTL 内 attach：快照含终态且迭代立即结束；TTL 过�
 
   await until(() => fixture.manager.attach(CHAT) === null, 1000);
   assert.equal(fixture.manager.attach(CHAT), null);
+});
+
+test("authorization rejects before creating run and releases chat reservation", async () => {
+  const fixture = makeFixture({
+    authorizeStart: () => Promise.reject(new Error("denied")),
+  });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: Retry must follow rejection to verify reservation cleanup.
+    await assert.rejects(
+      fixture.manager.start({
+        prompt: { text: "test", type: "prompt" },
+        spec: spec(),
+        userId: USER,
+      }),
+      /denied/
+    );
+  }
+  assert.equal(fixture.runStore.created.length, 0);
+});
+
+test("quota recheck runs after message persistence and blocks the run", async () => {
+  let checked = false;
+  const fixture = makeFixture({
+    checkRecordedQuota: async (userId, runId) => {
+      assert.equal(userId, USER);
+      assert.ok(
+        (await fixture.eventStore.replay(runId, 0)).some(
+          (entry) => entry.type === "message.completed"
+        )
+      );
+      checked = true;
+      throw new Error("Token quota exceeded");
+    },
+  });
+  fixture.setSteps(textSteps("quota result"));
+  const run = await startRun(fixture);
+  assert.equal(await run.settled, "failed");
+  assert.equal(checked, true);
 });
 
 test("无 LiveRun：attach 返回 null（GET 走 204 路径）", () => {

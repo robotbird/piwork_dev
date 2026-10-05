@@ -3,7 +3,6 @@ import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { checkBotId } from "botid/server";
 import { getTranslations } from "next-intl/server";
 import { auth, type UserType } from "@/app/(auth)/auth";
-import { getActiveModelCatalog } from "@/lib/ai/active-models";
 import {
   buildExecutionSystemPrompt,
   ensureChatWorkspace,
@@ -22,6 +21,7 @@ import { loadEnabledManagedProjectSkills } from "@/lib/ai/managed-skills";
 import { getModelAvailability } from "@/lib/ai/models";
 import { getPiModel, toPiHistoryMessages } from "@/lib/ai/pi";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
+import { checkUserTokenQuota, getUserModelCatalog } from "@/lib/ai/role-access";
 import { schedulingPrompt } from "@/lib/ai/scheduled-task-tools";
 import {
   buildSkillsSystemPrompt,
@@ -107,18 +107,27 @@ export async function POST(request: Request) {
     }
 
     // 模型管理平台未配置任何模型时直接拒绝，不再回退静态模型
-    const modelCatalog = await getActiveModelCatalog();
+    const modelCatalog = await getUserModelCatalog(session.user.id);
+    await checkUserTokenQuota(session.user.id);
     if (modelCatalog.models.length === 0) {
+      if (modelCatalog.platformModelCount > 0) {
+        return new ChatbotError(
+          "forbidden:chat",
+          "No authorized model"
+        ).toResponse();
+      }
       return Response.json({ error: t("noModelConfigured") }, { status: 503 });
     }
     const activeModelIds = new Set(
       modelCatalog.models.map((model) => model.id)
     );
-    const fallbackModelId =
-      modelCatalog.defaultModelId ?? modelCatalog.models[0].id;
-    const chatModel = activeModelIds.has(selectedChatModel)
-      ? selectedChatModel
-      : fallbackModelId;
+    if (!activeModelIds.has(selectedChatModel)) {
+      return new ChatbotError(
+        "forbidden:chat",
+        "Model not authorized"
+      ).toResponse();
+    }
+    const chatModel = selectedChatModel;
 
     const userType: UserType = session.user.type;
 

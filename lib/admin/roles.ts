@@ -10,6 +10,8 @@
 export type RoleType = "system" | "custom";
 
 export type AdminRole = {
+  modelPolicy?: import("./role-model-policy").RoleModelPolicy | null;
+  tokenPolicy?: import("./role-token-policy").RoleTokenPolicy | null;
   /** 稳定标识；仅系统角色有值 */
   code: string | null;
   description: string | null;

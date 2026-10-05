@@ -143,6 +143,17 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 - 未知持 lease 的 run 要等心跳过期后惰性清理，不再仅因本管理器没有 LiveRun 就失败。不是完整 Worker/reaper/fencing 实现。修改 RunManager 后须重启开发服务（globalThis 的 HMR 缓存会保留旧实例），不直接从失败事件反向覆盖终态；历史纠错必须独立核验已落库成功事件和最终消息，不能回放副作用。
 - 官方依据：Pi 1.0.2 `pi-coding-agent/docs/sdk.md`、`examples/sdk/01-minimal.ts`；本次仅修正平台 RunManager/DB 生命周期，保持 backend → 官方 AgentSession 的事件/agent loop 不变。
 
+## 角色与权限工作台验证
+
+- 视觉以根目录 `DESIGN.md` 为准：主按钮/开关复用中性 primary token，角色与 Tab 选中态保持墨色/浅灰，蓝色仅用于链接与焦点等语义；不复制参考图的蓝色按钮。浏览器回归校验明暗主题主按钮的实际背景/文字与 primary/primary-foreground 一致。
+
+- 应用迁移 `0018_role_policies.sql` 后重启开发服务（生产 RunManager globalThis/HMR 单例不会自动更新注入的授权回调）。本轮已在本地应用迁移。
+- `pnpm test:roles`：策略 schema、默认/禁用/多角色合并/不可用模型、额度边界及 RunManager 准入和先持久化后复核测试；随 test:runtime 收集。
+- `pnpm test:roles:db`：独立用户/角色/聊天夹具，验证 JSON 保存/恢复、账户禁用、角色共享累计、零/缺失/日期窗口、排除非完成事件及缓存重复累计；只清理本组 IDs。
+- `pnpm test:roles:http`：已有本地服务，正式 JWT 独立管理员/成员，验证管理鉴权、非法策略、成员模型目录/no-store、伪造模型 403、已记录额度超限 429、恢复默认；不会调用真实模型。`PIWORK_ROLE_BROWSER_TESTS=1` 追加 Chromium Tab、保存/刷新持久化、无意外成员弹窗、390px 布局，截图 `/tmp/piwork-role-{models,quota,mobile}.png`。可设 ROLE_TEST_URL。
+- 原 Playwright `tests/e2e/roles.test.ts` 已改用角色列表按钮和右侧详情选择器，增加模型/额度保存场景；截图脚本 `tests/e2e/roles-screenshot.ts` 使用新布局。不要把 HTTP/浏览器回归当容量或强预算验证。
+- Token 基于官方 Usage.totalTokens，仅已记录完成消息；额度为共享角色统计，非每人限额、预留账本或请求硬上限。在途/并发可超支，缺失用量不计入；warn 为服务端日志，不能声称用户通知或自动降级。口径与授权合并规则见 architecture.md「角色工作台」。Pi 依据：安装版 1.0.2 docs/models.md、docs/custom-provider.md、pi-ai/dist/models.d.ts 和 types.d.ts；平台授权仍在可信宿主，复用现有 SDK/RPC/Durable 与 RuntimeEvent。
+
 ## 对话记录验证
 
 - `pnpm test:conversations:http`：真实本地 Next HTTP，独立身份/聊天夹具验证页面、供应商公开名称/providerKey、模型/Token 列表详情一致、筛选和管理员权限；不调用真实模型。`PIWORK_CONVERSATION_BROWSER_TESTS=1` 追加 Playwright Chromium 验证可见文本不含内部 installation ID、供应商 Logo/筛选/详情与加载失败回退。DB usage 测试另覆盖 installation/legacy key 精确映射、禁用与卸载、未知 provider、不泄露凭据、不改变历史模型/筛选 key，以及按供应商名称检索。

@@ -22,10 +22,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-  getRoleAvatarInitial,
-  getRoleAvatarTone,
-  getRoleMemberDisplayName,
   type AdminRole,
+  getRoleAvatarInitial,
+  getRoleMemberDisplayName,
   type RoleMemberOption,
   SYSTEM_ROLE_CODES,
 } from "@/lib/admin/roles";
@@ -45,10 +44,7 @@ function MemberAvatar({ name }: { name: string }) {
   return (
     <span
       aria-hidden="true"
-      className={cn(
-        "grid size-8 shrink-0 place-items-center rounded-full text-[13px] font-medium",
-        getRoleAvatarTone(name)
-      )}
+      className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-sm font-medium text-foreground"
     >
       {getRoleAvatarInitial(name)}
     </span>
@@ -84,7 +80,7 @@ function PickerRow({ checked, member, onToggle }: PickerRowProps) {
       aria-pressed={checked}
       className={cn(
         "flex w-full items-center gap-3 border-b border-border/50 px-3 py-2.5 text-left transition-colors last:border-b-0",
-        checked ? "bg-link-soft/40" : "hover:bg-muted/60"
+        checked ? "bg-muted" : "hover:bg-muted/60"
       )}
       onClick={handleClick}
       type="button"
@@ -103,7 +99,7 @@ function PickerRow({ checked, member, onToggle }: PickerRowProps) {
         className={cn(
           "grid size-[18px] shrink-0 place-items-center rounded-[5px] border transition-colors",
           checked
-            ? "border-link bg-link text-background"
+            ? "border-primary bg-primary text-primary-foreground"
             : "border-[var(--hairline-strong)] bg-card text-transparent"
         )}
       >
@@ -249,14 +245,11 @@ export function RoleMembersDialog({
       }
       setSaving(true);
       try {
-        const response = await fetch(
-          `/api/admin/roles/${role.id}/members`,
-          {
-            body: JSON.stringify({ memberIds }),
-            headers: { "Content-Type": "application/json" },
-            method: "PUT",
-          }
-        );
+        const response = await fetch(`/api/admin/roles/${role.id}/members`, {
+          body: JSON.stringify({ memberIds }),
+          headers: { "Content-Type": "application/json" },
+          method: "PUT",
+        });
         const body = (await response.json().catch(() => null)) as
           | AdminRole
           | { error?: string }
@@ -315,14 +308,7 @@ export function RoleMembersDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span className="truncate">{role.name}</span>
-            <span
-              className={cn(
-                "shrink-0 rounded-full px-2 py-0.5 text-xs leading-4 font-medium",
-                role.type === "system"
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-link-soft text-link-deep"
-              )}
-            >
+            <span className="shrink-0 rounded-sm bg-muted px-2 py-0.5 text-xs leading-4 font-medium text-muted-foreground">
               {t(
                 role.type === "system"
                   ? "admin.systemRoleType"
@@ -331,9 +317,7 @@ export function RoleMembersDialog({
             </span>
           </DialogTitle>
           <DialogDescription>
-            {role.description
-              ? role.description
-              : t("admin.noDescriptionYet")}
+            {role.description ? role.description : t("admin.noDescriptionYet")}
           </DialogDescription>
         </DialogHeader>
 

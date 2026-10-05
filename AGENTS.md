@@ -81,6 +81,12 @@ P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/�
 
 首次 await 前预留 chat；创建 DB run/取得 lease/发布启动所有权与清理经本管理器短临界区串行，不能把 backend.open 或模型/工具执行放进锁。starting run 一并参与心跳与清理排除，向 LiveRun 同步交接。未知但持 lease 的 run 只按心跳过期清理，不能仅因缺少本进程 LiveRun 就失败；条件 UPDATE 保留非终态检查，实际更新行的 lease 删除须同事务。DB 清理测试限定自己的 runId，不清理真实会话。HMR 会保留旧 manager，修改后需服务重启。这不是完整 Worker/fencing/恢复，失败终态不自动翻转或重放；历史纠错需独立持久证据核验。
 
+## 角色模型权限与 Token 额度边界
+
+角色页使用左侧角色列表/右侧成员管理、模型权限、Token 额度。Role.modelPolicy/tokenPolicy（0018）为可空 JSON，null 继承原行为；系统角色策略可配置，名称/描述仍锁定。管理策略 API 仅正式启用管理员；查询归 role-policy-queries.ts，纯校验/合并归 admin/role-*-policy.ts。成员模型目录复用 active-models/Pi Provider，只合并已配置角色授权，未配置角色不覆盖显式限制；关闭切换只授予该角色默认（其他角色可授予更多），不可用目录交集 fail-closed。chat 模型越权拒绝不 fallback，标题/定时任务用成员默认，生产 RunManager authorizeStart 回调在短临界区外、创建 run/lease/backend.open 前复核。
+
+Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 共享额度，默认 DB 自然日/月窗口，单任务为 run 汇总。任一 block 超额拒绝，warn 仅宿主日志；完成消息先落库再回调复核/请求官方 abort，失败收尾。无预留/硬请求预算，在途/并发/已调度后续操作可超支；缺失/标题/分类/嵌套费用不计入，成员变更/删除影响统计，不能当不可变计费账本或零超支保证。HMR 旧 manager 需重启。test:roles/:db/:http；HTTP 使用独立正式身份，不调用真实模型，PIWORK_ROLE_BROWSER_TESTS=1 追加 Chromium；通用 RunManager 保持 Pi 无关回调，不再建 agent loop。完整规则见 architecture.md/development.md。
+
 ## 后台对话记录边界
 
 `/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员只读访问；`lib/db/conversation-queries.ts` 持有 Chat/Message_v2/最新 AgentRun 的检索与分页，`lib/admin/conversations.ts` 持有共享校验/文本投影。仅 text parts，不返回 reasoning/工具载荷/附件地址，不读 Pi 原生 session/SQLite，不开放跨用户聊天写入。状态取最近 run；模型经 AgentRun.requestedModel（迁移 0017）请求快照与 SDK/RPC/Durable 的 message.completed.model 持久化。查询逐 run 优先实际 model/responseModel、其次请求快照、最后同 run/chat 的 allowed 代理审计证据，不用当前配置猜历史，支持跨轮模型筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，复用包内 Logo API，不显示内部 installation ID，未知/卸载与图标失败保守回退；当前展示元数据不能覆盖历史模型身份或读取凭据。Token 聚合会话所有已保留 message.completed.usage 五字段，totalTokens 以官方值为准、不重复 reasoning/缓存，不与代理审计相加；不含分类/标题/压缩/嵌套工具费用，未知不填零、记录缺口标部分。不能虚构会话归档状态或不可变审计能力，口径见 docs/conversation-model-usage.md。测试 test:conversations/:db 在 tests/unit/admin 与 tests/unit/db，:http 在 tests/e2e；新增模型快照需迁移和重启开发 RunManager 后生效。

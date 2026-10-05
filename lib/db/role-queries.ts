@@ -416,6 +416,8 @@ function toAdminRole(
 ): AdminRole {
   return {
     code: record.code,
+    modelPolicy: record.modelPolicy,
+    tokenPolicy: record.tokenPolicy,
     description: record.description,
     id: record.id,
     memberIds: memberships

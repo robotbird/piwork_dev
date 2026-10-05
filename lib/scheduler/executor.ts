@@ -1,8 +1,5 @@
 import "server-only";
-import {
-  getActiveModelCatalog,
-  getPreferredModelId,
-} from "@/lib/ai/active-models";
+import { getPreferredModelId } from "@/lib/ai/active-models";
 import {
   buildExecutionSystemPrompt,
   ensureChatWorkspace,
@@ -11,6 +8,7 @@ import {
 import { loadEnabledManagedProjectSkills } from "@/lib/ai/managed-skills";
 import { getPiModel } from "@/lib/ai/pi";
 import { regularPrompt } from "@/lib/ai/prompts";
+import { getUserModelCatalog } from "@/lib/ai/role-access";
 import { buildSkillsSystemPrompt, createSkillTools } from "@/lib/ai/skills";
 import { saveChat, saveMessages } from "@/lib/db/queries";
 import {
@@ -31,7 +29,7 @@ export async function executeScheduledTask(task: ScheduledTaskRecord) {
   let errorMessage: string | null = null;
   const manager = getRunManager();
   try {
-    const modelId = getPreferredModelId(await getActiveModelCatalog());
+    const modelId = getPreferredModelId(await getUserModelCatalog(task.userId));
     if (!modelId) {
       throw new Error("请先在管理后台配置可用模型");
     }

@@ -118,6 +118,7 @@ type Subscriber = {
 };
 
 type LiveRun = {
+  userId?: string;
   runId: string;
   chatId: string;
   session: RuntimeSession;
@@ -133,6 +134,9 @@ type LiveRun = {
 };
 
 export type RunManagerOptions = {
+  /** Trusted platform authorization, outside the lifecycle critical section. */
+  authorizeStart?: (input: RunStartInput) => Promise<void>;
+  checkRecordedQuota?: (userId: string, runId: string) => Promise<void>;
   backend: RuntimeBackend;
   /**
    * AgentRun.backend 落库值（in_process 默认；sandbox 装配传 sandbox_rpc，
@@ -251,6 +255,7 @@ export class RunManager {
     this.startingChats.add(chatId);
     let runId: string | undefined;
     try {
+      await this.options.authorizeStart?.(input);
       runId = await this.withLifecycle(async () => {
         await this.cleanupZombieRuns();
         if (await this.options.runStore.getActiveRunByChatId(chatId)) {
@@ -314,6 +319,7 @@ export class RunManager {
         throw error;
       }
       const live = createLiveRun({ chatId, input, runId, session });
+      live.userId = input.userId;
       // Atomic handoff: cleanup always sees either starting or live ownership.
       this.liveByRun.set(runId, live);
       this.liveByChat.set(chatId, live);
@@ -423,6 +429,18 @@ export class RunManager {
             type: event.type,
           });
           this.publish(live, live.log.append({ event, seq: live.seq }));
+          if (
+            event.type === "message.completed" &&
+            live.userId &&
+            this.options.checkRecordedQuota
+          ) {
+            try {
+              await this.options.checkRecordedQuota(live.userId, live.runId);
+            } catch (error) {
+              await live.session.send({ type: "abort" });
+              throw error;
+            }
+          }
         } else {
           // delta/message.started/queue/command.output：仅日志 + 广播
           this.publish(live, live.log.append({ event }));

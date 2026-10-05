@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getActivePiProviders } from "@/lib/ai/pi";
+import { authorizeRoleRun, checkUserTokenQuota } from "@/lib/ai/role-access";
 import { postgresAgentRunStore } from "@/lib/db/agent-run-queries";
 import { recordInferenceAudit } from "@/lib/db/inference-audit-queries";
 import { registerGeneratedFile } from "@/lib/db/library-queries";
@@ -207,8 +208,11 @@ const resolved = {
 
 runtimeGlobal.workerId ??= globalThis.crypto.randomUUID();
 runtimeGlobal.manager ??= new RunManager({
+  authorizeStart: async (input) =>
+    authorizeRoleRun(input.userId, input.spec.model),
   backend: resolved.backend,
   backendKindFor: resolved.backendKindFor,
+  checkRecordedQuota: checkUserTokenQuota,
   eventStore: new PostgresEventStore(),
   messageStore: {
     upsertAssistantMessage: async ({ chatId, id, parts }) => {

@@ -6,6 +6,7 @@ import { auth } from "@/app/(auth)/auth";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { completePiText } from "@/lib/ai/pi";
 import { titlePrompt } from "@/lib/ai/prompts";
+import { checkUserTokenQuota, getUserModelCatalog } from "@/lib/ai/role-access";
 import {
   deleteMessagesByChatIdAfterTimestamp,
   getChatById,
@@ -24,7 +25,18 @@ export async function generateTitleFromUserMessage({
 }: {
   message: UIMessage;
 }) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+  const catalog = await getUserModelCatalog(session.user.id);
+  const modelId = catalog.defaultModelId ?? catalog.models[0]?.id;
+  if (!modelId) {
+    throw new Error("No authorized model");
+  }
+  await checkUserTokenQuota(session.user.id);
   const text = await completePiText({
+    modelId,
     prompt: getTextFromMessage(message),
     systemPrompt: titlePrompt,
   });
