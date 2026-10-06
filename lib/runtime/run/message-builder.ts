@@ -21,7 +21,8 @@ export function deriveMessageId(runId: string): string {
 export type BuiltMessagePart =
   | { type: "text"; text: string; state: "done" | "streaming" }
   | { type: "reasoning"; text: string; state: "done" | "streaming" }
-  | { type: "data-delivered-file"; data: RuntimeArtifact };
+  | { type: "data-delivered-file"; data: RuntimeArtifact }
+  | { type: "source-url"; sourceId: string; title: string; url: string };
 
 /**
  * RuntimeEvent 序列 → assistant 消息 parts（run 终态时落库用）。
@@ -59,6 +60,20 @@ export function buildAssistantMessageParts(
         part.text += event.delta ?? "";
       } else if (event.phase === "end") {
         part.state = "done";
+      }
+    } else if (event.type === "source.created") {
+      if (
+        !parts.some(
+          (part) =>
+            part.type === "source-url" && part.sourceId === event.sourceId
+        )
+      ) {
+        parts.push({
+          sourceId: event.sourceId,
+          title: event.title,
+          type: "source-url",
+          url: event.url,
+        });
       }
     } else if (event.type === "artifact.created") {
       parts.push({ data: event.file, type: "data-delivered-file" });

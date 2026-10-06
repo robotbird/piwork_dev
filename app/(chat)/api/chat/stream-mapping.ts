@@ -79,6 +79,17 @@ export function runtimeEventToUIMessageChunks(
     ];
   }
 
+  if (event.type === "source.created") {
+    return [
+      {
+        sourceId: event.sourceId,
+        title: event.title,
+        type: "source-url",
+        url: event.url,
+      },
+    ];
+  }
+
   if (event.type === "artifact.created") {
     // 非 transient 且无 id：SDK 将其追加进消息 parts，随 onEnd 持久化
     return [{ data: event.file, type: "data-delivered-file" }];

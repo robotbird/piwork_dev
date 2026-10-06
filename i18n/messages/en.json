@@ -859,6 +859,7 @@
     "noModelConfigured": "No model configured",
     "noModelsConfiguredHint": "No models have been configured yet. Please contact an administrator to configure one in Model Management.",
     "weatherLookupDenied": "Weather lookup was denied.",
+    "webSources": "Web sources",
     "documentCreateError": "Error creating document: {error}",
     "documentUpdateError": "Error updating document: {error}",
     "errorLabel": "Error: {error}",

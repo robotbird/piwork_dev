@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { isChatFileUrl } from "@/lib/ai/attachment-types";
 import type { Vote } from "@/lib/db/schema";
+import { publicSourceUrl } from "@/lib/search/protocol";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { MessageContent, MessageResponse } from "../ai-elements/message";
@@ -144,7 +145,8 @@ const PurePreviewMessage = ({
       (part.type === "reasoning" &&
         "text" in part &&
         part.text?.trim().length > 0) ||
-      part.type.startsWith("tool-")
+      part.type.startsWith("tool-") ||
+      part.type === "source-url"
   );
   const isThinking = isAssistant && isLoading && !hasAnyContent;
 
@@ -388,6 +390,22 @@ const PurePreviewMessage = ({
     return null;
   });
 
+  const sources = isAssistant
+    ? [
+        ...new Map(
+          message.parts.flatMap((part) => {
+            if (part.type !== "source-url") {
+              return [];
+            }
+            const url = publicSourceUrl(part.url);
+            return url
+              ? [[url, { title: part.title || url, url }] as const]
+              : [];
+          })
+        ).values(),
+      ]
+    : [];
+
   const actions = !isReadonly && (
     <MessageActions
       chatId={chatId}
@@ -400,11 +418,37 @@ const PurePreviewMessage = ({
   );
 
   const content = isThinking ? (
-    <WaitingText />
+    <>
+      <WaitingText />
+      <ToolStatusText />
+    </>
   ) : (
     <>
       {attachments}
       {parts}
+      {sources.length > 0 ? (
+        <section
+          aria-label={t("webSources")}
+          className="rounded-lg border p-3 text-sm"
+          data-testid="web-search-sources"
+        >
+          <p className="mb-2 font-medium">{t("webSources")}</p>
+          <ul className="space-y-1.5">
+            {sources.map((source) => (
+              <li className="min-w-0" key={source.url}>
+                <a
+                  className="break-words text-primary underline underline-offset-4"
+                  href={source.url}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  {source.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {isAssistant && isLoading ? <ToolStatusText /> : null}
       {actions}
     </>

@@ -57,6 +57,11 @@ export class LocalRpcBackend implements RuntimeBackend {
   }
 
   async open(spec: RuntimeSpec): Promise<RuntimeSession> {
+    if (spec.tools.some((tool) => tool.name === "platform_web_search")) {
+      throw new Error(
+        "平台联网搜索尚未接入 LocalRpc；不能丢弃工具或回退宿主执行。"
+      );
+    }
     const queue = new AsyncEventQueue<RuntimeEvent>();
     // 每次会话独立 agentDir（隔离 stray 扩展/技能/凭据）与 sessionDir（§8.2 会话文件 seeding）
     const agentDir =

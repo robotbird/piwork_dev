@@ -49,6 +49,7 @@ flowchart LR
 | `lib/runtime/sandbox` | Pi 无关的 `SandboxProvider`/`SandboxHandle`/`SandboxChannel` seam、DB 注册表/租约、UDS bridge 泵与 shim、`docker/` CLI provider（安全基线自持，egress 默认 deny-all / allowlist 网桥近似）与 `opensandbox/` 生产 provider（SDK 隔离在该目录）；新增可选 `SandboxHandle.filesystem` 能力（Linux 固定 Node helper、限额/stat/原子写）与 `readCombined`（RPC stdout 不变），旧 RPC 文件 API 不变；详见 [OpenSandbox 接入 Spec](opensandbox-integration-spec.md) |
 | `lib/runtime/run` | `RunManager` 生命周期、订阅、事件日志、消息构建、事件存储接口；`index.ts` 组装当前后端和 PostgreSQL 实现 |
 | `lib/ai` | Pi session 装配、模型适配、系统提示、Skill、工具、附件和文件存储；`agent-session.ts` 调用 Pi SDK |
+| `lib/search` | 可信平台联网搜索 Gateway、固定 Tavily API、逐次正式身份/聊天/模型授权、单进程准入及有界来源投影；不运行第三方插件或抓取任意网页 |
 | `lib/pi-packages`、`lib/mcp` | 受管 Pi 包安装/资源清点；将管理端 MCP 配置同步到受管 agentDir `mcp.json`，并提供 Pi 内置 MCP 扩展的自定义 `loadConfig` |
 | `lib/model-plugins`、`packages/model-provider-sdk`、`plugins` | 模型供应商插件契约、检查/构建/Worker host/注册；SDK 与示例 DeepSeek 插件 |
 | `lib/db`、`lib/admin` | Drizzle schema、迁移和查询；管理权限与管理业务逻辑 |
@@ -133,6 +134,12 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 - 新 tools 会话用官方 SettingsManager.inMemory 设置 images.autoResize=false，并拒绝不支持的 prompt/平台工具图像 MIME，防 SDK 工具结果二次宿主解码；仅影响此新路径，现有会话默认不变。
 - `lib/ai/private-file-store.ts` 提供不可覆盖的确定 key、本地原子字节/元数据发布和受保护 URL；回调必须绑定平台身份并先归档。既有上传/旧 Blob public 模式不在本批静默迁移，新的 publisher 不可使用旧 public storeFile。
 - 本轮首选 Docker deny-all 验证；OpenSandbox 新 tools 显式拒绝。生产须批准镜像/持久存储、Leasing reuse=false、持久账本/独占工作区及资源治理后再接线，不提供容量承诺。
+
+## 平台联网搜索（首版）
+
+`PIWORK_WEB_SEARCH_ENABLED=1` + 服务端 `TAVILY_API_KEY` 显式启用。`lib/ai/web-tools.ts` 经官方 customTools 注册 `platform_web_search`，只在无工作区会话装配；轻量白名单与受管扩展/MCP 禁用保持不变。纯联网搜索分类为平台能力，默认 matrix 不启动沙箱；混合执行/附件/插件与近期执行上下文保守保留原矩阵。固定 Tavily 搜索、逐次 Chat 归属/enabled/模型/Token 授权、限额/超时/取消/输出截断，无搜索供应商或后端 fallback。查询词会外发，不能宣称 DLP 或不可变费用账本。
+
+官方工具成功 sources 投影为新 RuntimeEvent `source.created`，通过 stream-mapping 的标准 source-url 与 message-builder 同形持久化到聊天，UI 展示来源；不存搜索原始响应/Key。第三方 `web_search` 不同名且不因本功能自动加载。SandboxRpc/LocalRpc 收到平台搜索工具在执行前拒绝（含 all 模式），Durable 不装配；混合搜索+文件执行尚不支持。不提供 web_fetch/任意网页抓取，也不改变已知沙箱网络问题。配置、数据发送与验证边界见 [联网搜索](web-search.md)。依据 Pi **1.0.3** SDK/Extensions、sdk.d.ts 和 AgentTool signal/result 契约。
 
 ## 6. Pi 官方依据
 

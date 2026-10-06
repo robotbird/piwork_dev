@@ -36,6 +36,7 @@ tests/
 ```bash
 pnpm exec tsc --noEmit
 pnpm test:unit          # 无数据库的 node:test
+pnpm test:search        # 平台联网搜索：网关/授权/限额/官方工具循环/来源/路由，无真实外部调用
 pnpm test:runtime:foundation # P0 DTO/状态与 P1 lazy/操作错误分类，无 DB/容器
 pnpm test:runtime:tools # 文件/工具/后端与私有交付契约；Docker 可用时运行真实组
 pnpm test:runtime:durable # SQLite/单写者/恢复阻断与真实子进程 SIGKILL
@@ -51,6 +52,12 @@ pnpm plugin:verify     # 模型插件链路验证
 ```
 
 `playwright.config.ts` 的 `testDir` 指向 `tests`，项目 `e2e` 只收集 `tests/e2e/*.test.ts`。新建单元测试时按模块放入 `tests/unit` 并更新相应的 `package.json` 命令；需要共享替身时放 `tests/support`。数据库测试与普通单元测试分开运行，避免无数据库环境下误收集。
+
+## 平台联网搜索
+
+配置 `PIWORK_WEB_SEARCH_ENABLED=1` 与服务端 `TAVILY_API_KEY` 后重启，新对话明确要求联网并引用来源。首版为固定 Tavily public search，不依赖已安装 pi-web-access、不抓取任意 URL；只有无工作区轻量会话装配官方 customTools 的 platform_web_search。matrix 可在现有 OpenSandbox/Durable 配置下保持轻量；all/RPC 不支持时拒绝，不能回退宿主，混合执行仍按原门禁。Key/供应商原始错误不进入模型或事件，查询词会发送到 Tavily，不是自动 DLP。sources 经新 source.created → source-url 在 stream 与最终消息同形保存。
+
+`pnpm test:search` 覆盖测试替身与真实官方 AgentSession 工具循环；网关/工具测试随 test:unit，来源/路由测试随 test:runtime。单进程限额契约不等于容量或分布式配额验证。无新 DB 表/迁移，未改 .env.local，默认关闭；缺 Key 明确工具错误。真实联网与浏览器 UI 尚需配置后验收。完整配置/安全口径见 [联网搜索](web-search.md)，参考 Pi 1.0.3 docs/sdk.md、docs/extensions.md、sdk.d.ts 和 pi-agent-core AgentTool 类型，以及 Tavily 官方 Search API。
 
 ## 企业 Runtime 基础验证
 

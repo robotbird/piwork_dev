@@ -144,6 +144,7 @@ const TOOL_LABELS: Record<string, string> = {
   load_skill: "加载技能",
   mcp: "MCP 调用",
   mcpScript: "MCP 脚本",
+  platform_web_search: "联网搜索",
   read: "读取文件",
   write: "写入文件",
 };

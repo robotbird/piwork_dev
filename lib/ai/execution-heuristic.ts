@@ -1,4 +1,5 @@
 import { classifyIntent } from "pi-auto-router/src/intent-classifier.ts";
+import { isLightweightWebRequest } from "../search/intent";
 
 // pi-auto-router classifies model intent, not execution permission. These
 // platform rules cover Chinese tasks and capabilities its English rules miss.
@@ -11,7 +12,15 @@ export function heuristicExecution(input: {
   message: string;
   history: Array<{ role: string; text: string }>;
   attachmentCount: number;
+  platformWebSearch?: boolean;
 }) {
+  if (input.platformWebSearch && isLightweightWebRequest(input)) {
+    return {
+      intent: "web",
+      reason: "heuristic" as const,
+      requiresExecution: false,
+    };
+  }
   const message = input.message.trim();
   const history = input.history
     .slice(-2)

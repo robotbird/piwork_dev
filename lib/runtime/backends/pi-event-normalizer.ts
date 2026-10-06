@@ -2,6 +2,7 @@ import type {
   AgentSessionEvent,
   JsonAgentSessionEvent,
 } from "@earendil-works/pi-coding-agent";
+import { searchSources } from "../../search/protocol";
 import type { RuntimeEvent } from "../protocol";
 import { completedModel } from "./model-identity";
 import { normalizeUsage } from "./usage";
@@ -133,6 +134,16 @@ export class PiEventNormalizer {
             toolName: event.toolName,
             type: "tool.completed",
           },
+          ...(event.isError
+            ? []
+            : searchSources(event.toolName, event.result).map(
+                (source, index): RuntimeEvent => ({
+                  sourceId: `${event.toolCallId}-source-${index}`,
+                  title: source.title,
+                  type: "source.created",
+                  url: source.url,
+                })
+              )),
         ];
       case "queue_update":
         return [

@@ -26,6 +26,7 @@
     "test:roles:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/role-policy-queries.test.ts",
     "test:roles:http": "node --conditions=react-server --import tsx tests/e2e/role-policies-http.mts",
     "test:unit": "node --conditions=react-server --import tsx --test tests/unit/ai/*.test.ts tests/unit/mcp/*.test.ts tests/unit/pi-packages/*.test.ts",
+    "test:search": "node --conditions=react-server --import tsx --test tests/unit/ai/web-search*.test.ts tests/unit/chat/web-search.test.ts tests/unit/runtime/backends/web-search.test.ts",
     "test:runtime:durable": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/durable/*.test.ts",
     "test:runtime:durable-chat": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/durable/chat-*.test.ts tests/unit/runtime/backends/explicit-durable.test.ts tests/unit/chat/durable-request.test.ts tests/unit/chat/automatic-routing.test.ts",
     "test:runtime:durable-chat:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/durable-chat-queries.test.ts",

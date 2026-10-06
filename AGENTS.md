@@ -73,6 +73,10 @@ P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/�
 
 `backends/durable/storage.ts` 只复用官方 SQLite facade/Storage；可信私有持久卷、平台授权 user/chat/run/inputHash 绑定、O_EXCL owner marker，不按 PID/TTL 自动偷锁。恢复检查必须早于 submit/wait/resume（均启动官方调度）；未知 intent/已物化未知结果拒绝，不能自动重放。所有通用工具 unsafe，execute 内复核当前授权并透传 signal；不可仅依赖恢复会跳过的 beforeTool。持久 adapter 未接沙箱而 workspace 非 null 必须拒绝；生产默认 MemoryStorage 明确禁止，实验开关不是生产上线入口。Worker/映射/事件快照投影/正式权限与账本/取消删除恢复对账仍未完成；存储锁不等于 workspace fencing。测试与 fixture 在 tests/unit/runtime/backends/durable 与 tests/support/durable，不做容量测试。
 
+## 平台联网搜索边界
+
+`lib/search` 持有可信固定 Tavily 搜索 Gateway/限额/来源投影，`lib/ai/web-tools.ts` 通过官方 Pi 1.0.3 customTools 提供 `platform_web_search`（不与插件 web_search 同名）。环境 `PIWORK_WEB_SEARCH_ENABLED=1` + `TAVILY_API_KEY` 显式开启、默认关闭；查询词外发，提示最小化不等于自动 DLP，Key 不进模型/沙箱。每次 execute 经注入宿主回调复核 Chat 归属、enabled/模型/Token 权限，身份不能由模型输入。纯搜索可选轻量，只有 workspaceDir=null 装配白名单工具，受管扩展/MCP/内建执行仍关闭；附件/混合执行/第三方插件和近期执行上下文保守不扩张能力。RPC/all 在执行前拒绝不支持的平台搜索工具，Durable 不装配，不自动换后端或启用宿主第三方 Extension。`source.created` 经 RuntimeEvent → stream-mapping → source-url 与最终消息同形持久化，只有公开链接元数据，无供应商原始响应/凭据。首版不提供 web_fetch/任意 URL 抓取/浏览器/复杂文件解析；静态来源 URL 过滤不能宣称 SSRF 安全抓取。单轮/用户/进程限额是进程内准入，不是账本/分布式配额/容量验收。测试 test:search 在 tests/unit/ai、chat、runtime/backends，真实联网/UI 需配置后独立验收；见 docs/web-search.md。
+
 ## 数据库连接池边界
 
 应用查询统一复用 `lib/db/client.ts` 的 `getDb()`，按 POSTGRES_URL/时钟档进程缓存（含 HMR），默认池 max=5/UTC 沙箱池 max=2，idle_timeout=20。默认数据库时钟不变，沙箱显式 UTC；迁移独立单连接。不要在查询模块自建池，不把所有池改为 UTC，不终止其他应用连接；旧池需服务重启释放。test:db:client 验证复用/时钟/查询错误传播；test:runtime:db 文件串行以免测试进程耗尽额度，不代表容量验证。

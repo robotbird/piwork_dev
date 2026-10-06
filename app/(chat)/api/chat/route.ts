@@ -29,6 +29,7 @@ import {
   invokeSkill,
   parseSkillCommand,
 } from "@/lib/ai/skills";
+import { webSearchPrompt } from "@/lib/ai/web-tools";
 import { canReadStoredFile } from "@/lib/db/library-queries";
 import { listMcpServers } from "@/lib/db/mcp-server-queries";
 import { listPiPackages } from "@/lib/db/pi-package-queries";
@@ -61,6 +62,8 @@ import {
 } from "@/lib/runtime/run/durable-chat";
 import type { RunSubscription } from "@/lib/runtime/run/run-manager";
 import { scheduledTaskTools } from "@/lib/scheduler/service";
+import { chatWebSearchTools } from "@/lib/search/chat";
+import { webSearchEnabled } from "@/lib/search/service";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
 import {
   convertToUIMessages,
@@ -264,6 +267,7 @@ export async function POST(request: Request) {
     const [mcpServers, packages] = durableConfig
       ? await Promise.all([listMcpServers(), listPiPackages()])
       : [[], []];
+    const platformWebSearch = webSearchEnabled();
     const classification = executionToolsEnabled()
       ? skillCommand
         ? { reason: "skill-command", requiresExecution: true }
@@ -274,6 +278,7 @@ export async function POST(request: Request) {
               text: getTextFromMessage(item),
             })),
             message: currentUserText,
+            platformWebSearch,
             signal: request.signal,
           })
       : { reason: "disabled", requiresExecution: false };
@@ -569,6 +574,9 @@ export async function POST(request: Request) {
                 : [
                     buildSkillsSystemPrompt(skills),
                     schedulingPrompt + new Date().toISOString(),
+                    ...(platformWebSearch && !workspaceDir
+                      ? [webSearchPrompt + new Date().toISOString()]
+                      : []),
                     ...(executionPrompt ? [executionPrompt] : []),
                   ],
               chatId: id,
@@ -579,6 +587,13 @@ export async function POST(request: Request) {
                 ? []
                 : [
                     ...createSkillTools(skills),
+                    ...(platformWebSearch && !workspaceDir
+                      ? chatWebSearchTools({
+                          chatId: id,
+                          model: piModel,
+                          userId: session.user.id,
+                        })
+                      : []),
                     ...scheduledTaskTools(
                       session.user.id,
                       currentUserMessage.id
