@@ -75,7 +75,7 @@ export type MemberRecord = InferSelectModel<typeof member>;
 export const role = pgTable("Role", {
   modelPolicy: json("modelPolicy").$type<import("../admin/role-model-policy").RoleModelPolicy>(),
   tokenPolicy: json("tokenPolicy").$type<import("../admin/role-token-policy").RoleTokenPolicy>(),
-  /** 稳定标识；仅系统角色有值（super_admin / admin / member / auditor），自定义角色为空 */
+  /** 稳定标识；仅系统角色有值（super_admin / admin / member），自定义角色为空 */
   code: varchar("code", { length: 64 }).unique(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   description: varchar("description", { length: 1024 }),

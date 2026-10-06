@@ -134,6 +134,13 @@
       "when": 1791181798161,
       "tag": "0018_role_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791281115174,
+      "tag": "0019_drop_auditor_system_role",
+      "breakpoints": true
     }
   ]
 }

@@ -40,7 +40,6 @@ export type RolesView = {
 /** 系统角色 code；自定义角色不占用 */
 export const SYSTEM_ROLE_CODES = {
   admin: "admin",
-  auditor: "auditor",
   member: "member",
   superAdmin: "super_admin",
 } as const;
@@ -69,12 +68,6 @@ export const SYSTEM_ROLE_SEEDS: readonly {
     description: "基础使用权限，可使用已授权的功能",
     memberLimit: null,
     name: "普通成员",
-  },
-  {
-    code: SYSTEM_ROLE_CODES.auditor,
-    description: "可查看系统日志和审计信息",
-    memberLimit: null,
-    name: "审计员",
   },
 ];
 

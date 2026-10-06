@@ -138,7 +138,7 @@ test.describe
 
       // 系统角色在首次访问时自动创建，超级管理员唯一且已被指派
       const roles = await fetchRoles(page);
-      for (const name of ["超级管理员", "管理员", "普通成员", "审计员"]) {
+      for (const name of ["超级管理员", "管理员", "普通成员"]) {
         expect(
           roles.some((role) => role.name === name),
           name
@@ -386,18 +386,18 @@ test.describe
 
     test("protects system roles from edit and delete", async ({ page }) => {
       await registerAccount(page);
-      const auditor = await requireRoleByName(page, "审计员");
+      const member = await requireRoleByName(page, "普通成员");
 
       const patched = await page.request.patch("/api/admin/roles", {
-        data: { description: "改描述", id: auditor.id, name: "审计员2" },
+        data: { description: "改描述", id: member.id, name: "普通成员2" },
       });
       expect(patched.status()).toBe(403);
 
       const deleted = await page.request.delete("/api/admin/roles", {
-        data: { id: auditor.id },
+        data: { id: member.id },
       });
       expect(deleted.status()).toBe(403);
-      expect(await findRoleByName(page, "审计员")).toBeDefined();
+      expect(await findRoleByName(page, "普通成员")).toBeDefined();
     });
 
     test("edits and deletes a custom role", async ({ page }) => {
