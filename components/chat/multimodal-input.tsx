@@ -9,7 +9,6 @@ import {
   HammerIcon,
   MicIcon,
   PlusIcon,
-  PuzzleIcon,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -656,10 +655,6 @@ function PureMultimodalInput({
     [setAttachments]
   );
 
-  const handlePluginSelect = useCallback(() => {
-    toast.info(t("chat.pluginSelectionIsComingSoon"));
-  }, [t]);
-
   const handleVoiceInput = useCallback(() => {
     toast.info(t("chat.voiceInputIsComingSoon"));
   }, [t]);
@@ -1039,15 +1034,6 @@ function PureMultimodalInput({
               onBusyChange={setLibrarySelecting}
               onSelect={handleLibrarySelect}
             />
-            <button
-              aria-label={t("chat.choosePlugins")}
-              className="hidden h-8 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-background hover:text-foreground sm:flex"
-              onClick={handlePluginSelect}
-              type="button"
-            >
-              <PuzzleIcon className="size-[18px] shrink-0" />
-              <span>{t("chat.plugins")}</span>
-            </button>
           </div>
         </div>
       ) : null}

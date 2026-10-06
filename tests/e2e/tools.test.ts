@@ -259,15 +259,11 @@ test.describe
       };
       expect(packages.some((item) => item.source === fixtureSource)).toBe(true);
 
-      // 插件视图显示已装包
+      // Pi 插件视图已从后台隐藏:历史 URL 回退到默认 MCP 视图,不再渲染插件页
       await page.goto(`${TOOLS_URL}?view=pi-plugins`);
       await expect(
-        page.getByRole("heading", { exact: true, name: "Pi 插件" })
+        page.getByRole("heading", { name: "MCP 服务" })
       ).toBeVisible();
-      await expect(
-        page.getByText("piwork-e2e-fixture-package").first()
-      ).toBeVisible();
-      await expect(page.getByText("v1.2.3").first()).toBeVisible();
 
       // 跨模块断言:提取的技能出现在技能管理页(带 Pi 插件来源)
       await page.goto("/admin/skills");
