@@ -34,27 +34,37 @@ export default async function SandboxesAdminPage() {
     return <PermissionNotice />;
   }
 
-  const instances = await getSandboxAdminService().list();
+  const data = await getSandboxAdminService().listPage({
+    filter: "all",
+    page: 1,
+    pageSize: 10,
+    query: "",
+  });
   return (
     <SandboxesPage
-      initialInstances={instances.map((instance) => ({
-        ...instance,
-        chatId: instance.chatId,
-        chatTitle: instance.chatTitle,
-        createdAt: instance.createdAt.toISOString(),
-        expiresAt: instance.expiresAt.toISOString(),
-        externalId: instance.externalId,
-        id: instance.id,
-        image: instance.image,
-        lastRenewedAt: instance.lastRenewedAt.toISOString(),
-        lastRunId: instance.lastRunId,
-        provider: instance.provider,
-        status: instance.status,
-        ttlSeconds: instance.ttlSeconds,
-        userEmail: instance.userEmail,
-        userId: instance.userId,
-        userName: instance.userName,
-      }))}
+      initialData={{
+        instances: data.items.map((instance) => ({
+          ...instance,
+          chatId: instance.chatId,
+          chatTitle: instance.chatTitle,
+          createdAt: instance.createdAt.toISOString(),
+          expiresAt: instance.expiresAt.toISOString(),
+          externalId: instance.externalId,
+          id: instance.id,
+          image: instance.image,
+          lastRenewedAt: instance.lastRenewedAt.toISOString(),
+          lastRunId: instance.lastRunId,
+          provider: instance.provider,
+          status: instance.status,
+          ttlSeconds: instance.ttlSeconds,
+          userEmail: instance.userEmail,
+          userId: instance.userId,
+          userName: instance.userName,
+        })),
+        page: data.page,
+        pageSize: data.pageSize,
+        total: data.total,
+      }}
     />
   );
 }

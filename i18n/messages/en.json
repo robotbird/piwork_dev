@@ -486,14 +486,20 @@
     "destroySandbox": "Destroy Sandbox",
     "destroyHint": "Destroying stops the running task.",
     "currentCount": "Current Sandbox {count}",
-    "autoRefresh": "Refreshes every 10 seconds",
     "colSandbox": "Sandbox",
     "colProvider": "Provider",
     "colStatus": "Status",
     "colResource": "Allocation",
     "colActions": "Actions",
     "view": "View",
-    "noMatches": "No matching sandboxes"
+    "noMatches": "No matching sandboxes",
+    "pagination": "Sandbox instance pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page}",
+    "pageInfo": "Page {page} of {pages}",
+    "pageSize": "Page size",
+    "perPage": "{count} / page"
   },
   "common": {
     "positionOfTotal": "{current} of {total}",

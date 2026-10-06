@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { ChatbotError } from "../errors";
 import type {
   SandboxProviderName,
@@ -216,6 +216,100 @@ export async function listSandboxInstances(options?: {
       )
       .orderBy(desc(sandboxInstance.createdAt));
     return rows;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", { cause: error });
+  }
+}
+
+/** 管理页分页列表：状态组筛选 + 全字段 ILIKE 搜索，先计数再收敛页码（页码超界回落最后一页） */
+export type SandboxInstanceListFilter =
+  | "all"
+  | "active"
+  | "error"
+  | "destroyed";
+
+const FILTER_STATUSES: Record<
+  Exclude<SandboxInstanceListFilter, "all">,
+  SandboxInstanceStatus[]
+> = {
+  // 与客户端语义一致：运行中不含 degraded（异常单列）
+  active: ["creating", "ready", "paused"],
+  destroyed: ["destroyed", "expired"],
+  error: ["degraded"],
+};
+
+export async function listSandboxInstancePage(options: {
+  filter?: SandboxInstanceListFilter;
+  page: number;
+  pageSize: number;
+  query?: string;
+  reconcileExpiry?: boolean;
+}): Promise<{ rows: SandboxInstanceView[]; total: number; page: number }> {
+  try {
+    if (options.reconcileExpiry !== false) {
+      await expireOverdueSandboxInstances();
+    }
+    const filter = options.filter ?? "all";
+    const search = options.query?.trim();
+    const statuses = filter === "all" ? null : FILTER_STATUSES[filter];
+    const pattern = `%${search ?? ""}%`;
+    // id 列是 uuid，统一 cast text 后 ILIKE（与原客户端全字段搜索同口径）
+    const like = (column: unknown) =>
+      sql`cast(${column} as text) ilike ${pattern}`;
+    const where = and(
+      statuses ? inArray(sandboxInstance.status, statuses) : undefined,
+      search
+        ? or(
+            like(sandboxInstance.externalId),
+            like(sandboxInstance.id),
+            like(user.id),
+            like(user.name),
+            like(user.email),
+            like(chat.id),
+            like(chat.title),
+            like(sandboxInstance.lastRunId),
+            like(sandboxInstance.provider)
+          )
+        : undefined
+    );
+    const [counted] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(sandboxInstance)
+      .innerJoin(user, eq(sandboxInstance.userId, user.id))
+      .innerJoin(chat, eq(sandboxInstance.chatId, chat.id))
+      .where(where);
+    const total = counted?.total ?? 0;
+    const page = Math.max(
+      1,
+      Math.min(options.page, Math.ceil(total / options.pageSize) || 1)
+    );
+    const rows = await db
+      .select({
+        chatId: sandboxInstance.chatId,
+        chatTitle: chat.title,
+        createdAt: sandboxInstance.createdAt,
+        expiresAt: sandboxInstance.expiresAt,
+        externalId: sandboxInstance.externalId,
+        id: sandboxInstance.id,
+        image: sandboxInstance.image,
+        lastRenewedAt: sandboxInstance.lastRenewedAt,
+        lastRunId: sandboxInstance.lastRunId,
+        provider: sandboxInstance.provider,
+        runtimeConfig: sandboxInstance.runtimeConfig,
+        status: sandboxInstance.status,
+        ttlSeconds: sandboxInstance.ttlSeconds,
+        userEmail: user.email,
+        userId: sandboxInstance.userId,
+        userName: user.name,
+      })
+      .from(sandboxInstance)
+      .innerJoin(user, eq(sandboxInstance.userId, user.id))
+      .innerJoin(chat, eq(sandboxInstance.chatId, chat.id))
+      .where(where)
+      .orderBy(desc(sandboxInstance.createdAt))
+      .limit(options.pageSize)
+      .offset((page - 1) * options.pageSize);
+    return { page, rows, total };
   } catch (error) {
     throw new ChatbotError("bad_request:database", { cause: error });
   }

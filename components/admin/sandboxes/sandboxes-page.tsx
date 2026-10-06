@@ -2,7 +2,14 @@
 
 import { format, formatDistance } from "date-fns";
 import { enUS, zhCN } from "date-fns/locale";
-import { ContainerIcon, RefreshCwIcon, SearchIcon, XIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ContainerIcon,
+  RefreshCwIcon,
+  SearchIcon,
+  XIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { Dialog } from "radix-ui";
 import {
@@ -27,6 +34,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import type { SandboxRuntimeConfig } from "@/lib/runtime/sandbox";
 import { cn } from "@/lib/utils";
@@ -57,6 +72,13 @@ export type SandboxInstanceClientView = {
   observedAt: string | null;
   syncError: boolean;
   controllable: boolean;
+};
+
+export type SandboxListData = {
+  instances: SandboxInstanceClientView[];
+  page: number;
+  pageSize: number;
+  total: number;
 };
 
 type Status = SandboxInstanceClientView["status"];
@@ -290,24 +312,29 @@ function SandboxDetails({
 }
 
 export function SandboxesPage({
-  initialInstances,
+  initialData,
 }: {
-  initialInstances: SandboxInstanceClientView[];
+  initialData: SandboxListData;
 }) {
   const { t, language } = usePreferences();
   const endpoint = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/admin/sandboxes`;
-  const [instances, setInstances] = useState(initialInstances);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [data, setData] = useState(initialData);
+  const [filters, setFilters] = useState({
+    page: initialData.page,
+    pageSize: initialData.pageSize,
+    query: "",
+    status: "all" as Filter,
+  });
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [destroyTarget, setDestroyTarget] =
     useState<SandboxInstanceClientView | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [compact, setCompact] = useState(false);
   const [fetchError, setFetchError] = useState(false);
   const [now, setNow] = useState<number | null>(null);
-  const inFlight = useRef(false);
   const mutation = useRef(false);
   const locale = language === "zh" ? zhCN : enUS;
 
@@ -319,49 +346,69 @@ export function SandboxesPage({
     return () => media.removeEventListener("change", update);
   }, []);
 
-  const refresh = useCallback(async () => {
-    if (inFlight.current || mutation.current) {
-      return;
-    }
-    inFlight.current = true;
-    setRefreshing(true);
-    try {
-      const response = await fetch(endpoint, { cache: "no-store" });
-      if (!response.ok) {
-        throw new Error("Refresh failed");
-      }
-      const body = (await response.json()) as {
-        instances: SandboxInstanceClientView[];
-      };
-      setInstances(body.instances);
-      setFetchError(false);
-    } catch {
-      setFetchError(true);
-    } finally {
-      inFlight.current = false;
-      setRefreshing(false);
-    }
-  }, [endpoint]);
-
   useEffect(() => {
     setNow(Date.now());
-    const timer = setInterval(() => {
-      setNow(Date.now());
-      if (document.visibilityState === "visible") {
-        refresh();
-      }
-    }, 10_000);
-    const onFocus = () => refresh();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [refresh]);
+  }, []);
+
+  // 搜索输入防抖后走服务端查询，并回到第一页
+  useEffect(() => {
+    const timer = setTimeout(
+      () =>
+        setFilters((current) =>
+          current.query === query.trim()
+            ? current
+            : { ...current, page: 1, query: query.trim() }
+        ),
+      300
+    );
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // 筛选/分页/手动刷新统一走服务端分页查询（无自动轮询）
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    const search = new URLSearchParams({
+      page: String(filters.page),
+      pageSize: String(filters.pageSize),
+      status: filters.status,
+    });
+    if (filters.query) {
+      search.set("query", filters.query);
+    }
+    fetch(`${endpoint}?${search}&refresh=${refreshNonce}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Request failed");
+        }
+        return (await response.json()) as SandboxListData;
+      })
+      .then((body) => {
+        setData(body);
+        setFetchError(false);
+        setSelectedId((current) =>
+          body.instances.some((item) => item.id === current) ? current : null
+        );
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setFetchError(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+    return () => controller.abort();
+  }, [endpoint, filters, refreshNonce]);
 
   const act = useCallback(
     async (item: SandboxInstanceClientView, action: "renew" | "destroy") => {
-      if (mutation.current || inFlight.current) {
+      if (mutation.current) {
         return;
       }
       mutation.current = true;
@@ -383,18 +430,6 @@ export function SandboxesPage({
           );
         }
         if (action === "destroy") {
-          setInstances((current) =>
-            current.map((row) =>
-              row.id === item.id
-                ? {
-                    ...row,
-                    controllable: false,
-                    status: "destroyed",
-                    syncError: false,
-                  }
-                : row
-            )
-          );
           setDestroyTarget(null);
         }
         toast.success(
@@ -411,54 +446,59 @@ export function SandboxesPage({
       } finally {
         mutation.current = false;
         setBusy(false);
-        refresh();
+        setRefreshNonce((value) => value + 1);
       }
     },
-    [endpoint, refresh, t]
+    [endpoint, t]
   );
 
-  const selected = instances.find((row) => row.id === selectedId);
-  const search = query.trim().toLocaleLowerCase();
-  const rows = instances.filter((item) => {
-    const error = item.syncError || item.status === "degraded";
-    if (filter === "active" && (TERMINAL.has(item.status) || error)) {
-      return false;
-    }
-    if (filter === "error" && !error) {
-      return false;
-    }
-    if (filter === "destroyed" && !TERMINAL.has(item.status)) {
-      return false;
-    }
-    return (
-      !search ||
-      [
-        item.externalId,
-        item.id,
-        item.userName,
-        item.userEmail,
-        item.userId,
-        item.chatId,
-        item.chatTitle,
-        item.lastRunId,
-        item.provider,
-      ]
-        .join(" ")
-        .toLocaleLowerCase()
-        .includes(search)
-    );
-  });
+  const selected = data.instances.find((row) => row.id === selectedId);
+  const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
+  const pageNumbers = Array.from(
+    { length: Math.min(5, pages) },
+    (_, index) => Math.max(1, Math.min(data.page - 2, pages - 4)) + index
+  );
 
   const handleQuery = useCallback(
     (event: ChangeEvent<HTMLInputElement>) =>
       setQuery(event.currentTarget.value),
     []
   );
-  const handleFilter = useCallback(
-    (event: MouseEvent<HTMLButtonElement>) =>
-      setFilter(event.currentTarget.dataset.filter as Filter),
+  const handleFilter = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    // currentTarget 在事件派发结束后即被清空，先同步取值再 setState
+    const next = event.currentTarget.dataset.filter as Filter;
+    setFilters((current) => ({
+      ...current,
+      page: 1,
+      status: next,
+    }));
+  }, []);
+  const handleRefresh = useCallback(
+    () => setRefreshNonce((value) => value + 1),
     []
   );
+  const handlePrevious = useCallback(
+    () => setFilters((current) => ({ ...current, page: data.page - 1 })),
+    [data.page]
+  );
+  const handleNext = useCallback(
+    () => setFilters((current) => ({ ...current, page: data.page + 1 })),
+    [data.page]
+  );
+  const handlePage = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    const next = Number(event.currentTarget.dataset.page) || 1;
+    setFilters((current) => ({
+      ...current,
+      page: next,
+    }));
+  }, []);
+  const handlePageSize = useCallback((value: string) => {
+    setFilters((current) => ({
+      ...current,
+      page: 1,
+      pageSize: Number(value),
+    }));
+  }, []);
   const handleSelect = useCallback(
     (event: MouseEvent<HTMLButtonElement>) =>
       setSelectedId(event.currentTarget.dataset.instanceId || null),
@@ -513,12 +553,12 @@ export function SandboxesPage({
         </div>
         <Button
           aria-label={t("sandboxes.refresh")}
-          disabled={refreshing || busy}
-          onClick={refresh}
+          disabled={loading || busy}
+          onClick={handleRefresh}
           size="icon-sm"
           variant="ghost"
         >
-          {refreshing ? <Spinner /> : <RefreshCwIcon className="size-4" />}
+          {loading ? <Spinner /> : <RefreshCwIcon className="size-4" />}
         </Button>
       </header>
       <div className="mt-6 flex flex-wrap items-center gap-4">
@@ -539,10 +579,11 @@ export function SandboxesPage({
         >
           {FILTERS.map((value) => (
             <button
-              aria-pressed={filter === value}
+              aria-pressed={filters.status === value}
               className={cn(
                 "min-w-16 rounded-full px-4 py-1.5 text-[13px] text-muted-foreground transition-colors focus-visible:outline-2 focus-visible:outline-ring",
-                filter === value && "bg-background text-foreground shadow-sm"
+                filters.status === value &&
+                  "bg-background text-foreground shadow-sm"
               )}
               data-filter={value}
               key={value}
@@ -554,7 +595,7 @@ export function SandboxesPage({
           ))}
         </fieldset>
       </div>
-      {(fetchError || instances.some((item) => item.syncError)) && (
+      {(fetchError || data.instances.some((item) => item.syncError)) && (
         <p
           className="mt-4 text-xs text-amber-700 dark:text-amber-300"
           role="status"
@@ -563,15 +604,12 @@ export function SandboxesPage({
         </p>
       )}
       <div className="mt-6 rounded-xl border border-border/70 bg-card p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-4 pt-1">
+        <div className="px-1 pb-4 pt-1">
           <h2 className="text-sm font-medium">
-            {t("sandboxes.currentCount", { count: rows.length })}
+            {t("sandboxes.currentCount", { count: data.total })}
           </h2>
-          <span className="text-xs text-muted-foreground">
-            {t("sandboxes.autoRefresh")}
-          </span>
         </div>
-        {rows.length ? (
+        {data.instances.length ? (
           <div className="overflow-x-auto">
             <table
               aria-label={t("sandboxes.instanceList")}
@@ -600,7 +638,7 @@ export function SandboxesPage({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((item) => (
+                {data.instances.map((item) => (
                   <tr
                     className={cn(
                       "border-t border-border/50",
@@ -684,7 +722,7 @@ export function SandboxesPage({
             <ContainerIcon className="mx-auto size-8 text-muted-foreground" />
             <p className="mt-4 text-sm font-medium">
               {t(
-                instances.length
+                filters.status !== "all" || filters.query
                   ? "sandboxes.noMatches"
                   : "sandboxes.emptyTitle"
               )}
@@ -693,6 +731,70 @@ export function SandboxesPage({
               {t("sandboxes.emptyDescription")}
             </p>
           </div>
+        )}
+        {data.total > 0 && (
+          <footer className="flex flex-wrap items-center justify-between gap-3 px-1 pb-1 pt-4">
+            <span className="text-[13px] text-muted-foreground">
+              {t("sandboxes.pageInfo", { page: data.page, pages })}
+            </span>
+            <nav
+              aria-label={t("sandboxes.pagination")}
+              className="flex items-center gap-1"
+            >
+              <Button
+                aria-label={t("sandboxes.previous")}
+                disabled={loading || busy || data.page <= 1}
+                onClick={handlePrevious}
+                size="icon"
+                variant="outline"
+              >
+                <ChevronLeftIcon />
+              </Button>
+              {pageNumbers.map((pageNumber) => (
+                <Button
+                  aria-current={pageNumber === data.page ? "page" : undefined}
+                  aria-label={t("sandboxes.page", { page: pageNumber })}
+                  data-page={pageNumber}
+                  disabled={loading || busy}
+                  key={pageNumber}
+                  onClick={handlePage}
+                  size="icon"
+                  variant={pageNumber === data.page ? "outline" : "ghost"}
+                >
+                  {pageNumber}
+                </Button>
+              ))}
+              <Button
+                aria-label={t("sandboxes.next")}
+                disabled={loading || busy || data.page >= pages}
+                onClick={handleNext}
+                size="icon"
+                variant="outline"
+              >
+                <ChevronRightIcon />
+              </Button>
+            </nav>
+            <Select
+              onValueChange={handlePageSize}
+              value={String(data.pageSize)}
+            >
+              <SelectTrigger
+                aria-label={t("sandboxes.pageSize")}
+                className="min-w-[120px]"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {[10, 20, 50].map((count) => (
+                    <SelectItem key={count} value={String(count)}>
+                      {t("sandboxes.perPage", { count })}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </footer>
         )}
       </div>
       <Dialog.Root
@@ -708,7 +810,7 @@ export function SandboxesPage({
           >
             {selected && (
               <SandboxDetails
-                busy={busy || refreshing}
+                busy={busy || loading}
                 item={selected}
                 onDestroy={handleDestroyRequest}
                 onRenew={handleRenew}
@@ -745,7 +847,7 @@ export function SandboxesPage({
               {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              disabled={busy || refreshing}
+              disabled={busy || loading}
               onClick={handleConfirm}
               variant="destructive"
             >

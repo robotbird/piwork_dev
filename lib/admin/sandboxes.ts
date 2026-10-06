@@ -1,6 +1,7 @@
 import "server-only";
 import {
   getSandboxInstance,
+  listSandboxInstancePage,
   listSandboxInstances,
   observeSandboxInstance,
 } from "@/lib/db/sandbox-queries";
@@ -12,6 +13,8 @@ const management = new SandboxAdminService({
     provider === "test" ? undefined : buildSandboxProvider(provider).control,
   get: getSandboxInstance,
   list: () => listSandboxInstances({ reconcileExpiry: false }),
+  listPage: (options) =>
+    listSandboxInstancePage({ reconcileExpiry: false, ...options }),
   observe: observeSandboxInstance,
   stopRun: async (chatId, runId) => {
     if (!runId) {

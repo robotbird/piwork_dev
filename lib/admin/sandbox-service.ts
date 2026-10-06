@@ -1,4 +1,7 @@
-import type { SandboxInstanceView } from "@/lib/db/sandbox-queries";
+import type {
+  SandboxInstanceListFilter,
+  SandboxInstanceView,
+} from "@/lib/db/sandbox-queries";
 import type { SandboxInstanceRecord } from "@/lib/db/schema";
 import type {
   SandboxControl,
@@ -10,6 +13,13 @@ export type ManagedSandboxView = SandboxInstanceView & {
   observedAt: string | null;
   syncError: boolean;
   controllable: boolean;
+};
+
+export type SandboxAdminListPage = {
+  items: ManagedSandboxView[];
+  total: number;
+  page: number;
+  pageSize: number;
 };
 
 export class SandboxAdminError extends Error {
@@ -24,6 +34,16 @@ export class SandboxAdminError extends Error {
 
 type Dependencies = {
   list: () => Promise<SandboxInstanceView[]>;
+  listPage: (options: {
+    filter: SandboxInstanceListFilter;
+    page: number;
+    pageSize: number;
+    query: string;
+  }) => Promise<{
+    rows: SandboxInstanceView[];
+    total: number;
+    page: number;
+  }>;
   get: (
     provider: SandboxProviderName,
     externalId: string
@@ -63,7 +83,28 @@ export class SandboxAdminService {
   }
 
   async list(): Promise<ManagedSandboxView[]> {
-    const rows = await this.deps.list();
+    return this.enrich(await this.deps.list());
+  }
+
+  async listPage(options: {
+    filter: SandboxInstanceListFilter;
+    page: number;
+    pageSize: number;
+    query: string;
+  }): Promise<SandboxAdminListPage> {
+    const { rows, page, total } = await this.deps.listPage(options);
+    return {
+      items: await this.enrich(rows),
+      page,
+      pageSize: options.pageSize,
+      total,
+    };
+  }
+
+  /** 逐实例核对真实容器状态；单页行数有限，观察请求按 4 个一批限流。 */
+  private async enrich(
+    rows: SandboxInstanceView[]
+  ): Promise<ManagedSandboxView[]> {
     const result: ManagedSandboxView[] = [];
     // Bound provider requests, so a large registry does not flood the server.
     for (let offset = 0; offset < rows.length; offset += 4) {

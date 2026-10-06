@@ -5,6 +5,7 @@ import postgres from "postgres";
 import {
   expireOverdueSandboxInstances,
   findReusableSandboxExternalId,
+  listSandboxInstancePage,
   listSandboxInstances,
   markSandboxDestroyed,
   markSandboxRenewed,
@@ -159,6 +160,89 @@ test("惰性过期：到期活沙箱收敛 expired；activeOnly 过滤；复用�
 
 test("markSandboxStatus 未知 externalId 返回 false", async () => {
   assert.equal(await markSandboxStatus("docker", "no-such-sbx", "degraded"), false);
+});
+
+test("分页列表：状态组筛选、搜索与页码收敛", async () => {
+  const chatId = await createChat(owner, "sandbox-queries-page");
+  const seed = async (externalId: string) => {
+    await registerSandboxAcquired({
+      provider: "test",
+      externalId,
+      chatId,
+      userId: owner,
+      runId: crypto.randomUUID(),
+      image: "pi-runtime-page:1",
+      ttlSeconds: 3600,
+    });
+  };
+  await seed("sbx-page-a-ready");
+  await seed("sbx-page-b-ready");
+  await seed("sbx-page-c-degraded");
+  await seed("sbx-page-d-destroyed");
+  await markSandboxStatus("test", "sbx-page-c-degraded", "degraded");
+  await markSandboxDestroyed("test", "sbx-page-d-destroyed");
+
+  // 搜索词隔离本用例行集，total 断言不受共享库其他数据影响
+  const all = await listSandboxInstancePage({
+    page: 1,
+    pageSize: 10,
+    query: "sbx-page-",
+  });
+  assert.equal(all.total, 4);
+  assert.equal(all.rows.length, 4);
+
+  const first = await listSandboxInstancePage({
+    page: 1,
+    pageSize: 2,
+    query: "sbx-page-",
+  });
+  assert.equal(first.rows.length, 2);
+  assert.equal(first.page, 1);
+  const second = await listSandboxInstancePage({
+    page: 2,
+    pageSize: 2,
+    query: "sbx-page-",
+  });
+  assert.equal(second.rows.length, 2);
+  assert.equal(second.page, 2);
+
+  // 页码超界回落最后一页
+  const beyond = await listSandboxInstancePage({
+    page: 9,
+    pageSize: 2,
+    query: "sbx-page-",
+  });
+  assert.equal(beyond.page, 2);
+  assert.equal(beyond.rows.length, 2);
+
+  const active = await listSandboxInstancePage({
+    filter: "active",
+    page: 1,
+    pageSize: 10,
+    query: "sbx-page-",
+  });
+  assert.equal(active.total, 2);
+  assert.ok(
+    active.rows.every((row) =>
+      ["creating", "ready", "paused"].includes(row.status)
+    )
+  );
+  const error = await listSandboxInstancePage({
+    filter: "error",
+    page: 1,
+    pageSize: 10,
+    query: "sbx-page-",
+  });
+  assert.equal(error.total, 1);
+  assert.equal(error.rows[0]?.externalId, "sbx-page-c-degraded");
+  const destroyed = await listSandboxInstancePage({
+    filter: "destroyed",
+    page: 1,
+    pageSize: 10,
+    query: "sbx-page-",
+  });
+  assert.equal(destroyed.total, 1);
+  assert.equal(destroyed.rows[0]?.externalId, "sbx-page-d-destroyed");
 });
 
 test("provider deadlines preserve timezone, late observations cannot revive destroyed instances", async () => {

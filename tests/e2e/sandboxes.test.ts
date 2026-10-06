@@ -103,9 +103,8 @@ test.describe
       const email = await registerAccount(page);
       await setMemberRole(email, "member");
       await page.goto(SANDBOXES_URL);
-      await expect(
-        page.getByText(/沙箱管理仅管理员可用/).first()
-      ).toBeVisible();
+      // 管理布局对非管理员直接重定向到个人资料页（admin/layout.tsx AuthenticatedAdmin）
+      await expect(page).toHaveURL(/\/settings\/profile$/);
 
       const denied = await page.request.get("/api/admin/sandboxes");
       expect(denied.status()).toBe(401);
@@ -143,16 +142,14 @@ test.describe
         activeBody.instances.some((item) => item.externalId === externalId)
       ).toBe(true);
 
-      const invalidAction = await page.request.post(
-        "/api/admin/sandboxes",
-        { data: { action: "pause", externalId, provider: "test" } }
-      );
+      const invalidAction = await page.request.post("/api/admin/sandboxes", {
+        data: { action: "pause", externalId, provider: "test" },
+      });
       expect(invalidAction.status()).toBe(400);
 
-      const invalidProvider = await page.request.post(
-        "/api/admin/sandboxes",
-        { data: { action: "destroy", externalId, provider: "k8s" } }
-      );
+      const invalidProvider = await page.request.post("/api/admin/sandboxes", {
+        data: { action: "destroy", externalId, provider: "k8s" },
+      });
       expect(invalidProvider.status()).toBe(400);
 
       const missing = await page.request.post("/api/admin/sandboxes", {
@@ -167,7 +164,7 @@ test.describe
       // 管理页：表格渲染种子行（用户、镜像、状态徽章、TTL）
       await page.goto(SANDBOXES_URL);
       await expect(
-        page.getByRole("heading", { name: "Sandbox" })
+        page.getByRole("heading", { exact: true, name: "Sandbox" })
       ).toBeVisible();
       const row = page.getByRole("row").filter({ hasText: externalId });
       await expect(row).toBeVisible();
@@ -194,13 +191,69 @@ test.describe
         details.getByRole("link", { name: "查看任务" })
       ).toHaveAttribute("href", /\/chat\//);
       await details.getByRole("button", { exact: true, name: "关闭" }).click();
+      // 分页后筛选在服务端按 DB 状态执行：ready 行属于运行中；
+      // test provider 无法观察只会标记 syncError（状态待确认），不再落入异常页签
       await page.getByRole("button", { exact: true, name: "运行中" }).click();
-      await expect(row).not.toBeVisible();
+      await expect(row).toBeVisible();
       await page.getByRole("button", { exact: true, name: "异常" }).click();
+      await expect(row).not.toBeVisible();
+      await page.getByRole("button", { exact: true, name: "已销毁" }).click();
+      await expect(row).not.toBeVisible();
+      await page.getByRole("button", { exact: true, name: "全部" }).click();
       await expect(row).toBeVisible();
       const unsupported = await page.request.post("/api/admin/sandboxes", {
         data: { action: "destroy", externalId, provider: "test" },
       });
       expect(unsupported.status()).toBe(503);
+    });
+
+    test("paginates the instance list server-side", async ({ page }) => {
+      const email = await registerAccount(page);
+      await setMemberRole(email, "admin");
+      const prefix = `test-sbx-pg-${uniqueSuffix()}`;
+      for (let index = 0; index < 12; index += 1) {
+        // biome-ignore lint/performance/noAwaitInLoops: 逐条落库翻页 fixture，非负载测试
+        await seedSandbox(email, `${prefix}-${index}`);
+      }
+
+      await page.goto(SANDBOXES_URL);
+      await expect(
+        page.getByRole("heading", { exact: true, name: "Sandbox" })
+      ).toBeVisible();
+      await page.getByRole("searchbox", { name: /搜索 Sandbox/ }).fill(prefix);
+
+      // 搜索词隔离出 12 行：第 1 / 2 页，每页 10 行
+      const tableRows = page.locator("tbody tr");
+      await expect(tableRows).toHaveCount(10);
+      await expect(page.getByText(/^当前 Sandbox 12$/)).toBeVisible();
+      await expect(page.getByText(/^第 1 \/ 2 页$/)).toBeVisible();
+
+      await page.getByRole("button", { name: "下一页" }).click();
+      await expect(tableRows).toHaveCount(2);
+      await expect(page.getByText(/^第 2 \/ 2 页$/)).toBeVisible();
+
+      // 页码超界由服务端收敛，直接点第 1 页回到首页
+      await page.getByRole("button", { exact: true, name: "第 1 页" }).click();
+      await expect(tableRows).toHaveCount(10);
+
+      // 每页条数改为 20 条/页后单页显示全部
+      await page.getByRole("combobox", { name: "每页条数" }).click();
+      await page.getByRole("option", { name: "20 条/页" }).click();
+      await expect(tableRows).toHaveCount(12);
+      await expect(page.getByText(/^第 1 \/ 1 页$/)).toBeVisible();
+
+      const paged = await page.request.get(
+        `/api/admin/sandboxes?query=${prefix}&page=2&pageSize=10`
+      );
+      const body = (await paged.json()) as {
+        instances: unknown[];
+        total: number;
+        page: number;
+        pageSize: number;
+      };
+      expect(body.total).toBe(12);
+      expect(body.instances).toHaveLength(2);
+      expect(body.page).toBe(2);
+      expect(body.pageSize).toBe(10);
     });
   });

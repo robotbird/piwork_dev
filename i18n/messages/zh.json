@@ -486,14 +486,20 @@
     "destroySandbox": "销毁 Sandbox",
     "destroyHint": "销毁后当前运行任务将终止。",
     "currentCount": "当前 Sandbox {count}",
-    "autoRefresh": "每 10 秒自动刷新",
     "colSandbox": "Sandbox",
     "colProvider": "Provider",
     "colStatus": "状态",
     "colResource": "资源额度",
     "colActions": "操作",
     "view": "查看",
-    "noMatches": "没有匹配的沙箱"
+    "noMatches": "没有匹配的沙箱",
+    "pagination": "沙箱实例分页",
+    "previous": "上一页",
+    "next": "下一页",
+    "page": "第 {page} 页",
+    "pageInfo": "第 {page} / {pages} 页",
+    "pageSize": "每页条数",
+    "perPage": "{count} 条/页"
   },
   "common": {
     "positionOfTotal": "{current} / {total}",

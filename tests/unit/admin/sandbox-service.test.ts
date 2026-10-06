@@ -48,6 +48,11 @@ function harness(overrides: Partial<SandboxControl> = {}) {
     control: () => control,
     get: async () => ({ ...row, updatedAt: new Date() }),
     list: async () => [{ ...row }],
+    listPage: async (options) => ({
+      page: options.page,
+      rows: [{ ...row }],
+      total: 1,
+    }),
     observe: async (_provider, _id, state, renewed) => {
       observed.push({ ...state, renewed });
       row.status = state.status;
@@ -87,6 +92,21 @@ test("live Docker container is observable after its registry deadline", async ()
   h.row.provider = "docker";
   h.row.status = "expired";
   assert.equal((await h.service.list())[0].status, "ready");
+});
+test("listPage enriches the requested page and echoes paging metadata", async () => {
+  const h = harness();
+  const result = await h.service.listPage({
+    filter: "all",
+    page: 2,
+    pageSize: 10,
+    query: "",
+  });
+  assert.equal(result.total, 1);
+  assert.equal(result.page, 2);
+  assert.equal(result.pageSize, 10);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].syncError, false);
+  assert.ok(result.items[0].observedAt);
 });
 test("destroy aborts the associated run and marks DB only after kill", async () => {
   const h = harness();
