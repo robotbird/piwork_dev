@@ -111,6 +111,8 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 
 ## 项目 Workspace 边界
 
+聊天模型由 ActiveChatProvider 按本人 `/api/models` 目录统一解析 cookie 偏好；首条 query 等待目录/偏好初始化/可写聊天元数据，不用静态占位 ID 发请求。模型拒绝用 forbidden:model，聊天归属拒绝保持 forbidden:chat；服务端越权仍拒绝不 fallback。test:chat:models/:http 覆盖同步与提示，HTTP 浏览器使用独立夹具并截获模型请求，不调用真实模型。
+
 `lib/projects` 持有资料文本提取与聊天上下文组装；`lib/db/project-queries.ts` 持有项目/项目聊天/来源的归属查询与事务删除。项目聊天复用既有 Chat 表（`Chat.projectId`）与完整聊天链路，页面不实现第二个 agent loop；项目主页输入通过预建聊天加 `?query=` 进入聊天页。资料上下文是全文注入（无检索、无 Embedding），不要把 Source 查询写入 Pi 通用工具，也不要让项目逻辑绕过 RunManager 直接调用 Pi。删除项目必须先停活跃 run 并在事务内清理 vote/message。
 
 ## 沙箱 Runtime 边界

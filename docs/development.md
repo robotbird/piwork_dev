@@ -125,6 +125,8 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 
 ## 项目 Workspace 验证
 
+- `pnpm test:chat:models`：目录未加载/空目录、有效/失效偏好与模型授权错误提示；随 `test:runtime` 收集。`pnpm test:chat:models:http`：已有本地服务（可设 CHAT_MODEL_TEST_URL），独立 enabled 身份/项目/聊天，Chromium 延迟模型目录并覆盖无 cookie/旧 ID/有效 ID，断言项目 query 只发一次且请求模型与选择一致。POST 被截获，不调用真实模型、不修改现有账号/聊天。模型身份依据安装版 Pi 1.0.2 `docs/models.md`；仅修平台目录消费，服务端授权与既有 RunManager/Pi 链路不变。
+
 1. `pnpm db:migrate` 应用 0013（Project/Source 表与 Chat.projectId/updatedAt）。
 2. `pnpm test:runtime:db` 覆盖 `tests/unit/db/project-queries.test.ts`：项目归属隔离、项目聊天列表摘要排序、资料写入/删除与项目级联清理。
 3. 手动流程：`/projects` 创建项目 → 进入项目 → 「来源」上传 PDF/TXT/Markdown → 大输入框发起聊天 → AI 回答应引用资料内容 → 返回项目主页聊天列表可见标题/摘要/时间 → 再开新聊天仍引用同一批资料。删除项目后其聊天与资料一并消失，且不出现在主侧边栏「最近」。

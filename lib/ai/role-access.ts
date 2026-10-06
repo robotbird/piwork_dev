@@ -55,7 +55,7 @@ export async function authorizeRoleRun(
   if (
     !catalog.models.some((item) => item.id === `${model.provider}/${model.id}`)
   ) {
-    throw new ChatbotError("forbidden:chat", "Model not authorized");
+    throw new ChatbotError("forbidden:model", "Model not authorized");
   }
   await checkUserTokenQuota(userId);
 }

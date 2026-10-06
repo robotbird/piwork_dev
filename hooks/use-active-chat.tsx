@@ -21,6 +21,7 @@ import { useDataStream } from "@/components/chat/data-stream-provider";
 import { getChatHistoryPaginationKey } from "@/components/chat/sidebar-history";
 import { toast } from "@/components/chat/toast";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
+import { type ChatModelCatalog, resolveChatModelId } from "@/hooks/chat-model";
 import { isChatApprovalContinuation } from "@/hooks/chat-request";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
@@ -83,11 +84,19 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     seq: number;
   } | null>(null);
 
-  const [currentModelId, setCurrentModelId] = useState(DEFAULT_CHAT_MODEL);
-  const currentModelIdRef = useRef(currentModelId);
-  useEffect(() => {
-    currentModelIdRef.current = currentModelId;
-  }, [currentModelId]);
+  const [preferredModelId, setCurrentModelId] = useState(DEFAULT_CHAT_MODEL);
+  const [modelPreferenceLoaded, setModelPreferenceLoaded] = useState(false);
+  const { data: modelCatalog } = useSWR<ChatModelCatalog>(
+    `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/models`,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  const resolvedModelId = modelPreferenceLoaded
+    ? resolveChatModelId(modelCatalog, preferredModelId)
+    : null;
+  const currentModelId = resolvedModelId ?? "";
+  const currentModelIdRef = useRef<string | null>(resolvedModelId);
+  currentModelIdRef.current = resolvedModelId;
 
   const [input, setInput] = useState("");
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
@@ -194,6 +203,9 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
         };
       },
       prepareSendMessagesRequest(request) {
+        if (!currentModelIdRef.current) {
+          throw new ChatbotError("forbidden:model");
+        }
         const lastMessage = request.messages.at(-1);
         const isToolApprovalContinuation = isChatApprovalContinuation(
           request.messages
@@ -249,20 +261,27 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
   }, [chatId, isNewChat, setMessages]);
 
   useEffect(() => {
-    if (chatData && !isNewChat) {
-      const cookieModel = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("chat-model="))
-        ?.split("=")[1];
-      if (cookieModel) {
+    const cookieModel = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("chat-model="))
+      ?.split("=")[1];
+    if (cookieModel) {
+      try {
         setCurrentModelId(decodeURIComponent(cookieModel));
+      } catch {
+        // Malformed or stale preferences never grant model access.
       }
     }
-  }, [chatData, isNewChat]);
+    setModelPreferenceLoaded(true);
+  }, []);
 
   const hasAppendedQueryRef = useRef(false);
   useEffect(() => {
-    if (sandboxView) {
+    if (
+      sandboxView ||
+      !resolvedModelId ||
+      (!isNewChat && (!chatData || chatData.isReadonly))
+    ) {
       return;
     }
     const params = new URLSearchParams(window.location.search);
@@ -287,7 +306,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       parts: [{ text: query, type: "text" }],
       role: "user" as const,
     });
-  }, [sendMessage, chatId, sandboxView]);
+  }, [sendMessage, chatId, sandboxView, resolvedModelId, isNewChat, chatData]);
 
   useAutoResume({
     autoResume:
@@ -315,7 +334,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       chatId,
       currentModelId,
       input,
-      isLoading: !isNewChat && isLoading,
+      isLoading: !resolvedModelId || (!isNewChat && isLoading),
       isReadonly,
       messages,
       regenerate,
@@ -344,6 +363,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       isReadonly,
       isNewChat,
       isLoading,
+      resolvedModelId,
       votes,
       currentModelId,
       showCreditCardAlert,

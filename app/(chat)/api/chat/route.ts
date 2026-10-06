@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     if (modelCatalog.models.length === 0) {
       if (modelCatalog.platformModelCount > 0) {
         return new ChatbotError(
-          "forbidden:chat",
+          "forbidden:model",
           "No authorized model"
         ).toResponse();
       }
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
     );
     if (!activeModelIds.has(selectedChatModel)) {
       return new ChatbotError(
-        "forbidden:chat",
+        "forbidden:model",
         "Model not authorized"
       ).toResponse();
     }

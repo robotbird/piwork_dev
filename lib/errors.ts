@@ -9,6 +9,7 @@ export type ErrorType =
 
 export type Surface =
   | "chat"
+  | "model"
   | "auth"
   | "api"
   | "stream"
@@ -31,6 +32,7 @@ export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
   database: "log",
   document: "response",
   history: "response",
+  model: "response",
   stream: "response",
   suggestions: "response",
   vote: "response",
@@ -103,6 +105,8 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
       return "A response is still being generated in this chat. Wait for it to finish or stop it before sending a new message.";
     case "not_found:chat":
       return "The requested chat was not found. Please check the chat ID and try again.";
+    case "forbidden:model":
+      return "The selected model is unavailable or not authorized. Please select an available model and try again.";
     case "forbidden:chat":
       return "This chat belongs to another user. Please check the chat ID and try again.";
     case "unauthorized:chat":
