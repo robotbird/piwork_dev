@@ -83,6 +83,15 @@ precheck_server_first() {
   log "预检通过 (node=$node_ver)"
 }
 
+# ---------- 服务器预检（ci 模式：只要 node/pm2 可用，不设 nginx/PG/端口门槛）----------
+precheck_server_ci() {
+  local node_ver
+  node_ver="$(rq 'node -v 2>/dev/null || echo none')"
+  [ "$node_ver" != "none" ] || die "服务器没有 node"
+  NODE_BIN_REMOTE="$(rq 'command -v node')"
+  rq 'pm2 -v >/dev/null 2>&1' || die "服务器没有 pm2"
+}
+
 # ---------- 共享目录与数据 ----------
 ensure_shared_dirs() {
   rr "mkdir -p $BASE/releases $BASE/shared/piwork $BASE/shared/pi $BASE/shared/uploads"
@@ -287,6 +296,11 @@ pm2_start() {
 }
 
 pm2_reload() {
+  if ! rq "pm2 describe $APP >/dev/null 2>&1"; then
+    log "pm2 中还没有 $APP（首跑服务器），执行首次启动"
+    pm2_start
+    return 0
+  fi
   log "pm2 重启 $APP"
   rr "pm2 reload $APP --update-env || pm2 restart $APP --update-env"
   # 防御：确认进程 cwd 已落到新版本目录（start.sh 每次重新解析 current，正常必然成立）
@@ -451,10 +465,12 @@ cmd_daily() {
 
 cmd_ci() {
   precheck_local
+  precheck_server_ci
   upload_artifact
   link_shared
   install_deps
   run_migrations
+  write_start_sh
   flip_current
   pm2_reload
   if ! wait_health; then
@@ -473,6 +489,8 @@ cmd_ci() {
     fi
     die "健康检查失败且没有可回滚版本: ssh $HOST \"pm2 logs $APP --lines 50 --nostream\""
   fi
+  setup_nginx
+  pm2_save
   prune_releases
   summary
 }
