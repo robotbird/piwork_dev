@@ -7,7 +7,6 @@ import {
   BrainIcon,
   Building2Icon,
   ContainerIcon,
-  DatabaseIcon,
   LayoutDashboardIcon,
   type LucideIcon,
   MenuIcon,
@@ -76,12 +75,6 @@ const navigationGroups: NavigationGroup[] = [
         icon: PlugIcon,
         labelKey: "mcpServices",
         searchKeywordsKey: "mcpServicesSearchKeywords",
-      },
-      {
-        href: "/admin/data",
-        icon: DatabaseIcon,
-        labelKey: "dataManagement",
-        searchKeywordsKey: "dataManagementSearchKeywords",
       },
       {
         href: "/admin/models",
