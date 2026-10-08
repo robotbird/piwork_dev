@@ -166,14 +166,23 @@ build_local() {
   else
     log "(dry-run) 本地: corepack pnpm install --frozen-lockfile"
   fi
-  # 本机 .env.local 是开发配置（durable 分流等 development 限定开关），next build 以
-  # NODE_ENV=production 收集页面数据时会触发 runtime:durable-chat:non-production-only
-  # 守卫；进程 env 优先于 .env.local，构建时置空即可（生产服务器 .env.local 无此开关）。
-  log "本机构建 (next build，中和开发机 runtime 开关)..."
+  # 与 CI 构建环境严格对齐：CI 无 .env.local/.env。本机这两个文件的值会被
+  # Turbopack 构建期内联进产物（进程 env 置空拦不住 @next/env 的 .env 加载），
+  # 导致产物代码分支与本机环境耦合：如 SCHEDULED_TASKS_ENABLED=true 会把
+  # scheduler 及其外部依赖链 officeparser/esbuild 拉进 instrumentation 共享块，
+  # 服务器上解析不到其依赖而启动 500。构建前临时移走，结束后无论成败都恢复。
+  log "本机构建 (next build，构建期临时移走本机 env 文件以对齐 CI)..."
+  local moved_env=""
   if [ "$DRY" != "1" ]; then
-    PIWORK_DURABLE_CHAT_ENABLED= corepack pnpm exec next build
+    for f in .env.local .env; do
+      if [ -f "$f" ]; then mv "$f" "$f.deploy-building" && moved_env="$moved_env $f"; fi
+    done
+    local build_rc=0
+    corepack pnpm exec next build || build_rc=$?
+    for f in $moved_env; do mv "$f.deploy-building" "$f"; done
+    [ "$build_rc" -eq 0 ] || die "next build 失败 (rc=$build_rc)"
   else
-    log "(dry-run) 本地: PIWORK_DURABLE_CHAT_ENABLED= corepack pnpm exec next build"
+    log "(dry-run) 本地: 临时移走 .env.local/.env 后 corepack pnpm exec next build"
   fi
 }
 
@@ -201,21 +210,15 @@ upload_release() {
       warn "设置了 PIWORK_DEPLOY_RATE 但本机没有 pv，未限速"
     fi
   fi
-  tar --no-xattrs -czf - \
-    --exclude=./node_modules --exclude=./.git --exclude=./.github --exclude=./.husky \
-    --exclude=./.agents --exclude=./.zcode \
-    --exclude=./.pnpm-store --exclude=./.turbo \
-    --exclude=./.env --exclude='./.env.*' \
-    --exclude='./.pi*' --exclude=./.uploads \
-    --exclude=./tests --exclude=./docs --exclude=./docker --exclude=./llm \
-    --exclude=./dist --exclude=./artifacts \
-    --exclude=./playwright-report --exclude=./test-results --exclude=./playwright.config.ts \
-    --exclude=./biome.jsonc --exclude=./DESIGN.md --exclude=./design-qa.md \
-    --exclude=./LICENSE --exclude=./README.md --exclude=./AGENTS.md \
-    --exclude='*.tsbuildinfo' --exclude=./.DS_Store \
-    --exclude='./design-qa*.png' --exclude='./model-provider-*.png' \
-    --exclude='./.next/cache' --exclude='./.next/dev' \
-    . | $rate_pipe ssh "${SSH_OPTS[@]}" "$HOST" "tar --no-same-owner -xzf - -C $REL"
+  # 顶层条目显式白名单式排除：bsdtar 的 --exclude 是路径后缀匹配，
+  # --exclude=./node_modules 会连 .next/node_modules（Turbopack 外部化
+  # stub 包：esbuild/officeparser 等，生产 instrumentation 必需）一起排掉，
+  # 服务器上启动即 500。故改为列出顶层要打包的条目，再保留无害的模式排除。
+  local top
+  top="$(ls -A | LC_ALL=C grep -Ev '^(node_modules|\.git|\.github|\.husky|\.agents|\.claude|\.zcodeignore|\.pnpm-store|\.turbo|\.uploads|\.env\.local|\.env\.example|\.pi|\.piwork|\.DS_Store|tests|docs|docker|llm|dist|artifacts|playwright-report|test-results|AGENTS\.md|DESIGN\.md|design-qa\.md|LICENSE|README\.md|biome\.jsonc|playwright\.config\.ts|tsconfig\.tsbuildinfo|design-qa-.*\.png|model-provider-.*\.png)$')"
+  while IFS= read -r name; do [ -n "$name" ] && printf '%s\0' "$name"; done <<< "$top" \
+    | tar --no-xattrs -h --null -T - --exclude='./.next/cache' --exclude='./.next/dev' -czf - \
+    | $rate_pipe ssh "${SSH_OPTS[@]}" "$HOST" "tar --no-same-owner -xzf - -C $REL"
   # 完整性：生产构建必有 BUILD_ID；缺了说明本机不是 next build 产物
   rq "[ -f $REL/.next/BUILD_ID ]" || die "服务器缺少 $REL/.next/BUILD_ID —— .next 不是生产构建产物，检查本机构建步骤"
   log "上传完成"
@@ -255,6 +258,12 @@ link_shared() {
 
 install_deps() {
   log "服务器安装生产依赖 (pnpm install --prod --ignore-scripts)"
+  # 完全 hoist：next build 的 Turbopack 会把部分 npm 依赖外部化到
+  # .next/node_modules/<name>-<hash>（内容为包本体，不含其依赖），
+  # 这些 stub 运行时 require 自己的依赖（如 officeparser→@xmldom/xmldom）
+  # 时只能向上层 node_modules 找；pnpm 默认不提升传递依赖，会把
+  # instrumentation 加载期炸掉。shamefully-hoist 使所有依赖可从顶层解析。
+  rr "cd $REL && printf 'public-hoist-pattern[]=*\\n' > .npmrc"
   rr "cd $REL && COREPACK_NPM_REGISTRY=$REGISTRY npm_config_registry=$REGISTRY corepack pnpm install --prod --frozen-lockfile --ignore-scripts"
   # esbuild 已不在生产依赖（迁移用 dlx tsx 自带），仅提示不阻断；
   # 真正门禁是 run_migrations 与切换后的 wait_health。
@@ -356,7 +365,12 @@ server {
     location / {
         proxy_pass http://127.0.0.1:$PORT;
         proxy_http_version 1.1;
-        proxy_set_header Host \$host;
+        # Host/Forwarded-Host 必须原样保留端口（\$host 会剥掉非标准端口如 :82），
+        # 否则 Server Actions 的 Origin 与 x-forwarded-host 不匹配，
+        # 登录等 action 被 Next.js 拒绝：Invalid Server Actions request（页面 500）
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Forwarded-Host \$http_host;
+        proxy_set_header X-Forwarded-Port \$server_port;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;

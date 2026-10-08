@@ -51,6 +51,10 @@ SCHEDULED_TASKS_ENABLED=true        # 本机是唯一常驻 RunManager 实例
 # 可选：BLOB_READ_WRITE_TOKEN=（附件改用 Vercel Blob）
 # 可选：PIWORK_DISABLE_EXECUTION_TOOLS=1（不受信多用户环境禁用执行工具）
 # 不要设置：PIWORK_SANDBOX_*（沙箱）、PIWORK_DURABLE_CHAT_ENABLED / PIWORK_RUNTIME_BACKEND=durable（非生产限定）
+# 不要设置：NEXT_PUBLIC_BOTID_ENABLED（Vercel BotID 反爬，仅 Vercel 部署才开；
+#   部署脚本构建时已强制置空。开启后客户端挑战脚本依赖 WebCrypto，
+#   在非安全上下文（http://IP:port）会让所有 /api/chat 请求报
+#   "Cannot read properties of undefined (reading 'importKey')" 而失败）
 ```
 
 ## 4. nginx 模板（HTTP）

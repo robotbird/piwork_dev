@@ -67,4 +67,8 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(withBotId(nextConfig));
+// BotID 仅在显式开启时注入挑战脚本重写；非 Vercel 自托管默认关闭，
+// 理由见 instrumentation-client.ts（非安全上下文会阻断 /api/chat）。
+const botIdEnabled = process.env.NEXT_PUBLIC_BOTID_ENABLED === "1";
+
+export default withNextIntl(botIdEnabled ? withBotId(nextConfig) : nextConfig);

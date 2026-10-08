@@ -94,10 +94,15 @@ export async function POST(request: Request) {
       requestBody;
 
     const [botIdResult, session] = await Promise.all([
-      // 显式声明开发态绕过(本地无法做真实 BotId 检测):不传时 botid 每次
-      // 请求都会 warn "[Dev Only] ... bot protection will return HUMAN" 并
-      // 打进 Next dev overlay;生产行为不变(走 Vercel OIDC 真实检测)。
-      checkBotId({ developmentOptions: { bypass: "HUMAN" } }).catch(() => null),
+      // BotID 仅在显式开启（部署于 Vercel）时检测；自托管默认关闭：
+      // 服务端无 Vercel 平台注入时本就无法完成真实检测（每次请求都会
+      // 打 "Possible misconfiguration" 警告），客户端挑战在非安全上下文
+      // （http://IP:port）也无法运行，见 instrumentation-client.ts。
+      process.env.NEXT_PUBLIC_BOTID_ENABLED === "1"
+        ? checkBotId({ developmentOptions: { bypass: "HUMAN" } }).catch(
+            () => null
+          )
+        : Promise.resolve(null),
       auth(),
     ]);
 
