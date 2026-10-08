@@ -43,6 +43,12 @@ import {
   MAX_CHAT_ATTACHMENT_COUNT,
 } from "@/lib/ai/attachment-types";
 import type { ChatModel } from "@/lib/ai/models";
+import {
+  buildPastedTextFilename,
+  CHAT_TEXT_PART_MAX_LENGTH,
+  CHAT_TEXT_TO_FILE_THRESHOLD,
+  normalizePastedText,
+} from "@/lib/chat-input";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn, fetcher, generateUUID } from "@/lib/utils";
 import {
@@ -57,6 +63,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { ArrowUpIcon, ChevronDownIcon, StopIcon } from "./icons";
 import { LibraryFilePicker } from "./library-file-picker";
 import { PreviewAttachment } from "./preview-attachment";
+import { TextAttachmentPreview } from "./text-attachment-preview";
 import {
   createSkillSlashCommands,
   type SkillSummary,
@@ -118,6 +125,8 @@ function PureMultimodalInput({
   const chatT = useTranslations("chat");
   const commonT = useTranslations("common");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // 长文转 txt 附件上传期间防止重复提交
+  const submittingRef = useRef(false);
   const { width } = useWindowSize();
   const hasAutoFocused = useRef(false);
   useEffect(() => {
@@ -372,78 +381,6 @@ function PureMultimodalInput({
     [chatT, router, setAttachments, setInput, setLocalStorageInput]
   );
 
-  const submitForm = useCallback(() => {
-    const task = input.trim();
-    const messageText = selectedSkill
-      ? `/${selectedSkill.name}${task ? ` ${task}` : ""}`
-      : input;
-
-    // 选定了项目（仅空会话可选）：走项目聊天链路；附件无法经 ?query= 传递，
-    // fail-closed 提示先移除，避免静默丢失
-    if (selectedProject && messages.length === 0) {
-      if (attachments.length > 0) {
-        toast.error(t("chat.projectChatAttachmentsUnsupported"));
-        return;
-      }
-      if (!messageText.trim() || creatingProjectChat) {
-        return;
-      }
-      startProjectChat(selectedProject, messageText);
-      return;
-    }
-
-    window.history.pushState(
-      {},
-      "",
-      `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
-    );
-
-    sendMessage({
-      parts: [
-        ...attachments.map((attachment) => ({
-          filename: attachment.name,
-          mediaType: attachment.contentType,
-          type: "file" as const,
-          url: attachment.url,
-        })),
-        ...(messageText.trim()
-          ? [
-              {
-                text: messageText,
-                type: "text" as const,
-              },
-            ]
-          : []),
-      ],
-      role: "user",
-    });
-
-    setAttachments([]);
-    setLocalStorageInput("");
-    setInput("");
-    setSelectedSkill(null);
-    setSlashOpen(false);
-
-    if (width && width > 768) {
-      textareaRef.current?.focus();
-    }
-  }, [
-    attachments,
-    creatingProjectChat,
-    input,
-    messages.length,
-    selectedProject,
-    selectedSkill,
-    sendMessage,
-    setInput,
-    startProjectChat,
-    t,
-    setAttachments,
-    setLocalStorageInput,
-    width,
-    chatId,
-  ]);
-
   const uploadFile = useCallback(
     async (file: File) => {
       const formData = new FormData();
@@ -476,6 +413,125 @@ function PureMultimodalInput({
     },
     [commonT]
   );
+
+  const submitForm = useCallback(async () => {
+    const task = input.trim();
+    const messageText = selectedSkill
+      ? `/${selectedSkill.name}${task ? ` ${task}` : ""}`
+      : input;
+
+    // 客户端先拦截超长消息，直接提示上限，不等服务端 400
+    if (messageText.length > CHAT_TEXT_PART_MAX_LENGTH) {
+      toast.error(
+        t("chat.messageTooLong", {
+          limit: CHAT_TEXT_PART_MAX_LENGTH.toLocaleString("en-US"),
+        })
+      );
+      return;
+    }
+
+    // 选定了项目（仅空会话可选）：走项目聊天链路；附件无法经 ?query= 传递，
+    // fail-closed 提示先移除，避免静默丢失
+    if (selectedProject && messages.length === 0) {
+      if (attachments.length > 0) {
+        toast.error(t("chat.projectChatAttachmentsUnsupported"));
+        return;
+      }
+      if (!messageText.trim() || creatingProjectChat) {
+        return;
+      }
+      startProjectChat(selectedProject, messageText);
+      return;
+    }
+
+    window.history.pushState(
+      {},
+      "",
+      `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
+    );
+
+    // 长文转 txt 上传期间防止重复提交
+    if (submittingRef.current) {
+      return;
+    }
+    submittingRef.current = true;
+
+    try {
+      // 超过阈值且非技能命令：整段文本转为 txt 附件发送（换行已归一化），
+      // 上传失败时回退为纯文本发送（仍在上限内，服务端可收）
+      let longTextAttachment: Attachment | undefined;
+      if (
+        !selectedSkill &&
+        messageText.trim().length > CHAT_TEXT_TO_FILE_THRESHOLD
+      ) {
+        const file = new File(
+          [normalizePastedText(messageText)],
+          buildPastedTextFilename(),
+          { type: "text/plain" }
+        );
+        setUploadQueue([file.name]);
+        longTextAttachment = (await uploadFile(file)) ?? undefined;
+        setUploadQueue([]);
+        if (longTextAttachment) {
+          toast.success(chatT("longTextAttachedAsTxt"));
+        }
+      }
+
+      sendMessage({
+        parts: [
+          ...attachments.map((attachment) => ({
+            filename: attachment.name,
+            mediaType: attachment.contentType,
+            type: "file" as const,
+            url: attachment.url,
+          })),
+          ...(longTextAttachment
+            ? [
+                {
+                  filename: longTextAttachment.name,
+                  mediaType: longTextAttachment.contentType,
+                  type: "file" as const,
+                  url: longTextAttachment.url,
+                },
+              ]
+            : []),
+          ...(longTextAttachment || !messageText.trim()
+            ? []
+            : [{ text: messageText, type: "text" as const }]),
+        ],
+        role: "user",
+      });
+
+      setAttachments([]);
+      setLocalStorageInput("");
+      setInput("");
+      setSelectedSkill(null);
+      setSlashOpen(false);
+    } finally {
+      submittingRef.current = false;
+    }
+
+    if (width && width > 768) {
+      textareaRef.current?.focus();
+    }
+  }, [
+    attachments,
+    creatingProjectChat,
+    input,
+    messages.length,
+    selectedProject,
+    selectedSkill,
+    sendMessage,
+    setInput,
+    startProjectChat,
+    t,
+    chatT,
+    setAttachments,
+    setLocalStorageInput,
+    width,
+    chatId,
+    uploadFile,
+  ]);
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -532,6 +588,33 @@ function PureMultimodalInput({
     ]
   );
 
+  // 长文本转 txt 附件：归一化换行后走既有上传链路，
+  // 上传成功后作为附件芯片展示在输入框上方
+  const attachLongText = useCallback(
+    async (text: string) => {
+      if (attachments.length >= MAX_CHAT_ATTACHMENT_COUNT) {
+        toast.error(
+          commonT("attachmentLimit", { count: MAX_CHAT_ATTACHMENT_COUNT })
+        );
+        return;
+      }
+      const file = new File([normalizePastedText(text)], buildPastedTextFilename(), {
+        type: "text/plain",
+      });
+      setUploadQueue((prev) => [...prev, file.name]);
+      try {
+        const uploaded = await uploadFile(file);
+        if (uploaded) {
+          setAttachments((current) => [...current, uploaded]);
+          toast.success(chatT("longTextAttachedAsTxt"));
+        }
+      } finally {
+        setUploadQueue((prev) => prev.filter((name) => name !== file.name));
+      }
+    },
+    [attachments.length, chatT, commonT, setAttachments, uploadFile]
+  );
+
   const handlePaste = useCallback(
     async (event: ClipboardEvent) => {
       // 项目新对话暂不携带附件（?query= 链路只传文本），fail-closed 提示
@@ -547,15 +630,22 @@ function PureMultimodalInput({
       const imageItems = Array.from(items).filter((item) =>
         item.type.startsWith("image/")
       );
+
+      // 纯文本粘贴超过阈值：转为 txt 附件，不塞进输入框
+      if (imageItems.length === 0) {
+        const pastedText = event.clipboardData?.getData("text/plain") ?? "";
+        if (pastedText.length > CHAT_TEXT_TO_FILE_THRESHOLD) {
+          event.preventDefault();
+          await attachLongText(pastedText);
+        }
+        return;
+      }
+
       const availableSlots = Math.max(
         0,
         MAX_CHAT_ATTACHMENT_COUNT - attachments.length
       );
       const acceptedImageItems = imageItems.slice(0, availableSlots);
-
-      if (imageItems.length === 0) {
-        return;
-      }
       if (acceptedImageItems.length === 0) {
         toast.error(
           commonT("attachmentLimit", { count: MAX_CHAT_ATTACHMENT_COUNT })
@@ -598,6 +688,7 @@ function PureMultimodalInput({
     },
     [
       attachments.length,
+      attachLongText,
       commonT,
       selectedProject,
       setAttachments,
@@ -869,6 +960,20 @@ function PureMultimodalInput({
                 key={filename}
               />
             ))}
+
+            {/* txt 附件可展开预览内容，复制来的换行按原文显示 */}
+            {attachments
+              .filter(
+                (attachment) =>
+                  attachment.contentType === "text/plain" ||
+                  attachment.name?.toLowerCase().endsWith(".txt")
+              )
+              .map((attachment) => (
+                <TextAttachmentPreview
+                  attachment={attachment}
+                  key={`preview-${attachment.url}`}
+                />
+              ))}
           </div>
         )}
         <div className="flex min-h-[64px] w-full items-start px-5 pt-4">

@@ -35,9 +35,10 @@ export async function generateTitleFromUserMessage({
     throw new Error("No authorized model");
   }
   await checkUserTokenQuota(session.user.id);
+  // 标题只需要消息开头；超长消息避免整篇发给标题模型（成本与时延）。
   const text = await completePiText({
     modelId,
-    prompt: getTextFromMessage(message),
+    prompt: getTextFromMessage(message).slice(0, 2000),
     systemPrompt: titlePrompt,
   });
   return text

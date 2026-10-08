@@ -1,3 +1,5 @@
+import { CHAT_TEXT_PART_MAX_LENGTH } from "@/lib/chat-input";
+
 export type ErrorType =
   | "bad_request"
   | "unauthorized"
@@ -111,6 +113,10 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
       return "This chat belongs to another user. Please check the chat ID and try again.";
     case "unauthorized:chat":
       return "You need to sign in to view this chat. Please sign in and try again.";
+    case "bad_request:chat":
+      return `The message is too long. Please keep each message under ${CHAT_TEXT_PART_MAX_LENGTH.toLocaleString(
+        "en-US"
+      )} characters or split it into several messages.`;
     case "offline:chat":
       return "We're having trouble sending your message. Please check your internet connection and try again.";
 

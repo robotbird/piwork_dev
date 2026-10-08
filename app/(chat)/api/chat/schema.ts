@@ -3,9 +3,10 @@ import {
   getChatFileId,
   isSupportedAttachmentMediaType,
 } from "@/lib/ai/attachment-types";
+import { CHAT_TEXT_PART_MAX_LENGTH } from "@/lib/chat-input";
 
 const textPartSchema = z.object({
-  text: z.string().min(1).max(2000),
+  text: z.string().min(1).max(CHAT_TEXT_PART_MAX_LENGTH),
   type: z.enum(["text"]),
 });
 
@@ -49,3 +50,18 @@ export const postRequestBodySchema = z.object({
 });
 
 export type PostRequestBody = z.infer<typeof postRequestBodySchema>;
+
+// 判定请求体验证失败是否由「用户消息文本超过长度上限」引起，
+// 用于返回专属错误码 bad_request:chat（含具体上限文案），
+// 而不是通用 bad_request:api 提示。
+export function isMessageTextTooLongError(error: unknown): boolean {
+  if (!(error instanceof z.ZodError)) {
+    return false;
+  }
+  return error.issues.some(
+    (issue) =>
+      issue.code === "too_big" &&
+      issue.path.at(-1) === "text" &&
+      issue.path[0] === "message"
+  );
+}

@@ -23,6 +23,7 @@ import { DocumentPreview } from "./document-preview";
 import { MessageActions } from "./message-actions";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
+import { TextAttachmentPreview } from "./text-attachment-preview";
 import { Weather } from "./weather";
 
 function WaitingText() {
@@ -152,21 +153,38 @@ const PurePreviewMessage = ({
 
   const attachments = attachmentsFromMessage.length > 0 && (
     <div
-      className="flex flex-row justify-end gap-2"
+      className="flex w-full flex-col items-end gap-2"
       data-testid={"message-attachments"}
     >
-      {attachmentsFromMessage.map((attachment) => (
-        <PreviewAttachment
-          attachment={{
-            contentType: attachment.mediaType,
-            name:
-              attachment.filename ??
-              decodeURIComponent(attachment.url.split("/").pop() ?? "file"),
-            url: attachment.url,
-          }}
-          key={attachment.url}
-        />
-      ))}
+      <div className="flex flex-row justify-end gap-2">
+        {attachmentsFromMessage.map((attachment) => (
+          <PreviewAttachment
+            attachment={{
+              contentType: attachment.mediaType,
+              name:
+                attachment.filename ??
+                decodeURIComponent(attachment.url.split("/").pop() ?? "file"),
+              url: attachment.url,
+            }}
+            key={attachment.url}
+          />
+        ))}
+      </div>
+      {attachmentsFromMessage
+        .filter((attachment) => attachment.mediaType === "text/plain")
+        .map((attachment) => (
+          <TextAttachmentPreview
+            align="right"
+            attachment={{
+              contentType: attachment.mediaType,
+              name:
+                attachment.filename ??
+                decodeURIComponent(attachment.url.split("/").pop() ?? "file"),
+              url: attachment.url,
+            }}
+            key={`preview-${attachment.url}`}
+          />
+        ))}
     </div>
   );
 

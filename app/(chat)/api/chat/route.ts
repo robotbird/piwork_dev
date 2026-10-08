@@ -71,7 +71,11 @@ import {
   getTextFromMessage,
 } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
-import { type PostRequestBody, postRequestBodySchema } from "./schema";
+import {
+  isMessageTextTooLongError,
+  type PostRequestBody,
+  postRequestBodySchema,
+} from "./schema";
 import { pumpRunSubscription } from "./stream-mapping";
 
 export const maxDuration = 60;
@@ -85,7 +89,11 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     requestBody = postRequestBodySchema.parse(json);
-  } catch {
+  } catch (error) {
+    // 超长消息返回专属提示（含上限），其余仍用通用 bad_request 文案
+    if (isMessageTextTooLongError(error)) {
+      return new ChatbotError("bad_request:chat").toResponse();
+    }
     return new ChatbotError("bad_request:api").toResponse();
   }
 
