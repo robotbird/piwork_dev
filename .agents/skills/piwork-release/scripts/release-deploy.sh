@@ -163,7 +163,7 @@ log "产物就绪: $ARTIFACT ($(du -h "$ARTIFACT" | cut -f1))"
 # ---------- 部署到服务器 ----------
 if [ "$SKIP_DEPLOY" = "1" ]; then
   KEEP_ART=1
-  log "--skip-deploy: 仅发版完成，产物保留在 ${ARTDIR}（部署时执行: bash $DEPLOY_SH ci $ARTIFACT）"
+  log "--skip-deploy: 仅发版完成，产物保留在 ${ARTDIR}（部署时执行: bash $DEPLOY_SH ci ${ARTIFACT}）"
   exit 0
 fi
 bash "$DEPLOY_SH" ci "$ARTIFACT"
