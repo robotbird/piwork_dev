@@ -99,8 +99,9 @@ else
   TAG="$(bump_version "$LAST" "$BUMP")"
 fi
 git -C "$PROJECT_ROOT" rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1 && die "tag $TAG 已存在，换一个版本号"
-SHA="$(git -C "$PROJECT_ROOT" rev-parse --short HEAD)"
-log "发版 ${TAG}（${SHA}），版本模式: ${EXPLICIT_TAG:-$BUMP 自增}"
+SHA="$(git -C "$PROJECT_ROOT" rev-parse HEAD)"
+SHORT_SHA="${SHA:0:7}"
+log "发版 ${TAG}（${SHORT_SHA}），版本模式: ${EXPLICIT_TAG:-$BUMP 自增}"
 
 # ---------- 推送分支 + tag（触发 CI）----------
 cd "$PROJECT_ROOT"
@@ -116,8 +117,8 @@ RUN_ID=""
 DEADLINE=$(( $(date +%s) + TIMEOUT ))
 for _ in $(seq 1 18); do
   RUN_ID="$(gh run list -R "$REPO" --workflow "$WORKFLOW" --limit 20 \
-    --json databaseId,headBranch \
-    --jq "[.[] | select(.headBranch==\"$TAG\") | .databaseId] | first // empty" 2>/dev/null || true)"
+    --json databaseId,headSha \
+    --jq "[.[] | select(.headSha==\"$SHA\")] | first // empty" 2>/dev/null || true)"
   [ -n "$RUN_ID" ] && break
   [ "$(date +%s)" -ge "$DEADLINE" ] && die "超时：没等到 $TAG 触发的 $WORKFLOW run（确认仓库 Actions 已启用）"
   sleep 10
@@ -172,7 +173,7 @@ RUN_URL="$(gh run view "$RUN_ID" -R "$REPO" --json url --jq .url 2>/dev/null || 
 cat <<EOF
 
 ================ 发版部署完成 ================
-  版本:     $TAG ($SHA)
+  版本:     $TAG (${SHORT_SHA})
   CI run:   $RUN_URL
   Release:  https://github.com/$REPO/releases/tag/$TAG
   服务器:   ${PIWORK_DEPLOY_HOST:-root@123.56.79.62}:/yepeng/web/piwork.net

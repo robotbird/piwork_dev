@@ -247,7 +247,10 @@ link_shared() {
 install_deps() {
   log "服务器安装生产依赖 (pnpm install --prod --ignore-scripts)"
   rr "cd $REL && COREPACK_NPM_REGISTRY=$REGISTRY npm_config_registry=$REGISTRY corepack pnpm install --prod --frozen-lockfile --ignore-scripts"
-  rr "cd $REL && node -e \"require('esbuild'); console.log('esbuild native ok')\""
+  # esbuild 已不在生产依赖（迁移用 dlx tsx 自带），仅提示不阻断；
+  # 真正门禁是 run_migrations 与切换后的 wait_health。
+  rr "cd $REL && node -e \"require('esbuild'); console.log('esbuild native ok')\"" \
+    || warn "生产依赖无 esbuild（迁移走 dlx tsx），跳过该检查"
 }
 
 run_migrations() {
