@@ -73,6 +73,7 @@ If the push is rejected, report the reason and stop — do not force or merge wi
 
 ## Notes
 
+- If the same instruction also asks to deploy (contains 部署/发版/上线), finish the commit and push here, then continue with the `piwork-release` skill (tag → GitHub Actions build → deploy the release artifact to production).
 - Keep it lightweight: no hooks, no config changes, no extra tooling.
 - If tests or type checks were already run for this change, reuse that result; do not launch a long validation just to commit.
 - If the user supplies their own message, use theirs verbatim instead of generating one.
