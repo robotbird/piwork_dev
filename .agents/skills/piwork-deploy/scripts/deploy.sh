@@ -297,7 +297,7 @@ pm2_start() {
 
 pm2_reload() {
   if ! rq "pm2 describe $APP >/dev/null 2>&1"; then
-    log "pm2 中还没有 $APP（首跑服务器），执行首次启动"
+    log "pm2 中还没有 ${APP}（首跑服务器），执行首次启动"
     pm2_start
     return 0
   fi
