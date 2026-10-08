@@ -82,7 +82,7 @@ gh auth status >/dev/null 2>&1 || die "gh 未登录: gh auth login"
 
 ORIGIN_URL="$(git -C "$PROJECT_ROOT" remote get-url origin)"
 REPO="${PIWORK_RELEASE_REPO:-$(printf '%s\n' "$ORIGIN_URL" | sed -E 's#^(https://github.com/|git@github.com:)##; s#\.git$##')}"
-[ "$REPO" = "robotbird/piwork_dev" ] || warn "origin 解析为 $REPO（预期 robotbird/piwork_dev）"
+[ "$REPO" = "robotbird/piwork_dev" ] || warn "origin 解析为 ${REPO}（预期 robotbird/piwork_dev）"
 
 [ -z "$(git -C "$PROJECT_ROOT" status --porcelain)" ] || die "工作区有未提交变更，先提交并 push 再发版（按 git 技能流程）"
 
@@ -100,7 +100,7 @@ else
 fi
 git -C "$PROJECT_ROOT" rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1 && die "tag $TAG 已存在，换一个版本号"
 SHA="$(git -C "$PROJECT_ROOT" rev-parse --short HEAD)"
-log "发版 $TAG（$SHA），版本模式: ${EXPLICIT_TAG:-$BUMP 自增}"
+log "发版 ${TAG}（${SHA}），版本模式: ${EXPLICIT_TAG:-$BUMP 自增}"
 
 # ---------- 推送分支 + tag（触发 CI）----------
 cd "$PROJECT_ROOT"
@@ -132,7 +132,7 @@ while :; do
       log "CI 构建成功"
     else
       gh run view "$RUN_ID" -R "$REPO" --log-failed 2>/dev/null | tail -80 || true
-      die "CI 失败（$CONCLUSION），发版终止。排查: gh run view $RUN_ID -R $REPO --log-failed"
+      die "CI 失败（${CONCLUSION}），发版终止。排查: gh run view $RUN_ID -R $REPO --log-failed"
     fi
     break
   fi
@@ -163,7 +163,7 @@ log "产物就绪: $ARTIFACT ($(du -h "$ARTIFACT" | cut -f1))"
 # ---------- 部署到服务器 ----------
 if [ "$SKIP_DEPLOY" = "1" ]; then
   KEEP_ART=1
-  log "--skip-deploy: 仅发版完成，产物保留在 $ARTDIR（部署时执行: bash $DEPLOY_SH ci $ARTIFACT）"
+  log "--skip-deploy: 仅发版完成，产物保留在 ${ARTDIR}（部署时执行: bash $DEPLOY_SH ci $ARTIFACT）"
   exit 0
 fi
 bash "$DEPLOY_SH" ci "$ARTIFACT"
