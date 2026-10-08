@@ -36,6 +36,14 @@ RUN npm install --omit=dev --registry="${NPM_REGISTRY}" --prefix /opt/pi "@earen
 # bash 供 pi 内建 bash 工具与 provider 的 dd/cat 契约；git 供 hosted-git-info 类解析按需再加
 RUN apk add --no-cache bash
 
+# Python 工具链 + 预装 python-pptx（"生成 PPT/Office"类执行任务的运行时面）。
+# musl 下 lxml/Pillow 走 apk 预编译包，避免运行时 pip 触发源码编译；pptx 本体
+# 是纯 wheel，XlsxWriter/typing-extensions 由 pip 自动补齐。构建期断言可导入，
+# 镜像缺能力时在 build 阶段即失败而不是等模型在沙箱里撞错。
+RUN apk add --no-cache python3 py3-pip py3-lxml py3-pillow \
+  && pip install --no-cache-dir --break-system-packages python-pptx \
+  && python3 -c "import lxml, PIL, pptx, xlsxwriter; print('python-pptx', pptx.__version__)"
+
 RUN mkdir -p /workspace \
   && chown -R pi:pi /opt/pi /workspace /home/pi
 

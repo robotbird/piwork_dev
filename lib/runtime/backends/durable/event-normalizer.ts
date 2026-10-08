@@ -14,6 +14,11 @@ type Channel = "text" | "reasoning" | "tool";
  *   本类维护 open 块状态合成：下一块 start 前先关闭上一块，message_end 关闭
  *   剩余块；start/落定时把尚未发出的文本合成为 delta（faux 等实现会整块
  *   出现 thinking，编码 agent 的 outline 仍是逐块闭合 + delta 内容完整）。
+ * - 官方事件流不保证 delta 前必有同块的 start：watch pending 溢出会以
+ *   snapshot 帧丢弃未送达批次（observation.js CommittedWatch.advance），
+ *   partial 非 append 写/整消息替换也会先关闭块。delta 抵达时块未 open 就
+ *   先合成 start；snapshot 帧按快照重同步 open 块（补差量/补 start+全量），
+ *   保证客户端 wire 不变量 text-start → text-delta* → text-end 恒成立。
  * - `tool_execution_end` 不带 isError，从结果条目的 ToolResultMessage 推导
  *   （条目缺失即 faulted/orphaned，按错误处理）；
  * - 运行级终态由 backend 在 run_end 时读 submission 结算记录推导；
@@ -78,13 +83,24 @@ export class DurableEventNormalizer {
             case "text_delta":
             case "thinking_delta":
             case "toolcall_delta": {
-              const channel = channelOf(
+              const blockType =
                 change.type === "text_delta"
                   ? "text"
                   : change.type === "thinking_delta"
                     ? "thinking"
-                    : "toolcall"
-              );
+                    : "toolcall";
+              const channel = channelOf(blockType);
+              // delta 抵达时块未必 open：官方 watch 在 pending 溢出时丢弃未送达
+              // 批次并以 snapshot 帧顶替（pi-durable observation.js 的
+              // CommittedWatch.advance），partial 的非 append 写/整消息替换也
+              // 会先关闭块。AI SDK 要求 text-start 先于 text-delta，缺 start
+              // 时先合成 start，保证 wire 不变量（start → delta* → end）。
+              if (this.openBlocks.get(change.contentIndex) !== channel) {
+                this.closeBlock(change.contentIndex, events);
+                events.push(
+                  ...this.startBlock(blockType, change.contentIndex, "")
+                );
+              }
               this.emittedChars.set(
                 change.contentIndex,
                 (this.emittedChars.get(change.contentIndex) ?? 0) +
@@ -111,6 +127,60 @@ export class DurableEventNormalizer {
               break;
             }
           }
+        }
+        return events;
+      }
+      case "snapshot": {
+        // 官方 watch 契约（pi-durable events.d.ts）：overflow 用一个 snapshot
+        // 顶替未送达批次——被丢批次里的 start/delta 不会重放。按快照把开放块
+        // 状态与真实 partial 对齐：仍 open 的块补发缺失差量；start 被丢的块补
+        // start + 全量 delta；本消息内已关闭的块不重开（delta 进不了已 end 的
+        // part，重开只会让客户端出现整段重复）；快照中消失的 open 块关闭。
+        // 注：若 message_start 也在被丢批次里，sequence 保持旧值——客户端最多
+        // 看到重复 id 的新 part（SDK 容忍），不会抛错。
+        const partial = event.generation?.message;
+        if (partial?.role !== "assistant") {
+          return [];
+        }
+        const events: RuntimeEvent[] = [];
+        const present = new Set<number>();
+        for (const [contentIndex, block] of partial.content.entries()) {
+          present.add(contentIndex);
+          const channel = channelOf(block.type);
+          if (this.openBlocks.get(contentIndex) !== channel) {
+            continue;
+          }
+          const full = blockText(block);
+          const emitted = this.emittedChars.get(contentIndex) ?? 0;
+          if (full.length > emitted) {
+            this.emittedChars.set(contentIndex, full.length);
+            events.push({
+              channel,
+              contentIndex,
+              delta: full.slice(emitted),
+              phase: "delta",
+              sequence: this.activeAssistantSequence,
+              type: "message.delta",
+            });
+          }
+        }
+        for (const contentIndex of [...this.openBlocks.keys()].sort(
+          (a, b) => a - b
+        )) {
+          if (!present.has(contentIndex)) {
+            this.closeBlock(contentIndex, events);
+          }
+        }
+        for (const [contentIndex, block] of partial.content.entries()) {
+          if (
+            this.openBlocks.has(contentIndex) ||
+            this.emittedChars.has(contentIndex)
+          ) {
+            continue;
+          }
+          events.push(
+            ...this.startBlock(block.type, contentIndex, blockText(block))
+          );
         }
         return events;
       }
