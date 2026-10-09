@@ -836,6 +836,7 @@
     "sharedFilesUnsupported": "暂不支持查看共享对话中的文件。",
     "noTextToCopy": "没有可复制的文本。",
     "copied": "已复制到剪贴板。",
+    "copyFailed": "复制失败，请手动复制。",
     "upvoteFailed": "点赞失败。",
     "upvoting": "正在点赞…",
     "upvoted": "已点赞。",

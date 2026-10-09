@@ -42,8 +42,12 @@ export function UserNav({ area, user, isAdmin = false }: UserNavProps) {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   }, [resolvedTheme, setTheme]);
 
-  const handleAuthSelect = useCallback(() => {
-    signOut({ redirectTo: "/login" });
+  const handleAuthSelect = useCallback(async () => {
+    // redirect: false：服务端会基于内部 origin（反代后是
+    // http://localhost:<port>）拼出绝对跳转 URL，浏览器会被带离站点；
+    // 这里改为相对跳转，兼容本地与任意线上入口。
+    await signOut({ redirectTo: "/login", redirect: false });
+    window.location.assign("/login");
   }, []);
 
   return (

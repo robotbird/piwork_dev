@@ -68,7 +68,7 @@
 
 遵循 [设计系统](design-system/openai-unified-interface/design-spec.md)：内容先行、结构安静、蓝色只表达可交互/进行中、`1px` 轻边框、胶囊/中圆角。
 
-- **分享弹窗**（`components/chat/share-dialog.tsx`，Radix Dialog，`max-w-lg`）：三个区块——① 成员选择（搜索 + 复选列表，选中计数 + 「添加」）；② 当前协作成员（头像 + 名字 + 所有者移除按钮）；③ 分享链接（所有者：「生成链接」→ 一次性展示完整链接 + 复制按钮 + 过期时间，附「重新生成」「撤销」）。链接仅在生成时展示一次（token 服务端只存哈希），文案明示。
+- **分享弹窗**（`components/chat/share-dialog.tsx`，Radix Dialog）：桌面最大宽 `520px`、圆角 `22px`、内边距 `24px`，分享弹窗单独使用 20% 遮罩，不改变其他弹窗。三个区块——① 成员选择（搜索 + 复选列表，排除已有协作者，浅灰选中态，次级「添加」操作）；② 当前协作成员（头像 + 名字 + 带 Tooltip/姓名标签的移除按钮）；③ 底部分享链接（自动展示可全选的只读链接 + 主操作「复制链接」，弱化「重新生成」，始终可撤销有效链接）。两个成员列表分别最多 `144px`、独立滚动；窄屏宽度为视口减 `32px`，短屏链接区也可滚动，触屏按钮至少 `44px`。打开后按所有者权限自动生成并展示链接，去掉底部一次性/有效期提示；同一组件存活期重开复用按 chatId 绑定、未过期的内存链接，不重复轮换。刷新/切换对话后若只有活跃链接摘要而无 token 原文，自动轮换一次（旧链接失效）；每次打开最多自动尝试一次，失败可手动重试，撤销后保持撤销状态，不自动重建。token 仍仅由创建响应返回，不持久化明文、不增加 GET 回显。
 - **参与者头像堆叠**（`components/chat/participant-avatars.tsx`）：对话头部分享按钮左侧，最多显示 4 个圆形头像（`size-6`，白描边叠压 `-ml-1.5`），超出显示 `+N`；hover 提示名字。有 `User.image` 用 `next/image`（unoptimized，复用 `user-nav.tsx` 模式），否则显示姓名首字母。
 - **消息归属**：对话参与者 > 1 时，用户消息气泡旁显示发送者小头像（旧消息/无归属回退为对话所有者）；单人对话不显示，保持现状。
 - **加入页**（`app/(chat)/chat/[id]/join/page.tsx`）：居中卡片——对话标题、所有者、消息数与协作人数、两条主操作（「参与协作」accent 实心 /「Fork 新对话」描边）；链接无效/过期显示失效卡片；已是成员显示「进入对话」。移动端宽度 `calc(100vw - 32px)`。
@@ -87,6 +87,7 @@
 
 - `pnpm test:chat:share`（`tests/unit/db/chat-share-queries.test.ts`，真实 PostgreSQL）：协作成员增删查、`getChatAccess` 归属判定、链接创建/过期/撤销/regenerate 轮换、token 哈希校验、fork 复制（新 id/归属/`forkedFromChatId`/源不动）、`listChatHistoryIncludingShared` 合并与游标。
 - `tests/unit/chat/share-token.test.ts`（无 DB）：token 生成格式、哈希比较的恒时与错误拒绝、过期/撤销判定。
+- `pnpm test:chat:share:ui`（`tests/e2e/share-dialog-ui.mts`）：独立 Chromium 渲染真实 ShareDialog 与项目 CSS，API 完全模拟；验证自动生成、重开复用、无明文时轮换、自动失败后手动重试、撤销不重建、底部提示隐藏、成员去重/添加、复制/全选、Esc，以及桌面/手机/横屏边界，无正式身份、DB 或模型调用，不代替真实权限验收。
 - 既有 `test:runtime`/`test:unit` 回归：聊天请求 schema、RunManager、事件链路不受影响。
 - 手工验收路径：A 创建对话 → 分享给 B（直接添加）+ 生成链接给 C；B 直接读写并看到头像；C 打开链接选择「参与协作」后读写；D 打开链接选择「Fork」得到独立对话；A 撤销链接后 E 打开同链接失效。
 

@@ -54,7 +54,7 @@ import type {
   ConversationMessage,
   ConversationRecord,
 } from "@/lib/admin/conversations";
-import { cn } from "@/lib/utils";
+import { cn, copyTextToClipboard } from "@/lib/utils";
 
 async function load<T>(url: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(url, { cache: "no-store", signal });
@@ -422,10 +422,10 @@ export function ConversationsPage({
     if (!selected) {
       return;
     }
-    try {
-      await navigator.clipboard.writeText(selected);
+    const succeeded = await copyTextToClipboard(selected);
+    if (succeeded) {
       toast.success(t("copied"));
-    } catch {
+    } else {
       toast.error(t("copyError"));
     }
   }, [selected, t]);

@@ -47,6 +47,7 @@ pnpm test:runtime:durable-chat:http # 默认跳过；显式 opt-in 才调用真�
 pnpm test:runtime       # 含 Durable 基础、沙箱 tools、RPC、RunManager 与聊天流映射
 pnpm test:runtime:db    # PostgreSQL 集成测试；需 .env.local 中 POSTGRES_URL
 pnpm test              # Playwright E2E；会启动本地 Next.js 服务
+pnpm test:chat:share:ui # 隔离 Chromium 分享弹窗：自动生成/重开复用/轮换/失败重试/撤销；API 模拟，无 DB/模型
 pnpm check             # 项目静态检查
 pnpm plugin:verify     # 模型插件链路验证
 ```
@@ -142,6 +143,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 
 - `pnpm test:chat:share`（真实 PostgreSQL，`tests/unit/db/chat-share-queries.test.ts`）：协作成员增删查、`getChatAccess` 归属判定、分享链接创建/过期/撤销/regenerate 轮换、token 哈希恒时比较、fork 复制语义、`listChatHistoryIncludingShared` 合并与游标。
 - `pnpm test:chat:share:unit`（无 DB）：token 生成格式与哈希拒绝。
+- `pnpm test:chat:navigation:ui`：隔离 Chromium，使用实际 ActiveChatProvider/ChatHeader/SidebarHistory，模拟 Next 导航与 HTTP，不连接 DB/真实模型；覆盖新对话生成中分享、即时侧栏刷新、多次切换后历史水合，以及协作成员无分享入口和头部占位按钮隐藏；实际 MultimodalInput 另覆盖缓存草稿 `n` 初始化恢复、Backspace 删除与全量清空，恢复仅初始化一次，持久化必须晚于恢复，空字符串不能重新回填旧缓存。新对话元数据刷新不得覆盖本地生成流，也不得在 submitted/streaming 时另行 resume。标题通知须晚于 DB 更新。Pi 依据为安装版 1.0.3 `docs/message-types.md`；本次仅修平台 UI 状态与消息投影，不新增 Pi API。
 - `pnpm test:chat:collab`（无 DB，`tests/unit/collab/chat-event-hub.test.ts`）：SSE 房间 attach/detach 的 hello/presence 广播、typing 6s TTL 到期清除与手动停止、同用户多连接的 typing 生命周期、message/run 事件广播与空房间 no-op；不测 HTTP 层。
 - 实时协作 HTTP 冒烟（SSE 鉴权 401/403/404、hello/presence/typing 事件到达、typing POST 204）已用本地 dev server + 临时脚本验证，脚本不入库；完整链路验证见 docs/chat-collaboration.md §7 手工路径。
 - 手动路径：A 分享给 B（直接添加）+ 生成链接给 C；两个浏览器登录 A/B 打开同一对话，一方发消息/输入，另一方实时看到消息出现、在线绿点与「正在输入」；A 移除 B 后 B 的 SSE 在 15s 内收到 missing 断开。

@@ -3,9 +3,9 @@ import { useTranslations } from "next-intl";
 import { memo, useCallback } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
-import { useCopyToClipboard } from "usehooks-ts";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
+import { copyTextToClipboard } from "@/lib/utils";
 import {
   MessageAction as Action,
   MessageActions as Actions,
@@ -27,7 +27,6 @@ export function PureMessageActions({
 }) {
   const t = useTranslations("chat");
   const { mutate } = useSWRConfig();
-  const [_, copyToClipboard] = useCopyToClipboard();
 
   const textFromParts = message.parts
     ?.filter((part) => part.type === "text")
@@ -41,9 +40,13 @@ export function PureMessageActions({
       return;
     }
 
-    await copyToClipboard(textFromParts);
-    toast.success(t("copied"));
-  }, [copyToClipboard, t, textFromParts]);
+    const succeeded = await copyTextToClipboard(textFromParts);
+    if (succeeded) {
+      toast.success(t("copied"));
+    } else {
+      toast.error(t("copyFailed"));
+    }
+  }, [t, textFromParts]);
 
   const handleUpvote = useCallback(() => {
     const upvote = fetch(

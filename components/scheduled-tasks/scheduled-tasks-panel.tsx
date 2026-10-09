@@ -49,6 +49,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { describeSchedule } from "@/lib/scheduler/display";
+import { copyTextToClipboard } from "@/lib/utils";
 
 type Task = {
   id: string;
@@ -199,9 +200,12 @@ export function ScheduledTasksPanel() {
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(
+        const succeeded = await copyTextToClipboard(
           `${shareData.title}\n${shareData.text}\n${shareData.url}`
         );
+        if (!succeeded) {
+          throw new Error("clipboard unavailable");
+        }
         toast.success("任务信息已复制");
       }
     } catch (cause) {

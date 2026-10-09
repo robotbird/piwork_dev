@@ -678,8 +678,8 @@ export async function POST(request: Request) {
         if (titlePromise) {
           try {
             const title = await titlePromise;
+            await updateChatTitleById({ chatId: id, title });
             dataStream.write({ data: title, type: "data-chat-title" });
-            updateChatTitleById({ chatId: id, title });
           } catch {
             /* non-fatal */
           }

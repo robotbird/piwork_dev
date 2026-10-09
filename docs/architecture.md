@@ -78,6 +78,8 @@ flowchart LR
 
 Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知可能落 failed，不能重写为 settled/aborted，仍 kill/核验、不重放。Leasing release 通过 WeakMap 把本层 wrapper 解包为原 provider handle，保持严格 provider 的归属校验与单次记账。HTTP fixture 在唯一 PG schema 隔离平台表、独立 build/tsconfig 和私有 SQLite；不把 Runtime checkpoint 改存 PG，也不把功能测试当 UI/恢复/容量证明。
 
+客户端新对话在聊天 POST 成功后即重新拉取成员元数据与侧栏历史，终态再刷新；分享入口只对非只读 owner 显示，生成中也可用，头部更多/摘要配置入口暂不渲染。消息水合按当前 useChat 实例记录，切换后重新加载历史；新对话只写入 URL、id 不变时不覆盖本地流。正在提交/生成时不额外 resume，标题先落库再通知侧栏刷新。均消费平台消息接口，不修改 Pi agent loop。
+
 **边界约束**：路由不直接依赖某个 Pi 事件格式；前端不直接消费 Pi SDK/RPC 事件。`RuntimeSpec` 目前仍含 Pi 类型，是服务端内部契约；不要将其宣称为可跨进程序列化的通用 DTO。数据库聊天历史重建为 Pi 会话消息，不能等同于 Pi 原生持久会话的完整状态。
 
 ## 4. 管理与资源链路

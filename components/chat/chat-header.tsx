@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  FolderIcon,
-  MoreHorizontalIcon,
-  PanelLeftIcon,
-  Share2Icon,
-  SlidersHorizontalIcon,
-} from "lucide-react";
+import { FolderIcon, PanelLeftIcon, Share2Icon } from "lucide-react";
 import { memo, useCallback, useState } from "react";
 import { usePreferences } from "@/components/preferences-provider";
 import { Button } from "@/components/ui/button";
@@ -31,8 +25,14 @@ function PureChatHeader({
 }) {
   const { toggleSidebar, isMobile } = useSidebar();
   const { t } = usePreferences();
-  const { chatId, myRole, onlineUserIds, participants, typingUserIds } =
-    useActiveChat();
+  const {
+    chatId,
+    isReadonly,
+    myRole,
+    onlineUserIds,
+    participants,
+    typingUserIds,
+  } = useActiveChat();
   const [shareOpen, setShareOpen] = useState(false);
 
   const handleShareOpen = useCallback(() => setShareOpen(true), []);
@@ -40,7 +40,7 @@ function PureChatHeader({
   const handleShareClose = useCallback(() => setShareOpen(false), []);
 
   // 分享是所有者操作：协作成员/只读视图不展示入口
-  const canShare = myRole === "owner";
+  const canShare = myRole === "owner" && !isReadonly;
   const showCollaboration = participants.length > 1;
 
   return (
@@ -96,29 +96,15 @@ function PureChatHeader({
             {canShare ? (
               <Button
                 aria-label={t("chat.shareConversation")}
-                className="hidden gap-2 px-2.5 sm:inline-flex"
+                className="gap-2 px-2.5"
                 onClick={handleShareOpen}
                 size="sm"
                 variant="ghost"
               >
                 <Share2Icon className="size-[17px]" />
-                <span>{t("chat.share")}</span>
+                <span className="hidden sm:inline">{t("chat.share")}</span>
               </Button>
             ) : null}
-            <Button
-              aria-label={t("common.moreActions")}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <MoreHorizontalIcon className="size-[18px]" />
-            </Button>
-            <Button
-              aria-label={t("chat.conversationSettings")}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <SlidersHorizontalIcon className="size-[18px]" />
-            </Button>
           </div>
         </>
       ) : null}

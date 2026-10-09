@@ -836,6 +836,7 @@
     "sharedFilesUnsupported": "Viewing files in shared chats is currently not supported.",
     "noTextToCopy": "There's no text to copy!",
     "copied": "Copied to clipboard!",
+    "copyFailed": "Failed to copy. Please copy manually.",
     "upvoteFailed": "Failed to upvote response.",
     "upvoting": "Upvoting response…",
     "upvoted": "Upvoted response!",

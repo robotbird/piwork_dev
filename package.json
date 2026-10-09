@@ -42,6 +42,8 @@
     "test:chat:library": "node --import tsx --test tests/unit/chat/library-attachments.test.ts",
     "test:chat:share": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/chat-share-queries.test.ts",
     "test:chat:share:unit": "node --conditions=react-server --import tsx --test tests/unit/chat/share-token.test.ts",
+    "test:chat:share:ui": "node --import tsx tests/e2e/share-dialog-ui.mts",
+    "test:chat:navigation:ui": "node --import tsx tests/e2e/chat-navigation-ui.mts",
     "test:chat:schema": "node --conditions=react-server --import tsx --test tests/unit/chat/chat-request-schema.test.ts",
     "test:chat:input": "node --conditions=react-server --import tsx --test tests/unit/chat/chat-input.test.ts",
     "test:chat:library:http": "node --conditions=react-server --import tsx tests/e2e/library-picker-http.mts",

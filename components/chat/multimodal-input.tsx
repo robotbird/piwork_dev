@@ -144,17 +144,22 @@ function PureMultimodalInput({
     ""
   );
 
+  const [draftRestored, setDraftRestored] = useState(false);
   useEffect(() => {
-    if (textareaRef.current) {
-      const domValue = textareaRef.current.value;
-      const finalValue = domValue || localStorageInput || "";
-      setInput(finalValue);
+    if (draftRestored || !textareaRef.current) {
+      return;
     }
-  }, [localStorageInput, setInput]);
+    // 缓存仅在初始化时恢复；空字符串也是有效输入，删除后不能回填旧草稿。
+    setInput(textareaRef.current.value || localStorageInput || "");
+    setDraftRestored(true);
+  }, [draftRestored, localStorageInput, setInput]);
 
   useEffect(() => {
-    setLocalStorageInput(input);
-  }, [input, setLocalStorageInput]);
+    // 等恢复完成再保存，避免首次 render 的空 input 抹掉缓存。
+    if (draftRestored) {
+      setLocalStorageInput(input);
+    }
+  }, [draftRestored, input, setLocalStorageInput]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);

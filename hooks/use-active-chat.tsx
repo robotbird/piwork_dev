@@ -185,6 +185,9 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
+      mutate(
+        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/messages?chatId=${chatId}`
+      );
     },
     sendAutomaticallyWhen: ({ messages: currentMessages }) => {
       const lastMessage = currentMessages.at(-1);
@@ -200,7 +203,18 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     },
     transport: new DefaultChatTransport({
       api: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat`,
-      fetch: fetchWithErrorHandlers,
+      fetch: async (requestInput, init) => {
+        const response = await fetchWithErrorHandlers(requestInput, init);
+        if (init?.method === "POST") {
+          // POST 成功时 Chat/用户消息已落库；不要等模型完成才刷新成员信息和侧栏。
+          // 闭包保留发送时的 chatId，等待响应期间切换对话也不会刷新错会话。
+          mutate(
+            `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/messages?chatId=${chatId}`
+          );
+          mutate(unstable_serialize(getChatHistoryPaginationKey));
+        }
+        return response;
+      },
       // 断线重连（未刷新）：带上最近游标，服务端按 seq > cursor 续传；
       // 无游标或 chatId 不符则走默认 URL（全量重放）
       prepareReconnectToStreamRequest(request) {
@@ -247,18 +261,22 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     }
   }, [status, setToolStatus, setWaitingStatus]);
 
-  const loadedChatIds = useRef(new Set<string>());
-
-  if (isNewChat && !loadedChatIds.current.has(newChatIdRef.current)) {
-    loadedChatIds.current.add(newChatIdRef.current);
+  // useChat 在 id 切换时创建新实例，每次进入历史对话都需要水合。
+  // 新对话只更新 URL（id 不变）时保留本地流，不用 DB 快照覆盖正在生成的消息。
+  const hydratedChatRef = useRef({ chatId, hydrated: isNewChat });
+  if (hydratedChatRef.current.chatId !== chatId) {
+    hydratedChatRef.current = { chatId, hydrated: isNewChat };
   }
 
   useEffect(() => {
-    if (loadedChatIds.current.has(chatId)) {
+    if (
+      hydratedChatRef.current.chatId !== chatId ||
+      hydratedChatRef.current.hydrated
+    ) {
       return;
     }
     if (chatData?.messages) {
-      loadedChatIds.current.add(chatId);
+      hydratedChatRef.current.hydrated = true;
       setMessages(chatData.messages);
     }
   }, [chatId, chatData?.messages, setMessages]);
@@ -324,7 +342,11 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
 
   useAutoResume({
     autoResume:
-      !sandboxView && !isNewChat && !!chatData && !chatData.isReadonly,
+      !sandboxView &&
+      !isNewChat &&
+      !!chatData &&
+      !chatData.isReadonly &&
+      status === "ready",
     initialMessages,
     resumeStream,
     setMessages,
