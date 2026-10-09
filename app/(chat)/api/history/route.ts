@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { auth } from "@/app/(auth)/auth";
-import { deleteAllChatsByUserId, getChatsByUserId } from "@/lib/db/queries";
+import { listChatHistoryIncludingShared } from "@/lib/db/chat-share-queries";
+import { deleteAllChatsByUserId } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 
 export async function GET(request: NextRequest) {
@@ -26,7 +27,8 @@ export async function GET(request: NextRequest) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
 
-  const chats = await getChatsByUserId({
+  // 「最近」合并本人对话与参与的协作对话（项目聊天除外）
+  const chats = await listChatHistoryIncludingShared({
     endingBefore,
     id: session.user.id,
     limit,

@@ -30,6 +30,11 @@ import {
   parseSkillCommand,
 } from "@/lib/ai/skills";
 import { webSearchPrompt } from "@/lib/ai/web-tools";
+import {
+  publishChatMessage,
+  publishChatRun,
+} from "@/lib/collab/chat-event-hub";
+import { getChatAccess } from "@/lib/db/chat-share-queries";
 import { canReadStoredFile } from "@/lib/db/library-queries";
 import { listMcpServers } from "@/lib/db/mcp-server-queries";
 import { listPiPackages } from "@/lib/db/pi-package-queries";
@@ -161,11 +166,16 @@ export async function POST(request: Request) {
     const chat = await getChatById({ id });
     let messagesFromDb: DBMessage[] = [];
     let titlePromise: Promise<string> | null = null;
+    // 协作成员（非所有者）可续发消息，但：不触发 durable 自动分流；标题生成
+    // 仍属所有者首条消息场景；重写历史类操作在别处保持所有者限定。
+    let isChatOwner = true;
 
     if (chat) {
-      if (chat.userId !== session.user.id) {
+      const access = await getChatAccess(id, session.user.id);
+      if (!access || !(access.isOwner || access.isCollaborator)) {
         return new ChatbotError("forbidden:chat").toResponse();
       }
+      isChatOwner = access.isOwner;
       messagesFromDb = await getMessagesByChatId({ id });
       // 项目聊天在发起页已预建（标题为占位）：首条用户消息发出后生成标题
       if (
@@ -298,7 +308,10 @@ export async function POST(request: Request) {
     const routing = selectChatRuntime({
       approvalContinuation: isToolApprovalFlow,
       classificationReason: classification.reason,
-      durableEnabled: durableConfig !== null,
+      // 协作成员的消息固定走既有经典矩阵：durable lane 的正式 DB 授权按
+      // Chat.userId 复核，非所有者会在水合/执行前被拒绝；这里提前排除，
+      // 避免「选定后失败」。分类不等于授权。
+      durableEnabled: durableConfig !== null && isChatOwner,
       needsCompatibility: chatNeedsCompatibility({
         capabilityNames: [
           ...discovered.skills.map((skill) => skill.name),
@@ -368,8 +381,18 @@ export async function POST(request: Request) {
             id: message.id,
             parts: message.parts,
             role: "user",
+            // 消息归属由服务端会话决定，不信任客户端 metadata；
+            // 用于协作对话的用户消息头像/名字展示。
+            userId: session.user.id,
           },
         ],
+      });
+      // 协作实时：用户消息落库后通知房间其他成员（本人跳过；
+      // 事件不携带正文，watcher 重拉 /api/messages）。
+      publishChatMessage({
+        actorId: session.user.id,
+        chatId: id,
+        role: "user",
       });
     }
 
@@ -623,6 +646,13 @@ export async function POST(request: Request) {
             throw new Error("run detached before attach");
           }
           subscription = attached;
+          // 协作实时：run 已启动且本请求成功 attach，通知房间其他成员
+          // resumeStream attach 活跃 run（与断线重连同一重放/活流 tail）。
+          publishChatRun({
+            actorId: session.user.id,
+            chatId: id,
+            phase: "started",
+          });
           // 显式 start：客户端/DB/重放共用同一确定性消息 id（§2.5）
           dataStream.write({ messageId: attached.messageId, type: "start" });
 

@@ -138,6 +138,14 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 2. `pnpm test:runtime:db` 覆盖 `tests/unit/db/project-queries.test.ts`：项目归属隔离、项目聊天列表摘要排序、资料写入/删除与项目级联清理。
 3. 手动流程：`/projects` 创建项目 → 进入项目 → 「来源」上传 PDF/TXT/Markdown → 大输入框发起聊天 → AI 回答应引用资料内容 → 返回项目主页聊天列表可见标题/摘要/时间 → 再开新聊天仍引用同一批资料。删除项目后其聊天与资料一并消失，且不出现在主侧边栏「最近」。
 
+## 对话分享与协作验证（2026-10-09）
+
+- `pnpm test:chat:share`（真实 PostgreSQL，`tests/unit/db/chat-share-queries.test.ts`）：协作成员增删查、`getChatAccess` 归属判定、分享链接创建/过期/撤销/regenerate 轮换、token 哈希恒时比较、fork 复制语义、`listChatHistoryIncludingShared` 合并与游标。
+- `pnpm test:chat:share:unit`（无 DB）：token 生成格式与哈希拒绝。
+- `pnpm test:chat:collab`（无 DB，`tests/unit/collab/chat-event-hub.test.ts`）：SSE 房间 attach/detach 的 hello/presence 广播、typing 6s TTL 到期清除与手动停止、同用户多连接的 typing 生命周期、message/run 事件广播与空房间 no-op；不测 HTTP 层。
+- 实时协作 HTTP 冒烟（SSE 鉴权 401/403/404、hello/presence/typing 事件到达、typing POST 204）已用本地 dev server + 临时脚本验证，脚本不入库；完整链路验证见 docs/chat-collaboration.md §7 手工路径。
+- 手动路径：A 分享给 B（直接添加）+ 生成链接给 C；两个浏览器登录 A/B 打开同一对话，一方发消息/输入，另一方实时看到消息出现、在线绿点与「正在输入」；A 移除 B 后 B 的 SSE 在 15s 内收到 missing 断开。
+
 ## 沙箱 Runtime 验证
 
 日常启动顺序、健康检查与维护处置（含 OpenSandbox server 启动脚本与已知故障）统一见 [运行手册](operations.md)；本节只保留测试与验收。

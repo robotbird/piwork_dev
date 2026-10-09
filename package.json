@@ -40,6 +40,8 @@
     "test:documents:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/library-queries.test.ts",
     "test:documents:http": "node --import tsx tests/e2e/library-http.mts",
     "test:chat:library": "node --import tsx --test tests/unit/chat/library-attachments.test.ts",
+    "test:chat:share": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/chat-share-queries.test.ts",
+    "test:chat:share:unit": "node --conditions=react-server --import tsx --test tests/unit/chat/share-token.test.ts",
     "test:chat:schema": "node --conditions=react-server --import tsx --test tests/unit/chat/chat-request-schema.test.ts",
     "test:chat:input": "node --conditions=react-server --import tsx --test tests/unit/chat/chat-input.test.ts",
     "test:chat:library:http": "node --conditions=react-server --import tsx tests/e2e/library-picker-http.mts",
@@ -56,7 +58,8 @@
     "test:db:client": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/client.test.ts",
     "test:conversations:db": "node --conditions=react-server --import tsx --test --test-concurrency=1 --test-force-exit tests/unit/db/conversation-queries.test.ts tests/unit/db/conversation-usage.test.ts",
     "test:profile:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/profile-queries.test.ts",
-    "test:profile": "playwright test tests/e2e/auth.test.ts tests/e2e/profile.test.ts"
+    "test:profile": "playwright test tests/e2e/auth.test.ts tests/e2e/profile.test.ts",
+    "test:chat:collab": "node --conditions=react-server --import tsx --test tests/unit/collab/*.test.ts"
   },
   "dependencies": {
     "@ai-sdk/provider": "^4.0.2",

@@ -2,6 +2,10 @@ import "server-only";
 
 import { getActivePiProviders } from "@/lib/ai/pi";
 import { authorizeRoleRun, checkUserTokenQuota } from "@/lib/ai/role-access";
+import {
+  publishChatMessage,
+  publishChatRun,
+} from "@/lib/collab/chat-event-hub";
 import { postgresAgentRunStore } from "@/lib/db/agent-run-queries";
 import { recordInferenceAudit } from "@/lib/db/inference-audit-queries";
 import { registerGeneratedFile } from "@/lib/db/library-queries";
@@ -217,6 +221,11 @@ runtimeGlobal.manager ??= new RunManager({
   messageStore: {
     upsertAssistantMessage: async ({ chatId, id, parts }) => {
       await upsertMessage({ chatId, id, parts });
+      // 协作实时：assistant 终态幂等 upsert 后通知房间（经典/Durable/
+      // 定时任务共用此回调，actorId 无法在此取得运行归属 → null，
+      // 客户端不 做 self-skip，重拉为幂等操作）。
+      publishChatMessage({ actorId: null, chatId, role: "assistant" });
+      publishChatRun({ actorId: null, chatId, phase: "finished" });
     },
   },
   runStore: postgresAgentRunStore,

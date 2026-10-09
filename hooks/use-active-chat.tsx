@@ -4,11 +4,13 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   createContext,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -24,10 +26,14 @@ import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { type ChatModelCatalog, resolveChatModelId } from "@/hooks/chat-model";
 import { isChatApprovalContinuation } from "@/hooks/chat-request";
 import { useAutoResume } from "@/hooks/use-auto-resume";
+import {
+  type ClientChatCollabEvent,
+  useChatCollab,
+} from "@/hooks/use-chat-collab";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, ChatMyRole, ChatParticipantInfo } from "@/lib/types";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 
 type ActiveChatContextValue = {
@@ -49,6 +55,14 @@ type ActiveChatContextValue = {
   setCurrentModelId: (id: string) => void;
   showCreditCardAlert: boolean;
   setShowCreditCardAlert: Dispatch<SetStateAction<boolean>>;
+  /** 分享协作：本人在对话中的角色；新对话视为 owner */
+  myRole: ChatMyRole;
+  /** 参与者名单（所有者 + 协作成员），仅对话成员可见 */
+  participants: ChatParticipantInfo[];
+  /** 协作实时：当前在线的用户 id（含本人）；非成员/新对话为空 */
+  onlineUserIds: string[];
+  /** 协作实时：正在输入的用户 id（已排除本人）；仅展示用途 */
+  typingUserIds: string[];
 };
 
 const ActiveChatContext = createContext<ActiveChatContextValue | null>(null);
@@ -320,6 +334,12 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     Boolean(sandboxView) ||
     (isNewChat ? false : (chatData?.isReadonly ?? false));
 
+  // 分享协作：/api/messages 对成员下发 myRole/participants；非成员/新对话为空。
+  const myRole: ChatMyRole = isNewChat ? "owner" : (chatData?.myRole ?? null);
+  const participants: ChatParticipantInfo[] = isNewChat
+    ? []
+    : (chatData?.participants ?? []);
+
   const { data: votes } = useSWR<Vote[]>(
     !isReadonly && messages.length >= 2
       ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/vote?chatId=${chatId}`
@@ -327,6 +347,139 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     fetcher,
     { revalidateOnFocus: false }
   );
+
+  // ── 协作实时（docs/chat-collaboration.md §8.4）──
+  const { data: sessionData } = useSession();
+  const selfUserId = sessionData?.user?.id ?? null;
+
+  // 事件处理里读最新 status：自己流进行中不重拉/不 attach
+  const statusRef = useRef(status);
+  statusRef.current = status;
+
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+  const [typingUserIds, setTypingUserIds] = useState<string[]>([]);
+  // typing 客户端兑底清除（服务端 6s TTL 丢失时防止残留指示）
+  const typingFallbackTimersRef = useRef<
+    Map<string, ReturnType<typeof setTimeout>>
+  >(new Map());
+
+  const collabEnabled =
+    !isNewChat && !sandboxView && myRole !== null && !isReadonly;
+
+  const handleCollabEvent = useCallback(
+    (event: ClientChatCollabEvent) => {
+      switch (event.type) {
+        case "hello":
+        case "presence":
+          setOnlineUserIds(event.onlineUserIds);
+          break;
+        case "typing": {
+          setTypingUserIds((prev) => {
+            const next = event.typing
+              ? [...new Set([...prev, event.userId])]
+              : prev.filter((id) => id !== event.userId);
+            return next;
+          });
+          const timers = typingFallbackTimersRef.current;
+          const existing = timers.get(event.userId);
+          if (existing) {
+            clearTimeout(existing);
+            timers.delete(event.userId);
+          }
+          if (event.typing) {
+            const timer = setTimeout(() => {
+              timers.delete(event.userId);
+              setTypingUserIds((prev) =>
+                prev.filter((id) => id !== event.userId)
+              );
+            }, 8000);
+            timers.set(event.userId, timer);
+          }
+          break;
+        }
+        case "message": {
+          if (event.actorId && event.actorId === selfUserId) {
+            return; // 自己的用户消息已在本地流内
+          }
+          if (statusRef.current !== "ready") {
+            return; // 本地流进行中：终态后消息以 DB 为准重拉兑底
+          }
+          const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+          (async () => {
+            try {
+              const response = await fetch(
+                `${basePath}/api/messages?chatId=${chatId}`
+              );
+              if (!response.ok) {
+                return;
+              }
+              const data = (await response.json()) as {
+                messages: ChatMessage[];
+              };
+              setMessages(data.messages);
+              mutate(`${basePath}/api/messages?chatId=${chatId}`);
+            } catch {
+              // 拉取失败：下次事件/刷新再同步，不打断当前视图
+            }
+          })().catch(() => undefined);
+          break;
+        }
+        case "run": {
+          if (event.actorId && event.actorId === selfUserId) {
+            return; // 自己发起的 run 已在本地流内
+          }
+          if (event.phase !== "started" || statusRef.current !== "ready") {
+            return;
+          }
+          // 他人发起 run：复用断线重连机制 attach 活跃 run
+          resumeStream();
+          break;
+        }
+        case "missing":
+          setOnlineUserIds([]);
+          setTypingUserIds([]);
+          break;
+        default:
+          break;
+      }
+    },
+    [chatId, mutate, resumeStream, selfUserId, setMessages]
+  );
+
+  const { notifyTyping } = useChatCollab({
+    chatId,
+    enabled: collabEnabled,
+    onEvent: handleCollabEvent,
+  });
+
+  // typing 上报卸载时清兑底定时器
+  useEffect(
+    () => () => {
+      for (const timer of typingFallbackTimersRef.current.values()) {
+        clearTimeout(timer);
+      }
+      typingFallbackTimersRef.current.clear();
+    },
+    []
+  );
+
+  // 输入包装：输入时节流上报 typing；清空（发送后）上报停止
+  const handleSetInput: Dispatch<SetStateAction<string>> = useCallback(
+    (action) => {
+      setInput((prev) => {
+        const next = typeof action === "function" ? action(prev) : action;
+        if (next.trim() && next !== prev) {
+          notifyTyping(true);
+        } else if (!next.trim()) {
+          notifyTyping(false);
+        }
+        return next;
+      });
+    },
+    [notifyTyping]
+  );
+
+  const visibleTypingUserIds = typingUserIds.filter((id) => id !== selfUserId);
 
   const value = useMemo<ActiveChatContextValue>(
     () => ({
@@ -337,15 +490,19 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       isLoading: !resolvedModelId || (!isNewChat && isLoading),
       isReadonly,
       messages,
+      myRole,
+      onlineUserIds,
+      participants,
       regenerate,
       sendMessage,
       setCurrentModelId,
-      setInput,
+      setInput: handleSetInput,
       setMessages,
       setShowCreditCardAlert,
       showCreditCardAlert,
       status,
       stop,
+      typingUserIds: visibleTypingUserIds,
       visibilityType: visibility,
       votes,
     }),
@@ -367,6 +524,11 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       votes,
       currentModelId,
       showCreditCardAlert,
+      myRole,
+      participants,
+      onlineUserIds,
+      visibleTypingUserIds,
+      handleSetInput,
     ]
   );
 

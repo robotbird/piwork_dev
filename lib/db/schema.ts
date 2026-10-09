@@ -73,8 +73,6 @@ export const member = pgTable("Member", {
 export type MemberRecord = InferSelectModel<typeof member>;
 
 export const role = pgTable("Role", {
-  modelPolicy: json("modelPolicy").$type<import("../admin/role-model-policy").RoleModelPolicy>(),
-  tokenPolicy: json("tokenPolicy").$type<import("../admin/role-token-policy").RoleTokenPolicy>(),
   /** 稳定标识；仅系统角色有值（super_admin / admin / member），自定义角色为空 */
   code: varchar("code", { length: 64 }).unique(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
@@ -82,7 +80,15 @@ export const role = pgTable("Role", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   /** 成员人数上限；null 表示不限（超级管理员固定为 1，由接口与种子数据共同保证） */
   memberLimit: integer("memberLimit"),
+  modelPolicy:
+    json("modelPolicy").$type<
+      import("../admin/role-model-policy").RoleModelPolicy
+    >(),
   name: varchar("name", { length: 128 }).notNull().unique(),
+  tokenPolicy:
+    json("tokenPolicy").$type<
+      import("../admin/role-token-policy").RoleTokenPolicy
+    >(),
   type: varchar("type", { enum: ["system", "custom"] })
     .notNull()
     .default("custom"),
@@ -242,6 +248,11 @@ export type PiPackageRecord = InferSelectModel<typeof piPackage>;
 
 export const chat = pgTable("Chat", {
   createdAt: timestamp("createdAt").notNull(),
+  /** 分支来源聊天；源聊天删除时置空（保留分支对话） */
+  forkedFromChatId: uuid("forkedFromChatId").references(
+    (): AnyPgColumn => chat.id,
+    { onDelete: "set null" }
+  ),
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   /** 所属项目；null 表示普通聊天。项目删除时聊天一并删除 */
   projectId: uuid("projectId").references((): AnyPgColumn => project.id, {
@@ -276,6 +287,62 @@ export const project = pgTable(
 
 export type Project = InferSelectModel<typeof project>;
 
+/**
+ * 聊天协作成员：由所有者直接指定或经分享链接加入。只存协作成员，不存所有者——
+ * 所有者始终以 Chat.userId 判定，避免回填与双路径。
+ */
+export const chatCollaborator = pgTable(
+  "ChatCollaborator",
+  {
+    chatId: uuid("chatId")
+      .notNull()
+      .references((): AnyPgColumn => chat.id, { onDelete: "cascade" }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    /** 直接指定时为聊天所有者；链接加入时为加入者本人。账号删除时置空 */
+    invitedBy: uuid("invitedBy").references((): AnyPgColumn => user.id, {
+      onDelete: "set null",
+    }),
+    userId: uuid("userId")
+      .notNull()
+      .references((): AnyPgColumn => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("ChatCollaborator_chat_user_idx").on(
+      table.chatId,
+      table.userId
+    ),
+    index("ChatCollaborator_user_idx").on(table.userId),
+  ]
+);
+
+export type ChatCollaboratorRecord = InferSelectModel<typeof chatCollaborator>;
+
+/**
+ * 分享链接邀请：token 本体只在创建响应中出现一次，之后服务端只保留 sha256，
+ * 不可再取回。每对话最多一条未撤销未过期链接；重新生成 = 撤销旧的 + 建新的。
+ */
+export const chatShareInvite = pgTable(
+  "ChatShareInvite",
+  {
+    chatId: uuid("chatId")
+      .notNull()
+      .references((): AnyPgColumn => chat.id, { onDelete: "cascade" }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    createdBy: uuid("createdBy")
+      .notNull()
+      .references((): AnyPgColumn => user.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expiresAt").notNull(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    revokedAt: timestamp("revokedAt"),
+    /** sha256(token) hex；比较使用 timingSafeEqual */
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
+  },
+  (table) => [index("ChatShareInvite_chat_idx").on(table.chatId)]
+);
+
+export type ChatShareInviteRecord = InferSelectModel<typeof chatShareInvite>;
+
 /** 项目上传的资料；content 为提取出的纯文本，聊天时作为上下文注入（MVP 不做检索） */
 export const source = pgTable(
   "Source",
@@ -304,6 +371,10 @@ export const message = pgTable("Message_v2", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   parts: json("parts").notNull(),
   role: varchar("role").notNull(),
+  /** 用户消息的发送者；assistant 消息为 null。账号删除时置空（保留消息） */
+  userId: uuid("userId").references((): AnyPgColumn => user.id, {
+    onDelete: "set null",
+  }),
 });
 
 export type DBMessage = InferSelectModel<typeof message>;
@@ -388,8 +459,6 @@ export const agentRun = pgTable(
     })
       .notNull()
       .default("in_process"),
-    /** 请求时的模型身份快照；仅身份字段，不保存凭据或 URL。 */
-    requestedModel: json("requestedModel").$type<{ provider: string; id: string; name?: string }>(),
     /** 聊天被删除时连同执行记录一并删除 */
     chatId: uuid("chatId")
       .notNull()
@@ -398,6 +467,12 @@ export const agentRun = pgTable(
     endedAt: timestamp("endedAt"),
     errorMessage: text("errorMessage"),
     id: uuid("id").primaryKey().notNull().defaultRandom(),
+    /** 请求时的模型身份快照；仅身份字段，不保存凭据或 URL。 */
+    requestedModel: json("requestedModel").$type<{
+      provider: string;
+      id: string;
+      name?: string;
+    }>(),
     startedAt: timestamp("startedAt"),
     status: varchar("status", {
       enum: [
@@ -481,33 +556,26 @@ export const runtimeLease = pgTable("RuntimeLease", {
 export const sandboxInstance = pgTable(
   "SandboxInstance",
   {
-    createdAt: timestamp("createdAt").notNull().defaultNow(),
     /** chat 级 lease：该 chat 复用的沙箱 */
     chatId: uuid("chatId")
       .notNull()
       .references(() => chat.id, { onDelete: "cascade" }),
-    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
     /** 到期时刻（now + ttl；续期时刷新）；过期由惰性检测收敛为 expired */
     expiresAt: timestamp("expiresAt").notNull(),
     externalId: varchar("externalId", { length: 256 }).notNull(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
     image: varchar("image", { length: 256 }).notNull(),
     lastRenewedAt: timestamp("lastRenewedAt").notNull().defaultNow(),
-    runtimeConfig: json("runtimeConfig").$type<SandboxRuntimeConfig>(),
     /** 最近一次 acquire 该沙箱的 run；chat 复用下会更新 */
     lastRunId: uuid("lastRunId"),
     /** 底座：test（测试替身）| docker（开发）| opensandbox（生产） */
     provider: varchar("provider", {
       enum: ["test", "docker", "opensandbox"],
     }).notNull(),
+    runtimeConfig: json("runtimeConfig").$type<SandboxRuntimeConfig>(),
     status: varchar("status", {
-      enum: [
-        "creating",
-        "ready",
-        "paused",
-        "degraded",
-        "destroyed",
-        "expired",
-      ],
+      enum: ["creating", "ready", "paused", "degraded", "destroyed", "expired"],
     })
       .notNull()
       .default("creating"),
@@ -521,13 +589,13 @@ export const sandboxInstance = pgTable(
   (table) => ({
     chatIdx: index("SandboxInstance_chatId_idx").on(
       table.chatId,
-      table.createdAt,
+      table.createdAt
     ),
     providerExtKey: uniqueIndex("SandboxInstance_provider_externalId_key").on(
       table.provider,
-      table.externalId,
+      table.externalId
     ),
-  }),
+  })
 );
 
 export type SandboxInstanceRecord = InferSelectModel<typeof sandboxInstance>;
@@ -560,10 +628,10 @@ export const inferenceAccessAudit = pgTable(
   (table) => ({
     chatIdx: index("InferenceAccessAudit_chatId_idx").on(
       table.chatId,
-      table.createdAt,
+      table.createdAt
     ),
     runIdx: index("InferenceAccessAudit_runId_idx").on(table.runId),
-  }),
+  })
 );
 
 export type InferenceAccessAuditRecord = InferSelectModel<

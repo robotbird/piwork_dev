@@ -7,6 +7,7 @@
 | [项目架构](architecture.md) | 模块职责、运行链路、数据边界、当前状态 | 当前实现；新开发先读 |
 | [平台联网搜索](web-search.md) | 固定 Tavily 受控搜索、轻量路由、逐次授权/限额与来源持久化 | 当前实现；默认关闭，需 PIWORK_WEB_SEARCH_ENABLED + TAVILY_API_KEY；不含 web_fetch/任意抓取 |
 | [对话模型与用量](conversation-model-usage.md) | 请求/实际模型持久化、SDK/RPC/Durable 全链路、会话 Token 累计口径与验证 | 当前实现；历史缺失不估算，非不可变账单 |
+| [对话分享与协作](chat-collaboration.md) | 分享链接/协作成员/fork、消息归属头像、实时协作（SSE presence/typing/事件通知）与权限模型 | 当前实现；token 只存哈希且明文仅展示一次；协作成员走经典 lane 不参与 Durable 分流；实时层单实例进程内 hub，事件不携带正文 |
 | [聊天业务链路与 RPC](rpc-business-flow.md) | 从用户输入到模型回复；RPC 与 HTTP、Provider 的关系 | 当前实现与已实现适配器分开说明 |
 | [平台与 Runtime 演进架构](platform-runtime-roadmap.md) | Web → Worker/Sandbox → 未来 Desktop 的目标边界与分期 | 目标架构；含现有代码映射和验收条件 |
 | [开发与测试](development.md) | 目录约定、测试位置和验证命令 | 当前规范 |

@@ -154,6 +154,91 @@ export async function canReadStoredFile(userId: string, url: string) {
   return Boolean(item);
 }
 
+/**
+ * 按 id 读单个条目（不限归属）。仅供平台内部服务端投影使用（如协作头像
+ * 端点）；调用方必须自行校验条目归属后再输出字节。
+ */
+export async function getLibraryItemById(id: string) {
+  const [item] = await db
+    .select()
+    .from(libraryItem)
+    .where(eq(libraryItem.id, id))
+    .limit(1);
+  return item;
+}
+
+export type LibraryItemBytes = {
+  bytes: Uint8Array;
+  contentType: string;
+};
+
+/**
+ * 读取条目内容字节（document / 本地文件 / 白名单 Blob 三分支），与
+ * `/api/library/[id]` 同一逻辑；null = 不可读（不存在/外部 URL 非白名单）。
+ */
+export async function readLibraryItemBytes(
+  item: NonNullable<Awaited<ReturnType<typeof getLibraryItemById>>>
+): Promise<LibraryItemBytes | null> {
+  if (item.kind === "folder") {
+    return null;
+  }
+  if (item.documentId) {
+    const [doc] = await db
+      .select()
+      .from(document)
+      .where(
+        and(eq(document.id, item.documentId), eq(document.userId, item.userId))
+      )
+      .orderBy(desc(document.createdAt))
+      .limit(1);
+    if (!doc) {
+      return null;
+    }
+    const bytes =
+      doc.kind === "image"
+        ? new Uint8Array(
+            Buffer.from(
+              (doc.content ?? "").replace(/^data:image\/[^;]+;base64,/, ""),
+              "base64"
+            )
+          )
+        : new TextEncoder().encode(doc.content ?? "");
+    return {
+      bytes,
+      contentType: item.contentType ?? "application/octet-stream",
+    };
+  }
+  const { getChatFileId } = await import("@/lib/ai/attachment-types");
+  const { readLocalFile } = await import("@/lib/ai/file-store");
+  const localId = getChatFileId(item.url ?? "");
+  if (localId) {
+    const file = await readLocalFile(localId);
+    if (!file) {
+      return null;
+    }
+    return {
+      bytes: new Uint8Array(file.content),
+      contentType: item.contentType ?? "application/octet-stream",
+    };
+  }
+  // Only our Blob host is fetched; historical external URLs must never become an SSRF proxy.
+  const url = new URL(item.url ?? "", "https://invalid.local");
+  if (
+    url.protocol !== "https:" ||
+    !url.hostname.endsWith(".public.blob.vercel-storage.com")
+  ) {
+    return null;
+  }
+  const response = await fetch(url, { redirect: "error" });
+  if (!response.ok) {
+    return null;
+  }
+  return {
+    bytes: new Uint8Array(await response.arrayBuffer()),
+    contentType: item.contentType ?? "application/octet-stream",
+  };
+}
+
 export async function moveLibraryFile(
   userId: string,
   id: string,

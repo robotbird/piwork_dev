@@ -42,6 +42,7 @@
 | `lib/runtime/sandbox` | Pi 无关的 SandboxProvider/SandboxHandle/SandboxChannel seam、DB 注册表/租约与 UDS bridge；生产 Docker/OpenSandbox provider 见 OpenSandbox 接入 Spec，未落地不得当现状描述 |
 | `lib/runtime/run` | RunManager、订阅/重放、运行持久化和最终消息构建 |
 | `lib/ai` | Pi 会话、模型、工具、Skill、附件装配；优先调用官方 SDK |
+| `lib/collab` | 聊天协作实时事件 hub（进程内 pub/sub：SSE 房间/presence/typing TTL/消息与 run 通知）；事件不携带正文，多实例需外部总线 |
 | `lib/pi-packages`、`lib/mcp`、`lib/model-plugins` | Pi Package、MCP 配置与模型供应商插件；各自持有安装/注册边界 |
 | `lib/db`、`lib/admin` | Schema、迁移、查询与管理域规则 |
 | `docker/` | 沙箱运行时镜像（`pi-runtime` 预装完整 pi，版本随仓库 `package.json` 同步） |
@@ -72,6 +73,12 @@ P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/�
 控制面 PostgreSQL 持有身份/RBAC/配置、平台任务元数据与审计/用量投影；Runtime 的 Pi Durable transcript/inbox/tasks/checkpoint 继续使用每运行私有 SQLite。文件/制品走私有文件或对象存储。不得仅为“统一数据库”替换官方执行状态存储，也不得把 Cloudflare DO 的单写者/Alarm/PITR 当成本项目已有能力。Node 部署仍需可靠持久卷、单 Writer、备份恢复、唤醒与副作用对账。
 
 `backends/durable/storage.ts` 只复用官方 SQLite facade/Storage；可信私有持久卷、平台授权 user/chat/run/inputHash 绑定、O_EXCL owner marker，不按 PID/TTL 自动偷锁。恢复检查必须早于 submit/wait/resume（均启动官方调度）；未知 intent/已物化未知结果拒绝，不能自动重放。所有通用工具 unsafe，execute 内复核当前授权并透传 signal；不可仅依赖恢复会跳过的 beforeTool。持久 adapter 未接沙箱而 workspace 非 null 必须拒绝；生产默认 MemoryStorage 明确禁止，实验开关不是生产上线入口。Worker/映射/事件快照投影/正式权限与账本/取消删除恢复对账仍未完成；存储锁不等于 workspace fencing。测试与 fixture 在 tests/unit/runtime/backends/durable 与 tests/support/durable，不做容量测试。
+
+## 对话分享与协作边界
+
+分享/加入/fork 归 `lib/db/chat-share-queries.ts`（ChatCollaborator/ChatShareInvite，迁移 0020）：token 只存 sha256（恒时比较），明文仅创建响应展示一次，7 天过期可撤销/轮换；管理动作仅对话所有者。所有权判定统一 `getChatAccess`（owner ∪ collaborator），聊天/流/停止/投票/历史均接入；重写历史/可见性/删除仍 owner-only。协作成员可续发消息但固定走经典 lane（不触发 Durable 分流），用自己的模型目录/额度；并发沿用 per-chat 单活跃 run。Fork 事务复制全部消息（新消息 id、归属新 owner、private、不复制成员/链接）；受保护附件仍按原归属鉴权，fork 后可能无权读取。
+
+实时协作（第二版，参考 pi-pocket room/presence/typing 机制）归 `lib/collab/chat-event-hub.ts` + `/api/chat/[id]/events|typing`：SSE 只承载 presence/typing/message/run/missing 小事件，不推消息正文——watcher 重拉 `/api/messages` 或 `resumeStream` attach 活跃 run（复用断线重连重放）；typing 6s TTL；建连鉴权 + 15s ping 复查，被移除成员收 missing 断开。发布点：chat route 用户消息落库后与 run attach 后、scheduler executor 同位置、`run/index.ts` messageStore 终态 upsert（actorId=null）。单实例进程内广播，多副本需外部总线（非现状）；HMR 重建 hub 由客户端自动重连；不做容量验收。测试 test:chat:collab 在 tests/unit/collab，DB 契约归 test:chat:share；见 docs/chat-collaboration.md。
 
 ## 平台联网搜索边界
 

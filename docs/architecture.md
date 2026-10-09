@@ -50,6 +50,7 @@ flowchart LR
 | `lib/runtime/run` | `RunManager` 生命周期、订阅、事件日志、消息构建、事件存储接口；`index.ts` 组装当前后端和 PostgreSQL 实现 |
 | `lib/ai` | Pi session 装配、模型适配、系统提示、Skill、工具、附件和文件存储；`agent-session.ts` 调用 Pi SDK |
 | `lib/search` | 可信平台联网搜索 Gateway、固定 Tavily API、逐次正式身份/聊天/模型授权、单进程准入及有界来源投影；不运行第三方插件或抓取任意网页 |
+| `lib/collab` | 聊天协作实时事件 hub（进程内 pub/sub）：SSE 房间/presence/typing TTL、消息与 run 生命周期通知；事件不携带正文，真相在 PostgreSQL；单实例前提，多副本需外部总线，见 [对话分享与协作](chat-collaboration.md) |
 | `lib/pi-packages`、`lib/mcp` | 受管 Pi 包安装/资源清点；将管理端 MCP 配置同步到受管 agentDir `mcp.json`，并提供 Pi 内置 MCP 扩展的自定义 `loadConfig` |
 | `lib/model-plugins`、`packages/model-provider-sdk`、`plugins` | 模型供应商插件契约、检查/构建/Worker host/注册；SDK 与示例 DeepSeek 插件 |
 | `lib/db`、`lib/admin` | Drizzle schema、迁移和查询；管理权限与管理业务逻辑 |
@@ -71,7 +72,7 @@ flowchart LR
 4. 沙箱 argv 派生显式使用配置的 remoteCliPath，不调用宿主 `import.meta.resolve`（Next.js Turbopack 不支持）；宿主仍由官方 RpcClient 经 bridge shim 启动。backend.open 失败由 RunManager 记录 failed 与真实错误并释放 lease，避免遗留 queued；聊天流错误在服务端记录，客户端保持通用提示。
 启动期生命周期：RunManager 在首次 await 前预留 chat；DB 创建/lease 发布与僵尸清理经短临界区串行，backend.open 不持锁。已获 lease 的 run 进入 starting，启动中映射与 LiveRun 一并受排除/心跳保护，交接不留空窗。未知但持 lease 的 run 仅在心跳过期时失败，无 lease 的孤儿可清理；DB 用单条条件 UPDATE 检查非终态/清理条件，并在事务内仅释放实际更新行的 lease，不覆盖正常终态。仍是单进程 MVP，不是完整 Worker/fencing 或自动恢复。
 
-5. Pi 事件由 `lib/runtime/backends/pi-event-normalizer.ts` 转为平台 `RuntimeEvent`。`RunManager` 管理运行状态、事件序号、订阅与重放；关键事件写入 `RuntimeEvent` 表，最终 assistant 消息落库。`stream-mapping.ts` 才把平台事件转成前端 UI message stream。
+5. Pi 事件由 `lib/runtime/backends/pi-event-normalizer.ts` 转为平台 `RuntimeEvent`。`RunManager` 管理运行状态、事件序号、订阅与重放；关键事件写入 `RuntimeEvent` 表，最终 assistant 消息落库。`stream-mapping.ts` 才把平台事件转成前端 UI message stream。落库后的用户消息与终态 assistant 消息同时向 `lib/collab` 的进程内协作 hub 发通知（事件不携带正文）：其他成员的浏览器经 `/api/chat/[id]/events` SSE 收到后重拉 `/api/messages` 或 `resumeStream` attach 活跃 run，实现共享对话的实时互见；单实例进程内广播，非跨副本能力。
 
 服务端自动分流在原职责链上追加（class 名称中的 Explicit 指服务端选定的内部 lane，不是用户勾选）：`route → RunManager → ExplicitDurableRuntimeBackend → DurableChatBackend → 官方 Harness/owned SQLite → LazySandbox/filesystem`。只有一套 agent loop，宿主模型凭据/SQLite 不进入沙箱。`run/durable-chat.ts` 注入 `db/durable-chat-queries.ts` 的正式 enabled/归属/运行状态检查及启用模型目录复核，prompt/hash/配置绑定，工具执行前复核；目录缓存沿用最多 30 秒。附件是本人 LibraryItem 引用，最多 5 个/每个 20 MB/总计 50 MB，图像累计 8 MB；不在宿主解析 Office/图片。原始字节使用有界下载与 hash/size 复核，通过原子 filesystem 水合到相对 inputs 路径；授权/水合失败必须回收，不忽略附件或回退宿主。私有交付先保存并登记本人 LibraryItem，再经 RuntimeEvent 发文件。每条新消息是新 run/新工作区，仅复用文本历史；没有跨进程平台闭包支持。
 

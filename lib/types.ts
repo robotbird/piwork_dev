@@ -9,6 +9,8 @@ import type { Suggestion } from "./db/schema";
 
 export const messageMetadataSchema = z.object({
   createdAt: z.string(),
+  /** 用户消息的发送者；assistant/旧消息为 undefined。仅用于展示归属头像 */
+  userId: z.string().optional(),
 });
 
 export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
@@ -78,6 +80,18 @@ export type ChatMessage = UIMessage<
   CustomUIDataTypes,
   ChatTools
 >;
+
+/** 分享协作的参与者投影（不含 email 等联系方式），用于头像/名字展示 */
+export type ChatParticipantInfo = {
+  image: string | null;
+  joinedAt: string;
+  name: string | null;
+  role: "owner" | "collaborator";
+  title: string | null;
+  userId: string;
+};
+
+export type ChatMyRole = "owner" | "collaborator" | null;
 
 export type Attachment = {
   name: string;

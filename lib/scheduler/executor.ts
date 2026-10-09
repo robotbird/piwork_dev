@@ -10,6 +10,10 @@ import { getPiModel } from "@/lib/ai/pi";
 import { regularPrompt } from "@/lib/ai/prompts";
 import { getUserModelCatalog } from "@/lib/ai/role-access";
 import { buildSkillsSystemPrompt, createSkillTools } from "@/lib/ai/skills";
+import {
+  publishChatMessage,
+  publishChatRun,
+} from "@/lib/collab/chat-event-hub";
 import { saveChat, saveMessages } from "@/lib/db/queries";
 import {
   finishScheduledTask,
@@ -58,9 +62,13 @@ export async function executeScheduledTask(task: ScheduledTaskRecord) {
           id: crypto.randomUUID(),
           parts: [{ text: task.prompt, type: "text" }],
           role: "user",
+          userId: task.userId,
         },
       ],
     });
+    // 协作实时：定时任务新对话首条用户消息落库后通知（房间通常为空，
+    // 无 watcher 时广播为 no-op；与聊天路由同一语义）
+    publishChatMessage({ actorId: task.userId, chatId, role: "user" });
     const handle = await manager.start({
       prompt: { text: task.prompt, type: "prompt" },
       spec: {
@@ -80,6 +88,7 @@ export async function executeScheduledTask(task: ScheduledTaskRecord) {
       },
       userId: task.userId,
     });
+    publishChatRun({ actorId: task.userId, chatId, phase: "started" });
     await waitForTaskCompletion(handle);
   } catch (error) {
     errorMessage = error instanceof Error ? error.message : "执行失败";

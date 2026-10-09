@@ -27,13 +27,13 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import type { Chat } from "@/lib/db/schema";
+import type { SharedChatListItem } from "@/lib/db/chat-share-queries";
 import { fetcher } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
 import { ChatItem } from "./sidebar-history-item";
 
 export type ChatHistory = {
-  chats: Chat[];
+  chats: SharedChatListItem[];
   hasMore: boolean;
 };
 

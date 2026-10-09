@@ -2,6 +2,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
+import { useActiveChat } from "@/hooks/use-active-chat";
 import { isChatFileUrl } from "@/lib/ai/attachment-types";
 import type { Vote } from "@/lib/db/schema";
 import { publicSourceUrl } from "@/lib/search/protocol";
@@ -24,6 +25,7 @@ import { MessageActions } from "./message-actions";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
 import { TextAttachmentPreview } from "./text-attachment-preview";
+import { UserAvatar } from "./user-avatar";
 import { Weather } from "./weather";
 
 function WaitingText() {
@@ -131,6 +133,17 @@ const PurePreviewMessage = ({
   onEdit?: (message: ChatMessage) => void;
 }) => {
   const t = useTranslations("chat");
+  const { participants } = useActiveChat();
+
+  // 协作对话（参与者 > 1）展示用户消息归属：按消息 userId 匹配参与者，
+  // 旧消息/无归属回退为对话所有者。单人对话不渲染，保持现状。
+  const showAttribution = message.role === "user" && participants.length > 1;
+  const author = showAttribution
+    ? (participants.find(
+        (participant) => participant.userId === message.metadata?.userId
+      ) ?? participants.find((participant) => participant.role === "owner"))
+    : undefined;
+
   const attachmentsFromMessage = message.parts.filter(
     (part) => part.type === "file"
   );
@@ -483,13 +496,22 @@ const PurePreviewMessage = ({
     >
       <div
         className={cn(
-          isUser ? "flex flex-col items-end gap-2" : "flex items-start"
+          isUser
+            ? "flex flex-row items-start justify-end gap-2"
+            : "flex items-start"
         )}
       >
         {isAssistant ? (
           <div className="flex min-w-0 flex-1 flex-col gap-3">{content}</div>
         ) : (
-          content
+          <>
+            {content}
+            {author ? (
+              <span className="mt-0.5 shrink-0" title={author.name ?? ""}>
+                <UserAvatar image={author.image} name={author.name} size={24} />
+              </span>
+            ) : null}
+          </>
         )}
       </div>
     </div>

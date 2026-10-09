@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import { getActiveRunByChatId } from "@/lib/db/agent-run-queries";
-import { getChatById } from "@/lib/db/queries";
+import { getChatAccess } from "@/lib/db/chat-share-queries";
 import { ChatbotError } from "@/lib/errors";
 import { getRunManager } from "@/lib/runtime/run";
 import { generateUUID } from "@/lib/utils";
@@ -34,11 +34,12 @@ export async function GET(
     return new ChatbotError("unauthorized:chat").toResponse();
   }
 
-  const chat = await getChatById({ id });
-  if (!chat) {
+  // 协作成员与所有者同样可以断线重连/刷新恢复（attach 同一 run 的活流）
+  const access = await getChatAccess(id, session.user.id);
+  if (!access?.chat) {
     return new Response(null, { status: 204 });
   }
-  if (chat.userId !== session.user.id) {
+  if (!(access.isOwner || access.isCollaborator)) {
     return new ChatbotError("forbidden:chat").toResponse();
   }
 

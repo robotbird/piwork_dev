@@ -4,7 +4,7 @@ import Link from "next/link";
 import { memo, useCallback } from "react";
 import { usePreferences } from "@/components/preferences-provider";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
-import type { Chat } from "@/lib/db/schema";
+import type { SharedChatListItem } from "@/lib/db/chat-share-queries";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,12 +35,13 @@ const PureChatItem = ({
   onDelete,
   setOpenMobile,
 }: {
-  chat: Chat;
+  chat: SharedChatListItem;
   isActive: boolean;
   onDelete: (chatId: string) => void;
   setOpenMobile: (open: boolean) => void;
 }) => {
   const { t } = usePreferences();
+  // 协作成员不可改可见性（服务端拒绝）；仅所有者渲染管理菜单
   const { visibilityType, setVisibilityType } = useChatVisibility({
     chatId: chat.id,
     initialVisibilityType: chat.visibility,
@@ -61,6 +62,9 @@ const PureChatItem = ({
     onDelete(chat.id);
   }, [chat.id, onDelete]);
 
+  // 协作对话：显示「共享」标记与所有者；管理菜单（可见性/删除）仅所有者可见
+  const isShared = (chat as SharedChatListItem).sharedWithMe === true;
+
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -69,61 +73,75 @@ const PureChatItem = ({
         isActive={isActive}
       >
         <Link href={`/chat/${chat.id}`} onClick={closeMobile}>
-          <span className="truncate">{chat.title}</span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate">{chat.title}</span>
+            {isShared ? (
+              <span
+                className="shrink-0 rounded border border-border-subtle bg-surface-subtle px-1 py-px text-[10px] leading-3.5 text-muted-foreground"
+                title={(chat as SharedChatListItem).ownerName ?? undefined}
+              >
+                {t("chat.sharedBadge")}
+              </span>
+            ) : null}
+          </span>
         </Link>
       </SidebarMenuButton>
 
-      <DropdownMenu modal={true}>
-        <DropdownMenuTrigger asChild>
-          <SidebarMenuAction
-            className="mr-0.5 rounded-md text-sidebar-foreground/50 ring-0 transition-colors duration-150 focus-visible:ring-0 hover:text-sidebar-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            showOnHover={!isActive}
-          >
-            <MoreHorizontalIcon />
-            <span className="sr-only">{t("chat.more")}</span>
-          </SidebarMenuAction>
-        </DropdownMenuTrigger>
+      {isShared ? null : (
+        <DropdownMenu modal={true}>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuAction
+              className="mr-0.5 rounded-md text-sidebar-foreground/50 ring-0 transition-colors duration-150 focus-visible:ring-0 hover:text-sidebar-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              showOnHover={!isActive}
+            >
+              <MoreHorizontalIcon />
+              <span className="sr-only">{t("chat.more")}</span>
+            </SidebarMenuAction>
+          </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" side="bottom">
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="cursor-pointer">
-              <ShareIcon />
-              <span>{t("chat.share")}</span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent>
-                <DropdownMenuItem
-                  className="cursor-pointer flex-row justify-between"
-                  onClick={handleSetPrivate}
-                >
-                  <div className="flex flex-row items-center gap-2">
-                    <LockIcon size={12} />
-                    <span>{t("chat.private")}</span>
-                  </div>
-                  {visibilityType === "private" ? (
-                    <CheckCircleFillIcon />
-                  ) : null}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="cursor-pointer flex-row justify-between"
-                  onClick={handleSetPublic}
-                >
-                  <div className="flex flex-row items-center gap-2">
-                    <GlobeIcon />
-                    <span>{t("chat.public")}</span>
-                  </div>
-                  {visibilityType === "public" ? <CheckCircleFillIcon /> : null}
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
+          <DropdownMenuContent align="end" side="bottom">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="cursor-pointer">
+                <ShareIcon />
+                <span>{t("chat.share")}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    className="cursor-pointer flex-row justify-between"
+                    onClick={handleSetPrivate}
+                  >
+                    <div className="flex flex-row items-center gap-2">
+                      <LockIcon size={12} />
+                      <span>{t("chat.private")}</span>
+                    </div>
+                    {visibilityType === "private" ? (
+                      <CheckCircleFillIcon />
+                    ) : null}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="cursor-pointer flex-row justify-between"
+                    onClick={handleSetPublic}
+                  >
+                    <div className="flex flex-row items-center gap-2">
+                      <GlobeIcon />
+                      <span>{t("chat.public")}</span>
+                    </div>
+                    {visibilityType === "public" ? (
+                      <CheckCircleFillIcon />
+                    ) : null}
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
 
-          <DropdownMenuItem onSelect={handleDelete} variant="destructive">
-            <TrashIcon />
-            <span>{t("common.delete")}</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <DropdownMenuItem onSelect={handleDelete} variant="destructive">
+              <TrashIcon />
+              <span>{t("common.delete")}</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </SidebarMenuItem>
   );
 };
