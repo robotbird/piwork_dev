@@ -1,7 +1,7 @@
 import { NextIntlClientProvider } from "next-intl";
 import { StrictMode, useCallback, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { OpenChatButton } from "../../components/chat/join-actions";
+import { JoinActions } from "../../components/chat/join-actions";
 import { JoinDialog } from "../../components/chat/join-dialog";
 import { ShareDialog } from "../../components/chat/share-dialog";
 import { TooltipProvider } from "../../components/ui/tooltip";
@@ -24,7 +24,11 @@ function Preview() {
             title="邀请对话"
           >
             <p>你已在该对话的协作成员中。</p>
-            <OpenChatButton chatId="preview-chat" />
+            <JoinActions
+              chatId="preview-chat"
+              isMember={!window.location.search.includes("new-member")}
+              token="fixture-invite"
+            />
           </JoinDialog>
         ) : (
           <ShareDialog

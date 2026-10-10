@@ -13,10 +13,12 @@ import { Button } from "@/components/ui/button";
 export function JoinActions({
   chatId,
   disabled,
+  isMember = false,
   token,
 }: {
   chatId: string;
   disabled?: boolean;
+  isMember?: boolean;
   token: string;
 }) {
   const t = useTranslations("chat");
@@ -53,8 +55,12 @@ export function JoinActions({
   );
 
   const handleJoin = useCallback(async () => {
+    if (isMember) {
+      router.push(`${basePath}/chat/${chatId}`);
+      return;
+    }
     await runAction("join");
-  }, [runAction]);
+  }, [basePath, chatId, isMember, router, runAction]);
 
   const handleFork = useCallback(async () => {
     await runAction("fork");
@@ -67,7 +73,11 @@ export function JoinActions({
         disabled={disabled || busy !== null}
         onClick={handleJoin}
       >
-        {busy === "join" ? t("join.joining") : t("join.join")}
+        {busy === "join"
+          ? t("join.joining")
+          : isMember
+            ? t("join.openChat")
+            : t("join.join")}
       </Button>
       <Button
         className="h-10 flex-1 max-sm:min-h-11"
@@ -78,21 +88,5 @@ export function JoinActions({
         {busy === "fork" ? t("join.forking") : t("join.fork")}
       </Button>
     </div>
-  );
-}
-
-/** 已是成员：直接进入。 */
-export function OpenChatButton({ chatId }: { chatId: string }) {
-  const t = useTranslations("chat");
-  const router = useRouter();
-
-  const handleOpen = useCallback(() => {
-    router.push(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`);
-  }, [chatId, router]);
-
-  return (
-    <Button className="h-10 w-full max-sm:min-h-11" onClick={handleOpen}>
-      {t("join.openChat")}
-    </Button>
   );
 }

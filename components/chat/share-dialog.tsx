@@ -72,9 +72,9 @@ export function ShareDialog({
     fetcher
   );
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pendingMembers, setPendingMembers] = useState<Set<string>>(new Set());
+  const pendingMembersRef = useRef(new Set<string>());
   const [keyword, setKeyword] = useState("");
-  const [adding, setAdding] = useState(false);
   // 服务端不回显 token；仅在当前组件内暂存生成响应，重开不重复轮换。
   const [generatedLink, setGeneratedLink] = useState<{
     chatId: string;
@@ -110,48 +110,39 @@ export function ShareDialog({
     );
   }, [data?.collaborators, data?.members, keyword]);
 
-  const toggleMember = useCallback((userId: string) => {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(userId)) {
-        next.delete(userId);
-      } else {
-        next.add(userId);
+  const handleAddMember = useCallback(
+    async (userId: string) => {
+      const key = `${chatId}:${userId}`;
+      if (pendingMembersRef.current.has(key)) {
+        return;
       }
-      return next;
-    });
-  }, []);
-
-  const handleAddMembers = useCallback(async () => {
-    if (selected.size === 0) {
-      return;
-    }
-    setAdding(true);
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat/share`,
-        {
-          body: JSON.stringify({
-            chatId,
-            memberIds: [...selected],
-          }),
-          headers: { "content-type": "application/json" },
-          method: "POST",
+      pendingMembersRef.current.add(key);
+      setPendingMembers(new Set(pendingMembersRef.current));
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat/share`,
+          {
+            body: JSON.stringify({
+              chatId,
+              memberIds: [userId],
+            }),
+            headers: { "content-type": "application/json" },
+            method: "POST",
+          }
+        );
+        if (!response.ok) {
+          throw new Error(await response.text());
         }
-      );
-      if (!response.ok) {
-        throw new Error(await response.text());
+        await mutate();
+      } catch {
+        toast.error(t("actionFailed"));
+      } finally {
+        pendingMembersRef.current.delete(key);
+        setPendingMembers(new Set(pendingMembersRef.current));
       }
-      setSelected(new Set());
-      setKeyword("");
-      await mutate();
-      toast.success(t("membersAdded"));
-    } catch {
-      toast.error(t("actionFailed"));
-    } finally {
-      setAdding(false);
-    }
-  }, [chatId, mutate, selected, t]);
+    },
+    [chatId, mutate, t]
+  );
 
   const handleGenerate = useCallback(
     async (regenerate: boolean) => {
@@ -292,9 +283,11 @@ export function ShareDialog({
 
   const handleToggleChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      toggleMember(event.target.value);
+      if (event.target.checked) {
+        handleAddMember(event.target.value);
+      }
     },
-    [toggleMember]
+    [handleAddMember]
   );
 
   const handleRemoveClick = useCallback(
@@ -354,7 +347,9 @@ export function ShareDialog({
                   </p>
                 ) : (
                   filteredMembers.map((member) => {
-                    const checked = selected.has(member.userId);
+                    const checked = pendingMembers.has(
+                      `${chatId}:${member.userId}`
+                    );
                     return (
                       <label
                         className={cn(
@@ -366,6 +361,7 @@ export function ShareDialog({
                         <input
                           checked={checked}
                           className="size-4 shrink-0 accent-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                          disabled={checked}
                           onChange={handleToggleChange}
                           type="checkbox"
                           value={member.userId}
@@ -388,16 +384,6 @@ export function ShareDialog({
                   })
                 )}
               </div>
-              <Button
-                className="mt-3 rounded-[10px] max-sm:min-h-11"
-                disabled={selected.size === 0 || adding}
-                onClick={handleAddMembers}
-                variant="secondary"
-              >
-                {adding
-                  ? t("adding")
-                  : t("addSelected", { count: selected.size })}
-              </Button>
             </section>
           ) : null}
 

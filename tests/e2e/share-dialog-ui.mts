@@ -21,6 +21,8 @@ let collaborators = [member(1), member(2), member(3), member(4)];
 let invite: { createdAt: string; expiresAt: string } | null = null;
 const linkRequests: { regenerate?: boolean }[] = [];
 let failNextGeneration = false;
+let failNextMemberAdd = false;
+const memberRequests: string[][] = [];
 let isOwner = true;
 const server = createServer(async (request, response) => {
   const filename =
@@ -94,6 +96,16 @@ try {
     if (request.method() === "POST") {
       const body = request.postDataJSON();
       if (body.memberIds) {
+        memberRequests.push(body.memberIds);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        if (failNextMemberAdd) {
+          failNextMemberAdd = false;
+          await route.fulfill({
+            json: { error: "fixture failure" },
+            status: 500,
+          });
+          return;
+        }
         collaborators = [
           ...collaborators,
           ...body.memberIds.map((id: string) =>
@@ -166,13 +178,48 @@ try {
       .count(),
     0
   );
-  await dialog.getByRole("checkbox").first().check();
-  await dialog.getByRole("button", { name: "添加所选成员（1）" }).click();
+  assert.equal(
+    await dialog.getByRole("button", { name: /添加所选成员/ }).count(),
+    0
+  );
+  const firstMember = dialog.getByRole("checkbox").first();
+  await firstMember.check();
+  assert.equal(
+    await firstMember.isDisabled(),
+    true,
+    "pending addition is disabled"
+  );
   await page.waitForFunction(
     () =>
       document.querySelectorAll('[role="dialog"] input[type="checkbox"]')
         .length === 13
   );
+  assert.deepEqual(
+    memberRequests,
+    [["user-5"]],
+    "checking sends exactly one member immediately"
+  );
+  failNextMemberAdd = true;
+  const failedMember = dialog.getByRole("checkbox").first();
+  await failedMember.check();
+  await page.waitForFunction(() => {
+    const input = document.querySelector<HTMLInputElement>(
+      '[role="dialog"] input[type="checkbox"]'
+    );
+    return input && !input.disabled && !input.checked;
+  });
+  assert.equal(
+    await dialog.getByRole("checkbox").count(),
+    13,
+    "failed addition retains member for retry"
+  );
+  await failedMember.check();
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('[role="dialog"] input[type="checkbox"]')
+        .length === 12
+  );
+  assert.deepEqual(memberRequests, [["user-5"], ["user-6"], ["user-6"]]);
   assert.equal(
     linkRequests.length,
     1,
@@ -271,9 +318,21 @@ try {
     "collaborators never auto-generate links"
   );
   assert.equal(await link.count(), 0);
+  const invitationRequests: { action: string; body: unknown }[] = [];
+  await page.route(/\/api\/chat\/(fork|share\/join)$/, async (route) => {
+    const action = route.request().url().endsWith("/fork") ? "fork" : "join";
+    invitationRequests.push({ action, body: route.request().postDataJSON() });
+    await route.fulfill({ json: { chatId: "forked-chat" } });
+  });
   await page.goto(`http://127.0.0.1:${address.port}/?join`);
   await dialog.getByRole("heading", { name: "邀请对话" }).waitFor();
+  await dialog.getByRole("button", { name: "Fork 新对话" }).waitFor();
   await dialog.getByRole("button", { name: "进入对话" }).click();
+  assert.equal(
+    invitationRequests.length,
+    0,
+    "existing members enter without joining again"
+  );
   assert.equal(
     await page.evaluate(() => (window as any).__navigation),
     "/chat/preview-chat"
@@ -287,8 +346,36 @@ try {
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "detached" });
   assert.equal(await page.evaluate(() => (window as any).__navigation), "/");
+  await page.goto(`http://127.0.0.1:${address.port}/?join`);
+  await dialog.getByRole("button", { name: "Fork 新对话" }).click();
+  await page.waitForFunction(
+    () => (window as any).__navigation === "/chat/forked-chat"
+  );
+  assert.deepEqual(invitationRequests.pop(), {
+    action: "fork",
+    body: { chatId: "preview-chat", token: "fixture-invite" },
+  });
+  await page.goto(`http://127.0.0.1:${address.port}/?join&new-member`);
+  await dialog.getByRole("button", { name: "Fork 新对话" }).waitFor();
+  await dialog.getByRole("button", { name: "参与协作" }).click();
+  await page.waitForFunction(
+    () => (window as any).__navigation === "/chat/preview-chat"
+  );
+  assert.deepEqual(invitationRequests.pop(), {
+    action: "join",
+    body: { chatId: "preview-chat", token: "fixture-invite" },
+  });
+  await page.reload();
+  await dialog.getByRole("button", { name: "Fork 新对话" }).click();
+  await page.waitForFunction(
+    () => (window as any).__navigation === "/chat/forked-chat"
+  );
+  assert.deepEqual(invitationRequests.pop(), {
+    action: "fork",
+    body: { chatId: "preview-chat", token: "fixture-invite" },
+  });
   console.log(
-    "PASS: invitation modal/open/close/mobile; auto generation/reopen/rotation/failure retry, no footer hints, member add, copy/select/revoke, desktop/mobile/landscape bounds"
+    "PASS: existing/new members both have collaboration and fork; invitation modal/open/close/mobile; auto generation/reopen/rotation/failure retry, no footer hints, member add, copy/select/revoke, desktop/mobile/landscape bounds"
   );
 } finally {
   await browser?.close();

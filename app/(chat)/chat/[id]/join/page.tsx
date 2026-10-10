@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/app/(auth)/auth";
-import { JoinActions, OpenChatButton } from "@/components/chat/join-actions";
+import { JoinActions } from "@/components/chat/join-actions";
 import { JoinDialog } from "@/components/chat/join-dialog";
 import { UserAvatar } from "@/components/chat/user-avatar";
 import {
@@ -13,8 +13,7 @@ import { getMemberByUserId } from "@/lib/db/organization-queries";
 /**
  * 分享链接落地页（/chat/:chatId/join?t=token）：
  * - 链接无效/过期/对话不存在 → 失效弹框，不泄露对话内容；
- * - 已是对话成员 → 直接进入；
- * - 其他登录启用成员 → 对话概要 + 「参与协作」/「Fork 新对话」二选一。
+ * - 正式启用成员始终可选协作或 Fork；已是对话成员则直接进入协作。
  */
 export default async function JoinPage({
   params,
@@ -89,19 +88,12 @@ export default async function JoinPage({
         </div>
       </div>
 
-      {isMember ? (
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground">
-            {t("join.alreadyMember")}
-          </p>
-          <OpenChatButton chatId={id} />
-        </div>
-      ) : enabled ? (
+      {enabled ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm leading-5 text-muted-foreground">
-            {t("join.chooseHint")}
+            {t(isMember ? "join.alreadyMember" : "join.chooseHint")}
           </p>
-          <JoinActions chatId={id} token={token} />
+          <JoinActions chatId={id} isMember={isMember} token={token} />
           <p className="text-xs leading-5 text-muted-foreground">
             {t("join.forkHint")}
           </p>
