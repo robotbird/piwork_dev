@@ -118,7 +118,7 @@ DEADLINE=$(( $(date +%s) + TIMEOUT ))
 for _ in $(seq 1 18); do
   RUN_ID="$(gh run list -R "$REPO" --workflow "$WORKFLOW" --limit 20 \
     --json databaseId,headSha \
-    --jq "[.[] | select(.headSha==\"$SHA\")] | first // empty" 2>/dev/null || true)"
+    --jq "[.[] | select(.headSha==\"$SHA\")] | first | .databaseId // empty" 2>/dev/null || true)"
   [ -n "$RUN_ID" ] && break
   [ "$(date +%s)" -ge "$DEADLINE" ] && die "超时：没等到 $TAG 触发的 $WORKFLOW run（确认仓库 Actions 已启用）"
   sleep 10
