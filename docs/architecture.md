@@ -235,6 +235,14 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 - **状态**：spec Phase 0/1/2/3/4 落地且各 Phase 完成标准全部达成；Phase 5 MVP 落地（路由矩阵 + 逐 run 落库 + fail-closed + 冷启动 P50 490ms 达标）；后续完善项见 spec §6 Phase 5 未落地清单（Package/MCP 入沙箱与灰度、闭包工具桥接、Worker 化、资源用量审计、web 级验收 e2e）。Phase 0 OpenSandbox spike 结论记入 spec §5/§6。
 - Pi 依据：`pi-coding-agent@1.0.0` `dist/modes/rpc/rpc-client.d.ts`（全 API 面）、`rpc-client.js:29-42`（spawn argv 与 cliPath 注入点）、`:89-98`（stop() = SIGTERM→SIGKILL，EOF 语义）；pi-ai@1.0.0 `dist/api/pi-messages.{js,d.ts}`（wire 协议）、`dist/types.d.ts`（AssistantMessageEvent）、`dist/providers/faux.js`（官方测试替身）、`dist/core/model-config.js` + `provider-composer.js`（models.json schema 与 `${ENV}` 模板）。
 
+### 管理员 Sandbox 资源配置
+
+后台「运行与环境 → Sandbox 配置」位于 `/admin/sandbox-settings`，GET/PATCH `/api/admin/sandbox-settings` 均复用 requireAdminRole。迁移 0021 新增 SandboxSettings 单例，默认 2 核/2048 MB；CPU 范围 0.25–32（步长 0.25），内存 512–32768 MB（步长 128），1 核/768 MB 轻量预设仅用于受控功能测试。查询归 `lib/db/sandbox-settings-queries.ts`，schema 与纯策略归 `lib/runtime/sandbox/resource-policy.ts`，部署公开状态投影归 `lib/admin/sandbox-settings.ts`，不输出地址/密钥/宿主路径。
+
+生产装配向 SandboxRpcBackend 注入 resourcePolicy，在每次 open 的 mint/acquire 前读取并校验，DB 故障/脏数据拒绝，不静默使用默认值；无记录才沿用原默认。生产 RPC Leasing 设置 reuse=false，确保新额度传入实际新建容器，runtimeConfig 继续登记实际申请快照。保存后新 RPC 沙箱热读生效，运行中容器、非生产 Durable 独立额度不变。Provider/镜像/TTL/路由/代理仍由 env 控制，页面不自动启用沙箱。单容器限额不是宿主内存预留、并发限制或容量保证。
+
+官方依据：已安装 Pi 1.1.0 `docs/rpc.md`、`examples/rpc-client.ts`、`dist/modes/rpc/rpc-client.d.ts`。资源配置只作用于 Pi 无关 SandboxSpec，保持官方 RpcClient/LocalRpcRuntimeSession 与事件归一化，不重写 RPC 或 agent loop。
+
 ### 沙箱管理 MVP 官方依据
 
 核对安装的 Pi 1.0.0 `dist/modes/rpc/rpc-client.{js,d.ts}`（abort/stop/onEvent）与 [官方 RPC](https://pi.dev/docs/latest/rpc)：管理层复用 RunManager 的 abort → backend → 官方 RpcClient，不新增 agent loop。核对安装的 `@alibaba-group/opensandbox@1.1.0` `dist/index.{js,d.ts}`（SandboxManager；renew 设置 now + timeout，所以手动延期传剩余时长 + 3600 秒）、`dist/sandboxes-*.d.ts`（SandboxInfo.expiresAt/status）；最新仓库源码仅补充，以安装版为准。

@@ -104,6 +104,68 @@ const NON_EMPTY_HISTORY: RuntimeSpec["historyMessages"] = [
   },
 ];
 
+test("resource policy is sampled for each open and passed unchanged to acquire", async () => {
+  const acquired: Array<{ cpuCores: number; memoryMB: number }> = [];
+  let policy = { cpuCores: 1, memoryMB: 768 };
+  const failure = new Error("acquire probe");
+  const backend = new SandboxRpcBackend({
+    provider: {
+      acquire: (request) => {
+        acquired.push(request.resource);
+        return Promise.reject(failure);
+      },
+      attach: () => Promise.reject(failure),
+      name: "test",
+      release: () => Promise.resolve(),
+    },
+    remoteCliPath: resolveDefaultCliPath(),
+    resourcePolicy: async () => policy,
+  });
+  await assert.rejects(
+    backend.open(await makeSpec()),
+    (error) => error === failure
+  );
+  policy = { cpuCores: 0.5, memoryMB: 1024 };
+  await assert.rejects(
+    backend.open(await makeSpec()),
+    (error) => error === failure
+  );
+  assert.deepEqual(acquired, [{ cpuCores: 1, memoryMB: 768 }, policy]);
+});
+
+test("resource policy failure/invalid data stops before token mint or acquire", async () => {
+  let touched = false;
+  for (const resourcePolicy of [
+    () => Promise.reject(new Error("settings read failed")),
+    () => Promise.resolve({ cpuCores: 1, memoryMB: 1 }),
+  ]) {
+    const backend = new SandboxRpcBackend({
+      inference: {
+        mintRunToken: () => {
+          touched = true;
+          return "unexpected";
+        },
+        proxyUrl: "http://localhost:3210",
+        revokeRunTokens: () => undefined,
+      },
+      provider: {
+        acquire: () => {
+          touched = true;
+          return Promise.reject(new Error("unexpected"));
+        },
+        attach: () => Promise.reject(new Error("unexpected")),
+        name: "test",
+        release: () => Promise.resolve(),
+      },
+      remoteCliPath: resolveDefaultCliPath(),
+      resourcePolicy,
+    });
+    // biome-ignore lint/performance/noAwaitInLoops: sequential failure probes share observation state
+    await assert.rejects(backend.open(await makeSpec()));
+  }
+  assert.equal(touched, false);
+});
+
 test("fail-closed：acquire 失败原样上抛，绝不静默回退", async () => {
   const provider = new TestSandboxProvider();
   provider.failNextAcquires(1);

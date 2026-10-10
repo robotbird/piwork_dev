@@ -132,6 +132,12 @@ node --env-file=.env.local --conditions=react-server --import tsx \
 
 ## 3. 日常维护
 
+### 后台 Sandbox 额度配置
+
+首次升级先应用迁移 0021 并重启应用；管理员打开「运行与环境 → Sandbox 配置」（`/admin/sandbox-settings`），设置 CPU/内存并保存。默认沿用 2 核/2048 MB，轻量预设 1 核/768 MB 仅试验起点，需要点保存才生效。保存后新建 RPC 沙箱直接读取，无需再次重启；运行中实例不调整，非生产 Durable 独立额度不变。RPC 每 run 创建新实例并默认终态 kill。
+
+此页面不会安装 Docker/OpenSandbox、启动底座或启用沙箱路由；Provider、镜像、CLI、TTL、推理代理与凭据仍须按 §2 配置并重启。显示“已配置”不代表底座或代理连通性已验证。3.5 GB 小内存主机建议串行轻量功能验证，关注 `free -h` 的 available、`docker stats` 与 OOM，确认容器终态销毁；配置不是内存预留或并发限制，不跑服务器 Next.js 构建或容量测试。
+
 ### 沙箱生命周期
 
 - run 结束默认 `kill` 销毁；chat 级复用靠租约保活；到期时间见 `/admin/sandboxes`（详情可延长 1 小时、真实销毁）。

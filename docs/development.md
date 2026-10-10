@@ -222,6 +222,14 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 - 手工：管理员打开 `/admin` 应看到真实数据（服务端预取，右上角刷新按钮走 `GET /api/admin/overview`）；未登录由中间件 307 跳转，普通成员看到「仅管理员可见」占位、API 返回 401。「热门 Skill」面板已改为「最近更新 Skill」（平台未统计使用次数）。
 - 时区：概览输出的 ISO 时间戳已按写入时钟在 SQL 内显式转换（见 architecture.md §4）；若新增概览数据源，先确认该表的时间戳写入时钟归属（默认连接 `now()` = 会话墙钟；`new Date()` 或显式 UTC 连接 = UTC 墙钟）。
 
+## Sandbox 资源配置验证
+
+- 首次应用迁移 0021（SandboxSettings）并重启服务加载新的 RunManager 注入；之后管理员保存额度无需重启。`/admin/sandbox-settings` 的 CPU/内存仅影响新建 RPC 沙箱，Provider/镜像/TTL/路由/代理仍在 env；默认/轻量预设不自动保存或启用沙箱。非生产 Durable 独立额度不变，生产门禁不变。
+- `pnpm test:sandbox:settings`：范围/步长/严格输入、模拟正式授权边界的 GET/PATCH/no-store/安全错误，RPC 每次 open 的动态读取、额度透传与配置失败先于 mint/acquire；复用既有官方 Pi RPC 全轮契约，无真实模型。
+- `pnpm test:sandbox:settings:db`：唯一 PG schema（不含 public fallback）中应用真实 0021 SQL，仅测试 FK 重映射；默认、upsert、更新者、热读、非法保存与脏配置/DB 故障传播。只清理本组 schema，不写日常全局设置。单测随 test:runtime，DB 随 test:runtime:db 收集。
+- `pnpm test:sandbox:settings:ui`：隔离 Chromium、真实组件与主题、模拟配置 API，检查轻量预设、保存失败/重试、刷新持久化、数值校验、390px/暗色布局。不使用真实账号/DB/模型/provider，不代表真实容器、容量或生产安全验收。
+- 依据 Pi 1.1.0 docs/rpc.md、examples/rpc-client.ts、dist/modes/rpc/rpc-client.d.ts；CPU/内存只传 SandboxSpec，不改 Pi agent loop。生产 RPC reuse=false 保证新容器与额度快照一致；单沙箱限额不提供跨 run 并发保护。
+
 ## 沙箱管理 MVP 验证（2026-10-03）
 
 - `pnpm db:migrate` 应用 `0016`（runtimeConfig 创建快照），旧实例不虚构额度或安全配置。

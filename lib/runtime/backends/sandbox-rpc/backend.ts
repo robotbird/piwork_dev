@@ -24,6 +24,11 @@ import type {
 } from "../../sandbox";
 import { startSandboxBridge } from "../../sandbox/bridge/pump";
 import { startSandboxRenewalLoop } from "../../sandbox/leasing";
+import {
+  DEFAULT_SANDBOX_RESOURCE,
+  type SandboxResourcePolicy,
+  sandboxResourceSchema,
+} from "../../sandbox/resource-policy";
 import { AsyncEventQueue } from "../event-queue";
 import { LocalRpcRuntimeSession } from "../local-rpc/backend";
 import { buildRpcClientOptions, seedSessionFile } from "../local-rpc/spawn";
@@ -64,6 +69,8 @@ export type SandboxRpcBackendOptions = {
   extensions?: string[];
   image?: string;
   ttlSeconds?: number;
+  /** Trusted host callback, sampled once before mint/acquire. */
+  resourcePolicy?: () => Promise<SandboxResourcePolicy>;
   /** 会话关闭后的沙箱处置；默认 kill（spec §11 D-6），keep 供 chat 级复用 */
   releasePolicy?: SandboxReleasePolicy;
   /**
@@ -177,6 +184,11 @@ export class SandboxRpcBackend implements RuntimeBackend {
         "平台联网搜索尚未接入 SandboxRpc；不能丢弃工具或回退宿主执行。"
       );
     }
+    const resource = sandboxResourceSchema.parse(
+      this.options.resourcePolicy
+        ? await this.options.resourcePolicy()
+        : DEFAULT_SANDBOX_RESOURCE
+    );
     const queue = new AsyncEventQueue<RuntimeEvent>();
     const { inference } = this.options;
     const runId = spec.runId ?? globalThis.crypto.randomUUID();
@@ -194,7 +206,7 @@ export class SandboxRpcBackend implements RuntimeBackend {
       egress: deriveSandboxEgress(inference, spec.egress),
       image: this.options.image ?? "pi-runtime:dev",
       metadata: { "piwork.io/run-id": runId },
-      resource: { cpuCores: 2, memoryMB: 2048 },
+      resource,
       runId,
       ttlSeconds: this.options.ttlSeconds ?? 3600,
       workspaceVolume: { source: spec.workspaceDir ?? "ephemeral" },

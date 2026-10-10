@@ -11,6 +11,7 @@ import { recordInferenceAudit } from "@/lib/db/inference-audit-queries";
 import { registerGeneratedFile } from "@/lib/db/library-queries";
 import { upsertMessage } from "@/lib/db/queries";
 import { PostgresEventStore } from "@/lib/db/runtime-event-queries";
+import { getSandboxResourcePolicy } from "@/lib/db/sandbox-settings-queries";
 import { DurableBackend } from "../backends/durable/backend";
 import { readDurableChatConfig } from "../backends/durable/chat-policy";
 import { InProcessBackend } from "../backends/in-process/backend";
@@ -74,7 +75,12 @@ function buildSandboxBackend(): {
   }
   const ttlSeconds = parseOptionalInt("PIWORK_SANDBOX_TTL_SECONDS");
   const innerProvider = buildSandboxProvider(providerName);
-  const provider = new LeasingSandboxProvider(innerProvider, dbSandboxRegistry);
+  // Fresh instances ensure updated limits cannot relabel an old container's quota.
+  const provider = new LeasingSandboxProvider(
+    innerProvider,
+    dbSandboxRegistry,
+    { reuse: false }
+  );
   return {
     backend: new SandboxRpcBackend({
       // 沙箱内 pi 无平台凭据：模型走 Inference Proxy（配置了
@@ -84,6 +90,7 @@ function buildSandboxBackend(): {
       inference: buildInferenceOptions(),
       provider,
       remoteCliPath,
+      resourcePolicy: getSandboxResourcePolicy,
       ...(ttlSeconds === undefined ? {} : { ttlSeconds }),
     }),
     backendKind: "sandbox_rpc",

@@ -133,6 +133,12 @@ const navigationGroups: NavigationGroup[] = [
         labelKey: "sandboxManagement",
         searchKeywordsKey: "sandboxManagementSearchKeywords",
       },
+      {
+        href: "/admin/sandbox-settings",
+        icon: SettingsIcon,
+        labelKey: "sandboxConfiguration",
+        searchKeywordsKey: "sandboxConfigurationSearchKeywords",
+      },
     ],
     labelKey: "runtimeAndSecurity",
   },

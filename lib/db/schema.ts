@@ -2,6 +2,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   boolean,
+  doublePrecision,
   foreignKey,
   index,
   integer,
@@ -29,6 +30,17 @@ export const user = pgTable("User", {
 });
 
 export type User = InferSelectModel<typeof user>;
+
+/** Singleton administrator policy for newly created RPC sandboxes. */
+export const sandboxSettings = pgTable("SandboxSettings", {
+  cpuCores: doublePrecision("cpuCores").notNull(),
+  id: varchar("id", { length: 32 }).primaryKey().notNull(),
+  memoryMB: integer("memoryMB").notNull(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  updatedBy: uuid("updatedBy").references(() => user.id, {
+    onDelete: "set null",
+  }),
+});
 
 export const department = pgTable("Department", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
