@@ -1,5 +1,7 @@
 # OpenSandbox 接入与 Runtime Sandbox 升级 Spec
 
+> Pi 版本说明：本文旧版本签名、镜像与双版本风险是各 Phase 实施时的历史快照；当前版本统一以依赖文件及 [升级记录](pi-upgrades.md) 为准。旧双版本依赖已消除，不能将历史风险当作当前事实。
+
 > 状态：**规划稿 v1.5**（2026-10-03）。本文是 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)（v2.0）Step 5「接入 SandboxProvider」的具体化，并吸收外部参考文章的分层建议（见 §3）。**Phase 0–4 完整落地；Phase 5 MVP 落地（路由矩阵 + 冷启动达标；Package 灰度/资源审计/Worker 化等后续完善，见 §6 Phase 5 未落地清单）**（进度见 §6；接口契约 §7 为落地版）；现状以 [项目架构](architecture.md) 与代码为准。
 > v1.5 修订：Phase 5 MVP——`RoutingRuntimeBackend` 路由矩阵（执行工具 → 沙箱、纯对话 in-process 并存非降级、逐 run 落 AgentRun.backend 实际执行位、fail-closed 不回落）+ `PIWORK_SANDBOX_ROUTING=matrix|all` 装配 + docker 档冷启动实测 P50 490ms（≤3s 达标）；未落地项逐条声明（§6 Phase 5）。
 > v1.4 修订：Phase 4 完成——`lib/runtime/inference-proxy/`（pi-messages wire 代理 + RunTokenRegistry + models.json 生成）与 egress 派生/审计落地，§11 D-3 定案为 **pi-messages 协议代理**（非 openai-compatible）；docker 档 allowlist 实测修正：`--internal` 网桥连宿主网关都不可达（会掐断代理通道），改为每沙箱独立非 internal 网桥 + `--add-host host-gateway` + `--dns 127.0.0.1`，raw-IP 直连残余缺口如实声明（§6 Phase 4、§8）。

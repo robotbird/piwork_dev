@@ -1,7 +1,7 @@
 # Pi Durable 评估与采用门禁
 
 > 状态：**评估与试点计划，不是生产恢复能力承诺**。当前 `DurableBackend` 已补持久存储与恢复安全基础，但仍未完成 Worker/平台映射/恢复投影接线；默认生产路径不改变，不能宣称已生产上线。
-> 本轮已核对 npm 最新发布并安装：pi-ai / pi-agent-core / pi-coding-agent / pi-durable / chord 均为 **1.0.3**。Durable 仍 Experimental；1.0.3 有 FileSystem/BinaryReader/Shell breaking changes，项目复用官方 NodeExecutionEnv，无自定义环境适配；旧 binding/input hash 不静默跨版本重开。升级验证见 architecture.md 与 development.md 的 1.0.3 章节。已适配新版 Registry/Extension/Agent configuration API 并移除旧选项兼容转型；存储继续官方 SQLite。
+> 当前五包版本以 `package.json` / `pnpm-lock.yaml` 为准，最新兼容性变化与验证见 [Pi 升级记录](pi-upgrades.md)。Durable 仍 Experimental；项目复用官方 NodeExecutionEnv，无自定义环境适配；旧 binding/input hash 不静默跨版本重开。本文旧版本与 spike 数字为历史证据，不代表当前基线验收。已适配新版 Registry/Extension/Agent configuration API 并移除旧选项兼容转型；存储继续官方 SQLite。
 > 完整执行顺序、企业 MVP 门禁与代码落点见 [企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)。本文替代旧版中“定时任务恰好一次”“版本化承诺部分成立”“全面迁移后退役 RunManager”等结论。
 
 ## 1. 决策摘要
@@ -9,12 +9,12 @@
 1. **保留 Pi AgentSession 为办公 MVP 主 harness**，不全面替换聊天链路。
 2. **先稳定工具执行和平台运行账本，再把执行宿主移到单独 Worker，最后试点 Durable**。Worker 解耦 Web 与执行生命周期；Durable 提供内部 checkpoint 恢复，二者互补。
 3. Durable 仅从**文件处理、少外部副作用、不依赖 MCP 的定时任务**试点；不按模型预估时长自动迁移运行中的会话。
-4. 固定经测试的版本，以恢复测试和升级门禁管理 experimental 风险；`1.0.x`、依赖对齐、连续 patch 无 breaking 标注均不等于 API 稳定承诺。
+4. 固定经测试的版本，以恢复测试和升级门禁管理 experimental 风险；`1.x`、依赖对齐、连续 patch 无 breaking 标注均不等于 API 稳定承诺。
 5. **同 requestId 提交去重不等于业务恰好一次执行**。工具副作用幂等、权限复核、产物归档与平台结果投影必须独立实现。
 
 ## 2. 能力与明确边界
 
-| 能力 | 已安装 1.0.2 的官方行为（0.99.2→1.0.2 逐项核对语义未变） | 平台需要补齐的部分 |
+| 能力 | 官方行为（历史基线核对，当前安装版本见升级记录） | 平台需要补齐的部分 |
 | --- | --- | --- |
 | Harness / Conversation / Task | 存储先提交后可见；转录、文档、任务 checkpoint 持久化 | 平台 AgentRun、用户归属、准入、取消与管理仍由 piwork 持有 |
 | resume | 重开存储、重新装配 registry 后恢复未完任务；模型请求可能重新发起 | 启动对账、运行所有权、权限复核、沙箱命令孤儿处理 |

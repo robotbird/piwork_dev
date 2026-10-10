@@ -58,7 +58,7 @@ pnpm plugin:verify     # 模型插件链路验证
 
 配置 `PIWORK_WEB_SEARCH_ENABLED=1` 与服务端 `TAVILY_API_KEY` 后重启，新对话明确要求联网并引用来源。首版为固定 Tavily public search，不依赖已安装 pi-web-access、不抓取任意 URL；只有无工作区轻量会话装配官方 customTools 的 platform_web_search。matrix 可在现有 OpenSandbox/Durable 配置下保持轻量；all/RPC 不支持时拒绝，不能回退宿主，混合执行仍按原门禁。Key/供应商原始错误不进入模型或事件，查询词会发送到 Tavily，不是自动 DLP。sources 经新 source.created → source-url 在 stream 与最终消息同形保存。
 
-`pnpm test:search` 覆盖测试替身与真实官方 AgentSession 工具循环；网关/工具测试随 test:unit，来源/路由测试随 test:runtime。单进程限额契约不等于容量或分布式配额验证。无新 DB 表/迁移，未改 .env.local，默认关闭；缺 Key 明确工具错误。真实联网与浏览器 UI 尚需配置后验收。完整配置/安全口径见 [联网搜索](web-search.md)，参考 Pi 1.0.3 docs/sdk.md、docs/extensions.md、sdk.d.ts 和 pi-agent-core AgentTool 类型，以及 Tavily 官方 Search API。
+`pnpm test:search` 覆盖测试替身与真实官方 AgentSession 工具循环；网关/工具测试随 test:unit，来源/路由测试随 test:runtime。单进程限额契约不等于容量或分布式配额验证。无新 DB 表/迁移，未改 .env.local，默认关闭；缺 Key 明确工具错误。真实联网与浏览器 UI 尚需配置后验收。完整配置/安全口径见 [联网搜索](web-search.md)，参考 Pi docs/sdk.md、docs/extensions.md、sdk.d.ts 和 pi-agent-core AgentTool 类型，以及 Tavily 官方 Search API。
 
 ## 企业 Runtime 基础验证
 
@@ -84,7 +84,11 @@ pnpm plugin:verify     # 模型插件链路验证
 - 取消中断水合并强杀沙箱，shell 未知结果允许 failed/outcome unknown，不能为了 Stop 测试强行改成干净 aborted；终态前核验停止、不自动重放。Leasing release 必须解包原 handle，不能向严格 provider 传 lease wrapper，单测覆盖归属与记账。
 - 新单测随 `test:runtime` 收集；DB 测试在 tests/unit/db；HTTP 入口 tests/e2e/durable-chat-http.mts，显式 PIWORK_DURABLE_CHAT_HTTP_TESTS=1（真实模型/provider）。测试 helper 在 tests/support/durable，创建唯一隔离 PG schema，无 public search_path fallback；迁移 public FK 仅 fixture 重映射，只复制加密模型配置，不复制用户/聊天/任务。避免第二个 Next 进程的 RunManager orphan sweep 改动日常 runs。独立 NEXT_DIST_DIR/NEXT_TSCONFIG_PATH 隔离构建并恢复仅本组生成的 next-env import，成功停服后删除仅本组 schema/目录，失败保留证据待人工核验。真实 HTTP 已通过，不代表浏览器 UI、生产权限治理、Worker/恢复/安全硬隔离/容量。
 
-## Pi / Durable 1.0.3 升级验证
+## Pi 依赖升级验证
+
+当前基线、官方 breaking changes 与本轮验证见 [Pi 升级记录](pi-upgrades.md)。精确版本仅维护在依赖文件、镜像默认值及 Durable binding/hash 中；以下旧版本测试数字保留为历史记录，不代表本轮验收。
+
+### 历史 Pi / Durable 1.0.3 升级验证
 
 - 五包（pi-ai/pi-agent-core/pi-coding-agent/pi-durable/chord）与 pnpm 锁文件固定 1.0.3；Dockerfile 默认版本同步，已重建 pi-runtime:dev。依据官方 durable/coding-agent/ai CHANGELOG 1.0.3、安装版 durable README/dist/env/index.d.ts 和 coding-agent docs/sdk.md；继续复用官方 NodeExecutionEnv/Harness/SQLite/AgentSession，不新增 agent loop。
 - Durable 1.0.3 扩展 FileSystem/BinaryReader/Shell 的 breaking changes 无本地自定义 ExecutionEnv 需要补接口；SandboxHandle 是另一平台 seam，不自动获得官方 watch/reader 能力。Azure provider 改名 azure，旧外部 auth/models/settings 配置须人工核对，API id azure-openai-responses 不变。
@@ -93,14 +97,14 @@ pnpm plugin:verify     # 模型插件链路验证
 
 ## Durable 持久化与恢复基础（未接生产）
 
-- 新实现为 `backends/durable/storage.ts` 与 `recovery.ts`；只复用官方 SQLite facade/storage/Harness/inspect/context，不重写 scheduler。当前全 Pi/chord 对齐 1.0.3；registry.install(defineExtension)、section、conversation.configure 与 settings.toolExecution 按新版 API 迁移，移除了旧 HarnessOptions 兼容转型。SQLite 仍为 Runtime 状态存储；PostgreSQL 只持有控制面数据与平台投影，本轮 PostgreSQL Storage 代码/测试/两项迁移及本地新增空表已经撤回。
+- 新实现为 `backends/durable/storage.ts` 与 `recovery.ts`；只复用官方 SQLite facade/storage/Harness/inspect/context，不重写 scheduler。当前全 Pi/chord 版本以 package.json 与锁文件为准；registry.install(defineExtension)、section、conversation.configure 与 settings.toolExecution 按新版 API 迁移，移除了旧 HarnessOptions 兼容转型。SQLite 仍为 Runtime 状态存储；PostgreSQL 只持有控制面数据与平台投影，本轮 PostgreSQL Storage 代码/测试/两项迁移及本地新增空表已经撤回。
 - 私有根必须是可信持久卷；binding 由平台已授权的 user/chat/run 与不可变输入/配置 hash 组装。目录/文件不可公开，不挂入沙箱。SQLite FULL 不是已测主机容灾或备份。
 - owner marker 使用 O_EXCL，不因进程 PID/租约过期自动删除；崩溃后 fail-closed，需要未来 Worker/reaper 停止旧执行端并重新授权后对账。存储锁不是 workspace lock，不支持多 Writer/共享盘分布式恢复。
 - 先授权/open/inspect，后 submit/wait/resume；后者均可启动官方调度。所有通用工具 replay=unsafe，每次 execute 都授权并透传 signal；禁止只依赖恢复会跳过的 beforeTool hook。未知 intent/已物化未知结果拒绝恢复，当前返回 needs-review 错误，尚未落平台 needs_review DB 状态。
 - `DurableBackend` storageFactory 必须搭配 authorize；NODE_ENV=production 默认 MemoryStorage 抛错；持久路径 workspace 非 null 默认拒绝，仅可信 executionFactory + owned storage/authorize/runId 可承载受管执行。新 `DurableSandboxBackend` 本身生产拒绝，OpenSandbox 需显式非生产探针；fresh-run/单 prompt/deny-all，无平台工具/MCP/自动恢复。默认实验开关仍无正式持久 factory，不能用于生产部署，也不与 Sandbox provider 同启。装配/真实契约命令和剩余门禁见 [组合适配器](durable-sandbox-composition.md)。
 - `tests/unit/runtime/backends/durable/` 的 14 项由新 test:runtime:durable 与全 Runtime 收集；子进程 fixture 在 tests/support/durable，测试显式 kill/exit 后解锁不是生产策略。生产尚缺 Worker/job mapping、snapshot/source cursor、正式授权/账本/取消删除对账及部署演练；见 pi-durable-evaluation.md。
 
-SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选项。当前每个 run 的 SQLite 必须位于可靠私有持久卷，不得依赖容器临时盘；单 Writer、备份恢复、Worker 唤醒与崩溃副作用对账是独立上线门禁。旧版本 binding 数据不可静默重开到 1.0.3，须另做版本迁移验收。Cloudflare DO 的 SQLite/Alarm/PITR 不是当前 Node 部署的现状。
+SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选项。当前每个 run 的 SQLite 必须位于可靠私有持久卷，不得依赖容器临时盘；单 Writer、备份恢复、Worker 唤醒与崩溃副作用对账是独立上线门禁。旧版本 binding 数据不可静默跨版本重开，须另做版本迁移验收。Cloudflare DO 的 SQLite/Alarm/PITR 不是当前 Node 部署的现状。
 
 ## 文档库验证
 
@@ -120,7 +124,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 - `pnpm test:chat:library` 验证搜索/最近排序、目录排除、跨文件夹选择、格式与20 MB限制、笔记 MIME 归一化；也由 `test:runtime` 收集。
 - `pnpm test:documents:http` 新增选择接口：本人文件解析、非本人/文件夹拒绝、无效 ID 与不支持扩展名拒绝。沿用独立账号与文件清理，不调用模型。
 - `pnpm test:chat:library:http` 使用本地服务和独立正式身份（`LIBRARY_TEST_URL`），Chromium 截获文档库、模型目录、附件解析与聊天 POST，验证搜索、图片/文件名、浏览全部、附件发送和390px布局；不调用真实模型，不等于真实附件问答或容量验收。
-- 上传文件复用现有存储引用；可编辑笔记选择时归档快照，沿用原存储模式（旧 public Blob 不迁移）。项目预建 query 链路仍不传附件。Pi 依据为安装版1.0.3 SDK/Message Types与PromptOptions.images/ImageContent，既有Runtime负责运行。
+- 上传文件复用现有存储引用；可编辑笔记选择时归档快照，沿用原存储模式（旧 public Blob 不迁移）。项目预建 query 链路仍不传附件。Pi 依据为安装版 Pi SDK/Message Types与PromptOptions.images/ImageContent，既有Runtime负责运行。
 
 ## 定时任务验证与运行
 
@@ -133,7 +137,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 
 ## 项目 Workspace 验证
 
-- `pnpm test:chat:models`：目录未加载/空目录、有效/失效偏好与模型授权错误提示；随 `test:runtime` 收集。`pnpm test:chat:models:http`：已有本地服务（可设 CHAT_MODEL_TEST_URL），独立 enabled 身份/项目/聊天，Chromium 延迟模型目录并覆盖无 cookie/旧 ID/有效 ID，断言项目 query 只发一次且请求模型与选择一致。POST 被截获，不调用真实模型、不修改现有账号/聊天。模型身份依据安装版 Pi 1.0.2 `docs/models.md`；仅修平台目录消费，服务端授权与既有 RunManager/Pi 链路不变。
+- `pnpm test:chat:models`：目录未加载/空目录、有效/失效偏好与模型授权错误提示；随 `test:runtime` 收集。`pnpm test:chat:models:http`：已有本地服务（可设 CHAT_MODEL_TEST_URL），独立 enabled 身份/项目/聊天，Chromium 延迟模型目录并覆盖无 cookie/旧 ID/有效 ID，断言项目 query 只发一次且请求模型与选择一致。POST 被截获，不调用真实模型、不修改现有账号/聊天。模型身份依据安装版 Pi `docs/models.md`；仅修平台目录消费，服务端授权与既有 RunManager/Pi 链路不变。
 
 1. `pnpm db:migrate` 应用 0013（Project/Source 表与 Chat.projectId/updatedAt）。
 2. `pnpm test:runtime:db` 覆盖 `tests/unit/db/project-queries.test.ts`：项目归属隔离、项目聊天列表摘要排序、资料写入/删除与项目级联清理。
@@ -143,7 +147,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 
 - `pnpm test:chat:share`（真实 PostgreSQL，`tests/unit/db/chat-share-queries.test.ts`）：协作成员增删查、`getChatAccess` 归属判定、分享链接创建/过期/撤销/regenerate 轮换、token 哈希恒时比较、fork 复制语义、`listChatHistoryIncludingShared` 合并与游标。
 - `pnpm test:chat:share:unit`（无 DB）：token 生成格式与哈希拒绝。
-- `pnpm test:chat:navigation:ui`：隔离 Chromium，使用实际 ActiveChatProvider/ChatHeader/SidebarHistory，模拟 Next 导航与 HTTP，不连接 DB/真实模型；覆盖新对话生成中分享、即时侧栏刷新、多次切换后历史水合，以及协作成员无分享入口和头部占位按钮隐藏；实际 MultimodalInput 另覆盖缓存草稿 `n` 初始化恢复、Backspace 删除与全量清空，恢复仅初始化一次，持久化必须晚于恢复，空字符串不能重新回填旧缓存。新对话元数据刷新不得覆盖本地生成流，也不得在 submitted/streaming 时另行 resume。标题通知须晚于 DB 更新。Pi 依据为安装版 1.0.3 `docs/message-types.md`；本次仅修平台 UI 状态与消息投影，不新增 Pi API。
+- `pnpm test:chat:navigation:ui`：隔离 Chromium，使用实际 ActiveChatProvider/ChatHeader/SidebarHistory，模拟 Next 导航与 HTTP，不连接 DB/真实模型；覆盖新对话生成中分享、即时侧栏刷新、多次切换后历史水合，以及协作成员无分享入口和头部占位按钮隐藏；实际 MultimodalInput 另覆盖缓存草稿 `n` 初始化恢复、Backspace 删除与全量清空，恢复仅初始化一次，持久化必须晚于恢复，空字符串不能重新回填旧缓存。新对话元数据刷新不得覆盖本地生成流，也不得在 submitted/streaming 时另行 resume。标题通知须晚于 DB 更新。Pi 依据为安装版 Pi `docs/message-types.md`；本次仅修平台 UI 状态与消息投影，不新增 Pi API。
 - `pnpm test:chat:collab`（无 DB，`tests/unit/collab/chat-event-hub.test.ts`）：SSE 房间 attach/detach 的 hello/presence 广播、typing 6s TTL 到期清除与手动停止、同用户多连接的 typing 生命周期、message/run 事件广播与空房间 no-op；不测 HTTP 层。
 - 实时协作 HTTP 冒烟（SSE 鉴权 401/403/404、hello/presence/typing 事件到达、typing POST 204）已用本地 dev server + 临时脚本验证，脚本不入库；完整链路验证见 docs/chat-collaboration.md §7 手工路径。
 - 手动路径：A 分享给 B（直接添加）+ 生成链接给 C；两个浏览器登录 A/B 打开同一对话，一方发消息/输入，另一方实时看到消息出现、在线绿点与「正在输入」；A 移除 B 后 B 的 SSE 在 15s 内收到 missing 断开。
@@ -174,7 +178,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 - `pnpm test:runtime` 中 run-manager 回归覆盖延迟 backend.open、启动期心跳/清理、同 chat 同步预留、另一 chat 独立启动，以及 DB 行创建后返回 runId 前的清理窗口。状态为 queued → starting（已获 lease）→ running → settled；失败不解除终态保护，不重放模型或工具。
 - `pnpm test:runtime:db` 中 agent-run-queries 测试限定到自己的 runId 夹具，不全库清理真实会话；覆盖新鲜 lease 保留、无 lease 孤儿、过期心跳、已完成终态，以及用真实 PG 行锁复现清理与正常完成交错。条件 UPDATE 和 lease 删除同事务，只删除真正转 failed 的 lease。
 - 未知持 lease 的 run 要等心跳过期后惰性清理，不再仅因本管理器没有 LiveRun 就失败。不是完整 Worker/reaper/fencing 实现。修改 RunManager 后须重启开发服务（globalThis 的 HMR 缓存会保留旧实例），不直接从失败事件反向覆盖终态；历史纠错必须独立核验已落库成功事件和最终消息，不能回放副作用。
-- 官方依据：Pi 1.0.2 `pi-coding-agent/docs/sdk.md`、`examples/sdk/01-minimal.ts`；本次仅修正平台 RunManager/DB 生命周期，保持 backend → 官方 AgentSession 的事件/agent loop 不变。
+- 官方依据：Pi `pi-coding-agent/docs/sdk.md`、`examples/sdk/01-minimal.ts`；本次仅修正平台 RunManager/DB 生命周期，保持 backend → 官方 AgentSession 的事件/agent loop 不变。
 
 ## 角色与权限工作台验证
 
@@ -185,14 +189,14 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 - `pnpm test:roles:db`：独立用户/角色/聊天夹具，验证 JSON 保存/恢复、账户禁用、角色共享累计、零/缺失/日期窗口、排除非完成事件及缓存重复累计；只清理本组 IDs。
 - `pnpm test:roles:http`：已有本地服务，正式 JWT 独立管理员/成员，验证管理鉴权、非法策略、成员模型目录/no-store、伪造模型 403、已记录额度超限 429、恢复默认；不会调用真实模型。`PIWORK_ROLE_BROWSER_TESTS=1` 追加 Chromium Tab、保存/刷新持久化、无意外成员弹窗、390px 布局，截图 `/tmp/piwork-role-{models,quota,mobile}.png`。可设 ROLE_TEST_URL。
 - 原 Playwright `tests/e2e/roles.test.ts` 已改用角色列表按钮和右侧详情选择器，增加模型/额度保存场景；截图脚本 `tests/e2e/roles-screenshot.ts` 使用新布局。不要把 HTTP/浏览器回归当容量或强预算验证。
-- Token 基于官方 Usage.totalTokens，仅已记录完成消息；额度为共享角色统计，非每人限额、预留账本或请求硬上限。在途/并发可超支，缺失用量不计入；warn 为服务端日志，不能声称用户通知或自动降级。口径与授权合并规则见 architecture.md「角色工作台」。Pi 依据：安装版 1.0.2 docs/models.md、docs/custom-provider.md、pi-ai/dist/models.d.ts 和 types.d.ts；平台授权仍在可信宿主，复用现有 SDK/RPC/Durable 与 RuntimeEvent。
+- Token 基于官方 Usage.totalTokens，仅已记录完成消息；额度为共享角色统计，非每人限额、预留账本或请求硬上限。在途/并发可超支，缺失用量不计入；warn 为服务端日志，不能声称用户通知或自动降级。口径与授权合并规则见 architecture.md「角色工作台」。Pi 依据：安装版 Pi docs/models.md、docs/custom-provider.md、pi-ai/dist/models.d.ts 和 types.d.ts；平台授权仍在可信宿主，复用现有 SDK/RPC/Durable 与 RuntimeEvent。
 
 ## 模型供应商配置弹窗验证
 
 - `tests/unit/admin/model-configuration.test.ts` 随 test:runtime 收集：三个插件的公开默认地址与源码常量一致；新配置只初始化非秘密字段默认值；已配置供应商轮换时不注入默认地址、覆盖已有自定义连接配置。
 - `pnpm test:models:configuration`：先启动本地 Next 服务（可设 MODEL_CONFIGURATION_TEST_URL），使用独立管理员与 disabled 供应商夹具，验证包目录/公开地址投影及 1440/1280/768/390/320px Chromium 下弹窗比例、长列表滚动、底部按钮始终在视口、必填 API Key 与默认字段、密钥轮换请求。PATCH 在浏览器截获，只断言请求，不调用真实模型或保存真实凭据；不是生产网络/凭据验证或真实移动设备验收。
 - 公开 defaultBaseUrl 是插件静态定义，旧安装可回退同包/版本定义；不是后台通过解密取出的当前自定义端点。源码变化后需刷新插件目录缓存（服务重启），不改供应商实际请求地址、权限或 Pi Provider 注册。
-- 依据：Pi 1.0.2 pi-ai `dist/types.d.ts` 的 BaseModel.baseUrl、项目 model-provider-sdk/插件静态 definition，以及 Radix 官方 Dialog 可访问性契约；仅扩展平台公开展示元数据，保留官方 createProvider/AgentSession 调用链。
+- 依据：Pi pi-ai `dist/types.d.ts` 的 BaseModel.baseUrl、项目 model-provider-sdk/插件静态 definition，以及 Radix 官方 Dialog 可访问性契约；仅扩展平台公开展示元数据，保留官方 createProvider/AgentSession 调用链。
 
 ## 对话记录验证
 
@@ -201,7 +205,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 - `pnpm test:conversations`：筛选 schema、分页限额与仅 text 的消息投影；也随 test:runtime 收集。
 - `pnpm test:conversations:db`：独立用户/项目/聊天夹具，验证文字搜索（含 `%_` 字面量）、真实最新 run 状态、无 run/无项目、时间筛选、页码钳制、UTC 输出和预览顺序；也随 test:runtime:db 收集。需要可用 PostgreSQL 连接额度。
 - 手工打开 `/admin/conversations`，检查后台侧栏与主题、筛选/分页/排序/刷新、桌面并列详情与窄屏上下布局、完整记录只读弹窗、复制 ID、空态/错误态。列表 10/20/50 条，全文消息每页 50 条，预览最近三条。模型按实际完成消息/请求快照/历史审计证据展示并可筛选；详情提供会话累计 Token、输入/输出/缓存明细与记录覆盖，状态是最近 run 而非会话归档状态。
-- 页面与两个 API 均复用 requireAdminRole；普通聊天 API 所有权不放宽。完整记录仅保存的文本，不返回 reasoning、工具载荷或附件地址。新增迁移 0017_run_model_snapshot（AgentRun.requestedModel 可空 json），需先 db:migrate，开发服务重启后让 RunManager 新请求快照生效。完成事件追加 model，复用既有 Pi SDK/RPC/Durable 归一化与事件持久化，不将平台聊天投影当原生 Pi session；参考 Pi 1.0.2 SDK、Message Types、Session Format。
+- 页面与两个 API 均复用 requireAdminRole；普通聊天 API 所有权不放宽。完整记录仅保存的文本，不返回 reasoning、工具载荷或附件地址。新增迁移 0017_run_model_snapshot（AgentRun.requestedModel 可空 json），需先 db:migrate，开发服务重启后让 RunManager 新请求快照生效。完成事件追加 model，复用既有 Pi SDK/RPC/Durable 归一化与事件持久化，不将平台聊天投影当原生 Pi session；参考 Pi SDK、Message Types、Session Format。
 
 ## 管理端 Token 统计验证
 
@@ -209,7 +213,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 - `pnpm test:tokens:db`：独立用户/部门/角色/聊天夹具，验证默认数据库自然日边界、仅完成事件累计、覆盖率、部门筛选、实际模型/请求快照与多角色不重复；仅清理自己的夹具，随 test:runtime:db 收集。无需迁移。
 - `pnpm test:tokens:http`：本地 Next 服务，独立管理员/成员/部门/聊天夹具，验证真实用量、页面、no-store、未登录/非管理员拒绝与日期 400；`PIWORK_TOKEN_BROWSER_TESTS=1` 追加 Chromium 桌面查询、明细数值、390px 无页面横溢出与暗色重载检查（截图在 /tmp）。本轮 HTTP/浏览器通过；不代表容量验收。
 - 手工打开 `/admin/token-statistics`：检查中英文、明暗主题、日期与组织查询、加载/错误/重试、趋势悬停、部门明细与窄屏内部滚动；页面/API 必须复用 requireAdminRole。
-- 统计只读平台持久化 `message.completed`，不新增 Pi API；核对安装版 1.0.2 `pi-ai/dist/types.d.ts` Usage（totalTokens 为准，reasoning 为 output 子集）与 `pi-coding-agent/docs/sdk.md` message_end；统计口径见 architecture.md「管理端 Token 统计」。
+- 统计只读平台持久化 `message.completed`，不新增 Pi API；核对安装版 Pi `pi-ai/dist/types.d.ts` Usage（totalTokens 为准，reasoning 为 output 子集）与 `pi-coding-agent/docs/sdk.md` message_end；统计口径见 architecture.md「管理端 Token 统计」。
 
 ## 管理概览验证
 
@@ -241,11 +245,11 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 
 - 热力图验证：profile DB 测试覆盖近一年每日零值、本人/其他用户隔离与区间外记录排除；profile E2E 覆盖记录列表移除、每周/累计切换和移动端无页面溢出。
 
-个人设置三个页面复用管理 Skill 页面内容宽度（居中 max-width 960px）与响应式留白。Token 用量依据 Pi 1.0.0 官方 SDK message_end 和 pi-ai Usage 类型；归一化只保存五个数值字段，经现有 RuntimeEvent 持久化，未新增表。累计仅包含实际保留的用量记录。参考 https://pi.dev/docs/latest/sdk 与 node_modules/@earendil-works/pi-ai/dist/types.d.ts。
+个人设置三个页面复用管理 Skill 页面内容宽度（居中 max-width 960px）与响应式留白。Token 用量依据 Pi 官方 SDK message_end 和 pi-ai Usage 类型；归一化只保存五个数值字段，经现有 RuntimeEvent 持久化，未新增表。累计仅包含实际保留的用量记录。参考 https://pi.dev/docs/latest/sdk 与 node_modules/@earendil-works/pi-ai/dist/types.d.ts。
 
 ## 官方执行需求分类（2026-10-03）
 
-聊天入口在创建工作区前调用 `lib/ai/execution-classifier.ts`，复用 Pi 1.0.0 `createModels()`、官方 TypeSafe/OpenRouter provider、`getModelOfType("classifier", ...)` 和 `Models.classify()`。配置 `PIWORK_CLASSIFIER_MODEL=typesafe/jev-latest` + `TYPESAFE_API_KEY`，或 `PIWORK_CLASSIFIER_MODEL=openrouter/typesafe/jev-1.13` + `OPENROUTER_API_KEY`，密钥仅在控制面环境中配置。普通聊天模型不能传给 classifier API。本地分类依据：https://pi.dev/packages/pi-auto-router 与固定 npm 0.3.0 `src/intent-classifier.ts`；该包原用途为模型路由，沙箱权限映射由平台持有，启发式误判不开放宿主执行权限。官方依据：https://pi.dev/docs/latest/models#use-classifier-models；安装源码 `pi-ai/dist/models.d.ts`、`types.d.ts`、`providers/typesafe.js`。
+聊天入口在创建工作区前调用 `lib/ai/execution-classifier.ts`，复用 Pi `createModels()`、官方 TypeSafe/OpenRouter provider、`getModelOfType("classifier", ...)` 和 `Models.classify()`。配置 `PIWORK_CLASSIFIER_MODEL=typesafe/jev-latest` + `TYPESAFE_API_KEY`，或 `PIWORK_CLASSIFIER_MODEL=openrouter/typesafe/jev-1.13` + `OPENROUTER_API_KEY`，密钥仅在控制面环境中配置。普通聊天模型不能传给 classifier API。本地分类依据：https://pi.dev/packages/pi-auto-router 与固定 npm 0.3.0 `src/intent-classifier.ts`；该包原用途为模型路由，沙箱权限映射由平台持有，启发式误判不开放宿主执行权限。官方依据：https://pi.dev/docs/latest/models#use-classifier-models；安装源码 `pi-ai/dist/models.d.ts`、`types.d.ts`、`providers/typesafe.js`。
 
 分类发送当前输入（最多 8000 字符）、最近 6 条文本历史（每条最多 1500 字符）和附件数量，不发送附件字节、平台凭据或身份。三个结果为 conversation/platform_tools/workspace_execution；只有合法、成功且置信度至少 0.9 的前两类关闭工作区。未配置模型时使用 pi-auto-router 0.3.0 的纯函数 `classifyIntent()`（不加载它的扩展或模型路由）；补充中文执行、文件生成、附件和最近两条执行上下文规则。问候及文本创作等轻量请求关闭工作区，执行信号、code 类和附件保守开启工作区。配置模型后优先调用官方 API，非法模型、错误、2 秒超时、未知结果或低置信度均保守开启工作区；请求取消原样传播。配置分类器即会将上述文本发送到指定供应商。分类费用暂未计入 RuntimeEvent message.completed 的聊天 Token 聚合，不宣称统计含分类调用。
 

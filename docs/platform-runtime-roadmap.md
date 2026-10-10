@@ -1,5 +1,7 @@
 # Piwork 平台与 Agent Runtime 演进架构
 
+> Pi 版本说明：正文版本为方案制定时的查证背景；当前依赖和升级验证见 [升级记录](pi-upgrades.md)，不将历史版本当作当前安装版本。
+
 > 状态：**目标架构与迁移路线，不是当前部署拓扑。** 当前实现见 [architecture.md](architecture.md)。
 > 最新执行基线：[千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)；Durable 专项门禁见 [pi-durable-evaluation.md](pi-durable-evaluation.md)。
 > 本次修订将旧目标“Worker → Sandbox → Pi RPC”调整为“Worker 承载 Pi loop，Sandbox 承载工具执行”。现有 SandboxRpcBackend 保持当前事实，不因文档修订退役。

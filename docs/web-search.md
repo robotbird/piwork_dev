@@ -2,7 +2,7 @@
 
 ## 启用与使用
 
-本功能不依赖已安装的 `pi-web-access`，不加载第三方搜索 Extension。可信控制面持有 Tavily 凭据，Pi 1.0.3 的官方 `customTools` / AgentSession 负责搜索工具调用与后续回答。
+本功能不依赖已安装的 `pi-web-access`，不加载第三方搜索 Extension。可信控制面持有 Tavily 凭据，Pi 的官方 `customTools` / AgentSession 负责搜索工具调用与后续回答。
 
 在服务端环境配置：
 
@@ -56,4 +56,4 @@ pnpm exec tsc --noEmit
 
 测试在 `tests/unit/ai/web-search*.test.ts`、`tests/unit/chat/web-search.test.ts`、`tests/unit/runtime/backends/web-search.test.ts`：固定请求、Key 脱敏、合法/非法参数、日期缺口、空结果、返回体限额、超时/取消、每次授权与撤权、限额/并发占位、分类矩阵、RPC 拒绝、官方 AgentSession 真实工具循环（faux 模型与搜索替身）、事件/stream/持久消息一致性。默认不调用真实 Tavily 或真实模型、不做容量测试。真实联网/浏览器 UI 需配置后手工验收，不能用替身通过代替。
 
-官方依据：安装版 Pi 1.0.3 `docs/sdk.md`、`docs/extensions.md`、`examples/sdk/05-tools.ts`、`dist/core/sdk.d.ts`（customTools/tools/noTools）、`pi-agent-core/dist/types.d.ts`（AgentTool.execute/signal/content/details）与当前官方 `tool_execution_end` 类型。Tavily 请求字段核对 https://docs.tavily.com/documentation/api-reference/endpoint/search 。
+官方依据：安装版 Pi `docs/sdk.md`（当前版本见 [升级记录](pi-upgrades.md)）、`docs/extensions.md`、`examples/sdk/05-tools.ts`、`dist/core/sdk.d.ts`（customTools/tools/noTools）、`pi-agent-core/dist/types.d.ts`（AgentTool.execute/signal/content/details）与当前官方 `tool_execution_end` 类型。Tavily 请求字段核对 https://docs.tavily.com/documentation/api-reference/endpoint/search 。

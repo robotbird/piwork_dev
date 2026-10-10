@@ -4,6 +4,7 @@
 
 | 文档 | 用途 | 状态 |
 | --- | --- | --- |
+| [Pi 官方依赖升级记录](pi-upgrades.md) | 当前依赖基线、官方兼容性变化、验证与版本描述约定 | 当前版本以 package.json / pnpm-lock.yaml 为准；历史研究版本不代表当前基线 |
 | [项目架构](architecture.md) | 模块职责、运行链路、数据边界、当前状态 | 当前实现；新开发先读 |
 | [平台联网搜索](web-search.md) | 固定 Tavily 受控搜索、轻量路由、逐次授权/限额与来源持久化 | 当前实现；默认关闭，需 PIWORK_WEB_SEARCH_ENABLED + TAVILY_API_KEY；不含 web_fetch/任意抓取 |
 | [对话模型与用量](conversation-model-usage.md) | 请求/实际模型持久化、SDK/RPC/Durable 全链路、会话 Token 累计口径与验证 | 当前实现；历史缺失不估算，非不可变账单 |
@@ -21,6 +22,7 @@
 | [模型供应商插件架构](model-provider-plugin-architecture.md) | 插件方案与设计背景 | 原始草案，部分版本和阶段描述已过时；以项目架构和代码为准 |
 | [Skill 执行安全方案](security/skill-execution-security-plan.md) | 威胁模型与安全目标 | 规划；文件头说明已被后续设计取代的部分 |
 | [界面设计规范](design-system/openai-unified-interface/design-spec.md) | 界面参考及 token | 设计资料 |
+| [Pi Pocket 架构分析与借鉴建议](pi-pocket-architecture-analysis.md) | 单机 Durable 工作台技术栈、提交/投影/协作机制，与 Piwork 的对照及分期建议 | 源码调研；区分现状和建议，未实施或做容量/生产恢复验收 |
 | [Pi 插件调研 v1.7](archive/pi-plugin-research-v1.7.md) | 历史研究、实验和迁移证据 | 归档；旧版本陈述不可直接套用 |
 
 根目录的 `DESIGN.md` 是现有视觉设计规范，`design-qa.md` 是界面验收记录；二者保留在原位并从这里索引。项目入口见 [README](../README.md)，后续编码规则见 [AGENTS.md](../AGENTS.md)。

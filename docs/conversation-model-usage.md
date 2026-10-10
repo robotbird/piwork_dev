@@ -55,6 +55,6 @@
 - `tests/unit/runtime/run/run-manager.test.ts`：包括 open 失败前模型快照透传。
 - `pnpm test:runtime:db` / `pnpm test:runtime` 与 `pnpm exec tsc --noEmit`：既有回归；功能验证不等于容量验证。
 
-## 官方依据（Pi 1.0.2）
+## 官方依据（当前版本见 [升级记录](pi-upgrades.md)）
 
 安装的 `pi-coding-agent/docs/sdk.md`（message_end 权威完成消息）、`docs/message-types.md`（AssistantMessage、responseModel、Usage、reasoning 口径）、`examples/sdk/01-minimal.ts`；安装的 `pi-ai/dist/types.d.ts`（AssistantMessage/Usage）和 `pi-durable/dist/harness/events.d.ts`、`dist/types.d.ts`（message_end/EntryRecord）。未修改官方存储或事件机制，只扩展平台归一化负载与控制面投影。

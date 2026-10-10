@@ -116,11 +116,11 @@ test("Durable storage: previous Pi version binding cannot silently reopen", asyn
   const manifestPath = path.join(root, binding.runId, "binding.json");
   const current = await readFile(manifestPath, "utf8");
   const manifest = JSON.parse(current);
-  assert.equal(manifest.durableVersion, "1.0.3");
-  assert.equal(manifest.piVersion, "1.0.3");
+  assert.equal(manifest.durableVersion, "1.1.0");
+  assert.equal(manifest.piVersion, "1.1.0");
   await writeFile(
     manifestPath,
-    JSON.stringify({ ...manifest, durableVersion: "1.0.2" })
+    JSON.stringify({ ...manifest, durableVersion: "1.0.3" })
   );
   await assert.rejects(
     openOwnedDurableStorage(root, binding),
@@ -128,7 +128,7 @@ test("Durable storage: previous Pi version binding cannot silently reopen", asyn
   );
   await writeFile(
     manifestPath,
-    JSON.stringify({ ...manifest, piVersion: "1.0.2" })
+    JSON.stringify({ ...manifest, piVersion: "1.0.3" })
   );
   await assert.rejects(
     openOwnedDurableStorage(root, binding),

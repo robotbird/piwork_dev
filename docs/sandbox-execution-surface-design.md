@@ -2,7 +2,7 @@
 
 > **状态：已进入分阶段实现。** P0 契约、P1 lazy/限额文件/四工具、SandboxToolsBackend 协议适配器与私有存储/交付回调已落地，Docker 新契约与 CSV 交付 smoke 已通过，**未接入生产装配**；正式权限/账本/输入/治理/办公验收与单 Worker 仍待完成；OpenSandbox 新 tools 不开放，不能将适配器测试当作完整 P2/P3 验收。本轮按要求不做容量、持续负载或突发并发测试。详见 [实施记录](runtime-foundation-implementation.md)。当前后端、安全配置与普通问答路由不变。
 > 适用目标：约 1000 个企业内部账户，先提供受限并发的办公 MVP，逐步支持稳定后台任务；不是 1000 个并发任务或高可用承诺。
-> 已核对版本：pi-ai / pi-agent-core / pi-coding-agent 1.0.0；pi-durable / chord 0.99.2。以仓库安装包和锁文件为准。
+> 当前 Pi 版本以仓库安装包和锁文件为准，最新基线见 [升级记录](pi-upgrades.md)。正文的旧版本查证保留为方案制定时的历史证据，不代表当前安装版本。
 > 当前事实见 [architecture.md](architecture.md)；Durable 专项门禁见 [pi-durable-evaluation.md](pi-durable-evaluation.md)。本方案替代旧稿中无条件 shell 重试、Docker 自动 TTL 回收、文件工具天然 safe、容量已足够与 Durable 先于 Worker 生产化的设计。
 
 ## 1. 目标、范围与架构决策

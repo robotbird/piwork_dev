@@ -1,6 +1,6 @@
 # 聊天业务链路与 RPC 的位置
 
-> 核对日期：2026-10-02；Pi 主包版本 1.0.0。本文同时展示**当前生产代码路径**和**已经实现、尚未接入生产组装的本机 RPC 适配器**。完整 Pi 进程 Sandbox / 远端 Worker 是后续目标，见 [目标架构](pi-plugin-support-research.md)。
+> 链路核对日期：2026-10-02；Pi 当前版本以依赖文件及 [升级记录](pi-upgrades.md) 为准。本文同时展示**当前生产代码路径**和**已经实现、尚未接入生产组装的本机 RPC 适配器**。完整 Pi 进程 Sandbox / 远端 Worker 是后续目标，见 [目标架构](pi-plugin-support-research.md)。
 
 ## 一句话定位
 

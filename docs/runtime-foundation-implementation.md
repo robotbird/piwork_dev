@@ -1,5 +1,7 @@
 # 企业 Runtime 实施记录：契约、tools 适配器与私有交付基础
 
+> Pi 版本说明：各批次的 SDK 版本和测试结果保留为实施时的历史记录；当前依赖及本轮升级验证见 [升级记录](pi-upgrades.md)。
+
 > 状态：**首批代码已落地，未接入生产装配**。主方案见 [sandbox-execution-surface-design.md](sandbox-execution-surface-design.md)。
 > P0 契约/inventory、P1 文件/四工具、SandboxToolsBackend 协议适配器与私有存储/交付回调已实现；真实 Docker 新契约与 CSV 交付 smoke 已通过。生产权限/账本/附件/治理、完整办公验收与单 Worker 尚未完成；不能将本批写成 1～9 全部完成。按要求，本轮不做容量压测、持续负载或突发并发测试；保留资源限额实现，不将功能测试作为千人容量或生产 tools 上线证明。
 

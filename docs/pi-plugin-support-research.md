@@ -4,7 +4,7 @@
 >
 > 范围：Pi Package 网页安装、企业治理、Agent Runtime、Sandbox、Web/Desktop 复用
 >
-> Pi 版本：`@earendil-works/pi-ai` / `pi-agent-core` / `pi-coding-agent` 1.0.0（2026-10-02 起；MCP 为 Pi 内置扩展，见架构文档第 10/11 节）
+> Pi 版本：以 `package.json` / `pnpm-lock.yaml` 为准，最新基线见 [升级记录](pi-upgrades.md)；历史版本与实施证据保留，不代表当前版本。MCP 为 Pi 内置扩展，见架构文档第 10/11 节。
 >
 > 历史与证据库：v1.x 为调研报告（spike 实录与实施 gotchas，附录 A–F），已归档至 [docs/archive/pi-plugin-research-v1.7.md](archive/pi-plugin-research-v1.7.md)（git 8cb4286）。Step 3/4 实施前必读其附录 E.4（loader reload / CredentialStore / 事件桥）与 F.1（RPC 协议纪律：`agent_settled` 判据、JSONL 分帧、停机语义）。
 
@@ -50,7 +50,7 @@ v1.7（归档附录 F.5）的结论是"双执行后端、in-process 为生产默
 
 已完成：
 
-- 三个 Pi 主包已统一到 1.0.0。
+- Pi 主包、Durable 与 chord 已统一版本，精确版本见依赖文件。
 - 聊天链路通过 `createAgentSession()` 和 `DefaultResourceLoader` 加载官方扩展。
 - 模型插件通过 `ExtensionAPI.registerProvider()` 注入 Pi session。
 - 管理端已有 Pi Package 搜索、安装、卸载和数据库记录。

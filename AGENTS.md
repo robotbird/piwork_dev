@@ -8,7 +8,7 @@
 
 - 官方文档（优先查看与当前版本匹配的页面）：<https://pi.dev/docs/latest>
 - 官方代码库及源码：<https://github.com/earendil-works/pi>
-- 本项目当前安装版本：以 `package.json` 和锁文件为准；本轮核对 npm 最新发布并将 `@earendil-works/pi-ai`、`@earendil-works/pi-agent-core`、`@earendil-works/pi-coding-agent`、`@earendil-works/pi-durable`、`@earendil-works/chord` 全部对齐到 `1.0.3`（官方 npm registry latest；Durable 仍 experimental，见评估文档）。Docker pi-runtime 同步重建；持久 binding/input hash 同步版本，旧版本运行拒绝静默重开，须独立迁移验收。1.0.3 的 Durable FileSystem/BinaryReader/Shell breaking changes 由官方 NodeExecutionEnv 承接，平台 SandboxHandle seam 不等同于该接口；Azure provider 改名为 azure（API id 不变），外部旧配置须人工检查。升级后同步更新这里和架构文档。
+- 本项目当前安装版本：以 `package.json` 和锁文件为准；本轮核对 npm 最新发布并将 `@earendil-works/pi-ai`、`@earendil-works/pi-agent-core`、`@earendil-works/pi-coding-agent`、`@earendil-works/pi-durable`、`@earendil-works/chord` 全部对齐到 `1.1.0`（2026-10-10 核对官方 npm registry latest；升级与验证见 docs/pi-upgrades.md；Durable 仍 experimental，见评估文档）。Docker pi-runtime 同步重建；持久 binding/input hash 同步版本，旧版本运行拒绝静默重开，须独立迁移验收。1.1.0 的 pi-ai stream 必须返回官方 AssistantMessageEventStream，现插件宿主复用官方 factory；Durable Storage order 由官方 SqliteStorage 承接，无自建 Storage/旧 cutoff 调用。此前 Durable FileSystem/BinaryReader/Shell breaking changes 由官方 NodeExecutionEnv 承接，平台 SandboxHandle seam 不等同于该接口；Azure provider 改名为 azure（API id 不变），外部旧配置须人工检查。升级后同步更新这里和架构文档。
 
 ### 必须遵守的工作流程
 
@@ -82,7 +82,7 @@ P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/�
 
 ## 平台联网搜索边界
 
-`lib/search` 持有可信固定 Tavily 搜索 Gateway/限额/来源投影，`lib/ai/web-tools.ts` 通过官方 Pi 1.0.3 customTools 提供 `platform_web_search`（不与插件 web_search 同名）。环境 `PIWORK_WEB_SEARCH_ENABLED=1` + `TAVILY_API_KEY` 显式开启、默认关闭；查询词外发，提示最小化不等于自动 DLP，Key 不进模型/沙箱。每次 execute 经注入宿主回调复核 Chat 归属、enabled/模型/Token 权限，身份不能由模型输入。纯搜索可选轻量，只有 workspaceDir=null 装配白名单工具，受管扩展/MCP/内建执行仍关闭；附件/混合执行/第三方插件和近期执行上下文保守不扩张能力。RPC/all 在执行前拒绝不支持的平台搜索工具，Durable 不装配，不自动换后端或启用宿主第三方 Extension。`source.created` 经 RuntimeEvent → stream-mapping → source-url 与最终消息同形持久化，只有公开链接元数据，无供应商原始响应/凭据。首版不提供 web_fetch/任意 URL 抓取/浏览器/复杂文件解析；静态来源 URL 过滤不能宣称 SSRF 安全抓取。单轮/用户/进程限额是进程内准入，不是账本/分布式配额/容量验收。测试 test:search 在 tests/unit/ai、chat、runtime/backends，真实联网/UI 需配置后独立验收；见 docs/web-search.md。
+`lib/search` 持有可信固定 Tavily 搜索 Gateway/限额/来源投影，`lib/ai/web-tools.ts` 通过官方 Pi customTools 提供 `platform_web_search`（不与插件 web_search 同名）。环境 `PIWORK_WEB_SEARCH_ENABLED=1` + `TAVILY_API_KEY` 显式开启、默认关闭；查询词外发，提示最小化不等于自动 DLP，Key 不进模型/沙箱。每次 execute 经注入宿主回调复核 Chat 归属、enabled/模型/Token 权限，身份不能由模型输入。纯搜索可选轻量，只有 workspaceDir=null 装配白名单工具，受管扩展/MCP/内建执行仍关闭；附件/混合执行/第三方插件和近期执行上下文保守不扩张能力。RPC/all 在执行前拒绝不支持的平台搜索工具，Durable 不装配，不自动换后端或启用宿主第三方 Extension。`source.created` 经 RuntimeEvent → stream-mapping → source-url 与最终消息同形持久化，只有公开链接元数据，无供应商原始响应/凭据。首版不提供 web_fetch/任意 URL 抓取/浏览器/复杂文件解析；静态来源 URL 过滤不能宣称 SSRF 安全抓取。单轮/用户/进程限额是进程内准入，不是账本/分布式配额/容量验收。测试 test:search 在 tests/unit/ai、chat、runtime/backends，真实联网/UI 需配置后独立验收；见 docs/web-search.md。
 
 ## 数据库连接池边界
 
@@ -146,6 +146,6 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 
 用量统计页展示本人已记录 Token 聚合指标、AgentRun 时长与连续活跃天数、近一年 Token 活动热力图（每日/每周/累计），不再展示最近任务列表。Token 使用量从本人 RuntimeEvent 的 message.completed.usage 聚合，旧任务无记录显示未记录，不得虚构。
 
-个人设置三个页面复用管理 Skill 页面内容宽度（居中 max-width 960px）与响应式留白。Token 用量依据 Pi 1.0.0 官方 SDK message_end 和 pi-ai Usage 类型；归一化只保存五个数值字段，经现有 RuntimeEvent 持久化，未新增表。累计仅包含实际保留的用量记录。参考 https://pi.dev/docs/latest/sdk 与 node_modules/@earendil-works/pi-ai/dist/types.d.ts。
+个人设置三个页面复用管理 Skill 页面内容宽度（居中 max-width 960px）与响应式留白。Token 用量依据 Pi 官方 SDK message_end 和 pi-ai Usage 类型；归一化只保存五个数值字段，经现有 RuntimeEvent 持久化，未新增表。累计仅包含实际保留的用量记录。参考 https://pi.dev/docs/latest/sdk 与 node_modules/@earendil-works/pi-ai/dist/types.d.ts。
 
 聊天执行分类归 `lib/ai/execution-classifier.ts`，复用 Pi 官方 classifier API；未配置模型时复用 pi-auto-router 0.3.0 纯函数进行本地分类，配置模型后优先官方 API；模型低置信度和失败保守保留执行路由。无工作区的 InProcess 会话关闭受管扩展/MCP 与内建执行工具，仅保留平台显式工具白名单。分类不负责迁移运行中的会话；定时任务尚未接入。配置与数据发送边界见 docs/development.md 的官方执行需求分类章节。

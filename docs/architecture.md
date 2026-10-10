@@ -1,6 +1,6 @@
 # Piwork 项目架构（当前实现）
 
-> 核对日期：2026-10-02。依据当前工作树的代码和 `package.json`。本轮升级后的 Pi 主包、Pi Durable 与 chord 均为 **1.0.3**；Durable 仍 experimental。本文描述现状；目标架构见 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)。
+> Pi 依赖核对日期：2026-10-10。当前版本以 `package.json` 和 `pnpm-lock.yaml` 为准，最新升级与验证见 [Pi 升级记录](pi-upgrades.md)；Durable 仍 experimental。本文历史升级章节中的版本和测试结果仅代表当时基线。本文描述现状；目标架构见 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)。
 
 Web、独立 Worker/Sandbox 与未来 Desktop 的整体演进方向见 [平台与 Agent Runtime 演进架构](platform-runtime-roadmap.md)。最新实施基线见 [千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)：目标为工具级沙箱 → 单 Worker → 受控 Durable 车道。**执行路径改造尚未接入生产**；RunDescriptor/ExecutionState、LazySandbox、操作错误分类、限额/原子文件能力与四工具工厂已落地；已实现 SandboxToolsBackend 协议适配器、私有制品存储与交付回调，Docker 新契约已通过，生产接线与治理尚未完成，见 [实施记录](runtime-foundation-implementation.md)。现状中的 RPC、Next.js 内 RunManager、Docker 无 reaper 保持不变；Durable 新增 SQLite/单写者/恢复阻断基础，生产默认 MemoryStorage 路径已明确拒绝，但正式 Worker 接线仍未完成。
 
@@ -97,17 +97,17 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 
 模型目录复用 `getActiveModelCatalog` 与现有 Pi Provider/复合 ID，不返回凭据。多角色按已配置角色授权并集，未配置角色不覆盖显式限制；关闭切换仅授予该角色默认模型（其他角色仍可授予更多），无已配置角色沿用平台目录。默认按角色 createdAt/id 顺序选首个可用默认；供应商禁用/卸载仅取与当前目录交集。`/api/models` 正式身份、成员启用检查及 no-store；chat 拒绝越权模型，不静默回落；标题和定时任务使用成员目录。生产 RunManager 注入 `authorizeStart` 在 DB 建 run/lease/backend.open 之前、短临界区之外复核身份/模型/额度；`checkRecordedQuota` 在 message.completed 落库后复核，超额请求官方 abort 并以 failed 收尾。通用 RunManager 不依赖 DB，测试可注入回调；HMR 旧 manager 需服务重启。
 
-额度按当前角色全部成员已保留 `message.completed.usage.totalTokens` 汇总（共享角色额度），每日/月按默认数据库自然日/每月 1 日窗口；单任务按同 run 全部完成消息。多角色任一 block 超额即拒绝，warn 仅服务端日志。缺少用量显示缺口，不重复缓存/推理、不计标题/分类/嵌套工具；成员移动和聊天删除会改变统计，不是历史账本。新任务准入与完成消息后复核**不是预留/硬预算**，在途、同一 run 已调度的后续操作和并发请求可超支；不能宣称零超支、工具副作用可撤回、动态撤权可即时打断现有调用或强配额计费能力。未知 shell 效果仍由原后端清理，不重放。官方依据：Pi 1.0.2 `docs/models.md`、`docs/custom-provider.md` 与 `pi-ai/dist/models.d.ts` 的 Provider 模型目录契约、`pi-ai/dist/types.d.ts` Usage；未新增模型协议或第二个 agent loop。
+额度按当前角色全部成员已保留 `message.completed.usage.totalTokens` 汇总（共享角色额度），每日/月按默认数据库自然日/每月 1 日窗口；单任务按同 run 全部完成消息。多角色任一 block 超额即拒绝，warn 仅服务端日志。缺少用量显示缺口，不重复缓存/推理、不计标题/分类/嵌套工具；成员移动和聊天删除会改变统计，不是历史账本。新任务准入与完成消息后复核**不是预留/硬预算**，在途、同一 run 已调度的后续操作和并发请求可超支；不能宣称零超支、工具副作用可撤回、动态撤权可即时打断现有调用或强配额计费能力。未知 shell 效果仍由原后端清理，不重放。官方依据：Pi `docs/models.md`、`docs/custom-provider.md` 与 `pi-ai/dist/models.d.ts` 的 Provider 模型目录契约、`pi-ai/dist/types.d.ts` Usage；未新增模型协议或第二个 agent loop。
 
 ### 管理端对话记录
 
-`/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员可读；侧边栏「记录与统计 → 对话记录」。`components/admin/conversations` 复用后台组件与主题，提供真实 Chat 列表、标题/用户/项目检索、项目/最近运行状态/UTC 更新时间筛选、排序、分页、详情和只读消息文本分页。查询归 `lib/db/conversation-queries.ts`，只读 repeatable-read 保持计数与页内数据一致；共享校验与文本投影归 `lib/admin/conversations.ts`。不读 Pi JSONL/私有 SQLite，不启动或重建会话，不改变普通聊天所有权。模型已补运行级请求快照（AgentRun.requestedModel，迁移 0017）与完成事件实际模型（SDK/RPC 与 Durable 两类归一化器）；按 run 优先实际 model/responseModel，其次请求快照，最后同 run/chat 的 allowed 推理审计证据，保留跨轮模型切换并支持筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，列表/详情/筛选复用包内 Logo API，不显示内部 installation ID；未知/卸载与图标失败保守回退，不用当前模型目录覆盖历史模型身份。Token 按会话全部持久化 message.completed.usage 聚合五字段，官方 totalTokens 不重复加 reasoning/缓存；缺失显示未记录/部分记录，不与代理审计 Token 重复累计，不含分类/标题/压缩/工具嵌套费用。不虚构归档状态。完整链路与口径见 [对话模型与用量](conversation-model-usage.md)。仅投影 Message_v2 的 text parts，排除 reasoning/工具参数/结果/附件地址；这不是 Pi 完整 transcript 或不可变审计账本，删除聊天会删除相关记录。官方依据：Pi 1.0.2 `docs/sdk.md`、`docs/message-types.md`、`docs/session-format.md`（平台历史投影与 Pi 原生会话树不同）。
+`/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员可读；侧边栏「记录与统计 → 对话记录」。`components/admin/conversations` 复用后台组件与主题，提供真实 Chat 列表、标题/用户/项目检索、项目/最近运行状态/UTC 更新时间筛选、排序、分页、详情和只读消息文本分页。查询归 `lib/db/conversation-queries.ts`，只读 repeatable-read 保持计数与页内数据一致；共享校验与文本投影归 `lib/admin/conversations.ts`。不读 Pi JSONL/私有 SQLite，不启动或重建会话，不改变普通聊天所有权。模型已补运行级请求快照（AgentRun.requestedModel，迁移 0017）与完成事件实际模型（SDK/RPC 与 Durable 两类归一化器）；按 run 优先实际 model/responseModel，其次请求快照，最后同 run/chat 的 allowed 推理审计证据，保留跨轮模型切换并支持筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，列表/详情/筛选复用包内 Logo API，不显示内部 installation ID；未知/卸载与图标失败保守回退，不用当前模型目录覆盖历史模型身份。Token 按会话全部持久化 message.completed.usage 聚合五字段，官方 totalTokens 不重复加 reasoning/缓存；缺失显示未记录/部分记录，不与代理审计 Token 重复累计，不含分类/标题/压缩/工具嵌套费用。不虚构归档状态。完整链路与口径见 [对话模型与用量](conversation-model-usage.md)。仅投影 Message_v2 的 text parts，排除 reasoning/工具参数/结果/附件地址；这不是 Pi 完整 transcript 或不可变审计账本，删除聊天会删除相关记录。官方依据：Pi `docs/sdk.md`、`docs/message-types.md`、`docs/session-format.md`（平台历史投影与 Pi 原生会话树不同）。
 
 ### 管理端 Token 统计
 
 `/admin/token-statistics` 与 `GET /api/admin/token-statistics` 仅 enabled/admin 可读，侧栏归「记录与统计」。`lib/db/token-statistics-queries.ts` 使用共享 getDb/read-only repeatable-read，按 RuntimeEvent 完成自然日聚合 `message.completed.usage.totalTokens`；`lib/admin/token-statistics.ts` 校验最多 93 天窗口并组装指标、上一等长周期变化、每日模型堆叠趋势、部门/角色分布与明细；`components/admin/token-statistics-page.tsx` 复用 ECharts 与后台主题。无新表、Pi 调用或运行路径修改。
 
-活跃用户/对话为期间有完成消息的去重用户/Chat，人均按活跃用户计算。仅现存完成事件（含失败 run 中已完成消息），非请求次数或账单；缺失 Token 为 null，真实零保留，显示完成消息用量覆盖。不会重复加缓存/推理或代理审计用量，不含分类/标题/压缩/嵌套工具。部门使用 ID 隔离，归属为当前 Member/Department；多角色按名称组合计入一次，非历史组织快照。模型优先完成事件实际 responseModel，其次请求快照；供应商公开元数据仅展示，内部 installation ID 不输出。官方依据：安装版 Pi 1.0.2 `pi-ai/dist/types.d.ts` Usage 与 `pi-coding-agent/docs/sdk.md` message_end；不读取原生会话/SQLite。
+活跃用户/对话为期间有完成消息的去重用户/Chat，人均按活跃用户计算。仅现存完成事件（含失败 run 中已完成消息），非请求次数或账单；缺失 Token 为 null，真实零保留，显示完成消息用量覆盖。不会重复加缓存/推理或代理审计用量，不含分类/标题/压缩/嵌套工具。部门使用 ID 隔离，归属为当前 Member/Department；多角色按名称组合计入一次，非历史组织快照。模型优先完成事件实际 responseModel，其次请求快照；供应商公开元数据仅展示，内部 installation ID 不输出。官方依据：安装版 Pi `pi-ai/dist/types.d.ts` Usage 与 `pi-coding-agent/docs/sdk.md` message_end；不读取原生会话/SQLite。
 
 ### 模型供应商配置弹窗
 
@@ -142,7 +142,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 
 `PIWORK_WEB_SEARCH_ENABLED=1` + 服务端 `TAVILY_API_KEY` 显式启用。`lib/ai/web-tools.ts` 经官方 customTools 注册 `platform_web_search`，只在无工作区会话装配；轻量白名单与受管扩展/MCP 禁用保持不变。纯联网搜索分类为平台能力，默认 matrix 不启动沙箱；混合执行/附件/插件与近期执行上下文保守保留原矩阵。固定 Tavily 搜索、逐次 Chat 归属/enabled/模型/Token 授权、限额/超时/取消/输出截断，无搜索供应商或后端 fallback。查询词会外发，不能宣称 DLP 或不可变费用账本。
 
-官方工具成功 sources 投影为新 RuntimeEvent `source.created`，通过 stream-mapping 的标准 source-url 与 message-builder 同形持久化到聊天，UI 展示来源；不存搜索原始响应/Key。第三方 `web_search` 不同名且不因本功能自动加载。SandboxRpc/LocalRpc 收到平台搜索工具在执行前拒绝（含 all 模式），Durable 不装配；混合搜索+文件执行尚不支持。不提供 web_fetch/任意网页抓取，也不改变已知沙箱网络问题。配置、数据发送与验证边界见 [联网搜索](web-search.md)。依据 Pi **1.0.3** SDK/Extensions、sdk.d.ts 和 AgentTool signal/result 契约。
+官方工具成功 sources 投影为新 RuntimeEvent `source.created`，通过 stream-mapping 的标准 source-url 与 message-builder 同形持久化到聊天，UI 展示来源；不存搜索原始响应/Key。第三方 `web_search` 不同名且不因本功能自动加载。SandboxRpc/LocalRpc 收到平台搜索工具在执行前拒绝（含 all 模式），Durable 不装配；混合搜索+文件执行尚不支持。不提供 web_fetch/任意网页抓取，也不改变已知沙箱网络问题。配置、数据发送与验证边界见 [联网搜索](web-search.md)。依据 Pi SDK/Extensions、sdk.d.ts 和 AgentTool signal/result 契约。
 
 ## 6. Pi 官方依据
 
@@ -151,7 +151,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 - [RPC 协议](https://pi.dev/docs/latest/rpc) 与 [RPC 命令](https://pi.dev/docs/latest/rpc-commands)：本机 RPC 适配器的命令、事件和进程生命周期依据。
 - [Extensions](https://pi.dev/docs/latest/extensions)、[Custom Providers](https://pi.dev/docs/latest/custom-provider)：扩展工厂、`registerProvider()` 与 Provider 接口的依据。
 - [Pi Packages](https://pi.dev/docs/latest/packages)、[Skills](https://pi.dev/docs/latest/skills)：安装与资源发现约定的依据。
-- 精确签名与行为以本仓库安装的 `node_modules/@earendil-works/pi-coding-agent`、`pi-ai`、`pi-agent-core` **1.0.3** 类型/源码为准（含 `dist/extensions/mcp/` 的 `index.d.ts`、`config.d.ts` 与 `examples/sdk/14-codemode-mcp.ts`）；文档 latest 可能超前于已安装版本。
+- 精确签名与行为以本仓库安装的 `node_modules/@earendil-works/pi-coding-agent`、`pi-ai`、`pi-agent-core` 类型/源码为准（含 `dist/extensions/mcp/` 的 `index.d.ts`、`config.d.ts` 与 `examples/sdk/14-codemode-mcp.ts`）；文档 latest 可能超前于已安装版本。
 
 ## 7. 我的文档（2026-09-28）
 
@@ -165,7 +165,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 
 ### 聊天选择文档库文件
 
-聊天输入器的「文件」打开 `components/chat/library-file-picker.tsx`：搜索本人文档库、最近七条文件和「浏览全部」弹窗，已有对话也可选择。`POST /api/library/:id/attachment` 只解析本人文件，校验支持扩展名/20 MB，返回既有 Attachment；上传文件复用存储 URL，不重新上传。可编辑 Document 选择时保存并归档字节快照（沿用既有 file-store/Blob 模式，可能新增一条文档库记录），不把可变 Document URL 发给 Runtime。图片使用鉴权缩略图、非图像展示文件名，支持移除；最多五份，不支持格式显示不可选。新建项目的 `?query=` 文本入口仍禁止附件，避免静默丢失。附件仍经既有 route → RunManager → RuntimeBackend → Pi 会话处理，不新增 agent loop、检索或向量库。依据安装版 Pi 1.0.3 `docs/sdk.md` / `docs/message-types.md`、`dist/core/agent-session.d.ts` PromptOptions.images 与 pi-ai `dist/types.d.ts` ImageContent：图片保持 base64/MIME 输入，其他文件沿用现有提取/沙箱水合链路。
+聊天输入器的「文件」打开 `components/chat/library-file-picker.tsx`：搜索本人文档库、最近七条文件和「浏览全部」弹窗，已有对话也可选择。`POST /api/library/:id/attachment` 只解析本人文件，校验支持扩展名/20 MB，返回既有 Attachment；上传文件复用存储 URL，不重新上传。可编辑 Document 选择时保存并归档字节快照（沿用既有 file-store/Blob 模式，可能新增一条文档库记录），不把可变 Document URL 发给 Runtime。图片使用鉴权缩略图、非图像展示文件名，支持移除；最多五份，不支持格式显示不可选。新建项目的 `?query=` 文本入口仍禁止附件，避免静默丢失。附件仍经既有 route → RunManager → RuntimeBackend → Pi 会话处理，不新增 agent loop、检索或向量库。依据安装版 Pi `docs/sdk.md` / `docs/message-types.md`、`dist/core/agent-session.d.ts` PromptOptions.images 与 pi-ai `dist/types.d.ts` ImageContent：图片保持 base64/MIME 输入，其他文件沿用现有提取/沙箱水合链路。
 
 ## 8. 定时任务 MVP（2026-09-28）
 
@@ -199,7 +199,9 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 - 管理端 MCP 服务的名称校验沿用 `[a-z0-9][a-z0-9-]*`，与 Pi 0.99.2 的 `-`→`_` 命名空间归一不冲突（不含 `_`，不可能归一重名）。
 - Pi 依据：[MCP Servers](https://pi.dev/docs/latest/mcp)、[SDK](https://pi.dev/docs/latest/sdk)（SDK 会话加入 `createMcpExtension()` 的示例 `examples/sdk/14-codemode-mcp.ts`），并核对已安装 0.99.2 的 `dist/index.d.ts`、`dist/core/mcp-servers.d.ts`、`dist/extensions/mcp/index.d.ts`、`dist/extensions/mcp/config.d.ts`（`loadMcpConfig`/`McpServerEntry`/`LoadedMcpConfig`）、`dist/core/settings-manager.js`（`projectTrusted` 默认 true）与 `dist/extensions/mcp/oauth.js`（默认凭据后端指向 `getAgentDir()`）。
 
-## 11. Pi 1.0.0 升级（2026-10-02）
+## 11. 历史 Pi 升级记录（当前基线见 [升级记录](pi-upgrades.md)）
+
+### Pi 1.0.0 升级（2026-10-02）
 
 - 三主包升级 **1.0.0**（官方正式里程碑；无 Breaking Changes 章节）。`@earendil-works/pi-durable`/`chord` 仍为 0.99.2（experimental，未随 1.0.0 重建），pnpm 下 pi-durable 嵌套解析 pi-ai 0.99.2，双版本共存；`DurableBackend` 在 Harness 选项边界有一处显式转型（1.0.0 给 `TranscriptContext` 加的 `unique symbol` brand 是纯类型标记，无运行时足迹），行为由契约测试兜底，pi-durable 发布对齐版本后移除。
 - **pi-agent-core 1.0.0 拆出 harness**：`index` 不再 re-export telemetry/`agent-harness`/`skills`/`NodeExecutionEnv`。项目侧迁移：`Skill`/`loadSkillsFromDir`/`formatSkillsForPrompt`/`stripFrontmatter` 改自 `pi-coding-agent`（`core/skills.ts`）；`NodeExecutionEnv` 改自 `@earendil-works/pi-durable/env/node`；`BACKGROUND_CONTEXT` 改自 `@earendil-works/chord/context`；`@earendil-works/pi-agent-core/node` 子路径已不存在。
@@ -243,7 +245,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 - 应用左下角个人菜单始终提供 `/settings/profile`，管理入口仅在服务端 `requireAdminRole` 判定通过时展示；主题切换与退出登录保留。管理布局拒绝普通成员访问，`requireAdminSession` 与 `requireAdminRole` 都要求真实成员记录中的 enabled/admin，不再兼容放行无成员账号；正式旧账号登录时沿用 ensureMemberForUser 补建成员。
 - `/settings/profile` 独立于聊天/管理布局，提供个人资料、账号密码、用量统计三个设置项。页面与 Server Action 校验正式身份和成员启用状态，userId 只取会话。查询/更新归 `lib/db/profile-queries.ts`，客户端不接触数据库及 Pi 内部事件。用户名可编辑，邮箱为登录标识只读；头像支持 PNG/JPEG/WebP（最多 2 MB），经 `/api/profile/avatar` 验证 MIME 与文件签名后复用 storeFile/registerLibraryFile 归档，将本人受保护的 LibraryItem 预览地址存 User.image；支持恢复用户名首字母默认头像。菜单与资料页共享已保存头像；旧头像保留在本人文档库，不自动删除。
 - 密码修改要求校验当前密码、新密码至少 8 字符/最多 72 字节（bcrypt），数据库以旧哈希做 CAS 防止并发修改覆盖；不返回密码哈希。任务统计取本人当前保留的 AgentRun：总次数、settled 次数、最近创建时间、已结束任务最长时长，热力图按数据库自然日展示近一年本人 AgentRun 次数（零值补齐）。删除聊天会级联删除运行记录，因此不是不可变的终身账单。日期由数据库写入时钟格式化，避免驱动/宿主时区二次解释。Token 从持久化 message.completed.usage 聚合；Skill 使用次数无持久化统计。
-- Pi 核对：主包与锁文件均为 1.0.0；参考 [官方 SDK](https://pi.dev/docs/latest/sdk) 与已安装 `pi-coding-agent/dist/core/agent-session.d.ts`（agent_settled）。本次仅消费平台已持久化运行记录，不修改 Pi 集成或另建 agent loop。
+- Pi 核对：当前主包与锁文件版本见 [升级记录](pi-upgrades.md)；参考 [官方 SDK](https://pi.dev/docs/latest/sdk) 与已安装 `pi-coding-agent/dist/core/agent-session.d.ts`（agent_settled）。本次仅消费平台已持久化运行记录，不修改 Pi 集成或另建 agent loop。
 
 个人设置使用独立二级路由 `/settings/profile`（资料）、`/settings/security`（密码）、`/settings/usage`（统计）；共享 settings/layout 与 SettingsSidebar，页面由 SettingsPage 复用正式身份校验和本人查询，链接导航支持直达、刷新与浏览器历史。`/settings` 与旧 `/profile` 重定向个人资料；账户动作归 settings/actions.ts，头像 API 保持 `/api/profile/avatar`。
 
@@ -251,11 +253,11 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 
 用量页已移除最近任务列表及查询，以每日/每周/累计 Token 活动热力图替代（7 行按周排列、月份标记、蓝色色阶、悬停数值、移动端内部横向滚动）。指标为累计已记录 Token、近一年单日 Token 峰值、最长任务时长、近一年当前/最长连续活跃天数；今日无任务时当前连续记录从昨天回溯。热力图现改为 Token 活动：message.completed 可选 usage 保存 Pi 官方 message_end 的 input/output/cacheRead/cacheWrite/totalTokens，以官方 totalTokens 为准，不重复加 reasoning。每日按 RuntimeEvent 完成自然日与 AgentRun 用户归属聚合；旧任务无记录显示未记录，不能回填。每日/每周/累计模式悬停均显示当天 Token。
 
-个人设置三个页面复用管理 Skill 页面内容宽度（居中 max-width 960px）与响应式留白。Token 用量依据 Pi 1.0.0 官方 SDK message_end 和 pi-ai Usage 类型；归一化只保存五个数值字段，经现有 RuntimeEvent 持久化，未新增表。累计仅包含实际保留的用量记录。参考 https://pi.dev/docs/latest/sdk 与 node_modules/@earendil-works/pi-ai/dist/types.d.ts。
+个人设置三个页面复用管理 Skill 页面内容宽度（居中 max-width 960px）与响应式留白。Token 用量依据 Pi 官方 SDK message_end 和 pi-ai Usage 类型；归一化只保存五个数值字段，经现有 RuntimeEvent 持久化，未新增表。累计仅包含实际保留的用量记录。参考 https://pi.dev/docs/latest/sdk 与 node_modules/@earendil-works/pi-ai/dist/types.d.ts。
 
 ## 官方执行需求分类（2026-10-03）
 
-聊天入口在创建工作区前调用 `lib/ai/execution-classifier.ts`，复用 Pi 1.0.0 `createModels()`、官方 TypeSafe/OpenRouter provider、`getModelOfType("classifier", ...)` 和 `Models.classify()`。配置 `PIWORK_CLASSIFIER_MODEL=typesafe/jev-latest` + `TYPESAFE_API_KEY`，或 `PIWORK_CLASSIFIER_MODEL=openrouter/typesafe/jev-1.13` + `OPENROUTER_API_KEY`，密钥仅在控制面环境中配置。普通聊天模型不能传给 classifier API。本地分类依据：https://pi.dev/packages/pi-auto-router 与固定 npm 0.3.0 `src/intent-classifier.ts`；该包原用途为模型路由，沙箱权限映射由平台持有，启发式误判不开放宿主执行权限。官方依据：https://pi.dev/docs/latest/models#use-classifier-models；安装源码 `pi-ai/dist/models.d.ts`、`types.d.ts`、`providers/typesafe.js`。
+聊天入口在创建工作区前调用 `lib/ai/execution-classifier.ts`，复用 Pi `createModels()`、官方 TypeSafe/OpenRouter provider、`getModelOfType("classifier", ...)` 和 `Models.classify()`。配置 `PIWORK_CLASSIFIER_MODEL=typesafe/jev-latest` + `TYPESAFE_API_KEY`，或 `PIWORK_CLASSIFIER_MODEL=openrouter/typesafe/jev-1.13` + `OPENROUTER_API_KEY`，密钥仅在控制面环境中配置。普通聊天模型不能传给 classifier API。本地分类依据：https://pi.dev/packages/pi-auto-router 与固定 npm 0.3.0 `src/intent-classifier.ts`；该包原用途为模型路由，沙箱权限映射由平台持有，启发式误判不开放宿主执行权限。官方依据：https://pi.dev/docs/latest/models#use-classifier-models；安装源码 `pi-ai/dist/models.d.ts`、`types.d.ts`、`providers/typesafe.js`。
 
 分类发送当前输入（最多 8000 字符）、最近 6 条文本历史（每条最多 1500 字符）和附件数量，不发送附件字节、平台凭据或身份。三个结果为 conversation/platform_tools/workspace_execution；只有合法、成功且置信度至少 0.9 的前两类关闭工作区。未配置模型时使用 pi-auto-router 0.3.0 的纯函数 `classifyIntent()`（不加载它的扩展或模型路由）；补充中文执行、文件生成、附件和最近两条执行上下文规则。问候及文本创作等轻量请求关闭工作区，执行信号、code 类和附件保守开启工作区。配置模型后优先调用官方 API，非法模型、错误、2 秒超时、未知结果或低置信度均保守开启工作区；请求取消原样传播。配置分类器即会将上述文本发送到指定供应商。分类费用暂未计入 RuntimeEvent message.completed 的聊天 Token 聚合，不宣称统计含分类调用。
 
