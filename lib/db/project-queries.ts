@@ -9,7 +9,7 @@ const db = getDb();
 export type CreateSourceInput = {
   content: string;
   name: string;
-  type: "pdf" | "txt" | "markdown";
+  type: import("@/lib/projects/source-files").SourceFileType;
 };
 
 export async function createProject(userId: string, name: string) {
@@ -260,6 +260,7 @@ export function listProjectSourceContents(projectId: string) {
       content: source.content,
       createdAt: source.createdAt,
       name: source.name,
+      type: source.type,
     })
     .from(source)
     .where(eq(source.projectId, projectId))

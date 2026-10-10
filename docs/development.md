@@ -149,7 +149,11 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 
 1. `pnpm db:migrate` 应用 0013（Project/Source 表与 Chat.projectId/updatedAt）。
 2. `pnpm test:runtime:db` 覆盖 `tests/unit/db/project-queries.test.ts`：项目归属隔离、项目聊天列表摘要排序、资料写入/删除与项目级联清理。
-3. 手动流程：`/projects` 创建项目 → 进入项目 → 「来源」上传 PDF/TXT/Markdown → 大输入框发起聊天 → AI 回答应引用资料内容 → 返回项目主页聊天列表可见标题/摘要/时间 → 再开新聊天仍引用同一批资料。删除项目后其聊天与资料一并消失，且不出现在主侧边栏「最近」。
+3. 手动流程：`/projects` 创建项目 → 进入项目 → 「来源」上传图片/PDF/DOCX/XLSX/PPTX 等 → 大输入框发起聊天 → AI 回答应引用资料内容 → 返回项目主页聊天列表可见标题/摘要/时间 → 再开新聊天仍引用同一批资料。删除项目后其聊天与资料一并消失，且不出现在主侧边栏「最近」。
+
+### 项目资料格式验证
+
+`pnpm test:projects:sources`（也随 test:unit 收集）覆盖格式白名单、旧格式拒绝、真实 DOCX/CSV/Markdown/JSON 提取、图像载荷往返/签名/大小与上下文截断隔离、图片总量限制和损坏拒绝；不调用真实模型。项目图片直接经 Pi 1.1.0 官方 ImageContent（base64/MIME）与既有 RuntimeCommand.images 输入，需视觉模型；无 OCR、新 agent loop 或向量检索。文档单份 20 MB，项目图片最多 5 张合计 8 MB；上传后请在视觉模型项目聊天中另做真实图像问答验收。旧 DOC/XLS/PPT、加密文档、扫描 PDF OCR 不在支持声明中。无需 SQL 迁移；Source.type 本来就是 varchar。
 
 ## 对话分享与协作验证（2026-10-09）
 

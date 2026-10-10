@@ -355,7 +355,7 @@ export const chatShareInvite = pgTable(
 
 export type ChatShareInviteRecord = InferSelectModel<typeof chatShareInvite>;
 
-/** 项目上传的资料；content 为提取出的纯文本，聊天时作为上下文注入（MVP 不做检索） */
+/** 项目资料：content 为提取文本或版本化图像载荷，经文本/图像上下文注入，不做检索。 */
 export const source = pgTable(
   "Source",
   {
@@ -366,8 +366,8 @@ export const source = pgTable(
     projectId: uuid("projectId")
       .notNull()
       .references((): AnyPgColumn => project.id, { onDelete: "cascade" }),
-    /** 文件类型：pdf | txt | markdown */
-    type: varchar("type", { enum: ["pdf", "txt", "markdown"] }).notNull(),
+    /** 文档扩展名；markdown 保持旧记录兼容。图像 content 为版本化 base64 载荷。 */
+    type: varchar("type").notNull(),
   },
   (table) => [index("Source_project_idx").on(table.projectId)]
 );

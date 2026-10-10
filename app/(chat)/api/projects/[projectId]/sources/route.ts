@@ -5,10 +5,14 @@ import { MAX_CHAT_ATTACHMENT_SIZE } from "@/lib/ai/attachment-types";
 import {
   createSource,
   getProject,
+  listProjectSourceContents,
   listSources,
 } from "@/lib/db/project-queries";
+import { assembleProjectSourcesContext } from "@/lib/projects/context";
 import {
   extractSourceText,
+  MAX_PROJECT_IMAGE_BYTES,
+  sourceImageMime,
   sourceTypeFromFilename,
 } from "@/lib/projects/source-files";
 
@@ -65,12 +69,16 @@ export async function POST(request: Request, context: Context) {
     return Response.json({ error: t("sourceUnsupported") }, { status: 400 });
   }
 
+  if (sourceImageMime(type) && file.size > MAX_PROJECT_IMAGE_BYTES) {
+    return Response.json({ error: t("sourceImageLimit") }, { status: 400 });
+  }
+
   // 文件 → 文本：与聊天附件共用解析管线；文本随 Source 保存，
   // 聊天时按项目全文注入提示词（无检索最简方案）
   const content = new Uint8Array(await file.arrayBuffer());
   let text: string;
   try {
-    text = await extractSourceText({ content, type });
+    text = await extractSourceText({ content, signal: request.signal, type });
   } catch (error) {
     console.error("[project-sources] extract text failed:", error);
     return Response.json({ error: t("sourceExtractFailed") }, { status: 400 });
@@ -78,6 +86,19 @@ export async function POST(request: Request, context: Context) {
   const trimmed = text.trim();
   if (!trimmed) {
     return Response.json({ error: t("sourceNoText") }, { status: 400 });
+  }
+
+  if (sourceImageMime(type)) {
+    // 上传时预检；并发上传可能交错，聊天组装仍再次强制核验总量。
+    const existing = await listProjectSourceContents(projectId);
+    try {
+      assembleProjectSourcesContext([
+        ...existing.filter((item) => sourceImageMime(item.type)),
+        { content: trimmed, name: file.name, type },
+      ]);
+    } catch {
+      return Response.json({ error: t("sourceImageLimit") }, { status: 400 });
+    }
   }
 
   const source = await createSource(session.user.id, projectId, {

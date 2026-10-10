@@ -1,4 +1,10 @@
-import { listProjectSourceContents } from "@/lib/db/project-queries";
+import type { ImageContent } from "@earendil-works/pi-ai";
+import {
+  decodeSourceImage,
+  MAX_PROJECT_IMAGE_BYTES,
+  MAX_PROJECT_IMAGES,
+  sourceImageMime,
+} from "./source-files";
 
 /**
  * 项目资料上下文（无检索的最简方案）：把项目全部资料的提取文本
@@ -12,6 +18,7 @@ const MAX_TOTAL_CONTEXT_CHARS = 80_000;
 
 export type ProjectSourcesContext = {
   block: string;
+  images: ImageContent[];
   includedSources: number;
   truncatedSources: number;
 };
@@ -23,17 +30,48 @@ export async function buildProjectSourcesContext({
   projectId: string;
   projectName?: string;
 }): Promise<ProjectSourcesContext | null> {
-  const sources = await listProjectSourceContents(projectId);
+  const { listProjectSourceContents } = await import(
+    "@/lib/db/project-queries"
+  );
+  return assembleProjectSourcesContext(
+    await listProjectSourceContents(projectId),
+    projectName
+  );
+}
+
+export function assembleProjectSourcesContext(
+  sources: { name: string; type: string; content: string }[],
+  projectName?: string
+): ProjectSourcesContext | null {
   const usable = sources.filter((source) => source.content.trim());
   if (usable.length === 0) {
     return null;
   }
 
   const sections: string[] = [];
+  const images: ImageContent[] = [];
+  let imageBytes = 0;
   let totalChars = 0;
   let truncatedSources = 0;
 
   for (const source of usable) {
+    if (sourceImageMime(source.type)) {
+      const image = decodeSourceImage(source.content, source.type);
+      imageBytes += Buffer.from(image.data, "base64").byteLength;
+      if (
+        images.length >= MAX_PROJECT_IMAGES ||
+        imageBytes > MAX_PROJECT_IMAGE_BYTES
+      ) {
+        throw new Error(
+          "项目图片总量超过限制：最多 5 张、合计 8 MB，请减少图片资料。"
+        );
+      }
+      images.push(image);
+      sections.push(
+        `--- 资料：${source.name} ---\n[对应第 ${images.length} 张项目图片，请结合图像内容回答]`
+      );
+      continue;
+    }
     if (totalChars >= MAX_TOTAL_CONTEXT_CHARS) {
       truncatedSources += 1;
       continue;
@@ -62,6 +100,7 @@ export async function buildProjectSourcesContext({
 
   return {
     block: `${header}\n\n${sections.join("\n\n")}`,
+    images,
     includedSources: sections.length,
     truncatedSources,
   };

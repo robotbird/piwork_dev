@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CHAT_ATTACHMENT_ACCEPT } from "@/lib/ai/attachment-types";
 import { generateUUID } from "@/lib/utils";
 import {
   formatShortDate,
@@ -51,7 +52,8 @@ import {
 
 type Tab = "chats" | "sources";
 
-const ACCEPTED_SOURCE_EXTENSIONS = ".pdf,.txt,.md";
+// 与聊天附件及服务端来源格式白名单保持一致。
+const ACCEPTED_SOURCE_EXTENSIONS = CHAT_ATTACHMENT_ACCEPT;
 
 export function ProjectHome({
   projectId,
@@ -622,5 +624,5 @@ function sourceTypeLabel(type: ProjectSourceSummary["type"]): string {
   if (type === "markdown") {
     return "Markdown";
   }
-  return "TXT";
+  return type.toUpperCase();
 }

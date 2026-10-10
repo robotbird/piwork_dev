@@ -504,7 +504,7 @@ export async function POST(request: Request) {
     }
 
     // 项目资料上下文（无检索最简方案）：聊天归属项目时，把该项目全部
-    // 资料的提取文本注入提示词；组装失败只降级为普通聊天，不阻断消息。
+    // 资料的提取文本与图像经平台协议注入；失败不静默忽略资料。
     if (chat?.projectId) {
       try {
         const projectRecord = await getProject(session.user.id, chat.projectId);
@@ -514,11 +514,22 @@ export async function POST(request: Request) {
             projectName: projectRecord.name,
           });
           if (context) {
+            if (context.images.length && !piModel.input.includes("image")) {
+              return Response.json(
+                { error: t("modelNoImages") },
+                { status: 400 }
+              );
+            }
+            preparedAttachments.images.push(...context.images);
             agentPrompt = `${context.block}\n\n---\n\n用户问题：${agentPrompt}`;
           }
         }
       } catch (error) {
         console.warn("Project sources context failed:", error);
+        return Response.json(
+          { error: t("sourceExtractFailed") },
+          { status: 400 }
+        );
       }
     }
 
