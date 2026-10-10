@@ -218,7 +218,8 @@ upload_release() {
   top="$(ls -A | LC_ALL=C grep -Ev '^(node_modules|\.git|\.github|\.husky|\.agents|\.claude|\.zcodeignore|\.pnpm-store|\.turbo|\.uploads|\.env\.local|\.env\.example|\.pi|\.piwork|\.DS_Store|tests|docs|docker|llm|dist|artifacts|playwright-report|test-results|AGENTS\.md|DESIGN\.md|design-qa\.md|LICENSE|README\.md|biome\.jsonc|playwright\.config\.ts|tsconfig\.tsbuildinfo|design-qa-.*\.png|model-provider-.*\.png)$')"
   while IFS= read -r name; do [ -n "$name" ] && printf '%s\0' "$name"; done <<< "$top" \
     | tar --no-xattrs -h --null -T - --exclude='./.next/cache' --exclude='./.next/dev' -czf - \
-    | $rate_pipe ssh "${SSH_OPTS[@]}" "$HOST" "tar --no-same-owner -xzf - -C $REL"
+    | { if [ -n "$rate_pipe" ]; then $rate_pipe; else cat; fi; } \
+    | ssh "${SSH_OPTS[@]}" "$HOST" "tar --no-same-owner -xzf - -C $REL"
   # 完整性：生产构建必有 BUILD_ID；缺了说明本机不是 next build 产物
   rq "[ -f $REL/.next/BUILD_ID ]" || die "服务器缺少 $REL/.next/BUILD_ID —— .next 不是生产构建产物，检查本机构建步骤"
   log "上传完成"
@@ -243,7 +244,9 @@ upload_artifact() {
     fi
   fi
   # CI 产物自身已含 .release-info（release=<tag>），不需要重写
-  cat "$ARTIFACT" | $rate_pipe ssh "${SSH_OPTS[@]}" "$HOST" "tar --no-same-owner -xzf - -C $REL"
+  cat "$ARTIFACT" \
+    | { if [ -n "$rate_pipe" ]; then $rate_pipe; else cat; fi; } \
+    | ssh "${SSH_OPTS[@]}" "$HOST" "tar --no-same-owner -xzf - -C $REL"
   # 完整性：与 daily 同一标准，CI 生产构建必有 BUILD_ID
   rq "[ -f $REL/.next/BUILD_ID ]" || die "服务器缺少 $REL/.next/BUILD_ID —— 产物不是 CI 生产构建（release.yml）"
   log "上传完成"
