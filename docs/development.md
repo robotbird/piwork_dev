@@ -47,7 +47,7 @@ pnpm test:runtime:durable-chat:http # 默认跳过；显式 opt-in 才调用真�
 pnpm test:runtime       # 含 Durable 基础、沙箱 tools、RPC、RunManager 与聊天流映射
 pnpm test:runtime:db    # PostgreSQL 集成测试；需 .env.local 中 POSTGRES_URL
 pnpm test              # Playwright E2E；会启动本地 Next.js 服务
-pnpm test:chat:share:ui # 隔离 Chromium 分享弹窗：自动生成/重开复用/轮换/失败重试/撤销；API 模拟，无 DB/模型
+pnpm test:chat:share:ui # 隔离 Chromium 分享及邀请弹窗：自动生成/重开复用/轮换/失败重试/撤销、邀请弹框进入对话/关闭回首页/移动端边界；API 与导航模拟，无 DB/模型
 pnpm check             # 项目静态检查
 pnpm plugin:verify     # 模型插件链路验证
 ```

@@ -1,6 +1,8 @@
 import { NextIntlClientProvider } from "next-intl";
 import { StrictMode, useCallback, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { OpenChatButton } from "../../components/chat/join-actions";
+import { JoinDialog } from "../../components/chat/join-dialog";
 import { ShareDialog } from "../../components/chat/share-dialog";
 import { TooltipProvider } from "../../components/ui/tooltip";
 import messages from "../../i18n/messages/zh.json";
@@ -15,7 +17,22 @@ function Preview() {
         <button onClick={handleOpen} type="button">
           分享
         </button>
-        <ShareDialog chatId="preview-chat" onClose={handleClose} open={open} />
+        {window.location.search.includes("join") ? (
+          <JoinDialog
+            description="对话协作邀请"
+            footer="链接 7 天内有效，仅限本平台已登录的启用成员使用"
+            title="邀请对话"
+          >
+            <p>你已在该对话的协作成员中。</p>
+            <OpenChatButton chatId="preview-chat" />
+          </JoinDialog>
+        ) : (
+          <ShareDialog
+            chatId="preview-chat"
+            onClose={handleClose}
+            open={open}
+          />
+        )}
       </TooltipProvider>
     </NextIntlClientProvider>
   );

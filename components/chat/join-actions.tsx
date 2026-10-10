@@ -63,14 +63,14 @@ export function JoinActions({
   return (
     <div className="flex flex-col gap-2 sm:flex-row">
       <Button
-        className="h-10 flex-1 rounded-xl text-[14px] font-medium"
+        className="h-10 flex-1 max-sm:min-h-11"
         disabled={disabled || busy !== null}
         onClick={handleJoin}
       >
         {busy === "join" ? t("join.joining") : t("join.join")}
       </Button>
       <Button
-        className="h-10 flex-1 rounded-xl text-[14px] font-medium"
+        className="h-10 flex-1 max-sm:min-h-11"
         disabled={disabled || busy !== null}
         onClick={handleFork}
         variant="outline"
@@ -91,10 +91,7 @@ export function OpenChatButton({ chatId }: { chatId: string }) {
   }, [chatId, router]);
 
   return (
-    <Button
-      className="h-10 w-full rounded-xl text-[14px] font-medium"
-      onClick={handleOpen}
-    >
+    <Button className="h-10 w-full max-sm:min-h-11" onClick={handleOpen}>
       {t("join.openChat")}
     </Button>
   );

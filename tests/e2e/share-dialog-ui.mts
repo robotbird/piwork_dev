@@ -52,6 +52,23 @@ try {
     jsx: "automatic",
     outfile: join(directory, "preview.js"),
     platform: "browser",
+    plugins: [
+      {
+        name: "mock-invitation-navigation",
+        setup(builder) {
+          builder.onResolve({ filter: /^next\/navigation$/ }, () => ({
+            namespace: "fixture",
+            path: "next/navigation",
+          }));
+          builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({
+            contents: `const navigate = (url) => { window.__navigation = url; };
+            const router = { push: navigate, replace: navigate };
+            export const useRouter = () => router;`,
+            loader: "js",
+          }));
+        },
+      },
+    ],
   });
   const css = await postcss([tailwindcss()]).process(
     await readFile("app/globals.css", "utf8"),
@@ -254,8 +271,24 @@ try {
     "collaborators never auto-generate links"
   );
   assert.equal(await link.count(), 0);
+  await page.goto(`http://127.0.0.1:${address.port}/?join`);
+  await dialog.getByRole("heading", { name: "邀请对话" }).waitFor();
+  await dialog.getByRole("button", { name: "进入对话" }).click();
+  assert.equal(
+    await page.evaluate(() => (window as any).__navigation),
+    "/chat/preview-chat"
+  );
+  await page.setViewportSize({ height: 844, width: 390 });
+  await page.waitForTimeout(250);
+  const joinBounds = await dialog.boundingBox();
+  assert(
+    joinBounds && joinBounds.x >= 15 && joinBounds.x + joinBounds.width <= 375
+  );
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "detached" });
+  assert.equal(await page.evaluate(() => (window as any).__navigation), "/");
   console.log(
-    "PASS: auto generation/reopen/rotation/failure retry, no footer hints, member add, copy/select/revoke, desktop/mobile/landscape bounds"
+    "PASS: invitation modal/open/close/mobile; auto generation/reopen/rotation/failure retry, no footer hints, member add, copy/select/revoke, desktop/mobile/landscape bounds"
   );
 } finally {
   await browser?.close();
