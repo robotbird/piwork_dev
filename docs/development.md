@@ -6,7 +6,7 @@
 
 ## Skill 沙箱实施约束
 
-最新需求优先实现 [Skill 沙箱基本执行](skill-sandbox-execution.md)：复用现有 RPC，不新建 Worker/backend/审批系统；`sandbox-rpc/skills.ts` 在 Linux 宿主用 pinned fd 限额收集启用目录，使用 SandboxHandle.filesystem 原子复制，在 Pi 启动前完成。RuntimeSpec.skills 仅宿主装配引用；不要接受客户端路径/原始脚本字节，不作为 Worker DTO。官方 CLI --no-skills + 显式 --skill 与原生 /skill:name 承接加载/展开，模型使用 read，不新增宿主工具闭包桥。Mac portable collector 仅明确 test 选项（NODE_ENV=test）；生产不得 fallback。`pnpm test:skills:sandbox` 包含 14 项，随 test:runtime 收集；fixture 在 tests/fixtures/skills，真实探针与打包步骤见上述文档，默认跳过且不调用真实 LLM。
+最新需求优先实现 [Skill 沙箱基本执行](skill-sandbox-execution.md)：复用现有 RPC，不新建 Worker/backend/审批系统；`sandbox-rpc/skills.ts` 在 Linux 宿主用 pinned fd 限额收集启用目录，使用 SandboxHandle.filesystem 原子复制，在 Pi 启动前完成。RuntimeSpec.skills 仅宿主装配引用；不要接受客户端路径/原始脚本字节，不作为 Worker DTO。官方 CLI --no-skills + 显式 --skill 与原生 /skill:name 承接加载/展开，模型使用 read，不新增宿主工具闭包桥。Mac portable collector 仅明确 test 选项（NODE_ENV=test）；生产不得 fallback。`pnpm test:skills:sandbox` 包含 14 项，随 test:runtime 收集；fixture 在 tests/fixtures/skills，独立 RPC 探针默认跳过且不调用真实 LLM。test:opensandbox:chat 增加 PIWORK_OPENSANDBOX_SKILL_HTTP_TEST=1 模式（仍要求 PIWORK_OPENSANDBOX_CHAT_TEST=1、绝对 PIWORK_SKILL_HTTP_FIXTURE_ROOT），真实模型验证独立 Skill 上传/命令/脚本、正式归档/鉴权下载及底座删除，成功只清理本组资源，失败禁用身份并留证；两类 .mts 均由 tests/support/sandbox/skill-smoke-tsconfig.json 检查。v3.1.5/b970246 已部署并通过本机入口 HTTP 验证，非浏览器/公网域名验收。
 
 原 manifest/hash/path 协议、Node-only hash helper 与 tests/unit/runtime/protocol/skill-bundle.test.ts 保留。只读 mount/不可变审批、逐次正式授权、持久 intent、执行-only OpenSandbox tools/Worker 属于 [企业目标](skill-sandbox-security-design.md)，其门禁不因 RPC 资源补齐取消；enabled/复制/regular 元数据不代表批准或企业安全验收。
 

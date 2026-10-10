@@ -6,7 +6,7 @@ Web、独立 Worker/Sandbox 与未来 Desktop 的整体演进方向见 [平台�
 
 本轮新增 [Durable + Sandbox 受控组合](durable-sandbox-composition.md)：`DurableSandboxBackend` 复用官方 Harness/私有 owned SQLite 与现有 lazy 四工具，已通过真实 OpenSandbox 功能契约；fresh-run、单 prompt、deny-all、非生产显式探针。执行映射存官方 document；终态前回收，清理失败保留归属。**已接非生产自动聊天分流：开发环境所有正式启用成员无需勾选，test 保留 UUID 白名单；未启用时默认矩阵不变，Worker/自动恢复不变**；全局 env 互斥仍保留，现有 SandboxToolsBackend 的 OpenSandbox 拒绝门禁不变。`/api/chat/runtime-options` 仅保留能力查询，UI 不选择后端；分类不是授权；正式 DB 授权、水合/私有归档在服务端装配，实际后端落 `AgentRun.backend=durable_sandbox`（varchar，仅扩 TS 值域，无 SQL enum/迁移）。
 
-按最新需求新增 [Skill 沙箱基本执行](skill-sandbox-execution.md)：现有 SandboxRpc 在启动 Pi 前限额快照并原子复制启用 Skill 全目录，CLI 仅加载显式沙箱 SKILL.md；`/name` 经官方 `/skill:name` 在沙箱展开，自动调用通过 read 加载，无通用 load_skill/create_skill 闭包桥。聊天/定时任务传 RuntimeSpec.skills 宿主路径元数据（非 Worker DTO），不新建后端/Worker/DB。Linux collector 拒绝链接，复制不是只读 mount/不可变审批；真实 OpenSandbox 脚本及资源探针已通过，应用代码未部署。完整 [企业目标](skill-sandbox-security-design.md) 的审批、执行-only OpenSandbox tools、账本/Worker 门禁不变；原 manifest helper 仍仅协议基础，enabled 不等于审批。
+按最新需求新增 [Skill 沙箱基本执行](skill-sandbox-execution.md)：现有 SandboxRpc 在启动 Pi 前限额快照并原子复制启用 Skill 全目录，CLI 仅加载显式沙箱 SKILL.md；`/name` 经官方 `/skill:name` 在沙箱展开，自动调用通过 read 加载，无通用 load_skill/create_skill 闭包桥。聊天/定时任务传 RuntimeSpec.skills 宿主路径元数据（非 Worker DTO），不新建后端/Worker/DB。Linux collector 拒绝链接，复制不是只读 mount/不可变审批；真实 OpenSandbox 脚本及资源探针已通过；v3.1.5/b970246 已部署，正式 HTTP Skill 上传/命令/脚本、归档与鉴权下载、底座删除验证通过（独立身份、真实模型、单容器，不含浏览器 UI）。完整 [企业目标](skill-sandbox-security-design.md) 的审批、执行-only OpenSandbox tools、账本/Worker 门禁不变；原 manifest helper 仍仅协议基础，enabled 不等于审批。
 
 ## 1. 系统边界
 

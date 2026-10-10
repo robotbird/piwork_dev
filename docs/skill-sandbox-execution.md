@@ -1,6 +1,6 @@
 # Skill 沙箱基本执行（当前实现）
 
-2026-10-10：按最新需求收缩为现有 SandboxRpc 的资源同步，不引入 Worker、新 backend、审批数据库或通用工具 RPC 桥。代码已接聊天/定时任务装配；真实 OpenSandbox 官方 RPC + Node 脚本探针通过。**尚未部署本轮应用代码；不是企业级安全/恢复/容量验收。**
+2026-10-10：按最新需求收缩为现有 SandboxRpc 的资源同步，不引入 Worker、新 backend、审批数据库或通用工具 RPC 桥。代码已接聊天/定时任务装配；真实 OpenSandbox 官方 RPC + Node 脚本探针通过。**已通过 GitHub Actions 发布并部署 v3.1.5（b970246），正式聊天 HTTP 的 Skill 上传、命令、脚本及鉴权下载验证通过；不是浏览器 UI、企业级安全/恢复/容量验收。**
 
 ## 简单链路
 
@@ -41,6 +41,18 @@ node --conditions=react-server --import tsx --env-file=.env.local tests/e2e/sand
 ```
 
 读取现有 provider/image/CLI 环境，可用 PIWORK_SKILL_TEST_ROOT 指向本组 fixture root。默认 `pnpm test:skills:sandbox:smoke` 跳过；在 Linux 宿主操作，不在生产服务器构建 Next/image，不并发起探针。
+
+### 正式聊天 HTTP 验证（2026-10-10）
+
+`tests/e2e/opensandbox-chat-smoke.mts` 新增 `PIWORK_OPENSANDBOX_SKILL_HTTP_TEST=1` 模式（同时要求 `PIWORK_OPENSANDBOX_CHAT_TEST=1`），通过 `PIWORK_SKILL_HTTP_FIXTURE_ROOT` 指定上述受控 fixture 的绝对目录。一次性正式启用管理员上传独立名称的完整 Skill，显式启用后发一轮 `/名称` 聊天；使用真实模型、官方沙箱 Pi 和现有正式归档/下载路由，不使用 fauxProvider。
+
+- release：`v3.1.5 / b970246`，服务器目录 `releases/20261010084151`；应用与 nginx 本机 HTTP 307，环境配置保留。
+- run `4e7edec1-a634-4ed7-a669-e1e861ff2e20`：`sandbox_rpc / settled`；持久工具事件确认 bash 在沙箱 Skill 路径调用已有 report.mjs，非模型重写脚本。
+- 正式 artifact.created 与本人鉴权下载确认 `skill-result.txt` 的精确内容 `SKILL_SCRIPT_OK:沙箱资源:引用说明`。
+- sandbox `a65fa71e-a617-459c-bb1c-b634724eb124`：DB destroyed，provider inspect=null；资源快照与后台配置一致。
+- 成功后仅删除本次 Skill、用户/聊天/消息、输出与 workspace；失败身份禁用并保留证据，不修改其他真实会话。
+
+本组仍是单容器串行功能验证，不验证浏览器、公网域名、附件或容量；公网域名检查仍异常，本次使用服务器本机 HTTP 入口。主实现依据仍为下述官方 Pi 1.1.0 API，未添加新的 agent loop。
 
 ## 明确边界
 

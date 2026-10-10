@@ -58,7 +58,7 @@ P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/�
 
 ## Skill 沙箱执行门禁
 
-最新需求收缩为现有 SandboxRpc 资源补齐，见 docs/skill-sandbox-execution.md：RuntimeSpec.skills 仅可信宿主目录元数据（非客户端输入/Worker DTO），聊天和 scheduler 注入启用目录；Linux pinned fd 限额快照/拒绝链接，SandboxHandle.filesystem 原子复制随机本次目录，再用官方 --no-skills + 显式 --skill、/skill:name 展开及 read/bash 执行。无新 backend/Worker/DB/通用闭包桥，不回落宿主、不运行时装包；Mac fallback 仅显式 test。test:skills:sandbox/:smoke，真实探针为单容器 faux 模型，无真实 LLM；应用代码未部署。复制不是只读 mount、enabled 不是审批。企业目标 docs/skill-sandbox-security-design.md 和 manifest 协议仍保留，执行-only OpenSandbox tools/P2/P3 门禁、默认矩阵/Durable 不变；不得把基本 RPC 功能或单次探针称为企业安全/恢复/容量验收。
+最新需求收缩为现有 SandboxRpc 资源补齐，见 docs/skill-sandbox-execution.md：RuntimeSpec.skills 仅可信宿主目录元数据（非客户端输入/Worker DTO），聊天和 scheduler 注入启用目录；Linux pinned fd 限额快照/拒绝链接，SandboxHandle.filesystem 原子复制随机本次目录，再用官方 --no-skills + 显式 --skill、/skill:name 展开及 read/bash 执行。无新 backend/Worker/DB/通用闭包桥，不回落宿主、不运行时装包；Mac fallback 仅显式 test。test:skills:sandbox/:smoke 的独立探针为单容器 faux 模型；v3.1.5/b970246 已部署。test:opensandbox:chat 的 PIWORK_OPENSANDBOX_SKILL_HTTP_TEST=1 模式显式调用真实模型，独立身份上传/启用完整 Skill 后验证 /名称、脚本/资源、正式归档/鉴权下载、底座删除，仅清理自己的夹具；默认仍跳过，不代表浏览器 UI 验收。复制不是只读 mount、enabled 不是审批。企业目标 docs/skill-sandbox-security-design.md 和 manifest 协议仍保留，执行-only OpenSandbox tools/P2/P3 门禁、默认矩阵/Durable 不变；不得把基本 RPC 功能或单次探针称为企业安全/恢复/容量验收。
 
 ## Durable + Sandbox 组合适配器（非生产）
 

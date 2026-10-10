@@ -4,6 +4,9 @@
     "incremental": false
   },
   "files": ["../../../next-env.d.ts"],
-  "include": ["../../e2e/sandbox-skill-smoke.mts"],
+  "include": [
+    "../../e2e/sandbox-skill-smoke.mts",
+    "../../e2e/opensandbox-chat-smoke.mts"
+  ],
   "exclude": []
 }

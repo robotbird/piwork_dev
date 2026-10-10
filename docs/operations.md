@@ -220,7 +220,11 @@ RunManager 必然落 `AgentRun.status=failed`（errorMessage 带真实错误）�
 
 ### Skill 基础执行验证（2026-10-10）
 
-最新实现与使用见 [Skill 沙箱基本执行](skill-sandbox-execution.md)：复用 SandboxRpc 同步完整启用目录、原生 Skill 加载与脚本执行，不新增 Worker/backend/审批库；本轮代码尚未部署应用。独立打包探针在服务器单容器实测，通过官方 `/skill` 展开、实际 Node 脚本/assets/references、输出、store→archive 测试回调及 artifact 事件、底座删除；无真实模型调用/会话写入。成功 sandbox ed506858-406b-4ba8-a1bb-3996820a8666 已删除；一次 probe store 夹具字段误用修正后重测，其 sandbox 65415653-7a4c-4c27-b2a1-721561082db3 也已回收。应用 release/env/路由未改。复制不是只读挂载/不可变审批，不是企业安全、浏览器下载或容量验收。
+最新实现与使用见 [Skill 沙箱基本执行](skill-sandbox-execution.md)：复用 SandboxRpc 同步完整启用目录、原生 Skill 加载与脚本执行，不新增 Worker/backend/审批库。早期独立打包探针以 faux 模型验证脚本/assets/references、测试归档回调及底座删除，成功与失败沙箱均已回收。
+
+随后通过 GitHub Actions v3.1.5（b970246，run 38038272804）和 deploy.sh ci 部署至 releases/20261010084151，保留 shared/.env.local；HTTP 307 健康检查通过。部署脚本的限速管道修复另提交为 61e2139，不改变该 CI 应用产物。正式 HTTP 真实模型探针上传并启用唯一名称的完整 Skill，经 `/名称` 执行已有 Node 脚本，精确下载 `SKILL_SCRIPT_OK:沙箱资源:引用说明`；run 4e7edec1-a634-4ed7-a669-e1e861ff2e20 settled，sandbox a65fa71e-a617-459c-bb1c-b634724eb124 已由 DB 与 provider 确认销毁，仅清理本组 Skill/身份/聊天/输出。该模式使用 PIWORK_OPENSANDBOX_CHAT_TEST=1 + PIWORK_OPENSANDBOX_SKILL_HTTP_TEST=1 + 绝对 PIWORK_SKILL_HTTP_FIXTURE_ROOT，源文件是 tests/e2e/opensandbox-chat-smoke.mts，生产缺源码/tsx 时本地打包为外部依赖 ESM 后在宿主执行。
+
+复制不是只读挂载/不可变审批；正式鉴权 HTTP 下载通过，不等于浏览器 UI、企业安全或容量验收。公网域名检查仍异常，本组使用服务器本机入口，未开放新的公网端口。
 
 ## 7. 关联文档
 
@@ -256,12 +260,12 @@ PIWORK_OPENSANDBOX_CHAT_TEST=1 pnpm test:opensandbox:chat # 会真实调用模�
 
 源码/测试依赖tsx不在生产安装时，可使用已安装的 `pnpm dlx tsx --conditions=react-server --env-file=.env.local tests/e2e/<上述文件>.mts`；禁止误加载开发机env。启动探针使用无效token，不提交模型prompt；HTTP探针只管理独立夹具，失败保留证据并禁用测试成员。release代码变更仍通过piwork-deploy/scripts/deploy.sh，不覆盖现有版本目录的生产源码。备份路径记录在 /var/lib/piwork-opensandbox/app-env-backup-path，配置不输出密钥。
 
-**当前状态：OpenSandbox matrix 已启用（2026-10-10）。** 首次真实聊天暴露F6，先撤回分流，再通过官方SessionManager cwd修复、Runtime回归344通过/15跳过（0失败）、类型/Biome检查与本机Next构建，首次使用deploy.sh daily部署到 releases/20261010053540，随后F7分类修复部署到 releases/20261010061055（当前）。基线Git为ace2c5f（v3.1.4），两项修复为未提交工作区增量，.release-info明确标记working_tree_dirty=1 / hotfix=sandbox-session-cwd+file-operation-routing，未创建Git提交或新Release。
+**当前状态：OpenSandbox matrix 已启用（2026-10-10）。** 首次真实聊天暴露F6，先撤回分流，再通过官方SessionManager cwd修复、Runtime回归344通过/15跳过（0失败）、类型/Biome检查与本机Next构建，首次使用deploy.sh daily部署到 releases/20261010053540，随后F7分类修复部署到 releases/20261010061055（历史）。早期基线Git为ace2c5f（v3.1.4）加未提交 hotfix；现两项修复与 Skill 基本执行已提交至 b970246，通过 v3.1.5 Release 部署至 releases/20261010084151（当前），详见上节。
 
 2026-10-10 补充安全核查：activation 探针实际 execd 命令 UID=100/GID=101、NoNewPrivs=1、CapEff=0；Docker privileged=false、securityOpt=no-new-privileges=true，rootfs 仍可写。临时核查 sandbox ef868226-6795-4e6c-afab-d4f7f4bcabad 已由 provider 确认销毁。仅更新/运行探针，没有部署新的应用或调整路由。该核查不等于只读 Skill、账本、恢复、完整出网绕过或企业安全验收；新 Skill 方案及生产门禁见 [实施方案](skill-sandbox-security-design.md)。
 
 实测通过：Docker实际CPU=0.5/内存=768MB和所有映射HostIp=127.0.0.1；file/PTY/Pi1.1.0/401/renew/kill；官方RpcClient带交付扩展与合成历史getState；正式HTTP先问候(in_process settled)，再带历史bash创建/读取hello.txt(sandbox_rpc settled)，官方工具完成、资源快照、注册表destroyed与provider inspect=null。最终成功夹具已清理；两次诊断失败夹具的成员已禁用并保留证据（首次RPC故障与一次终态后异步清理的过早断言，均确认沙箱已销毁）；旧failed run没有翻转或重放。测试等待后台close/release后再核验销毁，不把AgentRun settled等同于资源已回收。
 
-只有单沙箱串行功能验证；未验证浏览器UI、附件解析/水合、真实deliver_file下载、并发容量、重启恢复或完整安全隔离，Durable未启用。公共域名访问此前异常不在本项修复内，本轮HTTP使用服务器本机入口。Docker网关绑定不是完整跨租户/宿主隔离证明，仍需安全、Worker/reaper、未知副作用对账等独立验收。
+只有单沙箱串行功能验证；本次 Skill 的真实deliver_file归档/鉴权HTTP下载已通过，浏览器UI、附件解析/水合、并发容量、重启恢复或完整安全隔离仍未验证，Durable未启用。公共域名访问此前异常不在本项修复内，本轮HTTP使用服务器本机入口。Docker网关绑定不是完整跨租户/宿主隔离证明，仍需安全、Worker/reaper、未知副作用对账等独立验收。
 
 依据：官方OpenSandbox server配置指南与1.1.1 wheel内config.py（publish_host为实际HostIp绑定）、CLI、Docker runtime；Pi 1.1.0 docs/sdk.md/session-format.md、SessionManager与CLI session-cwd检查。保持官方存储/进程协议，不替换agent loop。
