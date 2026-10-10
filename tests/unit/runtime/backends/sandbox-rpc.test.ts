@@ -11,8 +11,10 @@ import {
   fauxText,
   fauxToolCall,
 } from "@earendil-works/pi-ai";
+import { loadSkillsFromDir } from "@earendil-works/pi-coding-agent";
 import type { StoredFile } from "@/lib/ai/file-store";
 import { getPiModel } from "@/lib/ai/pi";
+import { buildSkillsSystemPrompt } from "@/lib/ai/skills";
 import { resolveDefaultCliPath } from "@/lib/runtime/backends/local-rpc/spawn";
 import { SandboxRpcBackend } from "@/lib/runtime/backends/sandbox-rpc/backend";
 import type {
@@ -211,6 +213,12 @@ test("seeding 落 workspace：会话文件与 agentDir 上传，in-sandbox pi �
     const sessionJsonl = await handle.readFile("piwork/session.jsonl");
     const seededText = Buffer.from(sessionJsonl).toString("utf8");
     assert.ok(seededText.includes("历史回答"), "seeding 历史应上传");
+    const header = JSON.parse(seededText.split("\n")[0]);
+    assert.equal(
+      header.cwd,
+      handle.workspaceRoot,
+      "session cwd must exist inside the target sandbox, not reference the host workspace"
+    );
 
     // 全轮：prompt → bridge → in-sandbox 官方 pi（安装位置直用）→ 事件流
     await session.send({ text: "你好", type: "prompt" });
@@ -336,6 +344,101 @@ test("deliver_file 全链路：沙箱内 extension 落 outbox → 宿主收割�
   } finally {
     await session.close("test-done").catch(() => undefined);
   }
+});
+
+test("enabled Skill runs bundled script through official RPC bash with assets/references", {
+  timeout: TEST_TIMEOUT_MS,
+}, async () => {
+  Object.assign(process.env, { NODE_ENV: "test" });
+  const skillsRoot = path.resolve("tests/fixtures/skills");
+  const { skills } = loadSkillsFromDir({ dir: skillsRoot, source: "project" });
+  const provider = new TestSandboxProvider();
+  const { env } = await fauxScriptEnv([
+    fauxAssistantMessage([
+      fauxToolCall("bash", {
+        command: 'node "$(find piwork/skills -name report.mjs)"',
+        timeout: 10,
+      }),
+    ]),
+    fauxAssistantMessage([fauxText("脚本完成")]),
+  ]);
+  const backend = new SandboxRpcBackend({
+    allowNonLinuxSkillReadForTests: true,
+    env,
+    extensions: [FAUX_EXTENSION_PATH],
+    provider,
+    remoteCliPath: resolveDefaultCliPath(),
+    skillsRoot,
+  });
+  const spec = await makeSpec({
+    workspaceDir: await mkdtemp(path.join(tmpdir(), "piwork-skill-rpc-ws-")),
+  });
+  spec.skills = skills;
+  spec.appendSystemPrompt = [buildSkillsSystemPrompt(skills)];
+  const session = await backend.open(spec);
+  const handle = provider.sandbox("test-sbx-1")?.handle;
+  assert.ok(handle);
+  try {
+    await session.send({
+      expandPromptTemplates: false,
+      text: "/skill:sandbox-script 执行脚本",
+      type: "prompt",
+    });
+    const events = await collect(session);
+    assert.equal(events.at(-1)?.type, "run.settled");
+    assert(
+      events.some(
+        (event) =>
+          event.type === "tool.completed" &&
+          event.toolName === "bash" &&
+          !event.isError
+      )
+    );
+    assert.equal(
+      Buffer.from(await handle.readFile("skill-result.txt")).toString(),
+      "SKILL_SCRIPT_OK:沙箱资源:引用说明"
+    );
+  } finally {
+    await session.close("test-done");
+  }
+  assert.equal(await handle.status(), "destroyed");
+});
+
+test("Skill transfer failure kills the acquired sandbox before starting Pi", async () => {
+  Object.assign(process.env, { NODE_ENV: "test" });
+  const skillsRoot = path.resolve("tests/fixtures/skills");
+  const { skills } = loadSkillsFromDir({ dir: skillsRoot, source: "project" });
+  const provider = new TestSandboxProvider();
+  const acquire = provider.acquire.bind(provider);
+  let started = false;
+  provider.acquire = async (request) => {
+    const handle = await acquire(request);
+    const { filesystem } = handle;
+    assert(filesystem);
+    filesystem.writeAtomic = () =>
+      Promise.reject(new Error("Skill transfer denied"));
+    handle.startProcess = () => {
+      started = true;
+      return Promise.reject(new Error("must not launch"));
+    };
+    return handle;
+  };
+  const backend = new SandboxRpcBackend({
+    allowNonLinuxSkillReadForTests: true,
+    provider,
+    remoteCliPath: resolveDefaultCliPath(),
+    skillsRoot,
+  });
+  const spec = await makeSpec({
+    workspaceDir: await mkdtemp(path.join(tmpdir(), "piwork-skill-fail-ws-")),
+  });
+  spec.skills = skills;
+  await assert.rejects(backend.open(spec), /Skill transfer denied/);
+  assert.equal(started, false);
+  assert.equal(
+    await provider.sandbox("test-sbx-1")?.handle.status(),
+    "destroyed"
+  );
 });
 
 /** 轮询等待事件流出现终态（faux 响应流式产生，存在真实时间差） */

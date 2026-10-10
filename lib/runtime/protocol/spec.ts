@@ -1,5 +1,6 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { Api, Message, Model } from "@earendil-works/pi-ai";
+import type { Skill } from "@earendil-works/pi-coding-agent";
 
 /**
  * RuntimeSpec：平台对一次 Agent Runtime 执行的完整声明（v2.0 §5.1）。
@@ -40,6 +41,9 @@ export type RuntimeSpec = {
   historyMessages: Message[];
   /** 平台侧 AgentTool（技能工具）；deliver_file 由 backend 按 workspaceDir 注入 */
   tools: AgentTool[];
+  /** Host-assembled enabled catalog references, never request JSON/Worker DTO.
+   * SandboxRpc snapshots these managed directories before starting remote Pi. */
+  skills?: Skill[];
   /**
    * 本次运行申请的 egress FQDN 白名单（spec §6 Phase 4）。只能收紧：
    * backend 与装配基线取交集，申请超出基线的条目被丢弃；未设置 = 基线

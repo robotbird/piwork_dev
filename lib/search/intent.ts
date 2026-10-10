@@ -1,3 +1,5 @@
+import { hasWorkspaceFileIntent } from "../ai/file-operation-intent";
+
 /** Conservative routing hint, NOT authorization. False positives only expose
  * the explicit platform tool whitelist, never shell/filesystem/extensions.
  */
@@ -14,12 +16,16 @@ export function isLightweightWebRequest(input: {
   if (
     input.attachmentCount > 0 ||
     !WEB.test(input.message) ||
-    EXECUTION_OR_INTEGRATION.test(input.message)
+    EXECUTION_OR_INTEGRATION.test(input.message) ||
+    hasWorkspaceFileIntent(input.message)
   ) {
     return false;
   }
   // A search embedded in an execution follow-up must not reroute to host execution.
   return !input.history
     .slice(-2)
-    .some(({ text }) => EXECUTION_OR_INTEGRATION.test(text));
+    .some(
+      ({ text }) =>
+        EXECUTION_OR_INTEGRATION.test(text) || hasWorkspaceFileIntent(text)
+    );
 }

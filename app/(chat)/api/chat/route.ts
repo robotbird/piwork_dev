@@ -476,14 +476,22 @@ export async function POST(request: Request) {
       chatModel
     );
 
+    const sandboxSkillCommand = Boolean(
+      process.env.PIWORK_SANDBOX_PROVIDER && workspaceDir && skillCommand
+    );
     let agentPrompt = currentUserText || "请分析并处理附件。";
     if (skillCommand) {
       try {
-        agentPrompt = await invokeSkill(
-          skills,
-          skillCommand.name,
-          skillCommand.instructions
-        );
+        if (!skills.some((skill) => skill.name === skillCommand.name)) {
+          throw new Error(`Unknown skill "${skillCommand.name}".`);
+        }
+        agentPrompt = sandboxSkillCommand
+          ? (skillCommand.instructions ?? "")
+          : await invokeSkill(
+              skills,
+              skillCommand.name,
+              skillCommand.instructions
+            );
       } catch (error) {
         return Response.json(
           { error: error instanceof Error ? error.message : "Unknown skill" },
@@ -517,7 +525,12 @@ export async function POST(request: Request) {
     const runtimePrompt: Extract<RuntimeCommand, { type: "prompt" }> = {
       expandPromptTemplates: false,
       images: preparedAttachments.images,
-      text: agentPrompt,
+      // Official remote Pi expands the command after project/attachment context
+      // is assembled, using its actual sandbox-local SKILL.md/baseDir.
+      text:
+        sandboxSkillCommand && skillCommand
+          ? `/skill:${skillCommand.name} ${agentPrompt}`
+          : agentPrompt,
       type: "prompt",
     };
     const stream = createUIMessageStream({
@@ -618,6 +631,7 @@ export async function POST(request: Request) {
               chatId: id,
               historyMessages,
               model: piModel,
+              skills: isDurable ? [] : skills,
               systemPrompt: baseSystemPrompt,
               tools: isDurable
                 ? []

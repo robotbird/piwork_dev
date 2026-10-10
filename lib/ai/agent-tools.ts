@@ -232,8 +232,8 @@ You have bash, read, write, and edit tools to carry out tasks such as running sk
 
 - Your working directory (workspace) is: ${workspaceDir}. Relative paths in commands and file tools resolve against it; prefer relative paths.
 - Files uploaded by the user in this turn are saved in the workspace: ${fileList}.
-- Skill script locations given in <skill> blocks are absolute paths outside the workspace; run them from the workspace, e.g.: python3 /abs/path/.pi/skills/<name>/scripts/tool.py input.drawio -o output.pptx
-- Keep commands non-interactive. If a skill needs missing dependencies (e.g. Python packages), install them first (pip install ...).
+- Resolve skill scripts, references, and assets from the exact Skill directory provided in the current instructions; do not guess a host path. Run scripts with an existing interpreter (node, python3, sh) from the workspace.
+- Keep commands non-interactive. If required dependencies are missing, report them clearly; do not install packages at runtime.
 - Pass a bash timeout (seconds) when a command may run long.
 - MCP tools (mcp for single calls, mcpScript for multi-call scripts) reach the MCP services configured for this workspace; use them for MCP work instead of hand-writing JSON-RPC.
 - When you produce a final artifact, call deliver_file with its workspace path so the user receives a downloadable attachment card, then briefly confirm in the user's language.`;

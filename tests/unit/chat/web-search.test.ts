@@ -39,6 +39,9 @@ test("opted-in pure public search is lightweight; disabled and mixed execution s
     "调用 MCP 搜索",
     "下载网页到工作区",
     "每周搜索新闻",
+    "查询当前服务器时间并写入time.txt",
+    "联网搜索资料并保存到notes.md",
+    "Search the web and write the result to news.txt",
   ]) {
     assert.equal(
       heuristicExecution({

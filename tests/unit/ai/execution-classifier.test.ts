@@ -80,6 +80,19 @@ test("official classifier receives bounded context and timeout; failure is conse
   );
 });
 
+test("unconfigured classifier routes the reported time.txt request to execution", async () => {
+  const decision = await classifyExecution(
+    {
+      attachmentCount: 0,
+      history: [],
+      message: "请获取当前服务器时间 写入time.txt",
+    },
+    { modelRef: "" }
+  );
+  assert.equal(decision.reason, "heuristic");
+  assert.equal(decision.requiresExecution, true);
+});
+
 test("request cancellation propagates instead of starting execution", async () => {
   const controller = new AbortController();
   controller.abort();

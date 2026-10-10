@@ -41,6 +41,11 @@ import {
   DELIVER_FILE_EXTENSION_PATH,
   deliverFileExtensionSource,
 } from "./deliver-file-extension";
+import {
+  installSandboxSkills,
+  sandboxSkillsPrompt,
+  snapshotSandboxSkills,
+} from "./skills";
 
 /**
  * SandboxRpcBackend（spec §6 Phase 2，spawn 策略 B）：与 LocalRpcBackend
@@ -71,6 +76,10 @@ export type SandboxRpcBackendOptions = {
   ttlSeconds?: number;
   /** Trusted host callback, sampled once before mint/acquire. */
   resourcePolicy?: () => Promise<SandboxResourcePolicy>;
+  /** Trusted managed skill root override; not a model/client path. */
+  skillsRoot?: string;
+  /** Explicit portable collector for non-Linux unit tests only. */
+  allowNonLinuxSkillReadForTests?: boolean;
   /** 会话关闭后的沙箱处置；默认 kill（spec §11 D-6），keep 供 chat 级复用 */
   releasePolicy?: SandboxReleasePolicy;
   /**
@@ -189,6 +198,12 @@ export class SandboxRpcBackend implements RuntimeBackend {
         ? await this.options.resourcePolicy()
         : DEFAULT_SANDBOX_RESOURCE
     );
+    const skillSnapshots = spec.workspaceDir
+      ? await snapshotSandboxSkills(spec.skills ?? [], {
+          allowNonLinuxForTests: this.options.allowNonLinuxSkillReadForTests,
+          root: this.options.skillsRoot,
+        })
+      : [];
     const queue = new AsyncEventQueue<RuntimeEvent>();
     const { inference } = this.options;
     const runId = spec.runId ?? globalThis.crypto.randomUUID();
@@ -228,10 +243,16 @@ export class SandboxRpcBackend implements RuntimeBackend {
     const releasePolicy = this.options.releasePolicy ?? "kill";
     const remoteCli = this.options.remoteCliPath;
     try {
+      // All skill files are materialized before the remote agent can execute.
+      const skillPaths = await installSandboxSkills(handle, skillSnapshots);
       // seeding：官方 SessionManager 本地落盘 → 上传 workspace 绝对路径
       // （空历史不落盘：--session 给绝对路径时缺失文件合法，直接引用）
       const seedDir = await mkdtemp(path.join(tmpdir(), "piwork-sbx-seed-"));
-      const localSessionFile = seedSessionFile(spec, seedDir);
+      const localSessionFile = seedSessionFile(
+        spec,
+        seedDir,
+        handle.workspaceRoot
+      );
       const remoteSessionFile = path.posix.join(
         handle.workspaceRoot,
         "piwork/session.jsonl"
@@ -276,7 +297,10 @@ export class SandboxRpcBackend implements RuntimeBackend {
       // args 复用 LocalRpc 派生（--session/--system-prompt/extensions 等
       // 引用沙箱内路径）；derived.env/cwd 属宿主侧，不进沙箱
       const derived = buildRpcClientOptions(
-        spec,
+        {
+          ...spec,
+          appendSystemPrompt: sandboxSkillsPrompt(spec, handle.workspaceRoot),
+        },
         {
           agentDir: "unused",
           sessionDir: "unused",
@@ -288,6 +312,15 @@ export class SandboxRpcBackend implements RuntimeBackend {
         { cliPath: remoteCli, extensions }
       );
 
+      derived.args = [
+        ...(derived.args ?? []),
+        "--no-approve",
+        "--no-extensions",
+        "--no-skills",
+        "--no-context-files",
+        "--no-prompt-templates",
+        ...skillPaths.flatMap((file) => ["--skill", file]),
+      ];
       const bridge = await startSandboxBridge(handle, {
         argv: buildSandboxAgentArgv(derived, remoteCli),
         cwd: handle.workspaceRoot,

@@ -82,6 +82,7 @@ export async function executeScheduledTask(task: ScheduledTaskRecord) {
         chatId,
         historyMessages: [],
         model,
+        skills,
         systemPrompt: regularPrompt,
         tools: createSkillTools(skills),
         workspaceDir,

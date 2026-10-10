@@ -1,7 +1,7 @@
 # 运行手册：本地/单机启动与维护
 
 > 状态：当前实现。本文是运行与维护的单一入口，**组件、端口、启动命令或配置项变化时必须同步更新本文**。
-> 命令均在本机（macOS + colima + OpenSandbox docker 档）实测通过（2026-10-04）。架构与边界见 [项目架构](architecture.md)，开发与测试约定见 [开发与测试](development.md)。
+> §1–§7 为本机（macOS + colima + OpenSandbox docker 档）实测基线（2026-10-04）；§8 为 3.5 GB Linux 测试服务器的独立配置与验证记录（2026-10-10）。架构与边界见 [项目架构](architecture.md)，开发与测试约定见 [开发与测试](development.md)。
 
 ## 1. 组件与端口总览
 
@@ -200,13 +200,68 @@ docker volume ls -q | grep '^opensandbox-runtime-'     # 孤儿 runtime 卷一�
 
 `Upload failed (status=502) / UNEXPECTED_RESPONSE`（SDK→execd 文件上传）。单次出现可重试；持续复现先查 server 日志与 colima 状态，再上报，不当网络结论。
 
+### F6 有历史的 RPC 启动退出（Pi 1.1.0，2026-10-10）
+
+- 症状：普通聊天成功，随后执行 run 在 prompt 受理前 failed，`Agent process exited (code=0 signal=null). Stderr:` 为空；桥接退出码不能当作沙箱内 Pi 成功证据。单纯文件/代理 401/无历史 getState 都可能正常。
+- 根因：历史 JSONL header.cwd 保存了宿主目录，沙箱内只有 `/workspace`。官方 CLI 的 `getMissingSessionCwdIssue` 拒绝不存在的 stored cwd；PTY stderr 未走宿主 RpcClient.getStderr，所以错误被桥接掩盖。
+- 修复：仍使用官方 SessionManager.create，只将 SandboxRpc 种子 cwd 指向 handle.workspaceRoot；不挂载宿主原路径、不手改 JSONL、不绕过 Pi 检查、不回退宿主。LocalRpc 默认 cwd 不变。必须复验“先问候再执行”的有历史聊天，不重放旧失败 run。
+
 ### F5 backend.open 失败的行为
 
 RunManager 必然落 `AgentRun.status=failed`（errorMessage 带真实错误）并释放沙箱租约，绝不回落 in-process；查错从 AgentRun/RuntimeEvent/server 日志三层对照，不要只看前端通用提示。
+
+### F7 文件操作被误判为轻量问答（2026-10-10）
+
+- 症状：用户原句“请获取当前服务器时间 写入time.txt”的run da0c95b6-0a82-4af7-80a4-81870af5913a落in_process/settled，路由日志requiresExecution=false/reason=lightweight，无tool/artifact事件。env仍为opensandbox/matrix；不是底座停机或失败fallback。
+- 根因：未配置PIWORK_CLASSIFIER_MODEL，走pi-auto-router0.3.0本地纯函数；平台补充规则遗漏中文“写入”和命名文本文件操作。原句没有触发已有执行关键词。
+- 修复：ai/file-operation-intent.ts补中文落盘、保存/读取txt/md/json/yaml等文件提示，执行启发式和纯搜索检测共用；历史文件任务的“继续/查询…”也不能提前走纯搜索。普通文章创作/文件名含义解释仍轻量，配置模型时官方classifier优先级不变，文件授权/后端失败不fallback不变。
+- 回归：原句及中英文文本/配置文件动作、开启联网和历史连续请求、负例通过；Runtime344通过/15跳过，unit61通过，类型/Biome通过。真实原句验证用§8的独立HTTP夹具，加PIWORK_OPENSANDBOX_TIME_TEST=1（本地文件存储），检查sandbox_rpc、实际bash date/time.txt及销毁；下载只在实际调用deliver_file时检查，不能将“写入”当作“必然交付”。修复使用deploy.sh daily部署至releases/20261010061055，原句真实验证通过（run7189ac8c-1b2a-46b8-a752-92771f7be719为sandbox_rpc/settled，sandbox e1a29c1a-99e9-4761-8981-475dcd0e5972已由provider确认删除，成功夹具清理）。另一次过严的下载断言诊断夹具已禁用并保留，模型未调用deliver_file，非run失败。旧用户run不修改、不重放；需要下载请在新请求明确“并交付文件供我下载”，写入目标为沙箱目录（默认UTC时区），不写宿主目录；临时文件随沙箱销毁。
+- 官方依据：已安装pi-auto-router@0.3.0/src/intent-classifier.ts（classifyIntent仅返回意图类别，不授权执行）及Pi classifier类型/调用契约；继续使用官方分类器/原Runtime链路，不新增agent loop。
+
+### Skill 基础执行验证（2026-10-10）
+
+最新实现与使用见 [Skill 沙箱基本执行](skill-sandbox-execution.md)：复用 SandboxRpc 同步完整启用目录、原生 Skill 加载与脚本执行，不新增 Worker/backend/审批库；本轮代码尚未部署应用。独立打包探针在服务器单容器实测，通过官方 `/skill` 展开、实际 Node 脚本/assets/references、输出、store→archive 测试回调及 artifact 事件、底座删除；无真实模型调用/会话写入。成功 sandbox ed506858-406b-4ba8-a1bb-3996820a8666 已删除；一次 probe store 夹具字段误用修正后重测，其 sandbox 65415653-7a4c-4c27-b2a1-721561082db3 也已回收。应用 release/env/路由未改。复制不是只读挂载/不可变审批，不是企业安全、浏览器下载或容量验收。
 
 ## 7. 关联文档
 
 - [项目架构](architecture.md)：模块边界与运行链路
 - [开发与测试](development.md)：测试命令、沙箱契约组、排障记录（历史细节）
 - [OpenSandbox 接入 Spec](opensandbox-integration-spec.md)：provider 设计与安全基线
-- 官方依据：安装版 `@alibaba-group/opensandbox@1.1.0`（SDK）、`/tmp/OpenSandbox/server/opensandbox_server`（docker runtime 的 create/egress/readiness 实现：`services/docker/docker_service.py`、`services/docker/networking.py`、`services/docker/port_allocator.py`）
+- 本地基线官方依据：安装版 `@alibaba-group/opensandbox@1.1.0`（SDK）、`/tmp/OpenSandbox/server/opensandbox_server`（docker runtime 的 create/egress/readiness 实现）；Linux server 1.1.1 依据见下一节。
+
+## 8. 3.5 GB Linux 测试服务器 OpenSandbox
+
+服务器 `root@123.56.79.62` / `/yepeng/web/piwork.net` 使用 Linux amd64、Docker 26.1.3；**在本机编译 Next.js/amd64 镜像，不在服务器构建，不启用 Durable、不做并发或容量测试**。
+
+| 组件 | 安装/配置 | 限制 |
+| --- | --- | --- |
+| OpenSandbox lifecycle | PyPI opensandbox-server==1.1.1；uv Python 3.12.15；/opt/piwork-opensandbox/venv | systemd piwork-opensandbox.service，MemoryMax=512M / CPUQuota=50%，初始实测约 114 MiB |
+| 配置/状态 | /etc/piwork-opensandbox/sandbox.toml（600，含随机 API key）；/var/lib/piwork-opensandbox/opensandbox.db | SQLite 留可信宿主；API 127.0.0.1:8080，NO_PROXY=* |
+| Docker runtime | pi-runtime:1.1.0-amd64（完整 Pi 1.1.0）；execd:v1.1.0 / egress:v1.1.7 | publish_host=127.0.0.1，映射范围40000–40100；egress dns+nft，pids_limit=1024 |
+| Next.js/模型代理 | 应用3002；代理172.17.0.1:3210 | 同进程私网绑定，sandbox视角URL=http://172.17.0.1:3210；API key/模型凭据不公开 |
+| 主沙箱资源 | DB 已保存0.5核/768 MB，TTL600秒、matrix | 每run新建/终态kill；额度不包含sidecar与lifecycle服务，不等于内存预留或并发准入 |
+
+环境在 shared/.env.local：PIWORK_SANDBOX_PROVIDER=opensandbox、PIWORK_SANDBOX_ROUTING=matrix、PIWORK_SANDBOX_IMAGE=pi-runtime:1.1.0-amd64、PIWORK_SANDBOX_CLI_PATH 使用§2完整安装路径；OPENSANDBOX_DOMAIN=127.0.0.1:8080 / PROTOCOL=http / API_KEY 从私有TOML读取；READY_TIMEOUT_SECONDS=60；PIWORK_INFERENCE_URL=http://172.17.0.1:3210 / PROXY_HOST=172.17.0.1 / PROXY_PORT=3210。修改前备份环境，确认无活跃run后pm2 reload piwork；服务或完整聊天检查失败时撤回应用分流，不降级重放失败任务。
+
+```bash
+systemctl status piwork-opensandbox --no-pager
+journalctl -u piwork-opensandbox --since '10 minutes ago' --no-pager
+curl --noproxy '*' -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/health
+# lifecycle需凭据的请求由SDK或私有Python读取TOML发起，不把key放入命令行/输出。
+cd /yepeng/web/piwork.net/current
+PIWORK_OPENSANDBOX_ACTIVATION_TEST=1 pnpm test:opensandbox:activation
+PIWORK_OPENSANDBOX_RPC_TEST=1 PIWORK_RPC_PROBE_EXTENSION=1 pnpm test:opensandbox:rpc
+PIWORK_OPENSANDBOX_CHAT_TEST=1 pnpm test:opensandbox:chat # 会真实调用模型，仅一个执行沙箱
+```
+
+源码/测试依赖tsx不在生产安装时，可使用已安装的 `pnpm dlx tsx --conditions=react-server --env-file=.env.local tests/e2e/<上述文件>.mts`；禁止误加载开发机env。启动探针使用无效token，不提交模型prompt；HTTP探针只管理独立夹具，失败保留证据并禁用测试成员。release代码变更仍通过piwork-deploy/scripts/deploy.sh，不覆盖现有版本目录的生产源码。备份路径记录在 /var/lib/piwork-opensandbox/app-env-backup-path，配置不输出密钥。
+
+**当前状态：OpenSandbox matrix 已启用（2026-10-10）。** 首次真实聊天暴露F6，先撤回分流，再通过官方SessionManager cwd修复、Runtime回归344通过/15跳过（0失败）、类型/Biome检查与本机Next构建，首次使用deploy.sh daily部署到 releases/20261010053540，随后F7分类修复部署到 releases/20261010061055（当前）。基线Git为ace2c5f（v3.1.4），两项修复为未提交工作区增量，.release-info明确标记working_tree_dirty=1 / hotfix=sandbox-session-cwd+file-operation-routing，未创建Git提交或新Release。
+
+2026-10-10 补充安全核查：activation 探针实际 execd 命令 UID=100/GID=101、NoNewPrivs=1、CapEff=0；Docker privileged=false、securityOpt=no-new-privileges=true，rootfs 仍可写。临时核查 sandbox ef868226-6795-4e6c-afab-d4f7f4bcabad 已由 provider 确认销毁。仅更新/运行探针，没有部署新的应用或调整路由。该核查不等于只读 Skill、账本、恢复、完整出网绕过或企业安全验收；新 Skill 方案及生产门禁见 [实施方案](skill-sandbox-security-design.md)。
+
+实测通过：Docker实际CPU=0.5/内存=768MB和所有映射HostIp=127.0.0.1；file/PTY/Pi1.1.0/401/renew/kill；官方RpcClient带交付扩展与合成历史getState；正式HTTP先问候(in_process settled)，再带历史bash创建/读取hello.txt(sandbox_rpc settled)，官方工具完成、资源快照、注册表destroyed与provider inspect=null。最终成功夹具已清理；两次诊断失败夹具的成员已禁用并保留证据（首次RPC故障与一次终态后异步清理的过早断言，均确认沙箱已销毁）；旧failed run没有翻转或重放。测试等待后台close/release后再核验销毁，不把AgentRun settled等同于资源已回收。
+
+只有单沙箱串行功能验证；未验证浏览器UI、附件解析/水合、真实deliver_file下载、并发容量、重启恢复或完整安全隔离，Durable未启用。公共域名访问此前异常不在本项修复内，本轮HTTP使用服务器本机入口。Docker网关绑定不是完整跨租户/宿主隔离证明，仍需安全、Worker/reaper、未知副作用对账等独立验收。
+
+依据：官方OpenSandbox server配置指南与1.1.1 wheel内config.py（publish_host为实际HostIp绑定）、CLI、Docker runtime；Pi 1.1.0 docs/sdk.md/session-format.md、SessionManager与CLI session-cwd检查。保持官方存储/进程协议，不替换agent loop。

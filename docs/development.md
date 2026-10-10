@@ -4,6 +4,12 @@
 
 [千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md) 是 P0–P3/D0–D2 的执行基线。P0 契约、P1 lazy/限额原子文件、四工具与 SandboxToolsBackend 协议适配器、私有制品存储/交付回调已落地，Docker 新契约已通过，但尚未接入生产；本轮不做容量/持续负载/突发并发测试，资源限额和安全契约仍须实现；进度、inventory 和样例规格见 [实施记录](runtime-foundation-implementation.md)。新增 RunDescriptor/Worker、操作与产物账本、provider 强杀/限额/原子写、reaper 和 Durable 恢复测试时，按其工作包顺序与上线门禁推进；实际新增目录、迁移和 package.json 命令在落地时同步本文。不得把方案里的保护值当成已有配置，也不得把 close 测试、提交去重或同名工具覆盖当成崩溃恢复、业务恰好一次或安全隔离证明。
 
+## Skill 沙箱实施约束
+
+最新需求优先实现 [Skill 沙箱基本执行](skill-sandbox-execution.md)：复用现有 RPC，不新建 Worker/backend/审批系统；`sandbox-rpc/skills.ts` 在 Linux 宿主用 pinned fd 限额收集启用目录，使用 SandboxHandle.filesystem 原子复制，在 Pi 启动前完成。RuntimeSpec.skills 仅宿主装配引用；不要接受客户端路径/原始脚本字节，不作为 Worker DTO。官方 CLI --no-skills + 显式 --skill 与原生 /skill:name 承接加载/展开，模型使用 read，不新增宿主工具闭包桥。Mac portable collector 仅明确 test 选项（NODE_ENV=test）；生产不得 fallback。`pnpm test:skills:sandbox` 包含 14 项，随 test:runtime 收集；fixture 在 tests/fixtures/skills，真实探针与打包步骤见上述文档，默认跳过且不调用真实 LLM。
+
+原 manifest/hash/path 协议、Node-only hash helper 与 tests/unit/runtime/protocol/skill-bundle.test.ts 保留。只读 mount/不可变审批、逐次正式授权、持久 intent、执行-only OpenSandbox tools/Worker 属于 [企业目标](skill-sandbox-security-design.md)，其门禁不因 RPC 资源补齐取消；enabled/复制/regular 元数据不代表批准或企业安全验收。
+
 ## 新代码放置
 
 - HTTP 路由和页面放在 `app/`；路由负责解析输入、鉴权和调用业务层。聊天运行控制放在 `lib/runtime/run`，后端实现放在 `lib/runtime/backends`，Pi 会话与资源装配放在 `lib/ai`。
@@ -38,6 +44,8 @@ pnpm exec tsc --noEmit
 pnpm test:unit          # 无数据库的 node:test
 pnpm test:search        # 平台联网搜索：网关/授权/限额/官方工具循环/来源/路由，无真实外部调用
 pnpm test:runtime:foundation # P0 DTO/状态与 P1 lazy/操作错误分类，无 DB/容器
+pnpm test:skills:sandbox # 现有 RPC 完整 Skill 目录与真实官方工具循环，无真实模型
+pnpm test:skills:sandbox:smoke # 默认跳过；Linux 单真实容器 + faux model，需打包测试扩展
 pnpm test:runtime:tools # 文件/工具/后端与私有交付契约；Docker 可用时运行真实组
 pnpm test:runtime:durable # SQLite/单写者/恢复阻断与真实子进程 SIGKILL
 pnpm test:runtime:durable-sandbox # 组合适配器/PTY；真实 OpenSandbox 默认跳过
@@ -167,6 +175,13 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 9. **OpenSandbox provider 真实 server 契约组（gated）**：`PIWORK_SANDBOX_CONTRACT_OPENSANDBOX=1 OPENSANDBOX_DOMAIN=127.0.0.1:8080 OPENSANDBOX_API_KEY=<key> node --conditions=react-server --import tsx --test tests/unit/runtime/sandbox/provider-contract.test.ts`（可选 `OPENSANDBOX_PROTOCOL`/`OPENSANDBOX_IMAGE`，默认 `pi-runtime:dev` 需已构建并预拉 `opensandbox/execd:v1.1.0`/`opensandbox/egress:v1.1.7`）。同一契约套件追加 `[OpenSandbox]` harness（12 用例，2026-10-02 实测 12/12）；离线单测 `opensandbox-provider.test.ts`（21 用例）常驻默认套件，不需要 server。
 10. 路由矩阵测试：`tests/unit/runtime/backends/routing.test.ts`（矩阵判定、分流、fail-closed 不回落、RunManager 逐 run 落库、真实 SandboxRpcBackend 分流闭环）随 `pnpm test:runtime` 常驻。冷启动为一次性实测（2026-10-03 colima docker 档 P50 490ms），无常驻测试。
 
+### OpenSandbox 单机启用验证（2026-10-10）
+
+- `pnpm test:opensandbox:activation`：仅 `PIWORK_OPENSANDBOX_ACTIVATION_TEST=1`；读取当前 DB 额度并创建一个真实沙箱，检查 Docker 实际 CPU/内存、loopback 映射、文件/PTY/Pi 版本、代理 401、续期和删除。要求本机 Docker 管理权限；不是容量或完整安全验收。
+- `pnpm test:opensandbox:rpc`：仅 `PIWORK_OPENSANDBOX_RPC_TEST=1`；官方 RpcClient getState，不提交 prompt、只注入无效模型 token。`PIWORK_RPC_PROBE_EXTENSION=1` 加交付扩展与合成历史，创建/上传均使用官方 SessionManager，cwd 指向沙箱内目录；不读取真实用户历史。
+- `pnpm test:opensandbox:chat`：仅 `PIWORK_OPENSANDBOX_CHAT_TEST=1`，复用已启动 HTTP 服务（默认 127.0.0.1:3002，可设 OPENSANDBOX_CHAT_TEST_URL），创建唯一正式启用测试身份；真实模型先问候走 in_process，再带历史执行 bash/file 走 sandbox_rpc，核对终态和资源快照/销毁。成功仅清理本组身份/Chat/Message/Sandbox/workspace；失败禁用夹具成员并留 /var/tmp 证据，不重放失败 run。不启动第二个 RunManager，不清理其他会话。
+- 三项入口在 `tests/e2e/opensandbox-*.mts`，默认跳过；配置与启动见 operations.md §8。RPC seeding 回归在 sandbox-rpc.test.ts 断言上传 header.cwd=handle.workspaceRoot。依据安装版 Pi 1.1.0 docs/sdk.md、session-format.md、dist/core/session-cwd.js 与 dist/main.js 的 CLI 工作目录检查；不修改官方 agent loop。
+
 ## 数据库连接池验证
 
 - 所有应用查询从 `lib/db/client.ts` 取 `getDb()`，不就地创建 postgres 池；UTC 沙箱档保留独立时钟，禁止把默认池统一改成 UTC（现有 now() 数据依赖默认数据库时区）。默认/UTC 上限为 5/2，idle_timeout=20，按 URL/时钟进程内缓存；迁移脚本独立单连接不变。
@@ -265,4 +280,6 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 
 验证：`node --conditions=react-server --import tsx --test tests/unit/ai/execution-classifier.test.ts`（正常结果、低置信度/非法结果、供应商异常、上下文裁剪与请求取消），随 `test:unit` 通配收集；路由与后端契约测试随 `test:runtime`。真实效果需配置独立 classifier 凭据并重启服务，检查“你好”的 AgentRun.backend 为 in_process、执行请求为 sandbox_rpc；无模型配置时本地启发式已生效；配置模型但凭据缺失/异常仍保守执行。
 
-本地启发式验证：分类器与启发式 7 项测试、路由 5 项测试通过；真实 `/api/chat` 输入「你好」返回成功，AgentRun.backend=`in_process`、status=`settled`、errorMessage=null。pi-auto-router 发布的是 TS 源码，Next.js 通过 `transpilePackages` 编译其纯函数模块；未加载第三方扩展。规则有误判可能，附件与执行上下文保守进入执行路径。
+本地文件操作回归（2026-10-10）：用户原句“请获取当前服务器时间 写入time.txt”此前误判 lightweight；file-operation-intent 纯函数补足中文落盘与命名 txt/md/json/yaml 等文件操作，并复用于 search/intent，当前/最近两条历史中的文件操作都不能被纯搜索提前放行。原句 classifyExecution（未配置模型）、中英文保存/读取、纯文本创作/文件名解释不执行、联网开启与连续请求均有回归；配置模型优先级、授权及单 run 分流不变。Runtime344通过/15跳过；unit61通过；类型/Biome检查通过。`PIWORK_OPENSANDBOX_TIME_TEST=1 PIWORK_OPENSANDBOX_CHAT_TEST=1 pnpm test:opensandbox:chat` 使用独立夹具发送用户原句，要求 sandbox_rpc/真实bash date与time.txt目标/销毁；原句未显式要求交付，不能要求模型必然返回下载。只在实际有artifact.created时校验归档/本人下载；仅本地存储，成功清理本组 LibraryItem/验证过的文件ID字节，失败禁用夹具保留证据，不重放用户旧run。真实原句在服务器验证通过（run7189ac8c-1b2a-46b8-a752-92771f7be719，sandbox_rpc/settled，沙箱销毁确认；成功夹具已清理）。文件位于临时沙箱，未交付则终态删除，沙箱时区默认为UTC。
+
+本地启发式验证（历史基线）：分类器与启发式 7 项测试、路由 5 项测试通过；真实 `/api/chat` 输入「你好」返回成功，AgentRun.backend=`in_process`、status=`settled`、errorMessage=null。pi-auto-router 发布的是 TS 源码，Next.js 通过 `transpilePackages` 编译其纯函数模块；未加载第三方扩展。规则有误判可能，附件与执行上下文保守进入执行路径。

@@ -8,6 +8,8 @@
 
 > **状态更新（v0.4，2026-09-26）**：本方案的核心接入点——`RemoteSandboxEnv implements ExecutionEnv`（§1.3/§4，仅执行工具进沙箱、agent loop 与扩展留在 Web 进程）——已被 [pi-plugin-support-research.md v2.0](../pi-plugin-support-research.md) 的**完整 Pi 进程沙箱**取代：官方 security 页将"仅内置工具进沙箱"定位为更窄的隔离（narrower form），且无法约束在工具沙箱之外运行的 Extension。以下治理设计仍有效并已并入/引用进 v2.0：§5 依赖预构建与运行时禁装、§6.3 命令 AST 门控与 Confirm 审批、§4.2 网络策略 schema 与 TTL 生命周期、§6.5 密钥占位符与出口代理。§4.1/§8.2 的底座选型作为 v2.0 §7.1 的企业加固层输入；§9 的部署形态决策与 v2.0 §12 合并拍板。
 
+2026-10-10 后续实施以 [Skill 沙箱执行与企业安全实施方案](../skill-sandbox-security-design.md) 及 P0–P3 基线为准。当前仅不可变 manifest/hash/path 契约落地，未完成生产审批/只读水合/账本/Worker；下文历史接入 API、行号和现状陈述不得用于当前实现。
+
 ---
 
 ## 1. 设计结论

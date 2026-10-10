@@ -20,6 +20,8 @@
 | [千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md) | 工具级沙箱、运行契约、私有交付/幂等、预算/reaper、安全、单 Worker、Durable 试点；含工作包/验收/回滚 | 已开始基础组件实现，未接生产；先 P0–P3，再生产 Durable 试点 |
 | [Runtime 基础实施记录](runtime-foundation-implementation.md) | DTO/状态/lazy/限额文件、tools 后端适配/私有交付、MVP 1～9 进度与验证 | 协议适配与 Docker 契约已落地；生产账本/权限/治理/Worker 等仍待完成，不做容量测试 |
 | [模型供应商插件架构](model-provider-plugin-architecture.md) | 插件方案与设计背景 | 原始草案，部分版本和阶段描述已过时；以项目架构和代码为准 |
+| [Skill 沙箱基本执行](skill-sandbox-execution.md) | 现有 RPC 同步完整 Skill 目录、原生加载/脚本执行、使用与验证 | 已接代码并通过真实 OpenSandbox 探针，尚未部署应用；无新 Worker/backend，不是企业安全验收 |
+| [Skill 沙箱执行与企业安全实施方案](skill-sandbox-security-design.md) | 不可变 Skill、审批/只读水合、执行-only 沙箱、持久账本与 Worker 门禁 | 仅 manifest/hash/path 协议与单测已实现；未生产接线，不开启新脚本能力 |
 | [Skill 执行安全方案](security/skill-execution-security-plan.md) | 威胁模型与安全目标 | 规划；文件头说明已被后续设计取代的部分 |
 | [界面设计规范](design-system/openai-unified-interface/design-spec.md) | 界面参考及 token | 设计资料 |
 | [Pi Pocket 架构分析与借鉴建议](pi-pocket-architecture-analysis.md) | 单机 Durable 工作台技术栈、提交/投影/协作机制，与 Piwork 的对照及分期建议 | 源码调研；区分现状和建议，未实施或做容量/生产恢复验收 |

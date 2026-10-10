@@ -43,9 +43,14 @@ export function resolveDefaultCliPath(): string {
  * resolveSessionPath 的 "path" 分支不做存在性检查，SessionManager 以新会
  * 话绑定该路径起步）。已知边界：纯 user 历史不落盘、不会抵达子进程。
  */
-export function seedSessionFile(spec: RuntimeSpec, sessionDir: string): string {
-  const cwd = spec.workspaceDir ?? MANAGED_AGENT_DIR;
-  const manager = SessionManager.create(cwd, sessionDir);
+export function seedSessionFile(
+  spec: RuntimeSpec,
+  sessionDir: string,
+  runtimeCwd = spec.workspaceDir ?? MANAGED_AGENT_DIR
+): string {
+  // The persisted header belongs to the target runtime, not the host staging directory.
+  // Pi 1.1.0 refuses to open a session whose recorded cwd does not exist there.
+  const manager = SessionManager.create(runtimeCwd, sessionDir);
   for (const message of spec.historyMessages) {
     manager.appendMessage(message);
   }

@@ -1,5 +1,6 @@
 import { classifyIntent } from "pi-auto-router/src/intent-classifier.ts";
 import { isLightweightWebRequest } from "../search/intent";
+import { hasWorkspaceFileIntent } from "./file-operation-intent";
 
 // pi-auto-router classifies model intent, not execution permission. These
 // platform rules cover Chinese tasks and capabilities its English rules miss.
@@ -32,8 +33,12 @@ export function heuristicExecution(input: {
     (!GREETING.test(message) &&
       (!message ||
         EXECUTION.test(message) ||
+        hasWorkspaceFileIntent(message) ||
         intent.category === "code" ||
-        history.some(({ content }) => EXECUTION.test(content))));
+        history.some(
+          ({ content }) =>
+            EXECUTION.test(content) || hasWorkspaceFileIntent(content)
+        )));
   return {
     intent: intent.category,
     reason: "heuristic" as const,
