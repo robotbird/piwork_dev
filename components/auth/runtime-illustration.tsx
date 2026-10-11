@@ -42,14 +42,11 @@ export function RuntimeIllustration() {
         aria-hidden="true"
         className="pointer-events-none absolute -bottom-44 -left-48 size-[420px] rounded-full bg-[radial-gradient(circle_at_70%_30%,#edf4ff,transparent_70%)]"
       />
-      <div className="relative z-10 flex translate-y-4 w-full max-w-[960px] flex-col items-center px-8 py-16 text-center xl:px-12">
-        <h2 className="text-[clamp(44px,4vw,68px)] font-semibold leading-none tracking-[-0.055em] text-[#070f26]">
-          piwork
-        </h2>
-        <p className="mt-5 text-[clamp(17px,1.55vw,25px)] text-[#7d89a5]">
+      <div className="relative z-10 flex w-full max-w-[960px] flex-col items-center justify-center gap-10 px-8 py-16 text-center xl:gap-12 xl:px-12">
+        <p className="max-w-[680px] text-balance text-[clamp(17px,1.55vw,25px)] leading-relaxed text-[#7d89a5]">
           {t("auth.platformDescription")}
         </p>
-        <div className="relative mt-8 aspect-[2.05] w-full max-w-[790px]">
+        <div className="relative aspect-[790/427] w-full max-w-[790px]">
           <svg
             aria-hidden="true"
             className="absolute inset-0 size-full overflow-visible"
@@ -162,12 +159,6 @@ export function RuntimeIllustration() {
             </div>
           ))}
         </div>
-        <p className="mt-12 text-[clamp(17px,1.3vw,21px)] font-medium text-[#27395e]">
-          {t("auth.platformHeadline")}
-        </p>
-        <p className="mt-3 text-[clamp(14px,1.15vw,18px)] text-[#8491ad]">
-          {t("auth.platformTagline")}
-        </p>
       </div>
     </section>
   );

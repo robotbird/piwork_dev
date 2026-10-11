@@ -108,7 +108,7 @@ export function AppSidebar({
 
   return (
     <Sidebar className="border-r border-sidebar-border" collapsible="icon">
-      <SidebarHeader className="px-3 pb-4 pt-3 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:pb-2">
+      <SidebarHeader className="px-3 pb-4 pt-3 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:pb-5 group-data-[collapsible=icon]:pt-5">
         <div className="flex items-center justify-between group-data-[collapsible=icon]:justify-center">
           <Link
             className="ml-2 flex h-10 items-center group-data-[collapsible=icon]:hidden"
@@ -158,7 +158,7 @@ export function AppSidebar({
                 onClick={toggleSidebar}
                 type="button"
               >
-                <BrandMark className="size-7 transition-opacity duration-150 group-hover/collapsed-toggle:opacity-0 group-focus-visible/collapsed-toggle:opacity-0" />
+                <BrandMark className="size-6 transition-opacity duration-150 group-hover/collapsed-toggle:opacity-0 group-focus-visible/collapsed-toggle:opacity-0" />
                 <PanelLeftOpenIcon className="absolute size-5 opacity-0 transition-opacity duration-150 group-hover/collapsed-toggle:opacity-100 group-focus-visible/collapsed-toggle:opacity-100" />
               </button>
             </TooltipTrigger>
@@ -173,13 +173,13 @@ export function AppSidebar({
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2 pt-0">
+      <SidebarContent className="px-2 pt-0 group-data-[collapsible=icon]:px-[6px]">
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu className="gap-0.5 group-data-[collapsible=icon]:gap-0.5">
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  className="h-10 rounded-[10px] bg-transparent px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent group-data-[collapsible=icon]:justify-center [&_svg]:size-[18px]"
+                  className="h-10 rounded-[10px] bg-transparent px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:[&>span]:hidden [&_svg]:size-[18px] group-data-[collapsible=icon]:[&_svg]:size-5 group-data-[collapsible=icon]:[&_svg]:text-[#0d0d0d] dark:group-data-[collapsible=icon]:[&_svg]:text-[#ececec] group-data-[collapsible=icon]:[&_svg]:stroke-[1.7]"
                   isActive={pathname === "/"}
                   onClick={handleNewChat}
                   tooltip={t("newChat")}
@@ -199,7 +199,7 @@ export function AppSidebar({
                 <SidebarMenuItem key={labelKey}>
                   <SidebarMenuButton
                     asChild
-                    className="h-10 rounded-[10px] px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent group-data-[collapsible=icon]:justify-center [&_svg]:size-[18px]"
+                    className="h-10 rounded-[10px] px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:[&>span]:hidden [&_svg]:size-[18px] group-data-[collapsible=icon]:[&_svg]:size-5 group-data-[collapsible=icon]:[&_svg]:text-[#0d0d0d] dark:group-data-[collapsible=icon]:[&_svg]:text-[#ececec] group-data-[collapsible=icon]:[&_svg]:stroke-[1.7]"
                     isActive={pathname === href}
                     tooltip={t(labelKey)}
                   >
@@ -276,7 +276,7 @@ export function AppSidebar({
         <SidebarHistory user={user} />
       </SidebarContent>
 
-      <SidebarFooter className="px-3 py-3">
+      <SidebarFooter className="px-3 py-3 group-data-[collapsible=icon]:px-[6px]">
         {user ? (
           <UserNav area="app" isAdmin={isAdmin} user={user} />
         ) : (

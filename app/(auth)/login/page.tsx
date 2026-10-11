@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useState } from "react";
@@ -65,15 +64,6 @@ export default function Page() {
           {t("auth.signIn")}
           <ArrowRight aria-hidden="true" className="size-[18px]" />
         </SubmitButton>
-        <p className="text-center text-sm text-[#8490aa]">
-          {t("auth.confirmNoAccount")}
-          <Link
-            className="ml-2 font-medium text-[#0668ff] underline-offset-4 hover:underline"
-            href="/register"
-          >
-            {t("auth.signUp")}
-          </Link>
-        </p>
       </AuthForm>
     </>
   );
