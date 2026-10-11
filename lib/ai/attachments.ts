@@ -11,6 +11,7 @@ import {
   MAX_CHAT_ATTACHMENT_SIZE,
   type SupportedAttachmentExtension,
 } from "./attachment-types";
+import { DocumentInputError } from "./document-errors";
 import { readLocalFile } from "./file-store";
 
 const MAX_ATTACHMENT_TEXT_LENGTH = 60_000;
@@ -104,27 +105,41 @@ function expandDrawioXml(source: string) {
     : source;
 }
 
-export async function extractAttachmentText({
+/** Complete bounded extraction. Prompt previews must never be used as storage. */
+export async function extractDocumentText({
   content,
   extension,
   signal,
+  maxBytes = 2 * 1024 * 1024,
 }: {
   content: Uint8Array;
   extension: SupportedAttachmentExtension;
   signal?: AbortSignal;
+  maxBytes?: number;
 }) {
+  signal?.throwIfAborted();
+  const extractionSignal = signal
+    ? AbortSignal.any([signal, AbortSignal.timeout(60_000)])
+    : AbortSignal.timeout(60_000);
+  const bounded = (text: string) => {
+    extractionSignal.throwIfAborted();
+    if (Buffer.byteLength(text, "utf8") > maxBytes) {
+      throw new DocumentInputError(
+        "资料提取文本超过 2 MB 限制，请按章节拆分上传；未保存截断内容。"
+      );
+    }
+    return text;
+  };
   if (PLAIN_TEXT_EXTENSIONS.has(extension)) {
     const decoded = new TextDecoder().decode(content);
-    return truncateAttachmentText(
-      extension === "drawio" ? expandDrawioXml(decoded) : decoded
-    );
+    return bounded(extension === "drawio" ? expandDrawioXml(decoded) : decoded);
   }
   if (!OFFICE_EXTENSIONS.has(extension)) {
     throw new Error(`.${extension} files cannot be converted to text.`);
   }
 
   const ast = await parseOffice(content, {
-    abortSignal: signal,
+    abortSignal: extractionSignal,
     decompressionLimits: {
       maxTableCells: 100_000,
       maxUncompressedBytes: 50 * 1024 * 1024,
@@ -136,7 +151,14 @@ export async function extractAttachmentText({
     ocr: false,
     outputErrorToConsole: false,
   });
-  return truncateAttachmentText(ast.toText());
+  return bounded(ast.toText());
+}
+
+/** Chat-only preview; callers storing documents use extractDocumentText. */
+export async function extractAttachmentText(
+  input: Parameters<typeof extractDocumentText>[0]
+) {
+  return truncateAttachmentText(await extractDocumentText(input));
 }
 
 export async function downloadAttachment(

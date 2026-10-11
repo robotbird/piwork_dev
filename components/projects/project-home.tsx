@@ -3,10 +3,15 @@
 
 import {
   ArrowUpIcon,
+  FileIcon,
   FolderIcon,
+  ImageIcon,
+  LibraryBigIcon,
   MoreHorizontalIcon,
+  PaperclipIcon,
   PencilIcon,
   PlusIcon,
+  ShareIcon,
   Trash2Icon,
   UploadIcon,
 } from "lucide-react";
@@ -15,6 +20,9 @@ import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
+import { LibraryFilePicker } from "@/components/chat/library-file-picker";
+import { ParticipantAvatars } from "@/components/chat/participant-avatars";
+import { ShareDialog } from "@/components/chat/share-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +50,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CHAT_ATTACHMENT_ACCEPT } from "@/lib/ai/attachment-types";
+import type { Attachment } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
 import {
   formatShortDate,
@@ -57,20 +66,28 @@ const ACCEPTED_SOURCE_EXTENSIONS = CHAT_ATTACHMENT_ACCEPT;
 
 export function ProjectHome({
   projectId,
+  isOwner = true,
   projectName: initialProjectName,
 }: {
   projectId: string;
+  isOwner?: boolean;
   projectName: string;
 }) {
   const t = useTranslations("projects");
   const router = useRouter();
   const { mutate: globalMutate } = useSWRConfig();
 
+  const [shareOpen, setShareOpen] = useState(false);
   const [projectName, setProjectName] = useState(initialProjectName);
   const [tab, setTab] = useState<Tab>("chats");
   const [input, setInput] = useState("");
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryBusy, setLibraryBusy] = useState(false);
+  const [libraryAttachments, setLibraryAttachments] = useState<Attachment[]>(
+    []
+  );
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [renaming, setRenaming] = useState(false);
@@ -89,6 +106,15 @@ export function ProjectHome({
   const { data: sourcesData, mutate: mutateSources } = useSWR<{
     sources: ProjectSourceSummary[];
   }>(tab === "sources" ? `/api/projects/${projectId}/sources` : null, request);
+
+  const { data: shareData } = useSWR<{
+    participants: {
+      image: string | null;
+      name: string | null;
+      userId: string;
+    }[];
+  }>(`/api/projects/share?projectId=${projectId}`, request);
+  const participants = shareData?.participants ?? [];
 
   const chats = chatsData?.chats ?? [];
   const sources = sourcesData?.sources ?? [];
@@ -115,7 +141,7 @@ export function ProjectHome({
     }
   };
 
-  const handleUploadFiles = async (fileList: FileList) => {
+  const handleUploadFiles = async (fileList: FileList | File[]) => {
     const files = Array.from(fileList);
     if (files.length === 0) {
       return;
@@ -140,12 +166,14 @@ export function ProjectHome({
     }
     if (succeeded > 0) {
       toast.success(t("sourcesUploaded", { count: succeeded }));
+      setTab("sources");
       await mutateSources();
     }
     setUploading(false);
     if (uploadInputRef.current) {
       uploadInputRef.current.value = "";
     }
+    return succeeded;
   };
 
   const handleRename = async () => {
@@ -242,39 +270,66 @@ export function ProjectHome({
             {projectName}
           </h1>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              aria-label={t("moreActions")}
-              size="icon-sm"
-              variant="ghost"
+        <div className="flex shrink-0 items-center gap-2">
+          {participants.length > 1 ? (
+            <button
+              aria-label="查看项目成员"
+              className="max-w-[min(28vw,240px)] cursor-pointer overflow-x-auto rounded-full p-1 hover:bg-muted"
+              onClick={() => setShareOpen(true)}
+              type="button"
             >
-              <MoreHorizontalIcon className="size-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem
-              onClick={() => {
-                setRenameValue(projectName);
-                setRenameOpen(true);
-              }}
-            >
-              <PencilIcon className="size-4" />
-              {t("renameAction")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => setDeleteOpen(true)}
-            >
-              <Trash2Icon className="size-4" />
-              {t("deleteProjectAction")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <ParticipantAvatars
+                maxVisible={participants.length}
+                participants={participants}
+                size={28}
+              />
+            </button>
+          ) : null}
+          <Button
+            className="h-10 cursor-pointer gap-2 rounded-full border-[var(--hairline-strong)] bg-transparent px-4 shadow-none hover:bg-muted"
+            onClick={() => setShareOpen(true)}
+            variant="outline"
+          >
+            <ShareIcon className="size-4" />
+            分享
+          </Button>
+          {isOwner ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  aria-label={t("moreActions")}
+                  className="size-10 cursor-pointer rounded-full border-[var(--hairline-strong)] bg-transparent shadow-none hover:bg-muted"
+                  size="icon"
+                  variant="outline"
+                >
+                  <MoreHorizontalIcon className="size-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setRenameValue(projectName);
+                    setRenameOpen(true);
+                  }}
+                >
+                  <PencilIcon className="size-4" />
+                  {t("renameAction")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2Icon className="size-4" />
+                  {t("deleteProjectAction")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </div>
       </header>
 
       <form
-        className="composer-plain mt-8 flex h-14 items-center gap-2 rounded-3xl border border-[var(--hairline-strong)] bg-card pr-2 pl-3"
+        className="composer-plain mt-8 flex h-14 items-center gap-2 rounded-full border border-[var(--hairline-strong)] bg-card px-2 shadow-[var(--shadow-whisper)]"
         onSubmit={(event) => {
           event.preventDefault();
           const value = input.trim();
@@ -284,10 +339,43 @@ export function ProjectHome({
           }
         }}
       >
-        <PlusIcon
-          aria-hidden="true"
-          className="size-5 shrink-0 text-muted-foreground"
-        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label="添加照片和文件"
+              className="size-10 shrink-0 cursor-pointer rounded-full p-0 text-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted data-[state=open]:bg-muted"
+              disabled={!isOwner || uploading || libraryBusy}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <PlusIcon className="size-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="w-[min(420px,calc(100vw-32px))] rounded-2xl p-2"
+            side="bottom"
+            sideOffset={12}
+          >
+            <DropdownMenuItem
+              className="gap-3 rounded-xl px-3 py-3"
+              onSelect={() => uploadInputRef.current?.click()}
+            >
+              <PaperclipIcon className="size-5 shrink-0" />
+              <span>添加照片和文件</span>
+              <span className="text-muted-foreground">从电脑上传</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="gap-3 rounded-xl px-3 py-3"
+              onSelect={() => setLibraryOpen(true)}
+            >
+              <LibraryBigIcon className="size-5 shrink-0" />
+              <span>从我的文档选择</span>
+              <span className="text-muted-foreground">浏览和搜索文件</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <input
           aria-label={t("startChatAction")}
           className="min-w-0 flex-1 bg-transparent py-2 text-base outline-none placeholder:text-muted-foreground"
@@ -322,7 +410,7 @@ export function ProjectHome({
       </form>
 
       <nav className="mt-8 flex items-center justify-between">
-        <div className="flex items-center gap-1 rounded-md bg-muted p-1">
+        <div className="flex items-center gap-1 rounded-full bg-muted p-1">
           {(
             [
               ["chats", t("chatsTab")],
@@ -330,7 +418,7 @@ export function ProjectHome({
             ] as const
           ).map(([value, label]) => (
             <button
-              className={`rounded-sm px-4 py-1.5 text-sm transition-colors ${
+              className={`cursor-pointer rounded-full px-4 py-1.5 text-sm transition-colors ${
                 tab === value
                   ? "bg-card font-medium text-foreground shadow-[var(--shadow-whisper)]"
                   : "text-muted-foreground hover:text-foreground"
@@ -343,10 +431,10 @@ export function ProjectHome({
             </button>
           ))}
         </div>
-        {tab === "sources" ? (
+        {tab === "sources" && isOwner ? (
           <Button
             className="gap-1.5 text-muted-foreground"
-            disabled={uploading}
+            disabled={!isOwner || uploading}
             onClick={() => uploadInputRef.current?.click()}
             size="sm"
             variant="ghost"
@@ -402,7 +490,7 @@ export function ProjectHome({
               </p>
               <Button
                 className="mt-4 rounded-full"
-                disabled={uploading}
+                disabled={!isOwner || uploading}
                 onClick={() => uploadInputRef.current?.click()}
                 size="sm"
               >
@@ -412,28 +500,52 @@ export function ProjectHome({
           ) : (
             <ul className="flex flex-col">
               {sources.map((source) => (
-                <li key={source.id}>
+                <li
+                  className="border-b border-[var(--hairline-soft)] last:border-b-0"
+                  key={source.id}
+                >
                   <div className="group flex items-center gap-4 rounded-md border border-transparent px-3 py-3 transition-colors hover:bg-muted/50">
+                    <SourceThumbnail projectId={projectId} source={source} />
                     <div className="min-w-0 flex-1">
                       <span className="block truncate text-base font-medium text-foreground">
                         {source.name}
                       </span>
                       <span className="block text-sm text-muted-foreground">
                         {sourceTypeLabel(source.type)}
+                        {typeof source.textChars === "number" ? (
+                          <>
+                            {" "}
+                            ·{" "}
+                            {t("sourceStoredChars", {
+                              count: source.textChars,
+                            })}
+                          </>
+                        ) : null}
                       </span>
+                      {typeof source.textChars === "number" ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {t(
+                            source.storedTextTruncated
+                              ? "sourceStoredTruncated"
+                              : "sourceExtractionUnverified"
+                          )}
+                        </span>
+                      ) : null}
                     </div>
                     <span className="shrink-0 text-sm text-muted-foreground">
                       {formatShortDate(source.createdAt)}
                     </span>
-                    <Button
-                      aria-label={t("deleteAction")}
-                      className="opacity-0 transition-opacity group-hover:opacity-100"
-                      onClick={() => setSourceToDelete(source)}
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <Trash2Icon className="size-4 text-muted-foreground" />
-                    </Button>
+                    {isOwner ? (
+                      <Button
+                        aria-label={t("deleteAction")}
+                        className="opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
+                        onClick={() => setSourceToDelete(source)}
+                        size="icon-sm"
+                        variant="ghost"
+                      >
+                        <Trash2Icon className="size-4 text-muted-foreground" />
+                      </Button>
+                    ) : null}
                   </div>
                 </li>
               ))}
@@ -441,6 +553,35 @@ export function ProjectHome({
           )}
         </section>
       )}
+
+      <LibraryFilePicker
+        attachments={libraryAttachments}
+        dialogOpen={libraryOpen}
+        disabled={uploading || creating}
+        onBusyChange={setLibraryBusy}
+        onDialogOpenChange={setLibraryOpen}
+        onSelect={async (attachment) => {
+          const response = await fetch(attachment.url);
+          if (!response.ok) {
+            throw new Error("文件读取失败");
+          }
+          const blob = await response.blob();
+          const succeeded = await handleUploadFiles([
+            new File([blob], attachment.name, { type: attachment.contentType }),
+          ]);
+          if (!succeeded) {
+            throw new Error("添加项目资源失败");
+          }
+          setLibraryAttachments((current) => [...current, attachment]);
+        }}
+      />
+
+      <ShareDialog
+        chatId={projectId}
+        onClose={() => setShareOpen(false)}
+        open={shareOpen}
+        resource="project"
+      />
 
       {/* 重命名 */}
       <Dialog onOpenChange={setRenameOpen} open={renameOpen}>
@@ -625,4 +766,38 @@ function sourceTypeLabel(type: ProjectSourceSummary["type"]): string {
     return "Markdown";
   }
   return type.toUpperCase();
+}
+
+function SourceThumbnail({
+  projectId,
+  source,
+}: {
+  projectId: string;
+  source: ProjectSourceSummary;
+}) {
+  const [failed, setFailed] = useState(false);
+  const isImage = ["png", "jpg", "jpeg", "webp", "gif"].includes(source.type);
+  return (
+    <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--hairline-soft)] bg-muted/40">
+      {isImage && !failed ? (
+        // biome-ignore lint/performance/noImgElement lint/a11y/noNoninteractiveElementInteractions: authenticated image endpoint with load-error fallback
+        <img
+          alt={source.name}
+          className="size-full object-cover"
+          height={48}
+          loading="lazy"
+          onError={() => setFailed(true)}
+          src={`/api/projects/${projectId}/sources/${source.id}`}
+          width={48}
+        />
+      ) : isImage ? (
+        <ImageIcon
+          aria-hidden="true"
+          className="size-5 text-muted-foreground"
+        />
+      ) : (
+        <FileIcon aria-hidden="true" className="size-5 text-muted-foreground" />
+      )}
+    </div>
+  );
 }

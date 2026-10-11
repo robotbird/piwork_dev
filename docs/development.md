@@ -153,6 +153,10 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 
 ### 项目资料格式验证
 
+完整文本读取（方案 A）：`pnpm test:projects:documents` 包含20k/60k/150k边界、真实Office提取、UTF-8/长单行无损切分、官方read续读、真实官方RpcClient+faux模型、取消/变更/写入失败及经典路由；随 test:unit/test:runtime 对应目录收集。`pnpm test:projects:documents:db` 创建唯一schema（无public fallback，不复制用户/运行/模型），验证正式成员、共享资料、actor/run/backend/chat/project绑定与撤权，结束仅删自己schema。`pnpm test:projects:documents:http` 启动独立Next服务（默认3017，PIWORK_PROJECT_DOCUMENT_HTTP_PORT可改）及独立schema，验证>150k文本上传完整保存、列表字符数/历史告警、超限/越权拒绝；无模型调用，失败保留本组日志。测试环境/替身在 tests/support/project-documents 和 tests/support/project-document-faux-extension.ts；断言处理范围不等于真实模型完整提取准确性。若pnpm环境自动安装检查要求清空现有node_modules，不清空工作目录依赖；可使用package.json中的原始node命令。
+
+默认启用完整资料输入，`PIWORK_PROJECT_DOCUMENT_INPUTS_ENABLED=0` 仅回滚为明确不完整的旧预览。projectSources 是宿主reference grant；装配已缓存于HMR RunManager，代码更新后重启本地服务。资料限额50份、文本单份2MiB/总8MiB、片段32KiB、索引/manifest128KiB；超限拒绝，不能把保存截断视为成功。60s解析/120s物化为协作式超时，非硬隔离。现有Source.content无需数据迁移，原件缺失/历史完整性未知不能推断补全。无新Worker、Durable入口、原件版本库、页码/OCR/检索或可信覆盖门禁。方案与当前状态见 [项目大文档处理](project-document-processing-design.md)。
+
 `pnpm test:projects:sources`（也随 test:unit 收集）覆盖格式白名单、旧格式拒绝、真实 DOCX/CSV/Markdown/JSON 提取、图像载荷往返/签名/大小与上下文截断隔离、图片总量限制和损坏拒绝；不调用真实模型。项目图片直接经 Pi 1.1.0 官方 ImageContent（base64/MIME）与既有 RuntimeCommand.images 输入，需视觉模型；无 OCR、新 agent loop 或向量检索。文档单份 20 MB，项目图片最多 5 张合计 8 MB；上传后请在视觉模型项目聊天中另做真实图像问答验收。旧 DOC/XLS/PPT、加密文档、扫描 PDF OCR 不在支持声明中。无需 SQL 迁移；Source.type 本来就是 varchar。
 
 ## 对话分享与协作验证（2026-10-09）
@@ -287,3 +291,19 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 本地文件操作回归（2026-10-10）：用户原句“请获取当前服务器时间 写入time.txt”此前误判 lightweight；file-operation-intent 纯函数补足中文落盘与命名 txt/md/json/yaml 等文件操作，并复用于 search/intent，当前/最近两条历史中的文件操作都不能被纯搜索提前放行。原句 classifyExecution（未配置模型）、中英文保存/读取、纯文本创作/文件名解释不执行、联网开启与连续请求均有回归；配置模型优先级、授权及单 run 分流不变。Runtime344通过/15跳过；unit61通过；类型/Biome检查通过。`PIWORK_OPENSANDBOX_TIME_TEST=1 PIWORK_OPENSANDBOX_CHAT_TEST=1 pnpm test:opensandbox:chat` 使用独立夹具发送用户原句，要求 sandbox_rpc/真实bash date与time.txt目标/销毁；原句未显式要求交付，不能要求模型必然返回下载。只在实际有artifact.created时校验归档/本人下载；仅本地存储，成功清理本组 LibraryItem/验证过的文件ID字节，失败禁用夹具保留证据，不重放用户旧run。真实原句在服务器验证通过（run7189ac8c-1b2a-46b8-a752-92771f7be719，sandbox_rpc/settled，沙箱销毁确认；成功夹具已清理）。文件位于临时沙箱，未交付则终态删除，沙箱时区默认为UTC。
 
 本地启发式验证（历史基线）：分类器与启发式 7 项测试、路由 5 项测试通过；真实 `/api/chat` 输入「你好」返回成功，AgentRun.backend=`in_process`、status=`settled`、errorMessage=null。pi-auto-router 发布的是 TS 源码，Next.js 通过 `transpilePackages` 编译其纯函数模块；未加载第三方扩展。规则有误判可能，附件与执行上下文保守进入执行路径。
+
+项目首页来源缩略图：`GET /api/projects/:projectId/sources/:sourceId` 通过 `lib/db/project-queries.ts` 同次查询核验项目访问权限及来源归属，仅返回既有受支持图片字节，`private, no-store` + `nosniff`；列表懒加载 48px 缩略图，失败回退图片图标，非图片显示文件图标。输入框使用完整胶囊圆角；不改变 Pi 图像上下文或附件链路。
+
+项目首页输入框「+」提供电脑上传与「我的文档」选择：复用 LibraryFilePicker 的搜索/鉴权预览及本人 attachment 解析，选中文档下载字节后经既有项目 sources 上传入口添加为项目资源（不是首轮 query 附件）。可编辑文档沿用现有快照行为；不新增 Pi API、检索或 agent loop。选择器支持受控 Dialog 和异步 onSelect，成功导入后才标记选中；保留原聊天选择器默认交互。
+
+项目分享：迁移 0022 新增 ProjectCollaborator/ProjectShareInvite，访问判定与成员/邀请查询归 `lib/db/project-share-queries.ts`，`getProject` 和列表支持 owner ∪ enabled collaborator。项目资料共享，只列本人项目对话、不自动授予 Chat 协作权限；模型/额度沿用本人目录。所有者才可改名/删除/维护资料及管理分享；删除项目停所有项目 run 后清理，成员移除/禁用后拒绝新增项目上下文访问，已生成的本人历史内容不追溯抹除，不承诺中止所有在途 run。链接 7 天有效，24 字节 CSPRNG、仅 sha256 存储、恒时比较，支持轮换/撤销；加入需正式启用成员，事务复核有效邀请，邀请行锁与撤销串行。GET 加入页不变更成员，POST 才加入。UI 复用 ShareDialog 的 project 模式（`/api/projects/share`、`/projects/:id/join`），分享胶囊/更多圆形按钮。Pi loop/SDK/RPC API 无变更，继续 route → RunManager → RuntimeBackend → Pi AgentSession。测试 `test:projects:share:db` 使用唯一测试账号清理自己的项目；分享 UI 浏览器契约在 `test:chat:share:ui`，模拟分享 API，不调用真实模型。
+
+项目分享展示：侧栏以 `/api/projects` 的 `isOwner=false` 标记「共享」，不按项目名称推断。项目首页常驻读取本人可访问的 share participants（含所有者），复用 ParticipantAvatars，在有限宽度内横向滚动展示全部成员，点击头像打开分享成员面板；不宣称在线/presence。成员管理复用同一 SWR key，同步分享面板变更；对话头像保留默认最多四人及 +N 行为。
+
+执行分类文件交付规则：`lib/ai/file-operation-intent.ts` 在官方模型分类前识别明确文件输出/工作区文件操作及最近用户文件任务的续问，返回 `rule=file-output|workspace-file|file-follow-up`，沿用 `reason=heuristic`；已有 chat 路由日志投影 rule，不增加消息正文日志或持久账本。补齐「输出excel / 导出 XLSX / 整理成电子表格 / 转换成表格文件」及英文生成/导出；格式名称、教程、否定生成、仅 CSV 文本不单独强制执行，助手建议不作为续问依据；纯搜索检测复用文件意图避免混合导出误走轻量。分类仍不是授权，执行禁用开关/沙箱 fail-closed/模型与 Token 权限/Skill 兼容门禁不变，不装包、不改 Pi agent loop。沿用 Pi 1.1.0 官方 `ClassifierContext`/`ClassifierResult` 和 `models.classify`（dist/types.d.ts、dist/models.d.ts/models.js），参考官方 https://pi.dev/docs/latest/virtual-models；模型分类仍按 choice/confidence/stopReason 保守校验及现有 2s 超时。`test:chat:classification` 收集现有 tests/unit/ai、tests/unit/chat 的 21 项回归；无真实模型、文件生成或容量验收。
+
+项目聊天默认沙箱：chat route 仅按持久 Chat.projectId 判定（不接受客户端开关），在分类/附件解析前核验本人项目访问权限。问答和执行均经 `projectChatExecution` 固定 requiresExecution=true，创建既有聊天 workspace；`selectChatRuntime` 固定 default lane，再由原 RoutingRuntimeBackend 的非空 workspace 选择 SandboxRpc，不进入非生产 Durable 自动分流。未配置 docker/opensandbox 或执行工具禁用均 503 拒绝，不回落宿主；沙箱启动失败保持 failed。非项目聊天仍沿用分类矩阵。Skill RPC 及闭包/MCP/Package/平台搜索支持边界不扩张，不增加 agent loop；旧 RunManager 装配配置变更仍须服务重启。参考已安装 Pi 1.1.0 官方 docs/rpc.md 的 RpcClient/subprocess 契约；保持现有 SandboxRpc 官方 RpcClient 复用。`test:projects:runtime` 验证项目固定 lane、配置拒绝、矩阵和 TestSandboxProvider fail-closed，共 10 项；无真实模型/浏览器/容量验收。
+
+### macOS 开发环境 Skill 快照
+
+`NODE_ENV=development` 且 macOS 时，SandboxRpc 使用本机 Docker 的一次性 Linux 收集容器（现有 `PIWORK_SANDBOX_IMAGE`，缺省 `pi-runtime:dev`，禁止自动拉取）读取受管 Skill 目录。只绑定该目录为只读，无网络、无宿主凭据、禁用 capabilities，限额与 30 秒超时；Linux 内 pinned fd / O_NOFOLLOW 验证并读取普通单链接文件，宿主继续校验路径、限额及官方 Pi frontmatter，再经原有原子复制/显式 --skill 链路安装。容器不执行 Skill 脚本。Docker 不可用或收集失败即拒绝，不回退 macOS 路径读取；生产仍要求 Linux 原生 collector，portable fallback 仍仅显式 test。macOS 文件共享语义不是生产 Linux 安全等价证明。真实本机测试：`PIWORK_SKILL_COLLECTOR_DOCKER_TEST=1 node --conditions=react-server --import tsx --test tests/unit/runtime/backends/sandbox-rpc/linux-skill-collector.test.ts`，验证资源复制、软/硬链接和凭据拒绝、生产门禁，不调用模型。

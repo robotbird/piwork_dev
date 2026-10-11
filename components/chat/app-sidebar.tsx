@@ -256,7 +256,14 @@ export function AppSidebar({
                               : "text-muted-foreground group-hover/menu-button:text-foreground"
                           )}
                         />
-                        <span className="truncate">{project.name}</span>
+                        <span className="min-w-0 flex-1 truncate">
+                          {project.name}
+                        </span>
+                        {project.isOwner === false ? (
+                          <span className="shrink-0 rounded-full bg-sidebar-accent px-1.5 py-0.5 text-[10px] leading-4 text-muted-foreground">
+                            共享
+                          </span>
+                        ) : null}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

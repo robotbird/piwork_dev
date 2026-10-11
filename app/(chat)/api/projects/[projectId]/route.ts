@@ -4,7 +4,7 @@ import { auth } from "@/app/(auth)/auth";
 import {
   deleteProject,
   getProject,
-  listProjectChats,
+  listOwnedProjectChatIds,
   renameProject,
 } from "@/lib/db/project-queries";
 import { getRunManager } from "@/lib/runtime/run";
@@ -20,7 +20,7 @@ async function requireOwnedProject(projectId: string) {
     return { error: Response.json({ error: "bad_request" }, { status: 400 }) };
   }
   const project = await getProject(session.user.id, projectId);
-  if (!project) {
+  if (!project || project.userId !== session.user.id) {
     return { error: Response.json({ error: "not_found" }, { status: 404 }) };
   }
   return { project, session };
@@ -28,11 +28,18 @@ async function requireOwnedProject(projectId: string) {
 
 export async function GET(_request: Request, context: Context) {
   const { projectId } = await context.params;
-  const result = await requireOwnedProject(projectId);
-  if (result.error) {
-    return result.error;
+  const session = await auth();
+  if (!session?.user?.id) {
+    return Response.json({ error: "unauthorized" }, { status: 401 });
   }
-  return Response.json({ project: result.project });
+  if (!z.uuid().safeParse(projectId).success) {
+    return Response.json({ error: "bad_request" }, { status: 400 });
+  }
+  const project = await getProject(session.user.id, projectId);
+  if (!project) {
+    return Response.json({ error: "not_found" }, { status: 404 });
+  }
+  return Response.json({ project });
 }
 
 export async function PATCH(request: Request, context: Context) {
@@ -66,7 +73,10 @@ export async function DELETE(_request: Request, context: Context) {
   }
 
   // 项目聊天是普通 Chat 行：先停活跃 run，避免删除后 run 继续落消息
-  const chats = await listProjectChats(result.session.user.id, projectId);
+  const chats = await listOwnedProjectChatIds(
+    result.session.user.id,
+    projectId
+  );
   await Promise.all(
     chats.map((chat) =>
       getRunManager()

@@ -111,3 +111,50 @@ test("attachments and execution continuations stay isolated; a fresh greeting is
     true
   );
 });
+
+test("artifact formats require an output action; web search cannot hide outputexcel", () => {
+  for (const message of [
+    "整理成场景清单，输出excel",
+    "把上表导出 XLSX",
+    "以Excel格式输出",
+    "转换成表格文件",
+    "搜索新闻后输出Excel",
+    "export results as csv",
+  ]) {
+    for (const platformWebSearch of [false, true]) {
+      const decision = heuristicExecution({
+        attachmentCount: 0,
+        history: [],
+        message,
+        platformWebSearch,
+      });
+      assert.equal(decision.requiresExecution, true, message);
+      assert.equal(decision.rule, "file-output");
+    }
+  }
+  for (const message of [
+    "解释Excel公式",
+    "如何导出Excel",
+    "不要生成Excel，只解释公式",
+    "只输出CSV文本",
+    "file.xlsx这个名称是什么意思",
+  ]) {
+    assert.equal(
+      heuristicExecution({ attachmentCount: 0, history: [], message })
+        .requiresExecution,
+      false,
+      message
+    );
+  }
+});
+
+test("a file output history does not turn a new explanation into file execution", () => {
+  assert.equal(
+    heuristicExecution({
+      attachmentCount: 0,
+      history: [{ role: "user", text: "整理成场景清单，输出excel" }],
+      message: "解释Excel公式",
+    }).requiresExecution,
+    false
+  );
+});

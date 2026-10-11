@@ -374,6 +374,52 @@ try {
     action: "fork",
     body: { chatId: "preview-chat", token: "fixture-invite" },
   });
+  const projectCalls: { method: string; url: string; body: unknown }[] = [];
+  await page.route("**/api/projects/share**", async (route) => {
+    const request = route.request();
+    projectCalls.push({
+      body: request.method() === "POST" ? request.postDataJSON() : null,
+      method: request.method(),
+      url: request.url(),
+    });
+    await route.fulfill({
+      json:
+        request.method() === "GET"
+          ? {
+              collaborators: [],
+              invite: null,
+              isOwner: true,
+              members: [member(5)],
+              participants: [],
+            }
+          : {
+              collaborators: [],
+              inviteExpiresAt: new Date(Date.now() + 604_800_000).toISOString(),
+              token: "project-token",
+            },
+    });
+  });
+  await page.goto(`http://127.0.0.1:${address.port}/?project`);
+  await dialog.getByRole("heading", { name: "分享项目" }).waitFor();
+  await dialog.getByText("共享项目资料，各自的对话保持私有。").waitFor();
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll("input")].some((input) =>
+      input.value.includes("/projects/preview-chat/join?t=project-token")
+    )
+  );
+  assert(
+    projectCalls.some(
+      (call) =>
+        call.method === "GET" && call.url.includes("projectId=preview-chat")
+    )
+  );
+  assert(
+    projectCalls.some(
+      (call) =>
+        call.method === "POST" &&
+        (call.body as { projectId?: string }).projectId === "preview-chat"
+    )
+  );
   console.log(
     "PASS: existing/new members both have collaboration and fork; invitation modal/open/close/mobile; auto generation/reopen/rotation/failure retry, no footer hints, member add, copy/select/revoke, desktop/mobile/landscape bounds"
   );

@@ -128,31 +128,33 @@ export function ProjectsPanel() {
                     </span>
                   </span>
                 </button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      aria-label={t("moreActions")}
-                      className="opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <MoreHorizontalIcon className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-36">
-                    <DropdownMenuItem
-                      onClick={() => router.push(`/projects/${project.id}`)}
-                    >
-                      {t("openAction")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => setDeleteTarget(project)}
-                    >
-                      {t("deleteAction")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {project.isOwner === false ? null : (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        aria-label={t("moreActions")}
+                        className="opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+                        size="icon-sm"
+                        variant="ghost"
+                      >
+                        <MoreHorizontalIcon className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-36">
+                      <DropdownMenuItem
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                      >
+                        {t("openAction")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setDeleteTarget(project)}
+                      >
+                        {t("deleteAction")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </li>
           ))}

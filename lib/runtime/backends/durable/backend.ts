@@ -152,6 +152,9 @@ export class DurableBackend implements RuntimeBackend {
   }
 
   async open(spec: RuntimeSpec): Promise<RuntimeSession> {
+    if (spec.projectSources) {
+      throw new Error("runtime:project-documents:sandbox-rpc-required");
+    }
     if (
       this.options.executionFactory &&
       (!this.options.storageFactory || !this.options.authorize || !spec.runId)

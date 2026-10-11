@@ -5,7 +5,7 @@ import {
   isVisionAttachment,
   type SupportedAttachmentExtension,
 } from "@/lib/ai/attachment-types";
-import { extractAttachmentText } from "@/lib/ai/attachments";
+import { extractDocumentText } from "@/lib/ai/attachments";
 
 export const SOURCE_ACCEPT = CHAT_ATTACHMENT_ACCEPT;
 export type SourceFileType = SupportedAttachmentExtension | "markdown";
@@ -105,7 +105,7 @@ export function extractSourceText({
   if (sourceImageMime(type)) {
     return Promise.resolve(encodeSourceImage(content, type));
   }
-  return extractAttachmentText({
+  return extractDocumentText({
     content,
     extension: type === "markdown" ? "md" : type,
     signal,

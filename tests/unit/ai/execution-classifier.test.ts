@@ -126,3 +126,96 @@ test("unconfigured model uses local pi-auto-router; configured model takes prior
   assert.equal(decision.requiresExecution, true);
   assert.equal(decision.reason, "classified");
 });
+
+test("explicit file deliveries override even confident lightweight model answers", async () => {
+  for (const message of [
+    "请将当前目录下的pdf 和图片整理成 场景清单，字段为，场景名称 | 场景说明 | 备注，三个字段，输出excel",
+    "把上表导出为 XLSX",
+    "整理成Excel",
+    "转换成电子表格",
+    "输出 PDF",
+    "生成可下载的文件",
+    "将内容保存为 report.xlsx",
+    "export the results as CSV",
+    "generate a PowerPoint presentation",
+    "读取report.pdf",
+  ]) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential routing cases keep per-case assertions and failures isolated
+    const decision = await classifyExecution(
+      { attachmentCount: 0, history: [], message },
+      {
+        classify: () => {
+          throw new Error(
+            "explicit execution must bypass remote classification"
+          );
+        },
+      }
+    );
+    assert.equal(decision.requiresExecution, true, message);
+    assert.equal(decision.reason, "heuristic");
+    assert.ok(decision.rule);
+  }
+});
+
+test("ordinary format questions still use the official classifier", async () => {
+  for (const message of [
+    "解释 Excel 公式",
+    "xlsx和csv有什么区别",
+    "如何导出 Excel",
+    "不要生成Excel，只解释公式",
+    "只输出 CSV 文本",
+    "file.xlsx这个名称是什么意思",
+  ]) {
+    let called = false;
+    // biome-ignore lint/performance/noAwaitInLoops: sequential routing cases keep per-case assertions and failures isolated
+    const decision = await classifyExecution(
+      { attachmentCount: 0, history: [], message },
+      {
+        classify: () => {
+          called = true;
+          return Promise.resolve(result("conversation"));
+        },
+      }
+    );
+    assert.equal(called, true, message);
+    assert.equal(decision.requiresExecution, false, message);
+  }
+});
+
+test("file follow-ups use recent user intent, not assistant suggestions or unrelated history", async () => {
+  for (const message of ["继续", "按刚才的格式再来一份", "重新生成"]) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential routing cases keep per-case assertions and failures isolated
+    const decision = await classifyExecution(
+      {
+        attachmentCount: 0,
+        history: [
+          { role: "user", text: "整理成场景清单，输出excel" },
+          { role: "assistant", text: "建议输出CSV" },
+        ],
+        message,
+      },
+      {
+        classify: () => {
+          throw new Error("continuation must bypass classifier");
+        },
+      }
+    );
+    assert.equal(decision.requiresExecution, true);
+    assert.equal(decision.rule, "file-follow-up");
+  }
+  for (const history of [
+    [{ role: "assistant", text: "可以生成Excel" }],
+    [
+      { role: "user", text: "输出Excel" },
+      { role: "user", text: "解释机器学习" },
+    ],
+  ]) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential routing cases keep per-case assertions and failures isolated
+    const decision = await classifyExecution(
+      { attachmentCount: 0, history, message: "继续" },
+      { classify: () => Promise.resolve(result("conversation")) }
+    );
+    assert.equal(decision.reason, "classified");
+    assert.equal(decision.requiresExecution, false);
+  }
+});

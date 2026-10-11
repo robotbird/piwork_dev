@@ -355,6 +355,62 @@ export const chatShareInvite = pgTable(
 
 export type ChatShareInviteRecord = InferSelectModel<typeof chatShareInvite>;
 
+export const projectCollaborator = pgTable(
+  "ProjectCollaborator",
+  {
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    /** 直接指定时为聊天所有者；链接加入时为加入者本人。账号删除时置空 */
+    invitedBy: uuid("invitedBy").references((): AnyPgColumn => user.id, {
+      onDelete: "set null",
+    }),
+    projectId: uuid("projectId")
+      .notNull()
+      .references((): AnyPgColumn => project.id, { onDelete: "cascade" }),
+    userId: uuid("userId")
+      .notNull()
+      .references((): AnyPgColumn => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("ProjectCollaborator_chat_user_idx").on(
+      table.projectId,
+      table.userId
+    ),
+    index("ProjectCollaborator_user_idx").on(table.userId),
+  ]
+);
+
+export type ProjectCollaboratorRecord = InferSelectModel<
+  typeof projectCollaborator
+>;
+
+/**
+ * 分享链接邀请：token 本体只在创建响应中出现一次，之后服务端只保留 sha256，
+ * 不可再取回。每对话最多一条未撤销未过期链接；重新生成 = 撤销旧的 + 建新的。
+ */
+export const projectShareInvite = pgTable(
+  "ProjectShareInvite",
+  {
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    createdBy: uuid("createdBy")
+      .notNull()
+      .references((): AnyPgColumn => user.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expiresAt").notNull(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("projectId")
+      .notNull()
+      .references((): AnyPgColumn => project.id, { onDelete: "cascade" }),
+    revokedAt: timestamp("revokedAt"),
+    /** sha256(token) hex；比较使用 timingSafeEqual */
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
+  },
+  (table) => [index("ProjectShareInvite_chat_idx").on(table.projectId)]
+);
+
+export type ProjectShareInviteRecord = InferSelectModel<
+  typeof projectShareInvite
+>;
+
 /** 项目资料：content 为提取文本或版本化图像载荷，经文本/图像上下文注入，不做检索。 */
 export const source = pgTable(
   "Source",

@@ -2,10 +2,11 @@ import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import { MAX_CHAT_ATTACHMENT_SIZE } from "@/lib/ai/attachment-types";
+import { DocumentInputError } from "@/lib/ai/document-errors";
 import {
   createSource,
   getProject,
-  listProjectSourceContents,
+  getProjectDocumentSources,
   listSources,
 } from "@/lib/db/project-queries";
 import { assembleProjectSourcesContext } from "@/lib/projects/context";
@@ -45,7 +46,7 @@ export async function POST(request: Request, context: Context) {
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
   const project = await getProject(session.user.id, projectId);
-  if (!project) {
+  if (!project || project.userId !== session.user.id) {
     return Response.json({ error: t("projectNotFound") }, { status: 404 });
   }
 
@@ -73,36 +74,53 @@ export async function POST(request: Request, context: Context) {
     return Response.json({ error: t("sourceImageLimit") }, { status: 400 });
   }
 
-  // 文件 → 文本：与聊天附件共用解析管线；文本随 Source 保存，
-  // 聊天时按项目全文注入提示词（无检索最简方案）
+  // Store bounded complete extraction; chat previews are a separate projection.
   const content = new Uint8Array(await file.arrayBuffer());
   let text: string;
   try {
     text = await extractSourceText({ content, signal: request.signal, type });
   } catch (error) {
     console.error("[project-sources] extract text failed:", error);
-    return Response.json({ error: t("sourceExtractFailed") }, { status: 400 });
+    return Response.json(
+      {
+        error:
+          error instanceof DocumentInputError
+            ? error.message
+            : t("sourceExtractFailed"),
+      },
+      { status: 400 }
+    );
   }
   const trimmed = text.trim();
   if (!trimmed) {
     return Response.json({ error: t("sourceNoText") }, { status: 400 });
   }
 
-  if (sourceImageMime(type)) {
-    // 上传时预检；并发上传可能交错，聊天组装仍再次强制核验总量。
-    const existing = await listProjectSourceContents(projectId);
-    try {
-      assembleProjectSourcesContext([
-        ...existing.filter((item) => sourceImageMime(item.type)),
-        { content: trimmed, name: file.name, type },
-      ]);
-    } catch {
-      return Response.json({ error: t("sourceImageLimit") }, { status: 400 });
-    }
+  // Preflight the complete catalog; chat/startup repeat checks for racing uploads.
+  const existing = await getProjectDocumentSources(session.user.id, projectId);
+  try {
+    assembleProjectSourcesContext(
+      [
+        ...existing,
+        { content: text, id: crypto.randomUUID(), name: file.name, type },
+      ],
+      undefined,
+      true
+    );
+  } catch (error) {
+    return Response.json(
+      {
+        error:
+          error instanceof DocumentInputError
+            ? error.message
+            : t("sourceExtractFailed"),
+      },
+      { status: 400 }
+    );
   }
 
   const source = await createSource(session.user.id, projectId, {
-    content: trimmed,
+    content: text,
     name: file.name,
     type,
   });

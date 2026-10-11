@@ -35,6 +35,9 @@ function Preview() {
             chatId="preview-chat"
             onClose={handleClose}
             open={open}
+            resource={
+              window.location.search.includes("project") ? "project" : "chat"
+            }
           />
         )}
       </TooltipProvider>

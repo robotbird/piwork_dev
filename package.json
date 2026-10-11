@@ -29,6 +29,9 @@
     "test:sandbox:settings:ui": "node --import tsx tests/e2e/sandbox-settings-ui.mts",
     "test:sandbox:settings:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/sandbox-settings-queries.test.ts",
     "test:projects:sources": "node --conditions=react-server --import tsx --test tests/unit/ai/project-source-files.test.ts",
+    "test:projects:documents": "node --conditions=react-server --import tsx --test tests/unit/ai/project-document-inputs.test.ts tests/unit/ai/project-source-files.test.ts tests/unit/ai/attachments.test.ts tests/unit/runtime/backends/sandbox-rpc/project-sources.test.ts tests/unit/chat/automatic-routing.test.ts",
+    "test:projects:documents:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/project-document-queries.test.ts",
+    "test:projects:documents:http": "node --import tsx tests/e2e/project-documents-http.mts",
     "test:unit": "node --conditions=react-server --import tsx --test tests/unit/ai/*.test.ts tests/unit/mcp/*.test.ts tests/unit/pi-packages/*.test.ts",
     "test:search": "node --conditions=react-server --import tsx --test tests/unit/ai/web-search*.test.ts tests/unit/chat/web-search.test.ts tests/unit/runtime/backends/web-search.test.ts",
     "test:runtime:durable": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/durable/*.test.ts",
@@ -70,7 +73,11 @@
     "test:conversations:db": "node --conditions=react-server --import tsx --test --test-concurrency=1 --test-force-exit tests/unit/db/conversation-queries.test.ts tests/unit/db/conversation-usage.test.ts",
     "test:profile:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/profile-queries.test.ts",
     "test:profile": "playwright test tests/e2e/auth.test.ts tests/e2e/profile.test.ts",
-    "test:chat:collab": "node --conditions=react-server --import tsx --test tests/unit/collab/*.test.ts"
+    "test:chat:collab": "node --conditions=react-server --import tsx --test tests/unit/collab/*.test.ts",
+    "test:projects:share:db": "node --conditions=react-server --import tsx --test --test-concurrency=1 --test-force-exit tests/unit/db/project-share-queries.test.ts tests/unit/db/project-queries.test.ts",
+    "test:chat:classification": "node --conditions=react-server --import tsx --test tests/unit/ai/execution-classifier.test.ts tests/unit/ai/execution-heuristic.test.ts tests/unit/chat/web-search.test.ts tests/unit/chat/automatic-routing.test.ts",
+    "test:projects:runtime": "node --conditions=react-server --import tsx --test tests/unit/chat/automatic-routing.test.ts tests/unit/runtime/backends/routing.test.ts",
+    "test:skills:sandbox:collector": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/sandbox-rpc/linux-skill-collector.test.ts"
   },
   "dependencies": {
     "@ai-sdk/provider": "^4.0.2",

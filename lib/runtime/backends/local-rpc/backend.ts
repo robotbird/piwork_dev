@@ -57,6 +57,9 @@ export class LocalRpcBackend implements RuntimeBackend {
   }
 
   async open(spec: RuntimeSpec): Promise<RuntimeSession> {
+    if (spec.projectSources) {
+      throw new Error("runtime:project-documents:sandbox-rpc-required");
+    }
     if (spec.tools.some((tool) => tool.name === "platform_web_search")) {
       throw new Error(
         "平台联网搜索尚未接入 LocalRpc；不能丢弃工具或回退宿主执行。"

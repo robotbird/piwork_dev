@@ -14,6 +14,9 @@
     "comingSoon": "{label}即将开放"
   },
   "projects": {
+    "sourceStoredChars": "已存 {count} 字符",
+    "sourceStoredTruncated": "历史文本已截断；缺失内容需重新上传补齐",
+    "sourceExtractionUnverified": "可分段读取已存文本；原文件解析完整性未核验",
     "listTitle": "项目",
     "emptyHint": "创建一个项目，把相关聊天和资料放在一起",
     "emptyAction": "新建项目",

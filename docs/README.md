@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | [Pi 官方依赖升级记录](pi-upgrades.md) | 当前依赖基线、官方兼容性变化、验证与版本描述约定 | 当前版本以 package.json / pnpm-lock.yaml 为准；历史研究版本不代表当前基线 |
 | [项目架构](architecture.md) | 模块职责、运行链路、数据边界、当前状态 | 当前实现；新开发先读 |
+| [项目大文档处理方案](project-document-processing-design.md) | 全文保存、沙箱分段读取、覆盖与字段验证、私有原件和分期实施 | A 已实现及验证；B/C 仍为设计，无检索/OCR/Worker/恢复或可信覆盖门禁 |
 | [平台联网搜索](web-search.md) | 固定 Tavily 受控搜索、轻量路由、逐次授权/限额与来源持久化 | 当前实现；默认关闭，需 PIWORK_WEB_SEARCH_ENABLED + TAVILY_API_KEY；不含 web_fetch/任意抓取 |
 | [对话模型与用量](conversation-model-usage.md) | 请求/实际模型持久化、SDK/RPC/Durable 全链路、会话 Token 累计口径与验证 | 当前实现；历史缺失不估算，非不可变账单 |
 | [对话分享与协作](chat-collaboration.md) | 分享链接/协作成员/fork、消息归属头像、实时协作（SSE presence/typing/事件通知）与权限模型 | 当前实现；token 只存哈希且明文仅展示一次；协作成员走经典 lane 不参与 Durable 分流；实时层单实例进程内 hub，事件不携带正文 |

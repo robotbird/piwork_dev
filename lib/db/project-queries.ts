@@ -1,8 +1,17 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "./client";
-import { chat, message, project, source, vote } from "./schema";
+import { getProjectAccess } from "./project-share-queries";
+import {
+  chat,
+  member,
+  message,
+  project,
+  projectCollaborator,
+  source,
+  vote,
+} from "./schema";
 
 const db = getDb();
 
@@ -22,18 +31,43 @@ export async function createProject(userId: string, name: string) {
 
 export function listProjects(userId: string) {
   return db
-    .select()
+    .select({
+      createdAt: project.createdAt,
+      id: project.id,
+      isOwner: eq(project.userId, userId),
+      name: project.name,
+      updatedAt: project.updatedAt,
+      userId: project.userId,
+    })
     .from(project)
-    .where(eq(project.userId, userId))
+    .where(
+      or(
+        eq(project.userId, userId),
+        exists(
+          db
+            .select({ id: projectCollaborator.id })
+            .from(projectCollaborator)
+            .innerJoin(
+              member,
+              and(
+                eq(member.userId, projectCollaborator.userId),
+                eq(member.status, "enabled")
+              )
+            )
+            .where(
+              and(
+                eq(projectCollaborator.projectId, project.id),
+                eq(projectCollaborator.userId, userId)
+              )
+            )
+        )
+      )
+    )
     .orderBy(desc(project.updatedAt));
 }
 
 export async function getProject(userId: string, projectId: string) {
-  const [record] = await db
-    .select()
-    .from(project)
-    .where(and(eq(project.id, projectId), eq(project.userId, userId)));
-  return record ?? null;
+  return (await getProjectAccess(projectId, userId))?.project ?? null;
 }
 
 export async function renameProject(
@@ -119,6 +153,9 @@ export async function listProjectChats(
   userId: string,
   projectId: string
 ): Promise<ProjectChatListItem[]> {
+  if (!(await getProject(userId, projectId))) {
+    return [];
+  }
   const chats = await db
     .select({
       chatId: chat.id,
@@ -230,6 +267,10 @@ export async function listSources(userId: string, projectId: string) {
       createdAt: source.createdAt,
       id: source.id,
       name: source.name,
+      storedTextTruncated: sql<boolean>`position('[附件内容已截断]' in ${source.content}) > 0`,
+      textChars: sql<
+        number | null
+      >`case when ${source.type} in ('png','jpg','jpeg','webp','gif') then null else length(${source.content}) end`,
       type: source.type,
     })
     .from(source)
@@ -243,7 +284,7 @@ export async function deleteSource(
   sourceId: string
 ) {
   const owned = await getProject(userId, projectId);
-  if (!owned) {
+  if (!owned || owned.userId !== userId) {
     return null;
   }
   const [deleted] = await db
@@ -259,10 +300,100 @@ export function listProjectSourceContents(projectId: string) {
     .select({
       content: source.content,
       createdAt: source.createdAt,
+      id: source.id,
       name: source.name,
       type: source.type,
     })
     .from(source)
     .where(eq(source.projectId, projectId))
-    .orderBy(asc(source.createdAt));
+    .orderBy(asc(source.createdAt), asc(source.id));
+}
+
+/** Bounded source snapshot, with membership checked in the content query itself. */
+export function getProjectDocumentSources(userId: string, projectId: string) {
+  return db
+    .select({
+      content: source.content,
+      id: source.id,
+      name: source.name,
+      type: source.type,
+    })
+    .from(source)
+    .innerJoin(project, eq(source.projectId, project.id))
+    .where(
+      and(
+        eq(project.id, projectId),
+        or(
+          eq(project.userId, userId),
+          exists(
+            db
+              .select({ id: projectCollaborator.id })
+              .from(projectCollaborator)
+              .innerJoin(
+                member,
+                and(
+                  eq(member.userId, projectCollaborator.userId),
+                  eq(member.status, "enabled")
+                )
+              )
+              .where(
+                and(
+                  eq(projectCollaborator.projectId, project.id),
+                  eq(projectCollaborator.userId, userId)
+                )
+              )
+          )
+        )
+      )
+    )
+    .orderBy(asc(source.createdAt), asc(source.id))
+    .limit(51);
+}
+
+/** 项目来源预览：在同一查询中核验项目所有权及来源归属。 */
+export async function getProjectSource(
+  userId: string,
+  projectId: string,
+  sourceId: string
+) {
+  const [item] = await db
+    .select({ content: source.content, type: source.type })
+    .from(source)
+    .innerJoin(project, eq(source.projectId, project.id))
+    .where(
+      and(
+        eq(project.id, projectId),
+        eq(source.id, sourceId),
+        or(
+          eq(project.userId, userId),
+          exists(
+            db
+              .select({ id: projectCollaborator.id })
+              .from(projectCollaborator)
+              .innerJoin(
+                member,
+                and(
+                  eq(member.userId, projectCollaborator.userId),
+                  eq(member.status, "enabled")
+                )
+              )
+              .where(
+                and(
+                  eq(projectCollaborator.projectId, project.id),
+                  eq(projectCollaborator.userId, userId)
+                )
+              )
+          )
+        )
+      )
+    );
+  return item ?? null;
+}
+
+export function listOwnedProjectChatIds(userId: string, projectId: string) {
+  return db
+    .select({ chatId: chat.id })
+    .from(chat)
+    .innerJoin(project, eq(project.id, chat.projectId))
+    .where(and(eq(project.id, projectId), eq(project.userId, userId)));
 }

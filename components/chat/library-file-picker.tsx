@@ -46,16 +46,22 @@ export function LibraryFilePicker({
   disabled,
   onSelect,
   onBusyChange,
+  dialogOpen,
+  onDialogOpenChange,
 }: {
   attachments: Attachment[];
   disabled: boolean;
-  onSelect: (attachment: Attachment) => void;
+  onSelect: (attachment: Attachment) => void | Promise<void>;
   onBusyChange: (busy: boolean) => void;
+  dialogOpen?: boolean;
+  onDialogOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslations("chat");
   const commonT = useTranslations("common");
   const [open, setOpen] = useState(false);
-  const [browseAll, setBrowseAll] = useState(false);
+  const [internalBrowseAll, setInternalBrowseAll] = useState(false);
+  const browseAll = dialogOpen ?? internalBrowseAll;
+  const setBrowseAll = onDialogOpenChange ?? setInternalBrowseAll;
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, string>>({});
@@ -93,8 +99,8 @@ export function LibraryFilePicker({
           throw new Error(t("librarySelectFailed"));
         }
         const attachment = (await response.json()) as Attachment;
+        await onSelect(attachment);
         setSelected((current) => ({ ...current, [item.id]: attachment.url }));
-        onSelect(attachment);
       } catch {
         toast.error(t("librarySelectFailed"));
       } finally {
@@ -125,8 +131,8 @@ export function LibraryFilePicker({
   const handleBrowseAll = useCallback(() => {
     setOpen(false);
     setBrowseAll(true);
-  }, []);
-  const handleDone = useCallback(() => setBrowseAll(false), []);
+  }, [setBrowseAll]);
+  const handleDone = useCallback(() => setBrowseAll(false), [setBrowseAll]);
   const handlePick = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
       const item = data?.find(
@@ -142,7 +148,7 @@ export function LibraryFilePicker({
   function renderFiles(all: boolean) {
     return (
       <>
-        <div className="relative m-2">
+        <div className="relative m-2 shrink-0">
           <SearchIcon
             aria-hidden="true"
             className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground"
@@ -158,7 +164,7 @@ export function LibraryFilePicker({
         <div
           className={
             all
-              ? "max-h-[60dvh] overflow-y-auto p-2"
+              ? "min-h-0 flex-1 overflow-y-auto p-2"
               : "max-h-[min(360px,45dvh)] overflow-y-auto p-2"
           }
         >
@@ -240,48 +246,50 @@ export function LibraryFilePicker({
 
   return (
     <>
-      <Popover onOpenChange={setOpen} open={open}>
-        <PopoverTrigger asChild>
-          <button
-            aria-label={t("chooseLibraryFiles")}
-            className="flex h-8 items-center gap-2 rounded-md px-2 text-sm transition-colors hover:bg-background hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-            disabled={disabled}
-            type="button"
-          >
-            <LibraryBigIcon className="size-4 shrink-0" />
-            <span>{t("files")}</span>
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="w-[min(360px,calc(100vw-32px))] p-0"
-          data-testid="library-file-picker"
-          side="top"
-          sideOffset={8}
-        >
-          {renderFiles(false)}
-          <div className="border-t border-border p-2">
+      {dialogOpen === undefined ? (
+        <Popover onOpenChange={setOpen} open={open}>
+          <PopoverTrigger asChild>
             <button
-              className="flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm hover:bg-muted"
-              onClick={handleBrowseAll}
+              aria-label={t("chooseLibraryFiles")}
+              className="flex h-8 items-center gap-2 rounded-md px-2 text-sm transition-colors hover:bg-background hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              disabled={disabled}
               type="button"
             >
-              <LibraryBigIcon className="size-5" />
-              {t("browseAllLibraryFiles")}
+              <LibraryBigIcon className="size-4 shrink-0" />
+              <span>{t("files")}</span>
             </button>
-          </div>
-        </PopoverContent>
-      </Popover>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="w-[min(360px,calc(100vw-32px))] p-0"
+            data-testid="library-file-picker"
+            side="top"
+            sideOffset={8}
+          >
+            {renderFiles(false)}
+            <div className="border-t border-border p-2">
+              <button
+                className="flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm hover:bg-muted"
+                onClick={handleBrowseAll}
+                type="button"
+              >
+                <LibraryBigIcon className="size-5" />
+                {t("browseAllLibraryFiles")}
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      ) : null}
       <Dialog onOpenChange={setBrowseAll} open={browseAll}>
         <DialogContent
-          className="max-w-2xl p-4"
+          className="flex h-[70dvh] max-h-[640px] w-[calc(100vw-2rem)] max-w-none flex-col gap-3 overflow-hidden rounded-2xl p-4 sm:h-[58dvh] sm:w-[min(640px,calc(100vw-3rem))] sm:max-w-none sm:p-6 lg:w-[40vw] lg:max-w-[800px]"
           data-testid="library-file-browser"
         >
-          <DialogHeader>
+          <DialogHeader className="shrink-0">
             <DialogTitle>{t("chooseLibraryFiles")}</DialogTitle>
           </DialogHeader>
           {renderFiles(true)}
-          <div className="flex justify-end border-t border-border pt-3">
+          <div className="flex shrink-0 justify-end border-t border-border pt-3">
             <Button onClick={handleDone} type="button">
               {t("libraryDone")}
             </Button>

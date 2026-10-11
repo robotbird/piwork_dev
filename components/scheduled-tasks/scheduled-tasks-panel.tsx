@@ -224,7 +224,7 @@ export function ScheduledTasksPanel() {
       <div className="p-3 md:hidden">
         <SidebarTrigger />
       </div>
-      <div className="mx-auto max-w-[920px] px-4 pb-16 pt-8 md:px-8 md:pt-16">
+      <div className="mx-auto w-full max-w-3xl px-6 pb-16 pt-8 md:px-8 md:pt-16">
         <header className="mb-12 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-heading-lg">定时任务</h1>
@@ -260,7 +260,7 @@ export function ScheduledTasksPanel() {
           </DropdownMenu>
         </header>
         <form
-          className="composer-plain flex min-h-18 items-center gap-3 rounded-3xl border border-[var(--hairline-strong)] bg-card px-5 py-2 shadow-[var(--shadow-float)]"
+          className="composer-plain flex h-14 items-center gap-2 rounded-full border border-[var(--hairline-strong)] bg-card px-2 shadow-[var(--shadow-whisper)]"
           onSubmit={(event) => {
             event.preventDefault();
             startChat(query);
@@ -270,7 +270,7 @@ export function ScheduledTasksPanel() {
             <TooltipTrigger asChild>
               <Button
                 aria-label="手动创建任务"
-                className="size-10 shrink-0 rounded-full text-foreground transition-colors duration-150 hover:bg-muted"
+                className="size-10 shrink-0 cursor-pointer rounded-full p-0 text-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted"
                 onClick={() => setManual(true)}
                 size="icon"
                 type="button"
@@ -283,7 +283,7 @@ export function ScheduledTasksPanel() {
           </Tooltip>
           <input
             aria-label="安排任务"
-            className="min-w-0 flex-1 bg-transparent py-3 text-body-lg outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent py-2 text-base outline-none placeholder:text-muted-foreground"
             maxLength={2000}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="安排任务"
@@ -293,7 +293,7 @@ export function ScheduledTasksPanel() {
             <TooltipTrigger asChild>
               <Button
                 aria-label="语音输入"
-                className="size-10 shrink-0 rounded-full text-foreground transition-colors duration-150 hover:bg-muted"
+                className="size-8 shrink-0 rounded-full text-foreground transition-colors duration-150 hover:bg-muted"
                 onClick={() => toast.info("语音输入功能正在准备中")}
                 size="icon"
                 type="button"
@@ -308,12 +308,11 @@ export function ScheduledTasksPanel() {
             <TooltipTrigger asChild>
               <Button
                 aria-label="通过 AI 安排任务"
-                className="size-12 shrink-0 rounded-full bg-primary text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                className="size-8 shrink-0 rounded-full"
                 disabled={!query.trim()}
-                size="icon"
                 type="submit"
               >
-                <ArrowUp className="size-5" />
+                <ArrowUp className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>通过 AI 安排任务</TooltipContent>

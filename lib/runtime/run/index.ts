@@ -9,6 +9,7 @@ import {
 import { postgresAgentRunStore } from "@/lib/db/agent-run-queries";
 import { recordInferenceAudit } from "@/lib/db/inference-audit-queries";
 import { registerGeneratedFile } from "@/lib/db/library-queries";
+import { loadAuthorizedProjectDocuments } from "@/lib/db/project-document-queries";
 import { upsertMessage } from "@/lib/db/queries";
 import { PostgresEventStore } from "@/lib/db/runtime-event-queries";
 import { getSandboxResourcePolicy } from "@/lib/db/sandbox-settings-queries";
@@ -88,6 +89,7 @@ function buildSandboxBackend(): {
       archiveFile: registerGeneratedFile,
       image: process.env.PIWORK_SANDBOX_IMAGE,
       inference: buildInferenceOptions(),
+      projectDocuments: loadAuthorizedProjectDocuments,
       provider,
       remoteCliPath,
       resourcePolicy: getSandboxResourcePolicy,

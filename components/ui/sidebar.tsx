@@ -268,48 +268,21 @@ function SidebarTrigger({
 
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
   const t = useTranslations("common")
-  const { toggleSidebar, state } = useSidebar()
-  const isCollapsed = state === "collapsed"
+  const { toggleSidebar } = useSidebar()
 
   return (
-    <div
+    <button
       data-slot="sidebar-rail"
+      data-sidebar="rail"
+      aria-label={t("toggleSidebar")}
+      tabIndex={-1}
+      onClick={toggleSidebar}
       className={cn(
-        "group/rail absolute inset-y-0 z-20 hidden w-4 overflow-visible group-data-[side=left]:-right-4 sm:block",
+        "absolute inset-y-0 z-20 hidden w-4 cursor-w-resize group-data-[side=left]:-right-4 group-data-[side=right]:-left-4 sm:block [[data-state=collapsed]_&]:cursor-e-resize after:absolute after:inset-y-0 after:left-0 after:w-px after:bg-sidebar-border after:opacity-0 after:transition-opacity hover:after:opacity-100",
         className
       )}
-    >
-      <button
-        data-sidebar="rail"
-        aria-label={t("toggleSidebar")}
-        tabIndex={-1}
-        onClick={toggleSidebar}
-        className="absolute inset-y-0 left-0 w-4 cursor-w-resize [[data-side=left][data-state=collapsed]_&]:cursor-e-resize"
-        {...props}
-      />
-      <button
-        aria-label={t("toggleSidebar")}
-        tabIndex={-1}
-        onClick={toggleSidebar}
-        className={cn(
-          "absolute left-0 h-3 w-3 cursor-e-resize",
-          isCollapsed ? "top-0" : "top-[calc(3.5rem-6px)] cursor-w-resize"
-        )}
-      />
-      <button
-        aria-label={t("toggleSidebar")}
-        tabIndex={-1}
-        onClick={toggleSidebar}
-        className={cn(
-          "absolute left-3 h-[6px] w-[100vw] cursor-e-resize",
-          isCollapsed ? "top-0" : "top-[calc(3.5rem-6px)] cursor-w-resize"
-        )}
-      />
-      <div className={cn(
-        "pointer-events-none absolute bottom-0 left-0 w-[100vw] rounded-tl-[12px] border-t border-l border-sidebar-border opacity-0 transition-opacity duration-150 group-hover/rail:opacity-100",
-        isCollapsed ? "top-0" : "top-14"
-      )} />
-    </div>
+      {...props}
+    />
   )
 }
 

@@ -61,3 +61,7 @@ node --conditions=react-server --import tsx --env-file=.env.local tests/e2e/sand
 完整企业目标仍见 [安全实施方案](skill-sandbox-security-design.md)，其中执行-only backend/P2/P3 门禁不取消；本次只是已有 RPC 资源补齐，不能改称完成企业安全建设。
 
 依据 Pi 1.1.0 `docs/skills.md`、`cli.md`、`settings.md`、`packages.md`；安装源码 `dist/core/resource-loader.js`（noSkills 保留 additionalSkillPaths）、`dist/core/agent-session.js` `_expandSkillCommand`、`dist/core/system-prompt.js`（customPrompt 仍添加 Skill catalog）、官方 RpcClient。没有自建 loop/Skill 命令解释器或 RPC 协议。
+
+### macOS 开发环境 Skill 快照
+
+`NODE_ENV=development` 且 macOS 时，SandboxRpc 使用本机 Docker 的一次性 Linux 收集容器（现有 `PIWORK_SANDBOX_IMAGE`，缺省 `pi-runtime:dev`，禁止自动拉取）读取受管 Skill 目录。只绑定该目录为只读，无网络、无宿主凭据、禁用 capabilities，限额与 30 秒超时；Linux 内 pinned fd / O_NOFOLLOW 验证并读取普通单链接文件，宿主继续校验路径、限额及官方 Pi frontmatter，再经原有原子复制/显式 --skill 链路安装。容器不执行 Skill 脚本。Docker 不可用或收集失败即拒绝，不回退 macOS 路径读取；生产仍要求 Linux 原生 collector，portable fallback 仍仅显式 test。macOS 文件共享语义不是生产 Linux 安全等价证明。真实本机测试：`PIWORK_SKILL_COLLECTOR_DOCKER_TEST=1 node --conditions=react-server --import tsx --test tests/unit/runtime/backends/sandbox-rpc/linux-skill-collector.test.ts`，验证资源复制、软/硬链接和凭据拒绝、生产门禁，不调用模型。

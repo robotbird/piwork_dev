@@ -4,6 +4,7 @@ import test from "node:test";
 import { classifyExecution } from "../../../lib/ai/execution-classifier";
 import {
   chatNeedsCompatibility,
+  projectChatExecution,
   selectChatRuntime,
 } from "../../../lib/runtime/backends/routing/chat-routing";
 import type { ChatMessage } from "../../../lib/types";
@@ -95,4 +96,53 @@ test("known integrations, platform requests and preceding tool calls retain comp
     chatNeedsCompatibility({ capabilityNames: [], history, message: "继续" }),
     false
   );
+});
+
+test("project chat questions and execution always use the classic sandbox lane", () => {
+  for (const patch of [
+    { requiresExecution: false },
+    { durableEnabled: false },
+    { classificationReason: "uncertain" },
+    { skillCommand: true },
+    { needsCompatibility: true },
+    { approvalContinuation: true },
+  ]) {
+    assert.deepEqual(
+      selectChatRuntime({ ...base, ...patch, projectChat: true }),
+      { lane: "default", reason: "project-sandbox" }
+    );
+  }
+});
+
+test("project execution is required and missing sandbox or disabled tools fails closed", () => {
+  for (const sandboxProvider of ["docker", "opensandbox"]) {
+    assert.deepEqual(
+      projectChatExecution({
+        executionEnabled: true,
+        projectChat: true,
+        sandboxProvider,
+      }),
+      { reason: "project-sandbox", requiresExecution: true }
+    );
+  }
+  assert.equal(
+    projectChatExecution({ executionEnabled: false, projectChat: false }),
+    null
+  );
+  assert.throws(() =>
+    projectChatExecution({
+      executionEnabled: false,
+      projectChat: true,
+      sandboxProvider: "docker",
+    })
+  );
+  for (const sandboxProvider of [undefined, "", "invalid"]) {
+    assert.throws(() =>
+      projectChatExecution({
+        executionEnabled: true,
+        projectChat: true,
+        sandboxProvider,
+      })
+    );
+  }
 });

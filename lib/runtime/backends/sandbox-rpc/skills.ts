@@ -16,6 +16,8 @@ import {
 } from "../../protocol/skill-bundle";
 import type { SandboxHandle } from "../../sandbox";
 
+import { collectSkillsInLinux } from "./linux-skill-collector";
+
 export type SkillSnapshot = {
   skill: Skill;
   files: { path: string; bytes: Uint8Array }[];
@@ -27,7 +29,11 @@ export type SkillSnapshot = {
  */
 export async function snapshotSandboxSkills(
   skills: readonly Skill[],
-  options: { root?: string; allowNonLinuxForTests?: boolean } = {}
+  options: {
+    root?: string;
+    allowNonLinuxForTests?: boolean;
+    collectorImage?: string;
+  } = {}
 ): Promise<SkillSnapshot[]> {
   if (!skills.length) {
     return [];
@@ -35,6 +41,9 @@ export async function snapshotSandboxSkills(
   const linux = process.platform === "linux";
   if (
     !linux &&
+    !(
+      process.platform === "darwin" && process.env.NODE_ENV === "development"
+    ) &&
     !(options.allowNonLinuxForTests && process.env.NODE_ENV === "test")
   ) {
     throw new Error("runtime:sandbox-skills:linux-required");
@@ -67,6 +76,14 @@ export async function snapshotSandboxSkills(
   // Deployment may symlink the platform's root to shared storage. Resolve that
   // trusted root once, then prohibit links beneath it (including the skill dir).
   const canonicalRoot = await realpath(root);
+  const collected =
+    !linux && process.env.NODE_ENV === "development"
+      ? await collectSkillsInLinux(
+          canonicalRoot,
+          refs.map((skill) => skill.name),
+          options.collectorImage ?? "pi-runtime:dev"
+        )
+      : null;
   let count = 0;
   let directories = 0;
   let total = 0;
@@ -150,22 +167,26 @@ export async function snapshotSandboxSkills(
   }
 
   // realpath above canonicalizes the trusted deployment root; pin its inode.
-  const rootHandle = await open(
-    canonicalRoot,
-    constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
-  );
-  try {
-    for (const skill of refs) {
-      const physical = path.join(canonicalRoot, skill.name);
-      const dir = await open(
-        linux ? `/proc/self/fd/${rootHandle.fd}/${skill.name}` : physical,
+  const rootHandle = collected
+    ? null
+    : await open(
+        canonicalRoot,
         constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
       );
-      const files: SkillSnapshot["files"] = [];
-      try {
-        await walk(dir, physical, "", files);
-      } finally {
-        await dir.close();
+  try {
+    for (const [index, skill] of refs.entries()) {
+      const physical = path.join(canonicalRoot, skill.name);
+      const files: SkillSnapshot["files"] = collected?.[index] ?? [];
+      if (!collected && rootHandle) {
+        const dir = await open(
+          linux ? `/proc/self/fd/${rootHandle.fd}/${skill.name}` : physical,
+          constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
+        );
+        try {
+          await walk(dir, physical, "", files);
+        } finally {
+          await dir.close();
+        }
       }
       const instructions = files.find((file) => file.path === "SKILL.md");
       if (!instructions) {
@@ -197,7 +218,7 @@ export async function snapshotSandboxSkills(
       });
     }
   } finally {
-    await rootHandle.close();
+    await rootHandle?.close();
   }
   return snapshots;
 }

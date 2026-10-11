@@ -15,6 +15,7 @@ import {
   type PreparedChatAttachments,
   prepareChatAttachments,
 } from "@/lib/ai/attachments";
+import { DocumentInputError } from "@/lib/ai/document-errors";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { classifyExecution } from "@/lib/ai/execution-classifier";
 import { loadEnabledManagedProjectSkills } from "@/lib/ai/managed-skills";
@@ -52,14 +53,19 @@ import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import { syncManagedAgentMcpConfig } from "@/lib/mcp/agent-config";
 import { buildProjectSourcesContext } from "@/lib/projects/context";
+import { projectDocumentInputsEnabled } from "@/lib/projects/document-inputs";
 import { durableChatExecutionPrompt } from "@/lib/runtime/backends/durable/chat-attachments";
 import { hashDurablePrompt } from "@/lib/runtime/backends/durable/chat-input";
 import { readDurableChatConfig } from "@/lib/runtime/backends/durable/chat-policy";
 import {
   chatNeedsCompatibility,
+  projectChatExecution,
   selectChatRuntime,
 } from "@/lib/runtime/backends/routing/chat-routing";
-import type { RuntimeCommand } from "@/lib/runtime/protocol";
+import type {
+  ProjectSourcesGrant,
+  RuntimeCommand,
+} from "@/lib/runtime/protocol";
 import { getRunManager } from "@/lib/runtime/run";
 import {
   assertDurableChatAdmission,
@@ -175,6 +181,12 @@ export async function POST(request: Request) {
       if (!access || !(access.isOwner || access.isCollaborator)) {
         return new ChatbotError("forbidden:chat").toResponse();
       }
+      if (
+        chat.projectId &&
+        !(await getProject(session.user.id, chat.projectId))
+      ) {
+        return new ChatbotError("forbidden:chat").toResponse();
+      }
       isChatOwner = access.isOwner;
       messagesFromDb = await getMessagesByChatId({ id });
       // 项目聊天在发起页已预建（标题为占位）：首条用户消息发出后生成标题
@@ -281,6 +293,19 @@ export async function POST(request: Request) {
     if (!(currentUserText || currentUserFileCount > 0)) {
       return new ChatbotError("bad_request:api").toResponse();
     }
+    let projectClassification: ReturnType<typeof projectChatExecution>;
+    try {
+      projectClassification = projectChatExecution({
+        executionEnabled: executionToolsEnabled(),
+        projectChat: Boolean(chat?.projectId),
+        sandboxProvider: process.env.PIWORK_SANDBOX_PROVIDER,
+      });
+    } catch (error) {
+      return Response.json(
+        { error: error instanceof Error ? error.message : "项目沙箱不可用" },
+        { status: 503 }
+      );
+    }
     const skillCommand = parseSkillCommand(currentUserText);
     const history = uiMessages.slice(0, currentUserMessageIndex);
     // Decide before parsing attachments or creating a host workspace. Metadata
@@ -291,20 +316,22 @@ export async function POST(request: Request) {
       ? await Promise.all([listMcpServers(), listPiPackages()])
       : [[], []];
     const platformWebSearch = webSearchEnabled();
-    const classification = executionToolsEnabled()
-      ? skillCommand
-        ? { reason: "skill-command", requiresExecution: true }
-        : await classifyExecution({
-            attachmentCount: currentUserFileCount,
-            history: history.map((item) => ({
-              role: item.role,
-              text: getTextFromMessage(item),
-            })),
-            message: currentUserText,
-            platformWebSearch,
-            signal: request.signal,
-          })
-      : { reason: "disabled", requiresExecution: false };
+    const classification =
+      projectClassification ??
+      (executionToolsEnabled()
+        ? skillCommand
+          ? { reason: "skill-command", requiresExecution: true }
+          : await classifyExecution({
+              attachmentCount: currentUserFileCount,
+              history: history.map((item) => ({
+                role: item.role,
+                text: getTextFromMessage(item),
+              })),
+              message: currentUserText,
+              platformWebSearch,
+              signal: request.signal,
+            })
+        : { reason: "disabled", requiresExecution: false });
     const routing = selectChatRuntime({
       approvalContinuation: isToolApprovalFlow,
       classificationReason: classification.reason,
@@ -325,6 +352,7 @@ export async function POST(request: Request) {
         history,
         message: currentUserText,
       }),
+      projectChat: Boolean(chat?.projectId),
       requiresExecution: classification.requiresExecution,
       skillCommand: Boolean(skillCommand),
     });
@@ -503,15 +531,20 @@ export async function POST(request: Request) {
       agentPrompt = `${agentPrompt}\n\n${preparedAttachments.text}`;
     }
 
-    // 项目资料上下文（无检索最简方案）：聊天归属项目时，把该项目全部
-    // 资料的提取文本与图像经平台协议注入；失败不静默忽略资料。
+    let projectSources: ProjectSourcesGrant | undefined;
+    // Preview in prompt; complete stored text is hydrated inside SandboxRpc.
     if (chat?.projectId) {
       try {
         const projectRecord = await getProject(session.user.id, chat.projectId);
+        if (!projectRecord) {
+          return new ChatbotError("forbidden:chat").toResponse();
+        }
         if (projectRecord) {
           const context = await buildProjectSourcesContext({
             projectId: projectRecord.id,
             projectName: projectRecord.name,
+            sandboxDocuments: projectDocumentInputsEnabled(),
+            userId: session.user.id,
           });
           if (context) {
             if (context.images.length && !piModel.input.includes("image")) {
@@ -521,13 +554,25 @@ export async function POST(request: Request) {
               );
             }
             preparedAttachments.images.push(...context.images);
+            if (projectDocumentInputsEnabled()) {
+              projectSources = {
+                projectId: projectRecord.id,
+                sources: context.references,
+                userId: session.user.id,
+              };
+            }
             agentPrompt = `${context.block}\n\n---\n\n用户问题：${agentPrompt}`;
           }
         }
       } catch (error) {
         console.warn("Project sources context failed:", error);
         return Response.json(
-          { error: t("sourceExtractFailed") },
+          {
+            error:
+              error instanceof DocumentInputError
+                ? error.message
+                : t("sourceExtractFailed"),
+          },
           { status: 400 }
         );
       }
@@ -618,6 +663,7 @@ export async function POST(request: Request) {
             baseParts,
             prompt: runtimePrompt,
             spec: {
+              ...(projectSources ? { projectSources } : {}),
               lane: routing.lane,
               ...(isDurable
                 ? {

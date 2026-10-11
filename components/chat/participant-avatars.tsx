@@ -16,18 +16,20 @@ export function ParticipantAvatars({
   onlineUserIds = [],
   participants,
   size = 24,
+  maxVisible = MAX_STACK,
   typingUserIds = [],
 }: {
   onlineUserIds?: string[];
   participants: { image: string | null; name: string | null; userId: string }[];
   size?: number;
+  maxVisible?: number;
   typingUserIds?: string[];
 }) {
   if (participants.length === 0) {
     return null;
   }
 
-  const visible = participants.slice(0, MAX_STACK);
+  const visible = participants.slice(0, maxVisible);
   const overflow = participants.length - visible.length;
   const online = new Set(onlineUserIds);
   const typing = new Set(typingUserIds);
@@ -45,7 +47,7 @@ export function ParticipantAvatars({
                 index > 0 && "-ml-1.5"
               )}
               key={participant.userId}
-              style={{ zIndex: MAX_STACK - index }}
+              style={{ zIndex: visible.length - index }}
             >
               <UserAvatar
                 image={participant.image}

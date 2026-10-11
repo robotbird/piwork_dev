@@ -14,6 +14,9 @@
     "comingSoon": "{label} is coming soon"
   },
   "projects": {
+    "sourceStoredChars": "{count} stored characters",
+    "sourceStoredTruncated": "Legacy text was truncated; upload the source again to restore missing content",
+    "sourceExtractionUnverified": "Stored text can be read in segments; extraction completeness is unverified",
     "listTitle": "Projects",
     "emptyHint": "Create a project to keep related chats and files together",
     "emptyAction": "New project",

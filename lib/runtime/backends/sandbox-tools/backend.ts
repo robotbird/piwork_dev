@@ -85,6 +85,9 @@ export class SandboxToolsBackend implements RuntimeBackend {
   }
 
   async open(spec: RuntimeSpec): Promise<RuntimeSession> {
+    if (spec.projectSources) {
+      throw new Error("runtime:project-documents:sandbox-rpc-required");
+    }
     if (!spec.workspaceDir) {
       throw new Error("runtime:sandbox-tools:workspace-required");
     }

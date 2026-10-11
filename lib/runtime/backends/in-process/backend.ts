@@ -50,6 +50,9 @@ export class InProcessBackend implements RuntimeBackend {
   }
 
   async open(spec: RuntimeSpec): Promise<RuntimeSession> {
+    if (spec.projectSources) {
+      throw new Error("runtime:project-documents:sandbox-rpc-required");
+    }
     const queue = new AsyncEventQueue<RuntimeEvent>();
     // deliver_file 的交付闭包在此收口：onDelivered 与 pi 事件走同一队列保序
     // （onDelivered 在工具 execute 内、tool_execution_end 前同步触发）。

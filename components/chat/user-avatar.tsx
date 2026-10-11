@@ -1,6 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,30 +26,35 @@ export function UserAvatar({
   const initial = (name?.trim()?.[0] ?? "?").toUpperCase();
 
   return (
-    <span
-      className={cn(
-        "relative flex shrink-0 select-none overflow-hidden rounded-full bg-primary/12",
-        className
-      )}
-      style={{ height: size, width: size }}
-    >
-      {image ? (
-        <Image
-          alt={name ?? ""}
-          className="size-full object-cover"
-          height={size}
-          src={image}
-          unoptimized
-          width={size}
-        />
-      ) : (
+    <Tooltip>
+      <TooltipTrigger asChild>
         <span
-          className="flex size-full items-center justify-center font-medium text-primary"
-          style={{ fontSize: Math.max(10, size * 0.42) }}
+          className={cn(
+            "relative flex shrink-0 select-none overflow-hidden rounded-full bg-primary",
+            className
+          )}
+          style={{ height: size, width: size }}
         >
-          {initial}
+          {image ? (
+            <Image
+              alt={name ?? ""}
+              className="size-full object-cover"
+              height={size}
+              src={image}
+              unoptimized
+              width={size}
+            />
+          ) : (
+            <span
+              className="flex size-full items-center justify-center font-medium text-primary-foreground"
+              style={{ fontSize: Math.max(10, size * 0.42) }}
+            >
+              {initial}
+            </span>
+          )}
         </span>
-      )}
-    </span>
+      </TooltipTrigger>
+      <TooltipContent sideOffset={6}>{name?.trim() || "成员"}</TooltipContent>
+    </Tooltip>
   );
 }

@@ -15,7 +15,21 @@ export type DurableChatAttachment = {
   size: number;
 };
 
+export type ProjectSourceReference = {
+  sourceId: string;
+  sha256: string;
+  bytes: number;
+};
+
+/** Host-only references, not attachment bytes, callbacks or a Worker DTO. */
+export type ProjectSourcesGrant = {
+  userId: string;
+  projectId: string;
+  sources: ProjectSourceReference[];
+};
+
 export type RuntimeSpec = {
+  projectSources?: ProjectSourcesGrant;
   /** Explicit request lane. Selection is not authorization. */
   lane?: "default" | "durable_sandbox";
   /** Server-assembled, reference-only grant; never accepted from request JSON. */

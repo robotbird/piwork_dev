@@ -7,8 +7,11 @@ import {
 } from "@earendil-works/pi-ai";
 import { openrouterProvider } from "@earendil-works/pi-ai/providers/openrouter";
 import { typesafeProvider } from "@earendil-works/pi-ai/providers/typesafe";
-
 import { heuristicExecution } from "./execution-heuristic";
+import {
+  type FileExecutionRule,
+  fileExecutionRule,
+} from "./file-operation-intent";
 
 const models = createModels();
 models.setProvider(typesafeProvider());
@@ -16,6 +19,7 @@ models.setProvider(openrouterProvider());
 
 export type ExecutionClassification = {
   requiresExecution: boolean;
+  rule?: FileExecutionRule;
   reason: "classified" | "heuristic" | "uncertain" | "unavailable";
 };
 
@@ -61,6 +65,10 @@ export async function classifyExecution(
   } = {}
 ): Promise<ExecutionClassification> {
   input.signal?.throwIfAborted();
+  const rule = fileExecutionRule(input);
+  if (rule) {
+    return { reason: "heuristic", requiresExecution: true, rule };
+  }
   const ref = dependencies.modelRef ?? process.env.PIWORK_CLASSIFIER_MODEL;
   if (!ref && !dependencies.classify) {
     return heuristicExecution(input);

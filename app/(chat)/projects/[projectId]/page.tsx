@@ -17,5 +17,11 @@ export default async function ProjectPage({
   if (!project) {
     notFound();
   }
-  return <ProjectHome projectId={project.id} projectName={project.name} />;
+  return (
+    <ProjectHome
+      isOwner={project.userId === session.user.id}
+      projectId={project.id}
+      projectName={project.name}
+    />
+  );
 }

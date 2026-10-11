@@ -42,6 +42,10 @@ import {
   deliverFileExtensionSource,
 } from "./deliver-file-extension";
 import {
+  installProjectDocuments,
+  type ProjectDocumentLoader,
+} from "./project-sources";
+import {
   installSandboxSkills,
   sandboxSkillsPrompt,
   snapshotSandboxSkills,
@@ -60,6 +64,8 @@ import {
  */
 
 export type SandboxRpcBackendOptions = {
+  /** Trusted host loader performs fresh run/chat/project authorization. */
+  projectDocuments?: ProjectDocumentLoader;
   provider: SandboxProvider;
   /**
    * 沙箱内 pi 进程 env 覆盖（如 PIWORK_FAUX_SCRIPT）。宿主 env 不透传；
@@ -188,6 +194,14 @@ export class SandboxRpcBackend implements RuntimeBackend {
   }
 
   async open(spec: RuntimeSpec): Promise<RuntimeSession> {
+    if (
+      spec.projectSources &&
+      (!this.options.projectDocuments ||
+        !spec.workspaceDir ||
+        spec.lane === "durable_sandbox")
+    ) {
+      throw new Error("runtime:project-documents:sandbox-rpc-loader-required");
+    }
     if (spec.tools.some((tool) => tool.name === "platform_web_search")) {
       throw new Error(
         "平台联网搜索尚未接入 SandboxRpc；不能丢弃工具或回退宿主执行。"
@@ -201,6 +215,7 @@ export class SandboxRpcBackend implements RuntimeBackend {
     const skillSnapshots = spec.workspaceDir
       ? await snapshotSandboxSkills(spec.skills ?? [], {
           allowNonLinuxForTests: this.options.allowNonLinuxSkillReadForTests,
+          collectorImage: this.options.image,
           root: this.options.skillsRoot,
         })
       : [];
@@ -243,6 +258,15 @@ export class SandboxRpcBackend implements RuntimeBackend {
     const releasePolicy = this.options.releasePolicy ?? "kill";
     const remoteCli = this.options.remoteCliPath;
     try {
+      const projectPrompt =
+        spec.projectSources && this.options.projectDocuments
+          ? await installProjectDocuments(
+              handle,
+              spec,
+              this.options.projectDocuments,
+              AbortSignal.timeout(120_000)
+            )
+          : "";
       // All skill files are materialized before the remote agent can execute.
       const skillPaths = await installSandboxSkills(handle, skillSnapshots);
       // seeding：官方 SessionManager 本地落盘 → 上传 workspace 绝对路径
@@ -299,7 +323,10 @@ export class SandboxRpcBackend implements RuntimeBackend {
       const derived = buildRpcClientOptions(
         {
           ...spec,
-          appendSystemPrompt: sandboxSkillsPrompt(spec, handle.workspaceRoot),
+          appendSystemPrompt: [
+            ...sandboxSkillsPrompt(spec, handle.workspaceRoot),
+            ...(projectPrompt ? [projectPrompt] : []),
+          ],
         },
         {
           agentDir: "unused",
@@ -380,12 +407,28 @@ export class SandboxRpcBackend implements RuntimeBackend {
       }
     } catch (error) {
       stopRenewal();
-      await this.options.provider
-        .release(handle, "kill")
-        .catch(() => undefined);
+      let cleanupError: unknown;
+      try {
+        await this.options.provider.release(handle, "kill");
+        if (spec.projectSources && (await handle.status()) !== "destroyed") {
+          throw new Error("project document sandbox destruction unverified", {
+            cause: error,
+          });
+        }
+      } catch (failure) {
+        cleanupError = failure;
+      }
       if (inference) {
         await Promise.resolve(inference.revokeRunTokens(runId)).catch(
           () => undefined
+        );
+      }
+      if (spec.projectSources && cleanupError) {
+        // biome-ignore lint/style/useErrorCause: AggregateError retains both errors and the startup cause
+        throw new AggregateError(
+          [error, cleanupError],
+          "runtime:project-documents:cleanup-failed",
+          { cause: error }
         );
       }
       throw error;

@@ -49,6 +49,7 @@ export function chatNeedsCompatibility(input: {
 
 /** Select once, before attachment parsing/workspace creation. No error fallback. */
 export function selectChatRuntime(input: {
+  projectChat?: boolean;
   durableEnabled: boolean;
   requiresExecution: boolean;
   classificationReason: string;
@@ -56,6 +57,9 @@ export function selectChatRuntime(input: {
   skillCommand: boolean;
   needsCompatibility: boolean;
 }): { lane: "default" | "durable_sandbox"; reason: string } {
+  if (input.projectChat) {
+    return { lane: "default", reason: "project-sandbox" };
+  }
   if (
     input.approvalContinuation ||
     input.skillCommand ||
@@ -72,4 +76,22 @@ export function selectChatRuntime(input: {
   return input.durableEnabled
     ? { lane: "durable_sandbox", reason: "automatic-sandbox-tools" }
     : { lane: "default", reason: "durable-disabled" };
+}
+
+/** Project membership comes from the persisted Chat, never from a client lane. */
+export function projectChatExecution(input: {
+  projectChat: boolean;
+  executionEnabled: boolean;
+  sandboxProvider?: string;
+}): { requiresExecution: true; reason: "project-sandbox" } | null {
+  if (!input.projectChat) {
+    return null;
+  }
+  if (!input.executionEnabled) {
+    throw new Error("项目聊天需要沙箱执行能力，当前执行工具已关闭");
+  }
+  if (!["docker", "opensandbox"].includes(input.sandboxProvider ?? "")) {
+    throw new Error("项目聊天需要已配置的沙箱环境");
+  }
+  return { reason: "project-sandbox", requiresExecution: true };
 }

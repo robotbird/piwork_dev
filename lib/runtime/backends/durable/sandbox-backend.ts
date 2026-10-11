@@ -79,6 +79,9 @@ export class DurableSandboxBackend implements RuntimeBackend {
   }
 
   async open(spec: RuntimeSpec): Promise<RuntimeSession> {
+    if (spec.projectSources) {
+      throw new Error("runtime:project-documents:sandbox-rpc-required");
+    }
     if (process.env.NODE_ENV === "production") {
       throw new Error("runtime:durable-sandbox:production-not-integrated");
     }

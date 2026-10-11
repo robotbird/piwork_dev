@@ -59,15 +59,20 @@ export function ShareDialog({
   chatId,
   onClose,
   open,
+  resource = "chat",
 }: {
   chatId: string;
+  resource?: "chat" | "project";
   onClose: () => void;
   open: boolean;
 }) {
+  const endpoint =
+    resource === "project" ? "/api/projects/share" : "/api/chat/share";
+  const idKey = resource === "project" ? "projectId" : "chatId";
   const t = useTranslations("chat.shareDialog");
   const { data, mutate } = useSWR<ShareData>(
     open
-      ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat/share?chatId=${chatId}`
+      ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}${endpoint}?${idKey}=${chatId}`
       : null,
     fetcher
   );
@@ -120,10 +125,10 @@ export function ShareDialog({
       setPendingMembers(new Set(pendingMembersRef.current));
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat/share`,
+          `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}${endpoint}`,
           {
             body: JSON.stringify({
-              chatId,
+              [idKey]: chatId,
               memberIds: [userId],
             }),
             headers: { "content-type": "application/json" },
@@ -141,7 +146,7 @@ export function ShareDialog({
         setPendingMembers(new Set(pendingMembersRef.current));
       }
     },
-    [chatId, mutate, t]
+    [chatId, mutate, t, endpoint, idKey]
   );
 
   const handleGenerate = useCallback(
@@ -149,10 +154,10 @@ export function ShareDialog({
       setBusyAction(true);
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat/share`,
+          `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}${endpoint}`,
           {
             body: JSON.stringify({
-              chatId,
+              [idKey]: chatId,
               ...(regenerate ? { regenerate: true } : {}),
             }),
             headers: { "content-type": "application/json" },
@@ -171,7 +176,7 @@ export function ShareDialog({
           setGeneratedLink({
             chatId,
             expiresAt: created.inviteExpiresAt ?? "",
-            url: `${origin}/chat/${chatId}/join?t=${encodeURIComponent(created.token)}`,
+            url: `${origin}/${resource === "project" ? "projects" : "chat"}/${chatId}/join?t=${encodeURIComponent(created.token)}`,
           });
           setCopied(false);
         }
@@ -182,7 +187,7 @@ export function ShareDialog({
         setBusyAction(false);
       }
     },
-    [chatId, mutate, t]
+    [chatId, mutate, t, endpoint, idKey, resource]
   );
 
   useEffect(() => {
@@ -216,7 +221,7 @@ export function ShareDialog({
     setBusyAction(true);
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat/share?chatId=${chatId}&invite=1`,
+        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}${endpoint}?${idKey}=${chatId}&invite=1`,
         { method: "DELETE" }
       );
       if (!response.ok) {
@@ -230,13 +235,13 @@ export function ShareDialog({
     } finally {
       setBusyAction(false);
     }
-  }, [chatId, mutate, t]);
+  }, [chatId, mutate, t, endpoint, idKey]);
 
   const handleRemove = useCallback(
     async (userId: string) => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat/share?chatId=${chatId}&userId=${userId}`,
+          `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}${endpoint}?${idKey}=${chatId}&userId=${userId}`,
           { method: "DELETE" }
         );
         if (!response.ok) {
@@ -247,7 +252,7 @@ export function ShareDialog({
         toast.error(t("actionFailed"));
       }
     },
-    [chatId, mutate, t]
+    [chatId, mutate, t, endpoint, idKey]
   );
 
   const handleCopy = useCallback(async () => {
@@ -319,10 +324,12 @@ export function ShareDialog({
       >
         <DialogHeader className="shrink-0 px-6 pb-5 pt-6 pr-14">
           <DialogTitle className="text-base font-semibold leading-6">
-            {t("title")}
+            {resource === "project" ? "分享项目" : t("title")}
           </DialogTitle>
           <DialogDescription className="text-sm leading-5">
-            {t("description")}
+            {resource === "project"
+              ? "共享项目资料，各自的对话保持私有。"
+              : t("description")}
           </DialogDescription>
         </DialogHeader>
 

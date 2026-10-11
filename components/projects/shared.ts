@@ -3,6 +3,7 @@
 import type { SourceFileType } from "@/lib/projects/source-files";
 
 export type ProjectSummary = {
+  isOwner?: boolean;
   id: string;
   name: string;
   createdAt: string;
@@ -19,6 +20,8 @@ export type ProjectChatSummary = {
 };
 
 export type ProjectSourceSummary = {
+  textChars?: number | null;
+  storedTextTruncated?: boolean;
   createdAt: string;
   id: string;
   name: string;
