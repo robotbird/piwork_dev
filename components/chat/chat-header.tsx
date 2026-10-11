@@ -1,8 +1,11 @@
 "use client";
 
 import { FolderIcon, PanelLeftIcon, Share2Icon } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { memo, useCallback, useState } from "react";
+import useSWR from "swr";
 import { usePreferences } from "@/components/preferences-provider";
+import { type ProjectSummary, request } from "@/components/projects/shared";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useActiveChat } from "@/hooks/use-active-chat";
@@ -25,6 +28,15 @@ function PureChatHeader({
 }) {
   const { toggleSidebar, isMobile } = useSidebar();
   const { t } = usePreferences();
+  const pathname = usePathname();
+  const projectId = pathname.match(
+    /^\/projects\/([^/]+)\/chat\/[^/]+\/?$/
+  )?.[1];
+  const { data: projectData } = useSWR<{ project: ProjectSummary }>(
+    projectId ? `/api/projects/${encodeURIComponent(projectId)}` : null,
+    request
+  );
+  const projectName = projectData?.project.name;
   const {
     chatId,
     isReadonly,
@@ -57,12 +69,19 @@ function PureChatHeader({
         </Button>
       ) : null}
 
-      {hasMessages ? (
+      {hasMessages || projectId ? (
         <>
           <div className="flex min-w-0 items-center gap-2.5 text-[15px]">
             <FolderIcon className="size-[18px] shrink-0 text-muted-foreground" />
-            <span className="hidden font-medium text-foreground sm:inline">
-              PiWork
+            <span
+              className={
+                projectId
+                  ? "max-w-[min(40vw,280px)] truncate font-medium text-foreground"
+                  : "hidden font-medium text-foreground sm:inline"
+              }
+              title={projectName}
+            >
+              {projectId ? (projectName ?? t("appSidebar.projects")) : "PiWork"}
             </span>
             <span className="hidden text-muted-foreground sm:inline">/</span>
             <span className="max-w-[min(42vw,460px)] truncate text-muted-foreground">
