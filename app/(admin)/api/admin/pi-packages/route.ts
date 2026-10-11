@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
+import { requireAdminRole } from "@/lib/admin/access";
 import { listPiPackages } from "@/lib/db/pi-package-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireAdminRole } from "@/lib/admin/access";
 import {
   installPiPackage,
   PiPackageError,

@@ -1,4 +1,6 @@
 import { getLocale, getTranslations } from "next-intl/server";
+import { requireAdminRole } from "@/lib/admin/access";
+import { asProviderDefinition } from "@/lib/admin/model-plugins";
 import { invalidateActiveModelCatalog } from "@/lib/ai/active-models";
 import {
   deletePluginInstallation,
@@ -6,8 +8,6 @@ import {
   updatePluginInstallation,
 } from "@/lib/db/model-plugin-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireAdminRole } from "@/lib/admin/access";
-import { asProviderDefinition } from "@/lib/admin/model-plugins";
 import { getBuiltinPluginPackage } from "@/lib/model-plugins/builtin-catalog";
 import {
   decryptPluginCredentials,

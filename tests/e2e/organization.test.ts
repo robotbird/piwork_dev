@@ -197,12 +197,9 @@ test.describe
       await expect(dialog.getByText("该部门下还有 1 个下级部门")).toBeVisible();
 
       // 接口同样拒绝删除有下级部门的部门
-      const response = await page.request.delete(
-        "/api/admin/organization",
-        {
-          data: { id: root.id },
-        }
-      );
+      const response = await page.request.delete("/api/admin/organization", {
+        data: { id: root.id },
+      });
       expect(response.status()).toBe(409);
       expect(await response.json()).toMatchObject({
         error: "该部门下还有下级部门，需先删除或转移下级部门",

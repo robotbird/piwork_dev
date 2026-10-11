@@ -1,11 +1,11 @@
 import { getTranslations } from "next-intl/server";
+import { requireAdminRole } from "@/lib/admin/access";
 import { invalidateActiveModelCatalog } from "@/lib/ai/active-models";
 import {
   createPluginInstallation,
   getPluginInstallationByProviderKey,
 } from "@/lib/db/model-plugin-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireAdminRole } from "@/lib/admin/access";
 import { getBuiltinPluginPackage } from "@/lib/model-plugins/builtin-catalog";
 import { encryptPluginCredentials } from "@/lib/model-plugins/credentials";
 import { ProviderPluginManager } from "@/lib/model-plugins/manager";

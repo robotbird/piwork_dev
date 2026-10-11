@@ -2,8 +2,8 @@ import "../../../../support/runtime-env";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  fauxAssistantMessage,
   type AssistantMessage,
+  fauxAssistantMessage,
   type TextContent,
   type Usage,
 } from "@earendil-works/pi-ai";
@@ -20,12 +20,14 @@ const usage: Usage = {
   totalTokens: 0,
 };
 
-function assistantMessage(content: AssistantMessage["content"]): AssistantMessage {
+function assistantMessage(
+  content: AssistantMessage["content"]
+): AssistantMessage {
   return { ...fauxAssistantMessage(""), content };
 }
 
 function textBlock(text: string): TextContent {
-  return { type: "text", text };
+  return { text, type: "text" };
 }
 
 /** 官方 watch overflow 契约：以 snapshot 帧顶替未送达批次 */
@@ -53,7 +55,9 @@ test("delta for a block without start synthesizes start before the delta", () =>
   assert.deepEqual(
     outline(
       normalizer.feed({
-        changes: [{ contentIndex: 0, delta: "晚", type: "text_delta" } as const],
+        changes: [
+          { contentIndex: 0, delta: "晚", type: "text_delta" } as const,
+        ],
         type: "message_update",
         usage,
       })
@@ -76,7 +80,9 @@ test("delta after the block closed reopens it instead of emitting an orphan delt
   assert.deepEqual(
     outline(
       normalizer.feed({
-        changes: [{ contentIndex: 0, delta: "cd", type: "text_delta" } as const],
+        changes: [
+          { contentIndex: 0, delta: "cd", type: "text_delta" } as const,
+        ],
         type: "message_update",
         usage,
       })

@@ -181,15 +181,11 @@ export function RoleDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="role-description">
-              {t("admin.description")}
-            </Label>
+            <Label htmlFor="role-description">{t("admin.description")}</Label>
             <Textarea
               id="role-description"
               onChange={handleDescriptionChange}
-              placeholder={t(
-                "admin.optionalBrieflyDescribeWhatThisRoleIs"
-              )}
+              placeholder={t("admin.optionalBrieflyDescribeWhatThisRoleIs")}
               rows={3}
               value={description}
             />

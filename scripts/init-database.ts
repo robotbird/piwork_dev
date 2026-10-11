@@ -38,10 +38,9 @@ async function main() {
   console.log("System roles seeded.");
 
   console.log("[3/3] Ensuring initial admin...");
-  const {
-    countEnabledAdmins,
-    createMemberWithAccount,
-  } = await import("../lib/db/organization-queries");
+  const { countEnabledAdmins, createMemberWithAccount } = await import(
+    "../lib/db/organization-queries"
+  );
   const adminCount = await countEnabledAdmins();
   if (adminCount > 0) {
     console.log(`Found ${adminCount} existing admin(s), skipping bootstrap.`);
@@ -60,7 +59,9 @@ async function main() {
     role: "admin",
     title: null,
   });
-  console.log(`Initial admin created: ${created.email} (memberId ${created.id})`);
+  console.log(
+    `Initial admin created: ${created.email} (memberId ${created.id})`
+  );
 
   // 系统角色种子需要成员存在后才能回填超级管理员归属，再执行一次
   await ensureSystemRolesSeeded();

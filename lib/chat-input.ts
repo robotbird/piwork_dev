@@ -5,7 +5,7 @@ export const CHAT_TEXT_PART_MAX_LENGTH = 50_000;
 
 // 输入文本超过该长度时，聊天输入框会把它转为 .txt 附件发送
 // （粘贴与提交两条路径），文本框里保留的短文本不受影响。
-export const CHAT_TEXT_TO_FILE_THRESHOLD = 2_000;
+export const CHAT_TEXT_TO_FILE_THRESHOLD = 2000;
 
 // 归一化粘贴文本的换行：Windows 剪贴板常见 \r\n、旧 Mac 为孤 \r，
 // 统一成 \n，保证 txt 文件预览与模型读取时换行正确显示。

@@ -95,17 +95,15 @@ test.describe
     }) => {
       const email = await registerAccount(page);
       await setMemberRole(email, "admin");
-      const installed = await page.request.post(
-        "/api/admin/model-plugins",
-        { data: { packageId: "piwork-llm-deepseek" } }
-      );
+      const installed = await page.request.post("/api/admin/model-plugins", {
+        data: { packageId: "piwork-llm-deepseek" },
+      });
       expect(installed.status()).toBe(201);
       const { id } = (await installed.json()) as { id: string };
 
-      const duplicate = await page.request.post(
-        "/api/admin/model-plugins",
-        { data: { packageId: "piwork-llm-deepseek" } }
-      );
+      const duplicate = await page.request.post("/api/admin/model-plugins", {
+        data: { packageId: "piwork-llm-deepseek" },
+      });
       expect(duplicate.status()).toBe(409);
 
       const prematureModelEnable = await page.request.patch(

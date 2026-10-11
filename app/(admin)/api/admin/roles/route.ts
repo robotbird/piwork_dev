@@ -1,4 +1,9 @@
 import { getTranslations } from "next-intl/server";
+import { requireAdminSession } from "@/lib/admin/access";
+import {
+  ROLE_DESCRIPTION_MAX_LENGTH,
+  ROLE_NAME_MAX_LENGTH,
+} from "@/lib/admin/roles";
 import {
   createRoleRecord,
   deleteRoleRecord,
@@ -9,11 +14,6 @@ import {
   updateRoleRecord,
 } from "@/lib/db/role-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireAdminSession } from "@/lib/admin/access";
-import {
-  ROLE_DESCRIPTION_MAX_LENGTH,
-  ROLE_NAME_MAX_LENGTH,
-} from "@/lib/admin/roles";
 
 function apiError(message: string, status = 400) {
   return Response.json({ error: message }, { status });

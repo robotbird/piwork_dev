@@ -63,7 +63,10 @@ export class InMemorySandboxRegistry implements SandboxRegistry {
     return Promise.resolve();
   }
 
-  unavailable(provider: SandboxProviderName, externalId: string): Promise<void> {
+  unavailable(
+    provider: SandboxProviderName,
+    externalId: string
+  ): Promise<void> {
     this.events.push({ externalId, kind: "unavailable", provider });
     this.reusable.delete(externalId);
     return Promise.resolve();

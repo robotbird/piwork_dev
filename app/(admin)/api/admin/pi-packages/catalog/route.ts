@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server";
-
-import { ChatbotError } from "@/lib/errors";
 import { requireAdminRole } from "@/lib/admin/access";
+import { ChatbotError } from "@/lib/errors";
 import { searchPiPackageCatalog } from "@/lib/pi-packages/catalog";
 
 /** npm pi-package 目录搜索代理(pi.dev/packages 同源);仅管理员可用。 */

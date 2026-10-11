@@ -28,9 +28,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  type AdminMember,
   isLastEnabledAdmin,
   isValidEmail,
-  type AdminMember,
   MEMBER_ROLE_OPTIONS,
   MEMBER_STATUS_OPTIONS,
   type MemberRole,

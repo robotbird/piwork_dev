@@ -1,8 +1,8 @@
 import { getTranslations } from "next-intl/server";
-import { ChatbotError } from "@/lib/errors";
 import { requireAdminRole } from "@/lib/admin/access";
 import { SandboxAdminError } from "@/lib/admin/sandbox-service";
 import { getSandboxAdminService } from "@/lib/admin/sandboxes";
+import { ChatbotError } from "@/lib/errors";
 
 function unauthorized() {
   return new ChatbotError("unauthorized:chat").toResponse();

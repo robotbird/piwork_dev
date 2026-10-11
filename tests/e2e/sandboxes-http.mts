@@ -140,7 +140,10 @@ try {
   );
   await sql`INSERT INTO "Member" ("userId", role, status) VALUES (${userId}, 'member', 'enabled')`;
   assert.equal((await request("GET")).status, 401);
-  assert.equal((await fetch(taskURL, { headers: { Cookie: cookie } })).status, 401);
+  assert.equal(
+    (await fetch(taskURL, { headers: { Cookie: cookie } })).status,
+    401
+  );
   assert.equal(
     (
       await request("POST", {
@@ -170,7 +173,7 @@ try {
     });
     await writeFile(
       "/tmp/piwork-sandbox-preview.json",
-      JSON.stringify({ chatId, email, externalIds: created, userId, taskOwner })
+      JSON.stringify({ chatId, email, externalIds: created, taskOwner, userId })
     );
     keep = true;
     console.log(`Preview account: ${email}`);

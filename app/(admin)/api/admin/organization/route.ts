@@ -1,4 +1,7 @@
 import { getTranslations } from "next-intl/server";
+import { requireAdminSession } from "@/lib/admin/access";
+import type { Department, MemberSummary } from "@/lib/admin/organization";
+import { getDescendantIds } from "@/lib/admin/organization";
 import {
   countChildDepartments,
   createDepartmentRecord,
@@ -10,9 +13,6 @@ import {
   updateDepartmentRecord,
 } from "@/lib/db/organization-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireAdminSession } from "@/lib/admin/access";
-import type { Department, MemberSummary } from "@/lib/admin/organization";
-import { getDescendantIds } from "@/lib/admin/organization";
 
 const MAX_DEPARTMENT_NAME_LENGTH = 128;
 

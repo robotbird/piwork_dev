@@ -18,7 +18,9 @@
       "!lib/utils.ts",
       "!hooks/use-mobile.ts",
       "!packages/*/dist",
-      "!.piwork"
+      "!.piwork",
+      "!.claude",
+      "!lib/db/migrations/meta"
     ]
   },
   "linter": {

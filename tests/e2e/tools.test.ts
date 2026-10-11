@@ -100,36 +100,30 @@ test.describe
       const email = await registerAccount(page);
       await setMemberRole(email, "admin");
 
-      const createdStdio = await page.request.post(
-        "/api/admin/mcp-servers",
-        {
-          data: {
-            args: ["-y", "mcp-server-weather"],
-            command: "npx",
-            description: "e2e stdio server",
-            enabled: true,
-            env: { API_KEY: "secret" },
-            name: stdioName,
-            transport: "stdio",
-          },
-        }
-      );
+      const createdStdio = await page.request.post("/api/admin/mcp-servers", {
+        data: {
+          args: ["-y", "mcp-server-weather"],
+          command: "npx",
+          description: "e2e stdio server",
+          enabled: true,
+          env: { API_KEY: "secret" },
+          name: stdioName,
+          transport: "stdio",
+        },
+      });
       expect(createdStdio.status()).toBe(201);
       const { id: stdioId } = (await createdStdio.json()) as { id: string };
 
-      const createdHttp = await page.request.post(
-        "/api/admin/mcp-servers",
-        {
-          data: {
-            description: "e2e http server",
-            enabled: false,
-            headers: { Authorization: "Bearer token" },
-            name: httpName,
-            transport: "http",
-            url: "https://example.com/mcp",
-          },
-        }
-      );
+      const createdHttp = await page.request.post("/api/admin/mcp-servers", {
+        data: {
+          description: "e2e http server",
+          enabled: false,
+          headers: { Authorization: "Bearer token" },
+          name: httpName,
+          transport: "http",
+          url: "https://example.com/mcp",
+        },
+      });
       expect(createdHttp.status()).toBe(201);
       const { id: httpId } = (await createdHttp.json()) as { id: string };
 
@@ -142,23 +136,17 @@ test.describe
       });
       expect(duplicate.status()).toBe(409);
 
-      const badTransport = await page.request.post(
-        "/api/admin/mcp-servers",
-        { data: { name: `e2e-bad-${uniqueSuffix()}`, transport: "grpc" } }
-      );
+      const badTransport = await page.request.post("/api/admin/mcp-servers", {
+        data: { name: `e2e-bad-${uniqueSuffix()}`, transport: "grpc" },
+      });
       expect(badTransport.status()).toBe(400);
 
-      const missingUrl = await page.request.post(
-        "/api/admin/mcp-servers",
-        {
-          data: { name: `e2e-nourl-${uniqueSuffix()}`, transport: "http" },
-        }
-      );
+      const missingUrl = await page.request.post("/api/admin/mcp-servers", {
+        data: { name: `e2e-nourl-${uniqueSuffix()}`, transport: "http" },
+      });
       expect(missingUrl.status()).toBe(400);
 
-      const listResponse = await page.request.get(
-        "/api/admin/mcp-servers"
-      );
+      const listResponse = await page.request.get("/api/admin/mcp-servers");
       expect(listResponse.ok()).toBeTruthy();
       const { servers } = (await listResponse.json()) as {
         servers: Array<{ name: string }>;
@@ -250,9 +238,7 @@ test.describe
       });
       expect(duplicate.status()).toBe(409);
 
-      const listResponse = await page.request.get(
-        "/api/admin/pi-packages"
-      );
+      const listResponse = await page.request.get("/api/admin/pi-packages");
       expect(listResponse.ok).toBeTruthy();
       const { packages } = (await listResponse.json()) as {
         packages: Array<{ name: string; source: string; system: boolean }>;
@@ -275,10 +261,9 @@ test.describe
       });
       expect(unknown.status()).toBe(404);
 
-      const uninstalled = await page.request.delete(
-        "/api/admin/pi-packages",
-        { data: { source: fixtureSource } }
-      );
+      const uninstalled = await page.request.delete("/api/admin/pi-packages", {
+        data: { source: fixtureSource },
+      });
       expect(uninstalled.ok).toBeTruthy();
       const uninstallBody = (await uninstalled.json()) as {
         removedSkills: string[];

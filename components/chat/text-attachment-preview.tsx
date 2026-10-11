@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useTranslations } from "next-intl";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useCallback, useState } from "react";
 import type { Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Spinner } from "../ui/spinner";
@@ -50,7 +50,7 @@ export function TextAttachmentPreview({
     const next = !open;
     setOpen(next);
     if (next && content === null && !isLoading) {
-      void load();
+      load();
     }
   }, [content, isLoading, load, open]);
 
@@ -59,7 +59,10 @@ export function TextAttachmentPreview({
   }
 
   return (
-    <div className="flex w-full flex-col gap-2" data-testid="text-attachment-preview">
+    <div
+      className="flex w-full flex-col gap-2"
+      data-testid="text-attachment-preview"
+    >
       <button
         className={cn(
           "flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground",
@@ -90,7 +93,9 @@ export function TextAttachmentPreview({
               {t("textPreviewLoading")}
             </div>
           ) : hasError ? (
-            <p className="text-sm text-destructive">{t("textPreviewLoadFailed")}</p>
+            <p className="text-sm text-destructive">
+              {t("textPreviewLoadFailed")}
+            </p>
           ) : (
             // whitespace-pre-wrap 按原文保留换行，break-words 兜底超长行
             <pre className="font-sans text-sm leading-6 break-words whitespace-pre-wrap">

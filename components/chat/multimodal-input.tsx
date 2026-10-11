@@ -63,7 +63,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { ArrowUpIcon, ChevronDownIcon, StopIcon } from "./icons";
 import { LibraryFilePicker } from "./library-file-picker";
 import { PreviewAttachment } from "./preview-attachment";
-import { TextAttachmentPreview } from "./text-attachment-preview";
 import {
   createSkillSlashCommands,
   type SkillSummary,
@@ -71,6 +70,7 @@ import {
   SlashCommandMenu,
   slashCommands,
 } from "./slash-commands";
+import { TextAttachmentPreview } from "./text-attachment-preview";
 import type { VisibilityType } from "./visibility-selector";
 
 function setCookie(name: string, value: string) {
@@ -603,9 +603,13 @@ function PureMultimodalInput({
         );
         return;
       }
-      const file = new File([normalizePastedText(text)], buildPastedTextFilename(), {
-        type: "text/plain",
-      });
+      const file = new File(
+        [normalizePastedText(text)],
+        buildPastedTextFilename(),
+        {
+          type: "text/plain",
+        }
+      );
       setUploadQueue((prev) => [...prev, file.name]);
       try {
         const uploaded = await uploadFile(file);

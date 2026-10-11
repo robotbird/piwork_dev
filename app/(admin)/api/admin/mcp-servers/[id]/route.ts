@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-
+import { requireAdminRole } from "@/lib/admin/access";
 import {
   deleteMcpServer,
   getMcpServer,
@@ -7,7 +7,6 @@ import {
   updateMcpServer,
 } from "@/lib/db/mcp-server-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireAdminRole } from "@/lib/admin/access";
 
 function unauthorized() {
   return new ChatbotError("unauthorized:chat").toResponse();

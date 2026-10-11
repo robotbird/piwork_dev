@@ -30,11 +30,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  type AdminMember,
   formatStamp,
   getAvatarInitial,
   getAvatarTone,
   isLastEnabledAdmin,
-  type AdminMember,
   type MemberStatus,
   ROLE_LABELS,
   STATUS_LABELS,
@@ -291,21 +291,15 @@ export function MembersPage({
   initialData: MembersData;
 }) {
   const { t } = usePreferences();
-  const [members, setMembers] = useState<AdminMember[]>(
-    initialData.members
-  );
+  const [members, setMembers] = useState<AdminMember[]>(initialData.members);
   const [departments, setDepartments] = useState<DepartmentOption[]>(
     initialData.departments
   );
   const [loadFailed, setLoadFailed] = useState(false);
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingMember, setEditingMember] = useState<AdminMember | null>(
-    null
-  );
-  const [deleteTarget, setDeleteTarget] = useState<AdminMember | null>(
-    null
-  );
+  const [editingMember, setEditingMember] = useState<AdminMember | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminMember | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const refresh = useCallback(async (): Promise<MembersData | null> => {

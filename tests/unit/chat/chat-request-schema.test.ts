@@ -21,7 +21,9 @@ function requestWithText(text: string) {
 }
 
 test("long pasted articles (formerly >2000 chars) are accepted", () => {
-  const parsed = postRequestBodySchema.parse(requestWithText("长".repeat(30_000)));
+  const parsed = postRequestBodySchema.parse(
+    requestWithText("长".repeat(30_000))
+  );
   assert.equal(parsed.message?.parts[0].type, "text");
 });
 

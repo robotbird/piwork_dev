@@ -5,11 +5,7 @@ import { usePreferences } from "@/components/preferences-provider";
 import { Badge } from "@/components/ui/badge";
 import type { AdminSection } from "@/lib/admin/sections";
 
-export function SectionPlaceholder({
-  section,
-}: {
-  section: AdminSection;
-}) {
+export function SectionPlaceholder({ section }: { section: AdminSection }) {
   const Icon = section.icon;
   const { t } = usePreferences();
 

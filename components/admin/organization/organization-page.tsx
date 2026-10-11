@@ -319,13 +319,10 @@ export function OrganizationPage({
 
   const handleCreateSubmit = useCallback(
     async (values: DepartmentFormValues) => {
-      const { data, error } = await requestJson(
-        "/api/admin/organization",
-        {
-          body: JSON.stringify(values),
-          method: "POST",
-        }
-      );
+      const { data, error } = await requestJson("/api/admin/organization", {
+        body: JSON.stringify(values),
+        method: "POST",
+      });
       if (error || !data) {
         toast.error(
           error ? t(error) : t("managementApi.createDepartmentFailed")

@@ -45,7 +45,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // ---------- 伪大脑：按最后一条用户输入路由 ----------
 
 function lastUserText(ctx: TranscriptContext): string {
-  for (let i = ctx.messages.length - 1; i >= 0; i--) {
+  for (let i = ctx.messages.length - 1; i >= 0; i -= 1) {
     const message = ctx.messages[i];
     if (message?.role !== "user") {
       continue;
@@ -62,10 +62,10 @@ function lastUserText(ctx: TranscriptContext): string {
 }
 
 function brain(ctx: TranscriptContext): AssistantMessage {
-  const reply = (text: string) =>
-    fauxAssistantMessage(text, { stopReason: "stop" });
+  const reply = (label: string) =>
+    fauxAssistantMessage(label, { stopReason: "stop" });
   // 工具轮结束后尾部是 toolResult：应给最终答复而不是再次发起同一工具调用
-  const last = ctx.messages[ctx.messages.length - 1];
+  const last = ctx.messages.at(-1);
   if (last?.role === "toolResult") {
     const failed = (last as { isError?: boolean }).isError === true;
     return failed
@@ -181,10 +181,7 @@ function textOfMessage(message: unknown): string {
   return "";
 }
 
-async function printEvent(event: {
-  type: string;
-  [key: string]: unknown;
-}): Promise<void> {
+function printEvent(event: { type: string; [key: string]: unknown }): void {
   switch (event.type) {
     case "tool_execution_start":
       console.log(
@@ -265,7 +262,7 @@ async function main(): Promise<void> {
     CTX
   );
   const conv = await harness.root(CTX);
-  const model = handle.models[0];
+  const [model] = handle.models;
   if (!model) {
     throw new Error("faux provider 未提供模型定义");
   }
@@ -302,6 +299,7 @@ async function main(): Promise<void> {
         resolveRun?.();
         resolveRun = undefined;
       }
+      // biome-ignore lint/performance/noAwaitInLoops: 事件必须按到达顺序串行打印
       await printEvent(event);
     }
   });
@@ -352,6 +350,7 @@ async function main(): Promise<void> {
       if (inputClosed) {
         return; // EOF：交给优雅退出
       }
+      // biome-ignore lint/performance/noAwaitInLoops: 事件式暂停，等下一行输入到达
       await new Promise<void>((resolve) => {
         lineArrived = resolve;
       });
@@ -360,6 +359,7 @@ async function main(): Promise<void> {
   }
 
   for (;;) {
+    // biome-ignore lint/performance/noAwaitInLoops: REPL 必须逐行串行等待用户输入
     const line = await readLine(runInFlight ? "…(回合进行中) > " : "you> ");
     if (line === undefined) {
       await gracefulExit();

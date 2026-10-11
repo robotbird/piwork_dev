@@ -14,7 +14,10 @@ import {
   registerSandboxAcquired,
 } from "../../../lib/db/sandbox-queries";
 
-const sql = postgres(process.env.POSTGRES_URL ?? "", { max: 1, connection: { TimeZone: "UTC" } });
+const sql = postgres(process.env.POSTGRES_URL ?? "", {
+  connection: { TimeZone: "UTC" },
+  max: 1,
+});
 const owner = crypto.randomUUID();
 const other = crypto.randomUUID();
 
@@ -41,22 +44,22 @@ test("register 幂等 upsert：chat 复用下同一 (provider, externalId) 更�
   const runA = crypto.randomUUID();
   const runB = crypto.randomUUID();
   await registerSandboxAcquired({
-    provider: "test",
-    externalId: "sbx-upsert-1",
     chatId,
-    userId: owner,
-    runId: runA,
+    externalId: "sbx-upsert-1",
     image: "pi-runtime-test:1",
+    provider: "test",
+    runId: runA,
     ttlSeconds: 60,
+    userId: owner,
   });
   await registerSandboxAcquired({
-    provider: "test",
-    externalId: "sbx-upsert-1",
     chatId,
-    userId: owner,
-    runId: runB,
+    externalId: "sbx-upsert-1",
     image: "pi-runtime-test:1",
+    provider: "test",
+    runId: runB,
     ttlSeconds: 120,
+    userId: owner,
   });
   const rows = await listSandboxInstances();
   const mine = rows.filter((r) => r.externalId === "sbx-upsert-1");
@@ -71,22 +74,22 @@ test("register 幂等 upsert：chat 复用下同一 (provider, externalId) 更�
 test("renew 平移到期时刻；终态沙箱不再续期", async () => {
   const chatId = await createChat(owner, "sandbox-queries-renew");
   await registerSandboxAcquired({
-    provider: "docker",
-    externalId: "sbx-renew-1",
     chatId,
-    userId: owner,
-    runId: crypto.randomUUID(),
+    externalId: "sbx-renew-1",
     image: "pi-runtime-dev:1",
+    provider: "docker",
+    runId: crypto.randomUUID(),
     ttlSeconds: 3600,
+    userId: owner,
   });
   const before = (await listSandboxInstances()).find(
-    (r) => r.externalId === "sbx-renew-1",
+    (r) => r.externalId === "sbx-renew-1"
   );
   assert.ok(before);
   const renewed = await markSandboxRenewed("docker", "sbx-renew-1", 3600);
   assert.equal(renewed, true);
   const after = (await listSandboxInstances()).find(
-    (r) => r.externalId === "sbx-renew-1",
+    (r) => r.externalId === "sbx-renew-1"
   );
   assert.ok(after);
   assert.ok(after.expiresAt > before.expiresAt);
@@ -100,22 +103,22 @@ test("renew 平移到期时刻；终态沙箱不再续期", async () => {
 test("惰性过期：到期活沙箱收敛 expired；activeOnly 过滤；复用查询只命中 ready 未过期", async () => {
   const chatId = await createChat(owner, "sandbox-queries-expiry");
   await registerSandboxAcquired({
-    provider: "opensandbox",
-    externalId: "sbx-expired-1",
     chatId,
-    userId: owner,
-    runId: crypto.randomUUID(),
+    externalId: "sbx-expired-1",
     image: "pi-runtime-prod:1",
+    provider: "opensandbox",
+    runId: crypto.randomUUID(),
     ttlSeconds: 60,
+    userId: owner,
   });
   await registerSandboxAcquired({
-    provider: "opensandbox",
-    externalId: "sbx-alive-1",
     chatId,
-    userId: owner,
-    runId: crypto.randomUUID(),
+    externalId: "sbx-alive-1",
     image: "pi-runtime-prod:1",
+    provider: "opensandbox",
+    runId: crypto.randomUUID(),
     ttlSeconds: 3600,
+    userId: owner,
   });
   // 把一个拨到过期
   await sql`UPDATE "SandboxInstance" SET "expiresAt" = now() - interval '5 minutes'
@@ -123,8 +126,8 @@ test("惰性过期：到期活沙箱收敛 expired；activeOnly 过滤；复用�
 
   const reusable = await findReusableSandboxExternalId({
     chatId,
-    provider: "opensandbox",
     image: "pi-runtime-prod:1",
+    provider: "opensandbox",
   });
   assert.equal(reusable, "sbx-alive-1");
 
@@ -137,42 +140,43 @@ test("惰性过期：到期活沙箱收敛 expired；activeOnly 过滤；复用�
   assert.equal(
     await findReusableSandboxExternalId({
       chatId,
-      provider: "opensandbox",
       image: "pi-runtime-prod:1",
+      provider: "opensandbox",
     }),
-    "sbx-alive-1",
+    "sbx-alive-1"
   );
   // 复用查询按镜像隔离
   assert.equal(
     await findReusableSandboxExternalId({
       chatId,
-      provider: "opensandbox",
       image: "pi-runtime-other:9",
+      provider: "opensandbox",
     }),
-    null,
+    null
   );
 
   const active = await listSandboxInstances({ activeOnly: true });
-  assert.ok(
-    active.every((r) => !["destroyed", "expired"].includes(r.status)),
-  );
+  assert.ok(active.every((r) => !["destroyed", "expired"].includes(r.status)));
 });
 
 test("markSandboxStatus 未知 externalId 返回 false", async () => {
-  assert.equal(await markSandboxStatus("docker", "no-such-sbx", "degraded"), false);
+  assert.equal(
+    await markSandboxStatus("docker", "no-such-sbx", "degraded"),
+    false
+  );
 });
 
 test("分页列表：状态组筛选、搜索与页码收敛", async () => {
   const chatId = await createChat(owner, "sandbox-queries-page");
   const seed = async (externalId: string) => {
     await registerSandboxAcquired({
-      provider: "test",
-      externalId,
       chatId,
-      userId: owner,
-      runId: crypto.randomUUID(),
+      externalId,
       image: "pi-runtime-page:1",
+      provider: "test",
+      runId: crypto.randomUUID(),
       ttlSeconds: 3600,
+      userId: owner,
     });
   };
   await seed("sbx-page-a-ready");
@@ -247,15 +251,50 @@ test("分页列表：状态组筛选、搜索与页码收敛", async () => {
 
 test("provider deadlines preserve timezone, late observations cannot revive destroyed instances", async () => {
   const chatId = await createChat(owner, "sandbox-observation");
-  await registerSandboxAcquired({ provider: "docker", externalId: "observed-sandbox", chatId, userId: owner, runId: crypto.randomUUID(), image: "test", ttlSeconds: 3600,
-    runtimeConfig: { resource: { cpuCores: 2, memoryMB: 2048 }, egress: { mode: "deny-all" }, workspaceRoot: "/workspace" } });
+  await registerSandboxAcquired({
+    chatId,
+    externalId: "observed-sandbox",
+    image: "test",
+    provider: "docker",
+    runId: crypto.randomUUID(),
+    runtimeConfig: {
+      egress: { mode: "deny-all" },
+      resource: { cpuCores: 2, memoryMB: 2048 },
+      workspaceRoot: "/workspace",
+    },
+    ttlSeconds: 3600,
+    userId: owner,
+  });
   const expiresAt = new Date(Date.now() + 7_200_000);
-  await observeSandboxInstance("docker", "observed-sandbox", { status: "ready", expiresAt }, true);
-  const row = (await listSandboxInstances()).find((item) => item.externalId === "observed-sandbox");
-  assert.ok(row); assert.equal(row.expiresAt.getTime(), expiresAt.getTime()); assert.equal(row.runtimeConfig?.resource.cpuCores, 2);
+  await observeSandboxInstance(
+    "docker",
+    "observed-sandbox",
+    { expiresAt, status: "ready" },
+    true
+  );
+  const row = (await listSandboxInstances()).find(
+    (item) => item.externalId === "observed-sandbox"
+  );
+  assert.ok(row);
+  assert.equal(row.expiresAt.getTime(), expiresAt.getTime());
+  assert.equal(row.runtimeConfig?.resource.cpuCores, 2);
   await markSandboxRenewed("docker", "observed-sandbox", 60);
-  assert.equal((await listSandboxInstances()).find((item) => item.externalId === "observed-sandbox")?.expiresAt.getTime(), expiresAt.getTime());
-  await observeSandboxInstance("docker", "observed-sandbox", { status: "destroyed" });
-  await observeSandboxInstance("docker", "observed-sandbox", { status: "ready" });
-  assert.equal((await listSandboxInstances()).find((item) => item.externalId === "observed-sandbox")?.status, "destroyed");
+  assert.equal(
+    (await listSandboxInstances())
+      .find((item) => item.externalId === "observed-sandbox")
+      ?.expiresAt.getTime(),
+    expiresAt.getTime()
+  );
+  await observeSandboxInstance("docker", "observed-sandbox", {
+    status: "destroyed",
+  });
+  await observeSandboxInstance("docker", "observed-sandbox", {
+    status: "ready",
+  });
+  assert.equal(
+    (await listSandboxInstances()).find(
+      (item) => item.externalId === "observed-sandbox"
+    )?.status,
+    "destroyed"
+  );
 });

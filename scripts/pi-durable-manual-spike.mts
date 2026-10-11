@@ -131,7 +131,7 @@ function harnessOptions(deps: ReturnType<typeof makeDeps>) {
 }
 
 function modelOf(deps: ReturnType<typeof makeDeps>) {
-  const model = deps.faux.models[0];
+  const [model] = deps.faux.models;
   if (!model) {
     throw new Error("faux provider 未提供模型定义");
   }

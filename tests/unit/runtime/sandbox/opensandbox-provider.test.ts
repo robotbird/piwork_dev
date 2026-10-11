@@ -861,38 +861,82 @@ test("control API uses lifecycle manager, extends existing deadline and closes t
   let closes = 0;
   let killed = false;
   const provider = new OpenSandboxProvider({
-    domain: "example", apiKey: "test",
+    apiKey: "test",
+    domain: "example",
     managerFactory: () => ({
-      getSandboxInfo: async () => ({ id: "managed", status: { state: "Running" }, expiresAt, createdAt: new Date(), entrypoint: [] }),
-      renewSandbox: async (_id, seconds) => { expiresAt = new Date(Date.now() + seconds * 1000); },
-      killSandbox: async () => { killed = true; },
-      close: async () => { closes++; },
+      close: () => {
+        closes += 1;
+        return Promise.resolve();
+      },
+      getSandboxInfo: async () => ({
+        createdAt: new Date(),
+        entrypoint: [],
+        expiresAt,
+        id: "managed",
+        status: { state: "Running" },
+      }),
+      killSandbox: () => {
+        killed = true;
+        return Promise.resolve();
+      },
+      renewSandbox: (_id, seconds) => {
+        expiresAt = new Date(Date.now() + seconds * 1000);
+        return Promise.resolve();
+      },
     }),
   });
   assert.equal((await provider.control.inspect("managed"))?.status, "ready");
   await provider.control.extend("managed", 3600);
   assert.ok(expiresAt.getTime() >= before + 3_600_000);
   await provider.control.destroy("managed");
-  assert.equal(killed, true); assert.equal(closes, 3);
+  assert.equal(killed, true);
+  assert.equal(closes, 3);
 });
 
 test("control outage is distinct from not-found, kill failure propagates", async () => {
   let missing = true;
   let closes = 0;
-  const provider = new OpenSandboxProvider({ domain: "example", apiKey: "test", managerFactory: () => ({
-    getSandboxInfo: async () => { throw { statusCode: missing ? 404 : 503 }; },
-    renewSandbox: async () => {}, killSandbox: async () => { throw { statusCode: 503 }; }, close: async () => { closes++; },
-  }) });
+  const provider = new OpenSandboxProvider({
+    apiKey: "test",
+    domain: "example",
+    managerFactory: () => ({
+      close: () => {
+        closes += 1;
+        return Promise.resolve();
+      },
+      getSandboxInfo: () =>
+        Promise.reject(
+          Object.assign(new Error("sandbox lookup failed"), {
+            statusCode: missing ? 404 : 503,
+          })
+        ),
+      killSandbox: () =>
+        Promise.reject(
+          Object.assign(new Error("sandbox kill failed"), { statusCode: 503 })
+        ),
+      renewSandbox: () => Promise.resolve(),
+    }),
+  });
   assert.equal(await provider.control.inspect("missing"), null);
   missing = false;
-  await assert.rejects(provider.control.inspect("offline"), SandboxUnavailableError);
-  await assert.rejects(provider.control.destroy("offline"), SandboxUnavailableError);
+  await assert.rejects(
+    provider.control.inspect("offline"),
+    SandboxUnavailableError
+  );
+  await assert.rejects(
+    provider.control.destroy("offline"),
+    SandboxUnavailableError
+  );
   assert.equal(closes, 3);
 });
 
 test("automatic lease renewal preserves a longer manual extension", async () => {
   const { provider, sandbox } = makeHarness();
-  sandbox.getInfo = () => Promise.resolve({ status: { state: "Running" }, expiresAt: new Date(Date.now() + 7_200_000) });
+  sandbox.getInfo = () =>
+    Promise.resolve({
+      expiresAt: new Date(Date.now() + 7_200_000),
+      status: { state: "Running" },
+    });
   const handle = await provider.acquire(makeSpec());
   await handle.renew();
   assert.deepEqual(sandbox.renewCalls, []);

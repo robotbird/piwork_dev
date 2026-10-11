@@ -1,11 +1,11 @@
 // biome-ignore-all lint/suspicious/useAwait: asynchronous dependency doubles
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { SandboxInstanceView } from "../../../lib/db/sandbox-queries";
 import {
   SandboxAdminError,
   SandboxAdminService,
 } from "../../../lib/admin/sandbox-service";
+import type { SandboxInstanceView } from "../../../lib/db/sandbox-queries";
 import type { SandboxControl } from "../../../lib/runtime/sandbox";
 
 function harness(overrides: Partial<SandboxControl> = {}) {

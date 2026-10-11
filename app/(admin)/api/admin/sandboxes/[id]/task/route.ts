@@ -1,8 +1,8 @@
 import { z } from "zod";
+import { requireAdminRole } from "@/lib/admin/access";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
 import { getSandboxInstanceById } from "@/lib/db/sandbox-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireAdminRole } from "@/lib/admin/access";
 import { convertToUIMessages } from "@/lib/utils";
 
 /** Registered sandbox tasks are administrator-readable; normal chat APIs retain ownership checks. */

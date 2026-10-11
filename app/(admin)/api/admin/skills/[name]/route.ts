@@ -1,6 +1,6 @@
+import { requireAdminRole } from "@/lib/admin/access";
 import { listProjectSkillFiles, readProjectSkillFile } from "@/lib/ai/skills";
 import { ChatbotError } from "@/lib/errors";
-import { requireAdminRole } from "@/lib/admin/access";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 

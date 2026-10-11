@@ -1,4 +1,7 @@
 import { getTranslations } from "next-intl/server";
+import { requireAdminSession } from "@/lib/admin/access";
+import type { AdminMember } from "@/lib/admin/members";
+import { isValidEmail } from "@/lib/admin/members";
 import {
   createMemberWithAccount,
   deleteMemberAccount,
@@ -15,9 +18,6 @@ import {
   syncMembershipsForLegacyRole,
 } from "@/lib/db/role-queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireAdminSession } from "@/lib/admin/access";
-import type { AdminMember } from "@/lib/admin/members";
-import { isValidEmail } from "@/lib/admin/members";
 
 const MIN_PASSWORD_LENGTH = 6;
 

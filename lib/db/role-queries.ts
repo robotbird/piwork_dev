@@ -416,15 +416,15 @@ function toAdminRole(
 ): AdminRole {
   return {
     code: record.code,
-    modelPolicy: record.modelPolicy,
-    tokenPolicy: record.tokenPolicy,
     description: record.description,
     id: record.id,
     memberIds: memberships
       .filter((row) => row.roleId === record.id)
       .map((row) => row.memberId),
     memberLimit: record.memberLimit,
+    modelPolicy: record.modelPolicy,
     name: record.name,
+    tokenPolicy: record.tokenPolicy,
     type: record.type,
   };
 }

@@ -393,8 +393,8 @@ export function retireLegacyMcpAdapterPackage(): Promise<void> {
         const [record, registered, installedPath] = await Promise.all([
           getPiPackageBySource(LEGACY_MCP_ADAPTER_SOURCE),
           isLegacyAdapterRegisteredInSettings(),
-          getPiPackageManager().then((manager) =>
-            manager.getInstalledPath(LEGACY_MCP_ADAPTER_SOURCE, "user")
+          getPiPackageManager().then((pkgManager) =>
+            pkgManager.getInstalledPath(LEGACY_MCP_ADAPTER_SOURCE, "user")
           ),
         ]);
         if (!record && !registered && !installedPath) {
