@@ -1,3 +1,4 @@
+import { LocalizedError, translateMessage } from "@/lib/i18n/messages";
 import "server-only";
 import {
   publicSourceUrl,
@@ -35,7 +36,7 @@ function reserve(userId: string): () => void {
   let entry = limits.users.get(userId);
   if (!entry) {
     if (limits.users.size >= 1000) {
-      throw new Error("联网搜索繁忙，请稍后重试。");
+      throw new LocalizedError("runtimeMessages.searchBusy");
     }
     entry = { active: 0, calls: 0, since: now };
     limits.users.set(userId, entry);
@@ -45,7 +46,7 @@ function reserve(userId: string): () => void {
     entry.calls = 0;
   }
   if (entry.calls >= 20 || entry.active >= 2 || limits.active >= 8) {
-    throw new Error("联网搜索调用过于频繁，请稍后重试。");
+    throw new LocalizedError("runtimeMessages.searchRateLimit");
   }
   entry.calls += 1;
   entry.active += 1;
@@ -161,19 +162,17 @@ export function createSearchGateway(options: {
     const args = searchInputSchema.parse(input);
     const env = options.env?.() ?? process.env;
     if (!webSearchEnabled(env)) {
-      throw new Error("平台联网搜索未启用。");
+      throw new LocalizedError("runtimeMessages.searchDisabled");
     }
     const apiKey = env.TAVILY_API_KEY?.trim();
     if (!apiKey) {
-      throw new Error(
-        "平台联网搜索尚未配置，请联系管理员设置 Tavily API Key。"
-      );
+      throw new LocalizedError("runtimeMessages.searchUnconfigured");
     }
     // Authorization exceptions must block outbound work; do not substitute identities.
     await options.authorize();
     signal?.throwIfAborted();
     if (calls >= 6) {
-      throw new Error("本轮联网搜索已达到 6 次上限。");
+      throw new LocalizedError("runtimeMessages.searchRoundLimit");
     }
     const release = reserve(options.userId);
     calls += 1;
@@ -216,8 +215,8 @@ export function createSearchGateway(options: {
       // biome-ignore lint/style/useErrorCause: Transport causes can contain credentials; never retain them in logs or tool results.
       throw new Error(
         deadline.aborted
-          ? "联网搜索超时，请稍后重试。"
-          : "联网搜索服务暂时不可用，请稍后重试；尚未获得搜索结果。"
+          ? translateMessage("runtimeMessages.searchTimeout")
+          : translateMessage("runtimeMessages.searchUnavailable")
       );
     } finally {
       release();

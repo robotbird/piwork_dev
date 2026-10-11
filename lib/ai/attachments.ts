@@ -124,9 +124,7 @@ export async function extractDocumentText({
   const bounded = (text: string) => {
     extractionSignal.throwIfAborted();
     if (Buffer.byteLength(text, "utf8") > maxBytes) {
-      throw new DocumentInputError(
-        "资料提取文本超过 2 MB 限制，请按章节拆分上传；未保存截断内容。"
-      );
+      throw new DocumentInputError("runtimeMessages.textLimit");
     }
     return text;
   };

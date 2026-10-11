@@ -2,6 +2,7 @@
 
 import type { UIMessage } from "ai";
 import { cookies } from "next/headers";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/app/(auth)/auth";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { completePiText } from "@/lib/ai/pi";
@@ -25,14 +26,15 @@ export async function generateTitleFromUserMessage({
 }: {
   message: UIMessage;
 }) {
+  const t = await getTranslations("api");
   const session = await auth();
   if (!session?.user?.id) {
-    throw new Error("Unauthorized");
+    throw new Error(t("unauthorizedAccess"));
   }
   const catalog = await getUserModelCatalog(session.user.id);
   const modelId = catalog.defaultModelId ?? catalog.models[0]?.id;
   if (!modelId) {
-    throw new Error("No authorized model");
+    throw new Error(t("noAuthorizedModel"));
   }
   await checkUserTokenQuota(session.user.id);
   // 标题只需要消息开头；超长消息避免整篇发给标题模型（成本与时延）。
@@ -48,19 +50,20 @@ export async function generateTitleFromUserMessage({
 }
 
 export async function deleteTrailingMessages({ id }: { id: string }) {
+  const t = await getTranslations("api");
   const session = await auth();
   if (!session?.user?.id) {
-    throw new Error("Unauthorized");
+    throw new Error(t("unauthorizedAccess"));
   }
 
   const [message] = await getMessageById({ id });
   if (!message) {
-    throw new Error("Message not found");
+    throw new Error(t("messageNotFound"));
   }
 
   const chat = await getChatById({ id: message.chatId });
   if (!chat || chat.userId !== session.user.id) {
-    throw new Error("Unauthorized");
+    throw new Error(t("unauthorizedAccess"));
   }
 
   await deleteMessagesByChatIdAfterTimestamp({
@@ -76,14 +79,15 @@ export async function updateChatVisibility({
   chatId: string;
   visibility: VisibilityType;
 }) {
+  const t = await getTranslations("api");
   const session = await auth();
   if (!session?.user?.id) {
-    throw new Error("Unauthorized");
+    throw new Error(t("unauthorizedAccess"));
   }
 
   const chat = await getChatById({ id: chatId });
   if (!chat || chat.userId !== session.user.id) {
-    throw new Error("Unauthorized");
+    throw new Error(t("unauthorizedAccess"));
   }
 
   await updateChatVisibilityById({ chatId, visibility });

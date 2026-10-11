@@ -63,7 +63,7 @@ export function AppSidebar({
 }) {
   const t = useTranslations("appSidebar");
   const tChat = useTranslations("chat");
-  const _tp = useTranslations("projects");
+  const tp = useTranslations("projects");
   const pathname = usePathname();
   const router = useRouter();
   const { setOpenMobile, toggleSidebar } = useSidebar();
@@ -261,7 +261,7 @@ export function AppSidebar({
                         </span>
                         {project.isOwner === false ? (
                           <span className="shrink-0 rounded-full bg-sidebar-accent px-1.5 py-0.5 text-[10px] leading-4 text-muted-foreground">
-                            共享
+                            {tp("sharedBadge")}
                           </span>
                         ) : null}
                       </Link>

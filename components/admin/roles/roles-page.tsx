@@ -43,6 +43,7 @@ import type { AdminRole, RoleMemberOption, RolesView } from "@/lib/admin/roles";
 import {
   getRoleAvatarInitial,
   getRoleMemberDisplayName,
+  roleDisplayText,
 } from "@/lib/admin/roles";
 import { cn } from "@/lib/utils";
 
@@ -132,11 +133,11 @@ export function RolesPage({
       return roles;
     }
     return roles.filter((role) =>
-      `${role.name} ${role.description ?? ""}`
+      `${role.name} ${role.description ?? ""} ${roleDisplayText(role, "name", t)} ${roleDisplayText(role, "description", t)}`
         .toLocaleLowerCase()
         .includes(normalizedQuery)
     );
-  }, [normalizedQuery, roles]);
+  }, [normalizedQuery, roles, t]);
 
   const handleQueryChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) =>
@@ -327,13 +328,14 @@ export function RolesPage({
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">
-                        {role.name}
+                        {roleDisplayText(role, "name", t)}
                       </span>
                       <span
                         aria-hidden="true"
                         className="mt-1 block truncate text-xs text-muted-foreground"
                       >
-                        {role.description ?? t("admin.noDescriptionYet")}
+                        {roleDisplayText(role, "description", t) ||
+                          t("admin.noDescriptionYet")}
                       </span>
                     </span>
                     <span className="shrink-0 text-muted-foreground">
@@ -357,7 +359,7 @@ export function RolesPage({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-3">
                         <h2 className="text-heading-md break-words">
-                          {selectedRole.name}
+                          {roleDisplayText(selectedRole, "name", t)}
                         </h2>
                         <span className="flex items-center gap-1 rounded-sm bg-muted px-2 py-1 text-xs text-muted-foreground">
                           <UsersIcon className="size-3.5" />
@@ -368,7 +370,7 @@ export function RolesPage({
                         <RoleTypeBadge type={selectedRole.type} />
                       </div>
                       <p className="mt-2 break-words text-sm text-muted-foreground">
-                        {selectedRole.description ??
+                        {roleDisplayText(selectedRole, "description", t) ||
                           t("admin.noDescriptionYet")}
                       </p>
                     </div>

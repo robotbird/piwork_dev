@@ -1,3 +1,4 @@
+import { LocalizedError, translateMessage } from "@/lib/i18n/messages";
 import "server-only";
 import { getPreferredModelId } from "@/lib/ai/active-models";
 import {
@@ -35,7 +36,7 @@ export async function executeScheduledTask(task: ScheduledTaskRecord) {
   try {
     const modelId = getPreferredModelId(await getUserModelCatalog(task.userId));
     if (!modelId) {
-      throw new Error("请先在管理后台配置可用模型");
+      throw new LocalizedError("runtimeMessages.modelRequired");
     }
     const model = await getPiModel(modelId);
     const workspaceDir = executionToolsEnabled()
@@ -92,7 +93,10 @@ export async function executeScheduledTask(task: ScheduledTaskRecord) {
     publishChatRun({ actorId: task.userId, chatId, phase: "started" });
     await waitForTaskCompletion(handle);
   } catch (error) {
-    errorMessage = error instanceof Error ? error.message : "执行失败";
+    errorMessage =
+      error instanceof Error
+        ? error.message
+        : translateMessage("runtimeMessages.executionFailed");
     await manager.abortByChat(chatId).catch(() => undefined);
   } finally {
     await finishScheduledTask(task, errorMessage);

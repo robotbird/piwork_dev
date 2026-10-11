@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import {
   Tooltip,
   TooltipContent,
@@ -23,6 +24,7 @@ export function UserAvatar({
   name?: string | null;
   size?: number;
 }) {
+  const t = useTranslations("chat");
   const initial = (name?.trim()?.[0] ?? "?").toUpperCase();
 
   return (
@@ -54,7 +56,9 @@ export function UserAvatar({
           )}
         </span>
       </TooltipTrigger>
-      <TooltipContent sideOffset={6}>{name?.trim() || "成员"}</TooltipContent>
+      <TooltipContent sideOffset={6}>
+        {name?.trim() || t("memberFallback")}
+      </TooltipContent>
     </Tooltip>
   );
 }

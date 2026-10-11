@@ -200,10 +200,10 @@ function SandboxDetails({
               t("sandboxes.colUser"),
               item.userName || item.userEmail || item.userId,
             ],
-            ["Chat ID", item.chatId],
-            ["Run ID", item.lastRunId || "—"],
+            [t("sandboxes.chatId"), item.chatId],
+            [t("sandboxes.runId"), item.lastRunId || "—"],
             [
-              "Provider",
+              t("sandboxes.provider"),
               item.provider === "opensandbox"
                 ? "OpenSandbox"
                 : docker
@@ -217,13 +217,21 @@ function SandboxDetails({
         <DetailGroup
           entries={[
             [t("sandboxes.image"), item.image],
-            ["Workspace", config?.workspaceRoot || unknown],
-            ["CPU", config ? `${config.resource.cpuCores} Core` : unknown],
+            [t("sandboxes.workspace"), config?.workspaceRoot || unknown],
+            [
+              t("sandboxes.cpu"),
+              config
+                ? t("sandboxes.cores", { count: config.resource.cpuCores })
+                : unknown,
+            ],
             [
               t("sandboxes.memory"),
               config ? `${config.resource.memoryMB / 1024} GB` : unknown,
             ],
-            ["TTL", t("sandboxes.ttlSeconds", { seconds: item.ttlSeconds })],
+            [
+              t("sandboxes.ttl"),
+              t("sandboxes.ttlSeconds", { seconds: item.ttlSeconds }),
+            ],
             [
               t("sandboxes.colExpires"),
               format(new Date(item.expiresAt), "yyyy-MM-dd HH:mm:ss"),
@@ -238,22 +246,30 @@ function SandboxDetails({
         <DetailGroup
           entries={[
             [
-              "RootFS",
+              t("sandboxes.rootFs"),
               config && supported
                 ? t(`sandboxes.${docker ? "readOnly" : "writable"}`)
                 : unknown,
             ],
-            ["Workspace", config ? t("sandboxes.writable") : unknown],
+            [
+              t("sandboxes.workspace"),
+              config ? t("sandboxes.writable") : unknown,
+            ],
             [
               t("sandboxes.network"),
               config
                 ? config.egress.mode === "deny-all"
-                  ? "deny-all"
-                  : `allowlist: ${config.egress.fqdns.join(", ")}`
+                  ? t("sandboxes.networkDenyAll")
+                  : t("sandboxes.networkAllowlist", {
+                      hosts: config.egress.fqdns.join(", "),
+                    })
                 : unknown,
             ],
             [t("sandboxes.privileges"), security(docker)],
-            ["Capabilities", docker && config ? "dropped" : unknown],
+            [
+              t("sandboxes.capabilities"),
+              docker && config ? t("sandboxes.capabilitiesDropped") : unknown,
+            ],
             ["/tmp", docker && config ? "tmpfs" : unknown],
           ]}
           title={t("sandboxes.securityBaseline")}
@@ -546,7 +562,9 @@ export function SandboxesPage({
     >
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[30px] font-semibold tracking-tight">Sandbox</h1>
+          <h1 className="text-[30px] font-semibold tracking-tight">
+            {t("sandboxes.title")}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t("admin.sandboxManagementDescription")}
           </p>

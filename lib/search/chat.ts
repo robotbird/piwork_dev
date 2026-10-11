@@ -1,3 +1,4 @@
+import { LocalizedError } from "@/lib/i18n/messages";
 import "server-only";
 import { authorizeRoleRun } from "../ai/role-access";
 import { createWebSearchTool } from "../ai/web-tools";
@@ -20,9 +21,7 @@ export function chatWebSearchTools(input: {
         await authorizeRoleRun(input.userId, input.model);
       } catch {
         // biome-ignore lint/style/useErrorCause: Do not expose database/configuration errors to model tool results.
-        throw new Error(
-          "联网搜索授权失败：请确认账户、聊天归属和模型权限仍然有效。"
-        );
+        throw new LocalizedError("runtimeMessages.searchUnauthorized");
       }
     },
     userId: input.userId,

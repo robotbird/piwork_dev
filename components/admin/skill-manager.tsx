@@ -77,18 +77,18 @@ const iconMap: Record<
 function fallbackSkill(skill: SkillSummary): CatalogSkill {
   return {
     capabilities: [
-      "遵循 Skill 中定义的专业工作流程",
-      "按需加载参考资料与脚本",
-      "在当前项目中直接调用",
+      "skillDisplay.followWorkflow",
+      "skillDisplay.loadResources",
+      "skillDisplay.invoke",
     ],
-    category: "效率工具",
+    category: skillCategories[5] as SkillCategory,
     description: skill.description,
     displayName: skill.displayName,
     icon: "document",
     name: skill.name,
-    source: "企业自建",
+    source: "skillDisplay.enterprise",
     sourceType: "enterprise",
-    version: "本地",
+    version: "skillDisplay.local",
   };
 }
 
@@ -110,7 +110,7 @@ export function SkillManager({
     readOnly ? "installed" : "discover"
   );
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<"全部" | SkillCategory>("全部");
+  const [category, setCategory] = useState<string>("skills.all");
   const [selectedSkill, setSelectedSkill] = useState<SkillItem | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -144,7 +144,7 @@ export function SkillManager({
     const normalized = query.trim().toLocaleLowerCase();
     return items.filter((skill) => {
       const matchesCategory =
-        category === "全部" || skill.category === category;
+        category === "skills.all" || skill.category === category;
       const matchesQuery =
         !normalized ||
         [
@@ -301,7 +301,7 @@ export function SkillManager({
 
   const selectMode = useCallback((nextMode: ViewMode) => {
     setMode(nextMode);
-    setCategory("全部");
+    setCategory("skills.all");
   }, []);
 
   const handleQueryChange = useCallback(
@@ -317,7 +317,7 @@ export function SkillManager({
   const handleCategoryClick = useCallback(
     (event: MouseEvent<HTMLButtonElement>) =>
       setCategory(
-        event.currentTarget.dataset.category as "全部" | SkillCategory
+        event.currentTarget.dataset.category as "skills.all" | SkillCategory
       ),
     []
   );
@@ -374,7 +374,9 @@ export function SkillManager({
                 <span className="grid size-9 place-items-center rounded-md bg-primary/10 text-primary">
                   <SparklesIcon className="size-4" />
                 </span>
-                <h1 className="text-heading-lg text-foreground">Skill</h1>
+                <h1 className="text-heading-lg text-foreground">
+                  {t("skills.skill")}
+                </h1>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
                 {t("skills.discoverAndUseAiSkillsToExpand")}
@@ -447,23 +449,29 @@ export function SkillManager({
 
           <fieldset className="mt-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             <legend className="sr-only">{t("skills.skillCategories")}</legend>
-            {skillCategories.map((item) => (
-              <button
-                aria-pressed={category === item}
-                className={cn(
-                  "h-9 shrink-0 rounded-md border px-4 text-sm transition-colors",
-                  category === item
-                    ? "border-primary/35 bg-primary/10 font-medium text-primary"
-                    : "border-border bg-card text-muted-foreground hover:border-[var(--hairline-strong)] hover:text-foreground"
-                )}
-                data-category={item}
-                key={item}
-                onClick={handleCategoryClick}
-                type="button"
-              >
-                {t(item)}
-              </button>
-            ))}
+            {skillCategories.map((categoryName) => {
+              const item =
+                categoryName === skillCategories[0]
+                  ? "skills.all"
+                  : categoryName;
+              return (
+                <button
+                  aria-pressed={category === item}
+                  className={cn(
+                    "h-9 shrink-0 rounded-md border px-4 text-sm transition-colors",
+                    category === item
+                      ? "border-primary/35 bg-primary/10 font-medium text-primary"
+                      : "border-border bg-card text-muted-foreground hover:border-[var(--hairline-strong)] hover:text-foreground"
+                  )}
+                  data-category={item}
+                  key={item}
+                  onClick={handleCategoryClick}
+                  type="button"
+                >
+                  {t(item)}
+                </button>
+              );
+            })}
           </fieldset>
 
           {filteredSkills.length > 0 ? (
@@ -698,7 +706,7 @@ function SkillDetailDialog({
                     <DialogDescription className="mt-1.5 text-sm">
                       {t("skills.providedByV", {
                         source: t(skill.source),
-                        version: skill.version,
+                        version: t(skill.version),
                       })}
                     </DialogDescription>
                   </div>
@@ -752,7 +760,7 @@ function SkillDetailDialog({
                   label={t("skills.scope")}
                   value={t("skills.currentProject")}
                 />
-                <Meta label="Skill ID" value={skill.name} />
+                <Meta label={t("skills.skillId")} value={skill.name} />
               </section>
             </div>
           </>

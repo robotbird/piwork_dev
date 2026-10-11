@@ -1,3 +1,4 @@
+import { LocalizedError } from "@/lib/i18n/messages";
 import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 import type { StoredFile } from "@/lib/ai/file-store";
@@ -56,7 +57,7 @@ export async function assertLibraryFolder(
   }
   const folder = await getLibraryItem(userId, parentId);
   if (folder?.kind !== "folder") {
-    throw new Error("文件夹不存在");
+    throw new LocalizedError("api.folderMissing");
   }
 }
 

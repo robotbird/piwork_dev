@@ -13,15 +13,15 @@ export type LibraryItem = {
 export function fileCategory(name: string, contentType: string | null) {
   const ext = name.toLowerCase().split(".").pop();
   if (contentType?.startsWith("image/")) {
-    return "图片";
+    return "images";
   }
   if (["csv", "xls", "xlsx", "ods"].includes(ext ?? "")) {
-    return "表格";
+    return "spreadsheets";
   }
   if (["ppt", "pptx", "odp"].includes(ext ?? "")) {
-    return "演示";
+    return "presentations";
   }
-  return "文档";
+  return "documents";
 }
 
 export function formatFileSize(bytes: number) {

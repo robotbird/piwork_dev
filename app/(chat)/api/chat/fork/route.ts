@@ -1,4 +1,4 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import {
@@ -57,6 +57,7 @@ export async function POST(request: Request) {
   }
 
   const forked = await forkChat({
+    locale: await getLocale(),
     sourceChatId: input.chatId,
     userId: session.user.id,
   });

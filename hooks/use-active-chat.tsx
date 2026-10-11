@@ -23,6 +23,7 @@ import { useDataStream } from "@/components/chat/data-stream-provider";
 import { getChatHistoryPaginationKey } from "@/components/chat/sidebar-history";
 import { toast } from "@/components/chat/toast";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
+import { usePreferences } from "@/components/preferences-provider";
 import { type ChatModelCatalog, resolveChatModelId } from "@/hooks/chat-model";
 import { isChatApprovalContinuation } from "@/hooks/chat-request";
 import { useAutoResume } from "@/hooks/use-auto-resume";
@@ -32,7 +33,7 @@ import {
 } from "@/hooks/use-chat-collab";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import type { Vote } from "@/lib/db/schema";
-import { ChatbotError } from "@/lib/errors";
+import { ChatbotError, getMessageByErrorCode } from "@/lib/errors";
 import type { ChatMessage, ChatMyRole, ChatParticipantInfo } from "@/lib/types";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 
@@ -73,6 +74,7 @@ function extractChatId(pathname: string): string | null {
 }
 
 export function ActiveChatProvider({ children }: { children: ReactNode }) {
+  const { t, language } = usePreferences();
   const pathname = usePathname();
   const sandboxView = useSearchParams().get("sandbox");
   const { setDataStream, setToolStatus, setWaitingStatus } = useDataStream();
@@ -175,10 +177,16 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       if (error.message?.includes("AI Gateway requires a valid credit card")) {
         setShowCreditCardAlert(true);
       } else if (error instanceof ChatbotError) {
-        toast({ description: error.message, type: "error" });
+        toast({
+          description: getMessageByErrorCode(
+            `${error.type}:${error.surface}`,
+            language
+          ),
+          type: "error",
+        });
       } else {
         toast({
-          description: error.message || "Oops, an error occurred!",
+          description: error.message ? t(error.message) : t("errors.generic"),
           type: "error",
         });
       }

@@ -104,12 +104,10 @@ export function UsageView({
     const show = month !== previousMonth;
     previousMonth = month;
     return show && day
-      ? language === "zh"
-        ? `${Number(day.date.slice(5, 7))}月`
-        : new Intl.DateTimeFormat("en", {
-            month: "short",
-            timeZone: "UTC",
-          }).format(new Date(`${day.date}T00:00:00Z`))
+      ? new Intl.DateTimeFormat(language, {
+          month: "short",
+          timeZone: "UTC",
+        }).format(new Date(`${day.date}T00:00:00Z`))
       : "";
   });
   return (

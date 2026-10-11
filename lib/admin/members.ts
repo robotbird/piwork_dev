@@ -27,26 +27,26 @@ export const MEMBER_ROLE_OPTIONS: readonly {
   label: string;
   value: MemberRole;
 }[] = [
-  { label: "管理员", value: "admin" },
-  { label: "普通成员", value: "member" },
+  { label: "common.administrator", value: "admin" },
+  { label: "profile.roles.member", value: "member" },
 ];
 
 export const MEMBER_STATUS_OPTIONS: readonly {
   label: string;
   value: MemberStatus;
 }[] = [
-  { label: "已启用", value: "enabled" },
-  { label: "未启用", value: "disabled" },
+  { label: "common.enabled", value: "enabled" },
+  { label: "members.disabled", value: "disabled" },
 ];
 
 export const ROLE_LABELS: Record<MemberRole, string> = {
-  admin: "管理员",
-  member: "普通成员",
+  admin: "common.administrator",
+  member: "profile.roles.member",
 };
 
 export const STATUS_LABELS: Record<MemberStatus, string> = {
-  disabled: "未启用",
-  enabled: "已启用",
+  disabled: "members.disabled",
+  enabled: "common.enabled",
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

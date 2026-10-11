@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import {
@@ -17,22 +18,23 @@ export async function POST(
   _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations("api");
   const session = await auth();
   if (!session?.user?.id) {
-    return Response.json({ error: "请先登录" }, { status: 401 });
+    return Response.json({ error: t("signIn") }, { status: 401 });
   }
   const { id } = await context.params;
   if (!z.uuid().safeParse(id).success) {
-    return Response.json({ error: "文件无效" }, { status: 400 });
+    return Response.json({ error: t("fileInvalid") }, { status: 400 });
   }
   const item = await getLibraryItem(session.user.id, id);
   if (item?.kind !== "file") {
-    return Response.json({ error: "文件不存在" }, { status: 404 });
+    return Response.json({ error: t("fileNotFound") }, { status: 404 });
   }
   const supported = libraryAttachmentType(item);
   if (!supported) {
     return Response.json(
-      { error: "该文件格式暂不支持问答，或文件超过 20 MB" },
+      { error: t("attachmentUnsupported") },
       { status: 400 }
     );
   }
@@ -40,7 +42,7 @@ export async function POST(
   if (item.documentId) {
     const doc = await readLibraryDocument(session.user.id, item.documentId);
     if (!doc) {
-      return Response.json({ error: "文件不存在" }, { status: 404 });
+      return Response.json({ error: t("fileNotFound") }, { status: 404 });
     }
     const bytes =
       doc.kind === "image"
@@ -50,7 +52,7 @@ export async function POST(
           )
         : Buffer.from(doc.content ?? "", "utf8");
     if (bytes.byteLength > MAX_CHAT_ATTACHMENT_SIZE) {
-      return Response.json({ error: "文件超过 20 MB" }, { status: 400 });
+      return Response.json({ error: t("fileTooLarge") }, { status: 400 });
     }
     // Editable notes are snapshotted so this turn refers to stable bytes,
     // including in Durable's existing owned LibraryItem/hash pipeline.
@@ -76,7 +78,7 @@ export async function POST(
         remote.hostname.endsWith(".public.blob.vercel-storage.com")
       ))
   ) {
-    return Response.json({ error: "文件不可用" }, { status: 400 });
+    return Response.json({ error: t("fileUnavailable") }, { status: 400 });
   }
   return Response.json(
     { contentType: supported.mediaType, name: item.name, url },

@@ -292,3 +292,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 ### macOS 开发环境 Skill 快照
 
 `NODE_ENV=development` 且 macOS 时，SandboxRpc 使用本机 Docker 的一次性 Linux 收集容器（现有 `PIWORK_SANDBOX_IMAGE`，缺省 `pi-runtime:dev`，禁止自动拉取）读取受管 Skill 目录。只绑定该目录为只读，无网络、无宿主凭据、禁用 capabilities，限额与 30 秒超时；Linux 内 pinned fd / O_NOFOLLOW 验证并读取普通单链接文件，宿主继续校验路径、限额及官方 Pi frontmatter，再经原有原子复制/显式 --skill 链路安装。容器不执行 Skill 脚本。Docker 不可用或收集失败即拒绝，不回退 macOS 路径读取；生产仍要求 Linux 原生 collector，portable fallback 仍仅显式 test。macOS 文件共享语义不是生产 Linux 安全等价证明。真实本机测试：`PIWORK_SKILL_COLLECTOR_DOCKER_TEST=1 node --conditions=react-server --import tsx --test tests/unit/runtime/backends/sandbox-rpc/linux-skill-collector.test.ts`，验证资源复制、软/硬链接和凭据拒绝、生产门禁，不调用模型。
+
+## 应用文案与语言边界
+
+应用文案使用 next-intl zh/en 资源，纯函数和后台错误使用 use-intl/core；请求边界选择语言，分类/角色/模型标识保持稳定。工具进度的可选 detail 仅在 RuntimeEvent → stream-mapping 的平台 UI 投影添加，前端按当前语言格式化，Pi loop 与 runtime 协议不变。Skill 内容、用户数据、行为匹配规则/历史标记不随界面语言改写；规则和验证见 [应用文案国际化](i18n.md)。

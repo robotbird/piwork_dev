@@ -1,3 +1,4 @@
+import { LocalizedError, translateMessage } from "@/lib/i18n/messages";
 import "server-only";
 import { and, desc, eq, isNull, lte, ne, or } from "drizzle-orm";
 import { getNextRunTime } from "@/lib/scheduler/cron-utils";
@@ -187,7 +188,7 @@ export function linkTaskChat(task: ScheduledTaskRecord, chatId: string) {
       )
       .returning();
     if (!rows.length) {
-      throw new Error("任务执行租约已失效");
+      throw new LocalizedError("runtimeMessages.leaseExpired");
     }
     await tx
       .update(scheduledTaskRun)
@@ -210,7 +211,7 @@ export function finishScheduledTask(
   try {
     nextRunAt = getNextRunTime(task.schedule.cron, now, task.schedule.timezone);
   } catch {
-    errorMessage ??= "无效计划，请编辑后重新启用";
+    errorMessage ??= translateMessage("runtimeMessages.editPlan");
   }
   const status = errorMessage ? ("failed" as const) : ("succeeded" as const);
   return db.transaction(async (tx) => {
@@ -232,7 +233,9 @@ export function finishScheduledTask(
       .set({
         enabled: current.enabled && nextRunAt !== null,
         errorMessage,
-        lastResult: errorMessage ? null : "执行完成，点击查看结果",
+        lastResult: errorMessage
+          ? null
+          : translateMessage("runtimeMessages.taskDone"),
         leaseToken: null,
         lockedUntil: null,
         nextRunAt: current.enabled ? nextRunAt : null,
@@ -252,7 +255,9 @@ export function recoverExpiredTasks(now = new Date()) {
     const tasks = await tx
       .update(scheduledTask)
       .set({
-        errorMessage: "执行进程中断或超时，可重新运行",
+        errorMessage: translateMessage(
+          "runtimeMessages.processInterruptedRetry"
+        ),
         leaseToken: null,
         lockedUntil: null,
         status: "failed",
@@ -273,7 +278,7 @@ export function recoverExpiredTasks(now = new Date()) {
       await tx
         .update(scheduledTaskRun)
         .set({
-          errorMessage: "执行进程中断或超时",
+          errorMessage: translateMessage("runtimeMessages.processInterrupted"),
           finishedAt: now,
           status: "failed",
         })

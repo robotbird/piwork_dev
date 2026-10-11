@@ -23,6 +23,7 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { usePreferences } from "@/components/preferences-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -49,9 +50,17 @@ import {
 import { cn } from "@/lib/utils";
 import styles from "./document-library.module.css";
 
-const tabs = ["全部", "文件夹", "文档", "图片", "表格", "演示", "AI 生成"];
-const dateLabel = (value: string) =>
-  new Date(value).toLocaleString("zh-CN", {
+const tabs = [
+  "all",
+  "folders",
+  "documents",
+  "images",
+  "spreadsheets",
+  "presentations",
+  "aiGenerated",
+] as const;
+const dateLabel = (value: string, language: string) =>
+  new Date(value).toLocaleString(language, {
     day: "2-digit",
     hour: "2-digit",
     hour12: false,
@@ -59,45 +68,48 @@ const dateLabel = (value: string) =>
     month: "2-digit",
     year: "numeric",
   });
-async function requestJSON(url: string, options?: RequestInit) {
+async function fetchJSON(url: string, fallback: string, options?: RequestInit) {
   const response = await fetch(url, options);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.error ?? "操作失败，请重试");
+    throw new Error(body.error ?? fallback);
   }
   return response.json();
 }
 function fileStyle(item: LibraryItem) {
   const category = fileCategory(item.name, item.contentType);
-  if (category === "图片") {
+  if (category === "images") {
     return {
       color: "text-violet-500 bg-violet-50 dark:bg-violet-950/30",
       Icon: ImageIcon,
-      label: "IMAGE",
+      label: "documents.coverImage",
     };
   }
-  if (category === "表格") {
+  if (category === "spreadsheets") {
     return {
       color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30",
       Icon: Sheet,
-      label: "SHEET",
+      label: "documents.coverSheet",
     };
   }
-  if (category === "演示") {
+  if (category === "presentations") {
     return {
       color: "text-orange-500 bg-orange-50 dark:bg-orange-950/30",
       Icon: Presentation,
-      label: "SLIDES",
+      label: "documents.coverSlides",
     };
   }
   return {
     color: "text-blue-500 bg-blue-50 dark:bg-blue-950/30",
     Icon: FileText,
-    label: item.name.split(".").pop()?.toUpperCase() ?? "FILE",
+    label: item.name.split(".").pop()?.toUpperCase() ?? "documents.coverFile",
   };
 }
 
 export function DocumentLibrary() {
+  const { t, language } = usePreferences();
+  const requestJSON = (url: string, options?: RequestInit) =>
+    fetchJSON(url, t("documents.operationFailed"), options);
   const {
     data: items = [],
     error,
@@ -106,7 +118,7 @@ export function DocumentLibrary() {
   } = useSWR<LibraryItem[]>("/api/library", requestJSON, {
     refreshInterval: 15_000,
   });
-  const [tab, setTab] = useState("全部");
+  const [tab, setTab] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [parentId, setParentId] = useState<string | null>(null);
@@ -127,13 +139,13 @@ export function DocumentLibrary() {
       : item.parentId === parentId
   );
   const folders = scoped.filter(
-    (item) => item.kind === "folder" && ["全部", "文件夹"].includes(tab)
+    (item) => item.kind === "folder" && ["all", "folders"].includes(tab)
   );
   const files = scoped.filter(
     (item) =>
       item.kind === "file" &&
-      (tab === "全部" ||
-        (tab === "AI 生成"
+      (tab === "all" ||
+        (tab === "aiGenerated"
           ? item.source === "ai"
           : fileCategory(item.name, item.contentType) === tab))
   );
@@ -146,7 +158,7 @@ export function DocumentLibrary() {
   function navigate(id: string | null) {
     setParentId(id);
     setSearch("");
-    setTab("全部");
+    setTab("all");
   }
   function openDialog(
     mode: "folder" | "rename" | "note" | "move",
@@ -159,7 +171,7 @@ export function DocumentLibrary() {
   }
   async function upload(file: File) {
     if (file.size > MAX_CHAT_ATTACHMENT_SIZE) {
-      throw new Error(`${file.name} 超过 20 MB 限制`);
+      throw new Error(t("documents.fileLimit", { name: file.name }));
     }
     const form = new FormData();
     form.append("file", file);
@@ -181,11 +193,13 @@ export function DocumentLibrary() {
         await upload(file);
         success += 1;
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "上传失败");
+        toast.error(
+          err instanceof Error ? err.message : t("documents.uploadFailed")
+        );
       }
     }
     if (success) {
-      toast.success(`已归档 ${success} 个文件`);
+      toast.success(t("documents.archived", { count: success }));
     }
     await mutate();
     setBusy(false);
@@ -224,9 +238,11 @@ export function DocumentLibrary() {
       }
       setDialog(null);
       await mutate();
-      toast.success("已保存");
+      toast.success(t("documents.saved"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "保存失败");
+      toast.error(
+        err instanceof Error ? err.message : t("documents.saveFailed")
+      );
     } finally {
       setBusy(false);
     }
@@ -236,7 +252,7 @@ export function DocumentLibrary() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            aria-label={`${item.name}的操作`}
+            aria-label={t("documents.itemActions", { name: item.name })}
             className="size-8 shrink-0 text-muted-foreground"
             size="icon"
             variant="ghost"
@@ -246,18 +262,18 @@ export function DocumentLibrary() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => openDialog("rename", item)}>
-            重命名
+            {t("documents.rename")}
           </DropdownMenuItem>
           {item.kind === "file" && (
             <DropdownMenuItem onClick={() => openDialog("move", item)}>
-              移动到文件夹
+              {t("documents.move")}
             </DropdownMenuItem>
           )}
           {item.kind === "file" && (
             <DropdownMenuItem asChild>
               <a download href={`/api/library/${item.id}`}>
                 <Download className="mr-2 size-4" />
-                下载文件
+                {t("documents.download")}
               </a>
             </DropdownMenuItem>
           )}
@@ -290,16 +306,14 @@ export function DocumentLibrary() {
         <div>
           <div className="flex items-center gap-3">
             <SidebarTrigger className="md:hidden" />
-            <h1 className={styles.heading}>我的文档</h1>
+            <h1 className={styles.heading}>{t("documents.title")}</h1>
           </div>
-          <p className={styles.subtitle}>
-            上传的各类文件，以及 AI 生成的文档和图片，统一存储与管理。
-          </p>
+          <p className={styles.subtitle}>{t("documents.description")}</p>
         </div>
         <div className={styles.toolbar}>
           <div className="flex shrink-0 items-center gap-1">
             <Button
-              aria-label="网格视图"
+              aria-label={t("documents.gridView")}
               aria-pressed={view === "grid"}
               className={cn("rounded-full", view === "grid" && "bg-muted")}
               onClick={() => setView("grid")}
@@ -309,7 +323,7 @@ export function DocumentLibrary() {
               <Grid2X2 className="size-5" />
             </Button>
             <Button
-              aria-label="列表视图"
+              aria-label={t("documents.listView")}
               aria-pressed={view === "list"}
               className={cn("rounded-full", view === "list" && "bg-muted")}
               onClick={() => setView("list")}
@@ -322,10 +336,10 @@ export function DocumentLibrary() {
           <label className={styles.search}>
             <Search className="size-4 shrink-0 text-muted-foreground" />
             <input
-              aria-label="搜索文档"
+              aria-label={t("documents.search")}
               className="w-full bg-transparent text-sm outline-none"
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索所有文档"
+              placeholder={t("documents.searchPlaceholder")}
               value={search}
             />
           </label>
@@ -336,7 +350,7 @@ export function DocumentLibrary() {
                 disabled={busy}
               >
                 {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                {busy ? "上传中" : "新建"}
+                {busy ? t("documents.uploading") : t("documents.new")}
                 <ChevronDown className="ml-2 size-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -346,21 +360,21 @@ export function DocumentLibrary() {
             >
               <DropdownMenuItem onClick={() => openDialog("note")}>
                 <FileText className="mr-2 size-4" />
-                笔记
+                {t("documents.note")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => openDialog("folder")}>
                 <Folder className="mr-2 size-4" />
-                文件夹
+                {t("documents.folders")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => input.current?.click()}>
                 <Upload className="mr-2 size-4" />
-                上传文件
+                {t("documents.upload")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <input
-            aria-label="选择上传文件"
+            aria-label={t("documents.selectUpload")}
             className="hidden"
             multiple
             onChange={(event) => {
@@ -372,7 +386,7 @@ export function DocumentLibrary() {
           />
         </div>
       </header>
-      <nav aria-label="文档分类" className={styles.tabs}>
+      <nav aria-label={t("documents.categories")} className={styles.tabs}>
         {tabs.map((label) => (
           <button
             aria-pressed={tab === label}
@@ -386,13 +400,13 @@ export function DocumentLibrary() {
             onClick={() => setTab(label)}
             type="button"
           >
-            {label}
+            {t(`documents.${label}`)}
           </button>
         ))}
       </nav>
       {parentId && !search && (
         <nav
-          aria-label="文件夹路径"
+          aria-label={t("documents.folderPath")}
           className="mt-5 flex flex-wrap items-center gap-2 text-sm"
         >
           <button
@@ -400,7 +414,7 @@ export function DocumentLibrary() {
             onClick={() => navigate(null)}
             type="button"
           >
-            我的文档
+            {t("documents.title")}
           </button>
           {breadcrumbs.map((folder) => (
             <span className="flex items-center gap-2" key={folder.id}>
@@ -414,9 +428,9 @@ export function DocumentLibrary() {
       )}
       {error ? (
         <div className="mt-12 rounded-xl border p-8 text-center" role="alert">
-          <p>文档加载失败，请重试。</p>
+          <p>{t("documents.loadFailed")}</p>
           <Button className="mt-4" onClick={() => mutate()} variant="outline">
-            重新加载
+            {t("documents.reload")}
           </Button>
         </div>
       ) : isLoading ? (
@@ -430,7 +444,7 @@ export function DocumentLibrary() {
           {folders.length > 0 && (
             <section className={styles.section}>
               <h2 className={styles.sectionTitle}>
-                文件夹{" "}
+                {t("documents.folders")}{" "}
                 <span className="ml-1 font-normal text-muted-foreground">
                   ({folders.length})
                 </span>
@@ -458,22 +472,18 @@ export function DocumentLibrary() {
                           {folder.name}
                         </span>
                         <span className="mt-1 block text-xs text-muted-foreground">
-                          {
-                            items.filter(
+                          {t("documents.folderCounts", {
+                            files: items.filter(
                               (item) =>
                                 item.parentId === folder.id &&
                                 item.kind === "file"
-                            ).length
-                          }{" "}
-                          个文件 ·{" "}
-                          {
-                            items.filter(
+                            ).length,
+                            folders: items.filter(
                               (item) =>
                                 item.parentId === folder.id &&
                                 item.kind === "folder"
-                            ).length
-                          }{" "}
-                          个子文件夹
+                            ).length,
+                          })}
                         </span>
                       </span>
                     </button>
@@ -486,7 +496,7 @@ export function DocumentLibrary() {
           {files.length > 0 && (
             <section className={styles.section}>
               <h2 className={styles.sectionTitle}>
-                {search ? "搜索结果" : "最近文件"}{" "}
+                {search ? t("documents.results") : t("documents.recent")}{" "}
                 <span className="ml-1 font-normal text-muted-foreground">
                   ({files.length})
                 </span>
@@ -496,10 +506,10 @@ export function DocumentLibrary() {
               >
                 {view === "list" && (
                   <div aria-hidden="true" className={styles.listHeader}>
-                    <span>文件名称</span>
-                    <span>大小</span>
-                    <span>更新时间</span>
-                    <span>来源</span>
+                    <span>{t("documents.filename")}</span>
+                    <span>{t("documents.size")}</span>
+                    <span>{t("documents.updated")}</span>
+                    <span>{t("documents.source")}</span>
                     <span />
                   </div>
                 )}
@@ -522,7 +532,9 @@ export function DocumentLibrary() {
                       {view === "grid" && (
                         <button
                           aria-label={
-                            image ? `预览 ${item.name}` : `下载 ${item.name}`
+                            image
+                              ? t("documents.previewFile", { name: item.name })
+                              : t("documents.downloadFile", { name: item.name })
                           }
                           className={cn(styles.preview, color)}
                           onClick={() => {
@@ -547,11 +559,15 @@ export function DocumentLibrary() {
                           ) : (
                             <div className={styles.cover}>
                               <Icon className={styles.coverIcon} />
-                              <span className={styles.coverLabel}>{label}</span>
+                              <span className={styles.coverLabel}>
+                                {t(label)}
+                              </span>
                             </div>
                           )}
                           {item.source === "ai" && (
-                            <span className={styles.aiBadge}>AI 生成</span>
+                            <span className={styles.aiBadge}>
+                              {t("documents.aiGenerated")}
+                            </span>
                           )}
                         </button>
                       )}
@@ -578,7 +594,7 @@ export function DocumentLibrary() {
                               {item.size ? formatFileSize(item.size) : "—"}
                             </span>
                             <span className={styles.metaDot}>·</span>
-                            <span>{dateLabel(item.updatedAt)}</span>
+                            <span>{dateLabel(item.updatedAt, language)}</span>
                           </p>
                         </div>
                         {view === "list" && (
@@ -588,7 +604,9 @@ export function DocumentLibrary() {
                               item.source === "ai" && styles.listSourceAi
                             )}
                           >
-                            {item.source === "ai" ? "AI 生成" : "我的文件"}
+                            {item.source === "ai"
+                              ? t("documents.aiGenerated")
+                              : t("documents.myFiles")}
                           </span>
                         )}
                         {actions(item)}
@@ -605,12 +623,10 @@ export function DocumentLibrary() {
                 <Folder className="size-8 text-muted-foreground" />
               </div>
               <h2 className="text-lg font-medium">
-                {search ? "没有找到匹配的文档" : "这里还没有文件"}
+                {search ? t("documents.noMatches") : t("documents.empty")}
               </h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {search
-                  ? "试试其他文件名或分类。"
-                  : "拖入文件或点击上传。聊天附件和 AI 交付的文件也会自动保存在这里。"}
+                {search ? t("documents.trySearch") : t("documents.emptyHint")}
               </p>
               {!search && (
                 <Button
@@ -619,7 +635,7 @@ export function DocumentLibrary() {
                   onClick={() => input.current?.click()}
                 >
                   <Plus className="mr-2 size-4" />
-                  上传文件
+                  {t("documents.upload")}
                 </Button>
               )}
             </div>
@@ -628,13 +644,13 @@ export function DocumentLibrary() {
       )}
       <p className={styles.hint}>
         <Sparkles className="size-3.5" />
-        支持任意类型文件，单个文件最大 20 MB；AI 交付文件最大 50 MB。
+        {t("documents.limits")}
       </p>
       {dragging === true && (
         <div className="pointer-events-none absolute inset-3 z-40 grid place-items-center rounded-2xl border-2 border-dashed border-blue-400 bg-background/95">
           <div className="text-center">
             <Upload className="mx-auto mb-4 size-10 text-blue-500" />
-            <p className="text-xl font-medium">拖放到此处，保存到当前文件夹</p>
+            <p className="text-xl font-medium">{t("documents.dropHint")}</p>
           </div>
         </div>
       )}
@@ -650,17 +666,17 @@ export function DocumentLibrary() {
           <DialogHeader>
             <DialogTitle>
               {dialog?.mode === "move"
-                ? "移动到文件夹"
+                ? t("documents.move")
                 : dialog?.mode === "rename"
-                  ? "重命名"
+                  ? t("documents.rename")
                   : dialog?.mode === "note"
-                    ? "新建笔记"
-                    : "新建文件夹"}
+                    ? t("documents.newNote")
+                    : t("documents.newFolder")}
             </DialogTitle>
             <DialogDescription>
               {dialog?.mode === "note"
-                ? "以 Markdown 文件保存到当前目录。"
-                : "输入名称，方便查找与管理。"}
+                ? t("documents.noteHint")
+                : t("documents.nameHint")}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -672,13 +688,13 @@ export function DocumentLibrary() {
           >
             {dialog?.mode === "move" ? (
               <label className="block text-sm">
-                目标文件夹
+                {t("documents.destination")}
                 <select
                   className="mt-2 w-full rounded-lg border bg-background p-2"
                   onChange={(event) => setDestination(event.target.value)}
                   value={destination}
                 >
-                  <option value="">我的文档（根目录）</option>
+                  <option value="">{t("documents.root")}</option>
                   {items
                     .filter((item) => item.kind === "folder")
                     .map((folder) => (
@@ -690,7 +706,7 @@ export function DocumentLibrary() {
               </label>
             ) : (
               <label className="block text-sm">
-                名称
+                {t("documents.name")}
                 <input
                   autoFocus
                   className="mt-2 w-full rounded-lg border bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
@@ -703,7 +719,7 @@ export function DocumentLibrary() {
             )}
             {dialog?.mode === "note" && (
               <label className="block text-sm">
-                内容
+                {t("documents.content")}
                 <textarea
                   className="mt-2 min-h-48 w-full rounded-lg border bg-background p-3"
                   onChange={(event) => setContent(event.target.value)}
@@ -718,10 +734,10 @@ export function DocumentLibrary() {
                 type="button"
                 variant="outline"
               >
-                取消
+                {t("documents.cancel")}
               </Button>
               <Button disabled={busy || !name.trim()} type="submit">
-                {busy ? "保存中…" : "保存"}
+                {busy ? t("documents.saving") : t("documents.save")}
               </Button>
             </DialogFooter>
           </form>
@@ -738,7 +754,7 @@ export function DocumentLibrary() {
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{preview?.name}</DialogTitle>
-            <DialogDescription>图片预览</DialogDescription>
+            <DialogDescription>{t("documents.imagePreview")}</DialogDescription>
           </DialogHeader>
           {preview !== null && (
             <>
@@ -753,7 +769,7 @@ export function DocumentLibrary() {
               <DialogFooter>
                 <Button asChild>
                   <a download href={`/api/library/${preview.id}`}>
-                    下载图片
+                    {t("documents.downloadImage")}
                   </a>
                 </Button>
               </DialogFooter>

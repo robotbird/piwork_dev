@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import {
@@ -6,9 +7,10 @@ import {
 } from "@/lib/db/library-queries";
 
 export async function GET() {
+  const t = await getTranslations("api");
   const session = await auth();
   if (!session?.user?.id) {
-    return Response.json({ error: "请先登录" }, { status: 401 });
+    return Response.json({ error: t("signIn") }, { status: 401 });
   }
   return Response.json(await listLibraryItems(session.user.id));
 }
@@ -18,13 +20,14 @@ const folderSchema = z.object({
   parentId: z.uuid().nullable().default(null),
 });
 export async function POST(request: Request) {
+  const t = await getTranslations("api");
   const session = await auth();
   if (!session?.user?.id) {
-    return Response.json({ error: "请先登录" }, { status: 401 });
+    return Response.json({ error: t("signIn") }, { status: 401 });
   }
   const parsed = folderSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return Response.json({ error: "请输入有效的文件夹名称" }, { status: 400 });
+    return Response.json({ error: t("folderNameInvalid") }, { status: 400 });
   }
   try {
     return Response.json(
@@ -35,6 +38,6 @@ export async function POST(request: Request) {
       )
     );
   } catch {
-    return Response.json({ error: "无法创建文件夹" }, { status: 400 });
+    return Response.json({ error: t("folderCreateFailed") }, { status: 400 });
   }
 }

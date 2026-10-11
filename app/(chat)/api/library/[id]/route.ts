@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import { getChatFileId } from "@/lib/ai/attachment-types";
@@ -79,6 +80,7 @@ export async function GET(request: Request, context: Context) {
 }
 
 export async function PATCH(request: Request, context: Context) {
+  const t = await getTranslations("api");
   const session = await auth();
   if (!session?.user?.id) {
     return new Response(null, { status: 401 });
@@ -91,7 +93,7 @@ export async function PATCH(request: Request, context: Context) {
     ])
     .safeParse(await request.json().catch(() => null));
   if (!z.uuid().safeParse(id).success || !parsed.success) {
-    return Response.json({ error: "名称无效" }, { status: 400 });
+    return Response.json({ error: t("nameInvalid") }, { status: 400 });
   }
   try {
     const item =
@@ -100,6 +102,6 @@ export async function PATCH(request: Request, context: Context) {
         : await moveLibraryFile(session.user.id, id, parsed.data.parentId);
     return item ? Response.json(item) : new Response(null, { status: 404 });
   } catch {
-    return Response.json({ error: "目标文件夹不存在" }, { status: 400 });
+    return Response.json({ error: t("targetFolderMissing") }, { status: 400 });
   }
 }

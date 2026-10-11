@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { ComponentProps, CSSProperties, HTMLAttributes } from "react";
 import type {
   BundledLanguage,
@@ -457,12 +458,13 @@ export const CodeBlockCopyButton = ({
   ...props
 }: CodeBlockCopyButtonProps) => {
   const [isCopied, setIsCopied] = useState(false);
+  const t = useTranslations("aiElements");
   const timeoutRef = useRef<number>(0);
   const { code } = useContext(CodeBlockContext);
 
   const copyToClipboard = useCallback(async () => {
     if (typeof window === "undefined") {
-      onError?.(new Error("Clipboard API not available"));
+      onError?.(new Error(t("clipboardUnavailable")));
       return;
     }
 
@@ -470,7 +472,7 @@ export const CodeBlockCopyButton = ({
       if (!isCopied) {
         const succeeded = await copyTextToClipboard(code);
         if (!succeeded) {
-          onError?.(new Error("Clipboard copy failed"));
+          onError?.(new Error(t("clipboardFailed")));
           return;
         }
         setIsCopied(true);
@@ -483,7 +485,7 @@ export const CodeBlockCopyButton = ({
     } catch (error) {
       onError?.(error as Error);
     }
-  }, [code, onCopy, onError, timeout, isCopied]);
+  }, [code, onCopy, onError, timeout, isCopied, t]);
 
   useEffect(
     () => () => {

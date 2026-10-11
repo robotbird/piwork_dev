@@ -112,21 +112,22 @@ function CapabilityTags({
 }: {
   models: ModelPluginCatalogItem["models"];
 }) {
+  const { t } = usePreferences();
   const hasVision = models.some((model) => model.features.vision);
   const hasTools = models.some((model) => model.features.toolCall);
   return (
     <div className="flex flex-wrap gap-1.5">
       <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
-        LLM
+        {t("modelPlugins.llm")}
       </span>
       {hasVision ? (
         <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
-          Vision
+          {t("modelPlugins.vision")}
         </span>
       ) : null}
       {hasTools ? (
         <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
-          Tools
+          {t("modelPlugins.tools")}
         </span>
       ) : null}
     </div>
@@ -148,30 +149,31 @@ function ModelTags({
 }: {
   model: ModelPluginCatalogItem["models"][number];
 }) {
+  const { t } = usePreferences();
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <span className="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
-        LLM
+        {t("modelPlugins.llm")}
       </span>
       <span className="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
-        CHAT
+        {t("modelPlugins.chat")}
       </span>
       <span className="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
         {formatContextWindow(model.properties.contextSize)}
       </span>
       {model.features.vision ? (
         <span className="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          VISION
+          {t("modelPlugins.vision")}
         </span>
       ) : null}
       {model.features.toolCall ? (
         <span className="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          TOOLS
+          {t("modelPlugins.tools")}
         </span>
       ) : null}
       {model.features.reasoning ? (
         <span className="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          REASONING
+          {t("modelPlugins.reasoning")}
         </span>
       ) : null}
     </div>
@@ -187,13 +189,18 @@ function CredentialFields({
   onChange: (variable: string, value: string) => void;
   values: CredentialValues;
 }) {
-  const { t } = usePreferences();
+  const { t, language } = usePreferences();
   return (
     <div className="grid gap-4">
       {fields.map((field) => {
-        const label = field.label["zh-CN"] ?? field.label.en ?? field.variable;
+        const label =
+          field.label[language === "zh" ? "zh-CN" : "en"] ??
+          field.label.en ??
+          field.variable;
         const placeholder =
-          field.placeholder?.["zh-CN"] ?? field.placeholder?.en ?? "";
+          field.placeholder?.[language === "zh" ? "zh-CN" : "en"] ??
+          field.placeholder?.en ??
+          "";
         return (
           <div className="grid gap-2" key={field.variable}>
             <Label htmlFor={`credential-${field.variable}`}>
@@ -214,7 +221,8 @@ function CredentialFields({
             />
             {field.help ? (
               <p className="text-xs leading-5 text-muted-foreground">
-                {field.help.text["zh-CN"] ?? field.help.text.en}
+                {field.help.text[language === "zh" ? "zh-CN" : "en"] ??
+                  field.help.text.en}
               </p>
             ) : null}
           </div>
@@ -323,7 +331,7 @@ function ConfigureDialog({
   onOpenChange: (open: boolean) => void;
   onSaved: () => Promise<void>;
 }) {
-  const { t } = usePreferences();
+  const { t, language } = usePreferences();
   const [credentials, setCredentials] = useState<CredentialValues>(() =>
     initialCredentialValues(installation)
   );
@@ -462,11 +470,15 @@ function ConfigureDialog({
                       />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
-                          {model.label["zh-CN"] ?? model.label.en}
+                          {model.label[language === "zh" ? "zh-CN" : "en"] ??
+                            model.label.en}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {model.modelId} ·{" "}
-                          {model.properties.contextSize.toLocaleString()} ctx
+                          {model.properties.contextSize.toLocaleString(
+                            language
+                          )}{" "}
+                          {t("modelPlugins.context")}
                         </p>
                       </div>
                       <Button
@@ -520,7 +532,7 @@ function ConfigureDialog({
 }
 
 export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
-  const { t } = usePreferences();
+  const { t, language } = usePreferences();
   const [data, setData] = useState(initialData);
   const [query, setQuery] = useState("");
   const [installTarget, setInstallTarget] =
@@ -779,7 +791,9 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                                   <div className="min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-2">
                                       <p className="text-sm font-medium">
-                                        {model.label["zh-CN"] ??
+                                        {model.label[
+                                          language === "zh" ? "zh-CN" : "en"
+                                        ] ??
                                           model.label.en ??
                                           model.modelId}
                                       </p>
@@ -862,7 +876,10 @@ export function ModelsPage({ initialData }: { initialData: ModelPluginsView }) {
                     <div className="min-w-0">
                       <h3 className="font-medium">{item.name}</h3>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        v{item.version} · {item.models.length} models
+                        v{item.version} ·{" "}
+                        {t("modelPlugins.modelCount", {
+                          count: item.models.length,
+                        })}
                       </p>
                     </div>
                   </div>

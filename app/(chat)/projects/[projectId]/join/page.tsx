@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import { JoinDialog } from "@/components/chat/join-dialog";
@@ -11,6 +12,7 @@ export default async function Page({
   params: Promise<{ projectId: string }>;
   searchParams: Promise<{ t?: string }>;
 }) {
+  const t = await getTranslations("projects");
   const [{ projectId }, { t: token }, session] = await Promise.all([
     params,
     searchParams,
@@ -27,16 +29,13 @@ export default async function Page({
   ) {
     return (
       <JoinDialog
-        description="请使用启用的同事账号登录，并确认分享链接未过期或撤销。"
-        title="无法加入项目"
+        description={t("joinInvalidDescription")}
+        title={t("joinInvalidTitle")}
       />
     );
   }
   return (
-    <JoinDialog
-      description="加入后可查看项目资料并创建自己的对话。各自的对话保持私有。"
-      title="加入共享项目"
-    >
+    <JoinDialog description={t("joinDescription")} title={t("joinTitle")}>
       <ProjectJoinAction projectId={projectId} token={token} />
     </JoinDialog>
   );

@@ -37,6 +37,7 @@ export async function GET(_request: Request, context: Context) {
 
 export async function POST(request: Request, context: Context) {
   const t = await getTranslations("api");
+  const tRuntime = await getTranslations();
   const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ error: t("unauthorized") }, { status: 401 });
@@ -85,7 +86,7 @@ export async function POST(request: Request, context: Context) {
       {
         error:
           error instanceof DocumentInputError
-            ? error.message
+            ? tRuntime(error.messageKey, error.params)
             : t("sourceExtractFailed"),
       },
       { status: 400 }
@@ -112,7 +113,7 @@ export async function POST(request: Request, context: Context) {
       {
         error:
           error instanceof DocumentInputError
-            ? error.message
+            ? tRuntime(error.messageKey, error.params)
             : t("sourceExtractFailed"),
       },
       { status: 400 }

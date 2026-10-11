@@ -1,3 +1,4 @@
+import zh from "@/i18n/messages/zh.json";
 /**
  * 角色管理页与角色接口共用的视图模型、系统角色定义与纯函数助手。
  * 数据来自 Role / MemberRole 数据表，由接口层组装后下发给页面。
@@ -53,27 +54,27 @@ export const SYSTEM_ROLE_SEEDS: readonly {
 }[] = [
   {
     code: SYSTEM_ROLE_CODES.superAdmin,
-    description: "拥有系统所有权限，可管理企业全部资源",
+    description: zh.systemRoles.super_admin.description,
     memberLimit: 1,
-    name: "超级管理员",
+    name: zh.systemRoles.super_admin.name,
   },
   {
     code: SYSTEM_ROLE_CODES.admin,
-    description: "可管理成员、角色、Skill 及系统资源",
+    description: zh.systemRoles.admin.description,
     memberLimit: null,
-    name: "管理员",
+    name: zh.systemRoles.admin.name,
   },
   {
     code: SYSTEM_ROLE_CODES.member,
-    description: "基础使用权限，可使用已授权的功能",
+    description: zh.systemRoles.member.description,
     memberLimit: null,
-    name: "普通成员",
+    name: zh.systemRoles.member.name,
   },
 ];
 
 export const ROLE_TYPE_LABELS: Record<RoleType, string> = {
-  custom: "自定义",
-  system: "系统",
+  custom: "admin.customRoleType",
+  system: "admin.systemRoleType",
 };
 
 export function isSystemRole(role: Pick<AdminRole, "type">): boolean {
@@ -81,9 +82,7 @@ export function isSystemRole(role: Pick<AdminRole, "type">): boolean {
 }
 
 /** 该角色的成员变动会同步影响 Member.role（admin / member） */
-export function carriesAdminAccess(
-  role: Pick<AdminRole, "code">
-): boolean {
+export function carriesAdminAccess(role: Pick<AdminRole, "code">): boolean {
   return (
     role.code === SYSTEM_ROLE_CODES.admin ||
     role.code === SYSTEM_ROLE_CODES.superAdmin
@@ -125,3 +124,15 @@ export function getRoleAvatarInitial(name: string): string {
 
 export const ROLE_NAME_MAX_LENGTH = 128;
 export const ROLE_DESCRIPTION_MAX_LENGTH = 1024;
+
+/** Translate only system-defined roles; custom names and descriptions remain user data. */
+export function roleDisplayText(
+  role: Pick<AdminRole, "type" | "code" | "name" | "description">,
+  field: "name" | "description",
+  t: (key: string) => string
+): string {
+  return role.type === "system" &&
+    Object.values(SYSTEM_ROLE_CODES).some((code) => code === role.code)
+    ? t(`systemRoles.${role.code}.${field}`)
+    : (role[field] ?? "");
+}

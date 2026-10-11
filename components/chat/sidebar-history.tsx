@@ -40,11 +40,11 @@ export type ChatHistory = {
 const PAGE_SIZE = 20;
 
 const previewItems = [
-  "华东区销售分析报告",
-  "Q3 市场调研总结",
-  "供应商合同风险审查",
-  "产品方案撰写",
-  "会议纪要整理",
+  "chat.previewSales",
+  "chat.previewResearch",
+  "chat.previewContract",
+  "chat.previewProduct",
+  "chat.previewMeeting",
 ];
 
 function RecentLabel() {
@@ -163,7 +163,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                   className="h-9 rounded-lg px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground"
                   onClick={showPreviewNotice}
                 >
-                  <span>{title}</span>
+                  <span>{t(title)}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}

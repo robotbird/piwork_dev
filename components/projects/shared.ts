@@ -1,5 +1,6 @@
 "use client";
 
+import { translateMessage } from "@/lib/i18n/messages";
 import type { SourceFileType } from "@/lib/projects/source-files";
 
 export type ProjectSummary = {
@@ -39,18 +40,22 @@ export async function request<T>(
     const message =
       body && typeof body === "object" && "error" in body
         ? String((body as { error: unknown }).error)
-        : "请求失败";
+        : translateMessage(
+            "projects.requestFailed",
+            {},
+            document.documentElement.lang
+          );
     throw new Error(message);
   }
   return body as T;
 }
 
 /** 「9月28日」式短日期；跨年时带年份 */
-export function formatShortDate(value: string): string {
+export function formatShortDate(value: string, locale: string): string {
   const date = new Date(value);
   const now = new Date();
   const sameYear = date.getFullYear() === now.getFullYear();
-  return date.toLocaleDateString("zh-CN", {
+  return date.toLocaleDateString(locale, {
     day: "numeric",
     month: "numeric",
     ...(sameYear ? {} : { year: "numeric" }),

@@ -26,6 +26,7 @@ import {
   getRoleAvatarInitial,
   getRoleMemberDisplayName,
   type RoleMemberOption,
+  roleDisplayText,
   SYSTEM_ROLE_CODES,
 } from "@/lib/admin/roles";
 import { cn } from "@/lib/utils";
@@ -307,7 +308,7 @@ export function RoleMembersDialog({
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="truncate">{role.name}</span>
+            <span className="truncate">{roleDisplayText(role, "name", t)}</span>
             <span className="shrink-0 rounded-sm bg-muted px-2 py-0.5 text-xs leading-4 font-medium text-muted-foreground">
               {t(
                 role.type === "system"
@@ -317,7 +318,8 @@ export function RoleMembersDialog({
             </span>
           </DialogTitle>
           <DialogDescription>
-            {role.description ? role.description : t("admin.noDescriptionYet")}
+            {roleDisplayText(role, "description", t) ||
+              t("admin.noDescriptionYet")}
           </DialogDescription>
         </DialogHeader>
 

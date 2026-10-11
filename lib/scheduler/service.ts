@@ -1,3 +1,4 @@
+import { LocalizedError } from "@/lib/i18n/messages";
 import "server-only";
 import { createHash } from "node:crypto";
 import { createScheduledTaskTool } from "@/lib/ai/scheduled-task-tools";
@@ -12,7 +13,7 @@ export function scheduledTaskTools(userId: string, messageId: string) {
       const id = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
       const task = await createScheduledTask(userId, input, id);
       if (!task) {
-        throw new Error("创建任务失败");
+        throw new LocalizedError("runtimeMessages.taskCreateFailed");
       }
       return {
         id: task.id,

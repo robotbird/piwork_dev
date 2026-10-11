@@ -51,6 +51,7 @@ import {
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
+import { LocalizedError } from "@/lib/i18n/messages";
 import { syncManagedAgentMcpConfig } from "@/lib/mcp/agent-config";
 import { buildProjectSourcesContext } from "@/lib/projects/context";
 import { projectDocumentInputsEnabled } from "@/lib/projects/document-inputs";
@@ -95,6 +96,7 @@ const HEALTH_CHECK_DELAY_MS = 9000;
 
 export async function POST(request: Request) {
   const t = await getTranslations("api");
+  const tRuntime = await getTranslations();
   let requestBody: PostRequestBody;
 
   try {
@@ -140,7 +142,7 @@ export async function POST(request: Request) {
       if (modelCatalog.platformModelCount > 0) {
         return new ChatbotError(
           "forbidden:model",
-          "No authorized model"
+          t("noAuthorizedModel")
         ).toResponse();
       }
       return Response.json({ error: t("noModelConfigured") }, { status: 503 });
@@ -212,8 +214,8 @@ export async function POST(request: Request) {
         ? generateTitleFromUserMessage({ message })
         : Promise.resolve(
             message.parts[0]?.type === "file"
-              ? (message.parts[0].filename ?? "附件处理")
-              : "附件处理"
+              ? (message.parts[0].filename ?? t("attachmentProcessing"))
+              : t("attachmentProcessing")
           );
     }
 
@@ -302,7 +304,14 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       return Response.json(
-        { error: error instanceof Error ? error.message : "项目沙箱不可用" },
+        {
+          error:
+            error instanceof LocalizedError
+              ? tRuntime(error.messageKey, error.params)
+              : error instanceof Error
+                ? error.message
+                : t("projectSandboxUnavailable"),
+        },
         { status: 503 }
       );
     }
@@ -382,10 +391,9 @@ export async function POST(request: Request) {
           if (error instanceof ChatbotError) {
             throw error;
           }
-          return new Response(
-            "附件不可用：仅支持本人已归档、未变更且符合大小限制的文件。",
-            { status: 400 }
-          );
+          return new Response(t("durableAttachmentUnavailable"), {
+            status: 400,
+          });
         }
       }
       const fileAccess = await Promise.all(
@@ -507,7 +515,7 @@ export async function POST(request: Request) {
     const sandboxSkillCommand = Boolean(
       process.env.PIWORK_SANDBOX_PROVIDER && workspaceDir && skillCommand
     );
-    let agentPrompt = currentUserText || "请分析并处理附件。";
+    let agentPrompt = currentUserText || t("attachmentPrompt");
     if (skillCommand) {
       try {
         if (!skills.some((skill) => skill.name === skillCommand.name)) {
@@ -522,7 +530,7 @@ export async function POST(request: Request) {
             );
       } catch (error) {
         return Response.json(
-          { error: error instanceof Error ? error.message : "Unknown skill" },
+          { error: error instanceof Error ? error.message : t("unknownSkill") },
           { status: 404 }
         );
       }
@@ -561,7 +569,7 @@ export async function POST(request: Request) {
                 userId: session.user.id,
               };
             }
-            agentPrompt = `${context.block}\n\n---\n\n用户问题：${agentPrompt}`;
+            agentPrompt = `${context.block}${t("questionPrompt", { text: agentPrompt })}`;
           }
         }
       } catch (error) {
@@ -570,7 +578,7 @@ export async function POST(request: Request) {
           {
             error:
               error instanceof DocumentInputError
-                ? error.message
+                ? tRuntime(error.messageKey, error.params)
                 : t("sourceExtractFailed"),
           },
           { status: 400 }

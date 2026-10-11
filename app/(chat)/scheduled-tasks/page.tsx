@@ -1,13 +1,15 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { auth } from "@/app/(auth)/auth";
 import { ScheduledTasksPanel } from "@/components/scheduled-tasks/scheduled-tasks-panel";
 
-export default function ScheduledTasksPage() {
+export default async function ScheduledTasksPage() {
+  const t = await getTranslations("scheduledTasks");
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-muted-foreground">正在加载定时任务...</div>
+        <div className="p-12 text-muted-foreground">{t("loadingPage")}</div>
       }
     >
       <ScheduledTasksContent />

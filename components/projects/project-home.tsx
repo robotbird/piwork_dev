@@ -16,7 +16,7 @@ import {
   UploadIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
@@ -74,6 +74,7 @@ export function ProjectHome({
   projectName: string;
 }) {
   const t = useTranslations("projects");
+  const locale = useLocale();
   const router = useRouter();
   const { mutate: globalMutate } = useSWRConfig();
 
@@ -273,7 +274,7 @@ export function ProjectHome({
         <div className="flex shrink-0 items-center gap-2">
           {participants.length > 1 ? (
             <button
-              aria-label="查看项目成员"
+              aria-label={t("participants")}
               className="max-w-[min(28vw,240px)] cursor-pointer overflow-x-auto rounded-full p-1 hover:bg-muted"
               onClick={() => setShareOpen(true)}
               type="button"
@@ -291,7 +292,7 @@ export function ProjectHome({
             variant="outline"
           >
             <ShareIcon className="size-4" />
-            分享
+            {t("shareAction")}
           </Button>
           {isOwner ? (
             <DropdownMenu>
@@ -342,7 +343,7 @@ export function ProjectHome({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              aria-label="添加照片和文件"
+              aria-label={t("uploadMenu")}
               className="size-10 shrink-0 cursor-pointer rounded-full p-0 text-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted data-[state=open]:bg-muted"
               disabled={!isOwner || uploading || libraryBusy}
               size="icon"
@@ -363,16 +364,20 @@ export function ProjectHome({
               onSelect={() => uploadInputRef.current?.click()}
             >
               <PaperclipIcon className="size-5 shrink-0" />
-              <span>添加照片和文件</span>
-              <span className="text-muted-foreground">从电脑上传</span>
+              <span>{t("uploadMenu")}</span>
+              <span className="text-muted-foreground">
+                {t("uploadFromComputer")}
+              </span>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="gap-3 rounded-xl px-3 py-3"
               onSelect={() => setLibraryOpen(true)}
             >
               <LibraryBigIcon className="size-5 shrink-0" />
-              <span>从我的文档选择</span>
-              <span className="text-muted-foreground">浏览和搜索文件</span>
+              <span>{t("pickDocuments")}</span>
+              <span className="text-muted-foreground">
+                {t("browseDocuments")}
+              </span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -533,7 +538,7 @@ export function ProjectHome({
                       ) : null}
                     </div>
                     <span className="shrink-0 text-sm text-muted-foreground">
-                      {formatShortDate(source.createdAt)}
+                      {formatShortDate(source.createdAt, locale)}
                     </span>
                     {isOwner ? (
                       <Button
@@ -563,14 +568,14 @@ export function ProjectHome({
         onSelect={async (attachment) => {
           const response = await fetch(attachment.url);
           if (!response.ok) {
-            throw new Error("文件读取失败");
+            throw new Error(t("readFailed"));
           }
           const blob = await response.blob();
           const succeeded = await handleUploadFiles([
             new File([blob], attachment.name, { type: attachment.contentType }),
           ]);
           if (!succeeded) {
-            throw new Error("添加项目资源失败");
+            throw new Error(t("importFailed"));
           }
           setLibraryAttachments((current) => [...current, attachment]);
         }}
@@ -712,6 +717,7 @@ function ChatRow({
   onOpen: () => void;
 }) {
   const t = useTranslations("projects");
+  const locale = useLocale();
   return (
     <li>
       <div className="group flex items-center gap-4 border-b border-[var(--hairline-soft)] px-3 py-4 transition-colors hover:bg-muted/50">
@@ -728,7 +734,7 @@ function ChatRow({
           </span>
         </button>
         <span className="shrink-0 text-sm text-muted-foreground">
-          {formatShortDate(chat.updatedAt)}
+          {formatShortDate(chat.updatedAt, locale)}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -43,7 +43,7 @@
     "test:skills:sandbox:smoke": "node --conditions=react-server --import tsx tests/e2e/sandbox-skill-smoke.mts",
     "test:runtime:foundation": "node --conditions=react-server --import tsx --test tests/unit/runtime/protocol/*.test.ts tests/unit/runtime/sandbox/lazy.test.ts tests/unit/runtime/sandbox/operation-error.test.ts",
     "test:runtime:tools": "node --conditions=react-server --import tsx --test tests/unit/runtime/sandbox/filesystem.test.ts tests/unit/runtime/backends/sandbox-tools/*.test.ts",
-    "test:runtime": "node --conditions=react-server --import tsx --test tests/unit/runtime/protocol/*.test.ts tests/unit/runtime/backends/*.test.ts tests/unit/runtime/backends/durable/*.test.ts tests/unit/runtime/backends/local-rpc/*.test.ts tests/unit/runtime/backends/sandbox-rpc/*.test.ts tests/unit/runtime/backends/sandbox-tools/*.test.ts tests/unit/runtime/inference-proxy/*.test.ts tests/unit/runtime/run/*.test.ts tests/unit/runtime/sandbox/*.test.ts tests/unit/chat/*.test.ts tests/unit/admin/*.test.ts",
+    "test:runtime": "node --conditions=react-server --import tsx --test tests/unit/runtime/protocol/*.test.ts tests/unit/runtime/backends/*.test.ts tests/unit/runtime/backends/durable/*.test.ts tests/unit/runtime/backends/local-rpc/*.test.ts tests/unit/runtime/backends/sandbox-rpc/*.test.ts tests/unit/runtime/backends/sandbox-tools/*.test.ts tests/unit/runtime/inference-proxy/*.test.ts tests/unit/runtime/run/*.test.ts tests/unit/runtime/sandbox/*.test.ts tests/unit/chat/*.test.ts tests/unit/admin/*.test.ts tests/unit/i18n/*.test.ts",
     "test:runtime:db": "node --conditions=react-server --import tsx --test --test-concurrency=1 --test-force-exit tests/unit/db/*.test.ts",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test",
     "test:documents:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/library-queries.test.ts",
@@ -77,7 +77,9 @@
     "test:projects:share:db": "node --conditions=react-server --import tsx --test --test-concurrency=1 --test-force-exit tests/unit/db/project-share-queries.test.ts tests/unit/db/project-queries.test.ts",
     "test:chat:classification": "node --conditions=react-server --import tsx --test tests/unit/ai/execution-classifier.test.ts tests/unit/ai/execution-heuristic.test.ts tests/unit/chat/web-search.test.ts tests/unit/chat/automatic-routing.test.ts",
     "test:projects:runtime": "node --conditions=react-server --import tsx --test tests/unit/chat/automatic-routing.test.ts tests/unit/runtime/backends/routing.test.ts",
-    "test:skills:sandbox:collector": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/sandbox-rpc/linux-skill-collector.test.ts"
+    "test:skills:sandbox:collector": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/sandbox-rpc/linux-skill-collector.test.ts",
+    "test:i18n": "node --conditions=react-server --import tsx --test tests/unit/i18n/*.test.ts",
+    "test:i18n:ui": "node --import tsx tests/e2e/i18n-ui.mts"
   },
   "dependencies": {
     "@ai-sdk/provider": "^4.0.2",
@@ -152,6 +154,7 @@
     "swr": "^2.4.2",
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "use-intl": "4.14.5",
     "use-stick-to-bottom": "^1.1.6",
     "usehooks-ts": "^3.1.1",
     "zod": "^4.4.3"

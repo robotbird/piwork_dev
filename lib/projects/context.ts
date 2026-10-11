@@ -1,5 +1,6 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { DocumentInputError } from "@/lib/ai/document-errors";
+import { LocalizedError } from "@/lib/i18n/messages";
 import type { ProjectSourceReference } from "@/lib/runtime/protocol";
 import {
   documentCompleteness,
@@ -56,7 +57,7 @@ export function assembleProjectSourcesContext(
   sandboxDocuments = false
 ): ProjectSourcesContext | null {
   if (sources.length > MAX_PROJECT_DOCUMENTS) {
-    throw new DocumentInputError("项目资料超过 50 份，请减少资料或拆分项目。");
+    throw new DocumentInputError("runtimeMessages.sourceCount");
   }
   const usable = sources.filter((source) => source.content.trim());
   if (usable.length === 0) {
@@ -66,7 +67,7 @@ export function assembleProjectSourcesContext(
     ? projectSourceReferences(
         usable.map((source) => {
           if (!source.id) {
-            throw new Error("项目资料缺少身份，不能装配沙箱输入。");
+            throw new LocalizedError("runtimeMessages.sourceIdentityMissing");
           }
           return { ...source, id: source.id };
         })
@@ -87,9 +88,7 @@ export function assembleProjectSourcesContext(
         images.length >= MAX_PROJECT_IMAGES ||
         imageBytes > MAX_PROJECT_IMAGE_BYTES
       ) {
-        throw new DocumentInputError(
-          "项目图片总量超过限制：最多 5 张、合计 8 MB，请减少图片资料。"
-        );
+        throw new DocumentInputError("runtimeMessages.imageLimit");
       }
       images.push(image);
       sections.push(

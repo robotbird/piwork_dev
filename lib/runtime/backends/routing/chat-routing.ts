@@ -1,3 +1,4 @@
+import { LocalizedError } from "@/lib/i18n/messages";
 import type { ChatMessage } from "../../../types";
 
 const PLATFORM_REQUEST =
@@ -88,10 +89,10 @@ export function projectChatExecution(input: {
     return null;
   }
   if (!input.executionEnabled) {
-    throw new Error("项目聊天需要沙箱执行能力，当前执行工具已关闭");
+    throw new LocalizedError("runtimeMessages.projectExecutionDisabled");
   }
   if (!["docker", "opensandbox"].includes(input.sandboxProvider ?? "")) {
-    throw new Error("项目聊天需要已配置的沙箱环境");
+    throw new LocalizedError("runtimeMessages.projectSandboxRequired");
   }
   return { reason: "project-sandbox", requiresExecution: true };
 }

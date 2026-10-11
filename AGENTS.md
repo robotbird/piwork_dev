@@ -175,3 +175,7 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 ### macOS 开发环境 Skill 快照
 
 `NODE_ENV=development` 且 macOS 时，SandboxRpc 使用本机 Docker 的一次性 Linux 收集容器（现有 `PIWORK_SANDBOX_IMAGE`，缺省 `pi-runtime:dev`，禁止自动拉取）读取受管 Skill 目录。只绑定该目录为只读，无网络、无宿主凭据、禁用 capabilities，限额与 30 秒超时；Linux 内 pinned fd / O_NOFOLLOW 验证并读取普通单链接文件，宿主继续校验路径、限额及官方 Pi frontmatter，再经原有原子复制/显式 --skill 链路安装。容器不执行 Skill 脚本。Docker 不可用或收集失败即拒绝，不回退 macOS 路径读取；生产仍要求 Linux 原生 collector，portable fallback 仍仅显式 test。macOS 文件共享语义不是生产 Linux 安全等价证明。真实本机测试：`PIWORK_SKILL_COLLECTOR_DOCKER_TEST=1 node --conditions=react-server --import tsx --test tests/unit/runtime/backends/sandbox-rpc/linux-skill-collector.test.ts`，验证资源复制、软/硬链接和凭据拒绝、生产门禁，不调用模型。
+
+## 应用文案国际化边界
+
+代码展示文案/提示/接口错误归 i18n/messages 的 zh/en 资源，新增文案直接使用翻译键；分类和模型/角色标识不使用翻译后的文字。纯函数使用 use-intl/core，LocalizedError 在请求边界翻译；工具进度的 detail 仅是 stream-mapping UI 投影，不改 Pi 事件/loop。用户名称、Skill 目录及内容、行为匹配规则和历史协议标记不按界面语言改写。test:i18n（含键/ICU/AST 扫描）随 test:runtime；test:i18n:ui 为 tests/e2e + tests/support/i18n 隔离浏览器与模拟 API，不访问真实身份/DB/模型/Skill。见 docs/i18n.md。

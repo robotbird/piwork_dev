@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ export function ProjectJoinAction({
   projectId: string;
   token: string;
 }) {
+  const t = useTranslations("projects");
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const join = useCallback(async () => {
@@ -27,17 +29,17 @@ export function ProjectJoinAction({
       router.push(`/projects/${projectId}`);
       router.refresh();
     } catch {
-      toast.error("加入失败，分享链接可能已失效");
+      toast.error(t("joinFailed"));
       setBusy(false);
     }
-  }, [busy, projectId, router, token]);
+  }, [busy, projectId, router, token, t]);
   return (
     <Button
       className="w-full cursor-pointer rounded-full"
       disabled={busy}
       onClick={join}
     >
-      {busy ? "正在加入…" : "加入项目"}
+      {busy ? t("joining") : t("joinAction")}
     </Button>
   );
 }

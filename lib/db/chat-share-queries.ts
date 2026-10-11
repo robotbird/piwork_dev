@@ -15,6 +15,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import { translateMessage } from "@/lib/i18n/messages";
 import { getDb } from "./client";
 import type { Chat } from "./schema";
 import {
@@ -468,9 +469,11 @@ export async function checkShareInvite(
 export function forkChat({
   sourceChatId,
   userId,
+  locale,
 }: {
   sourceChatId: string;
   userId: string;
+  locale?: string;
 }): Promise<ForkChatResult | null> {
   return db.transaction(async (tx) => {
     const [source] = await tx
@@ -494,7 +497,11 @@ export function forkChat({
       .values({
         createdAt: new Date(),
         forkedFromChatId: source.id,
-        title: `${source.title}（分支）`,
+        title: translateMessage(
+          "chat.forkTitle",
+          { title: source.title },
+          locale
+        ),
         updatedAt: new Date(),
         userId,
         visibility: "private",

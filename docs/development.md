@@ -307,3 +307,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 ### macOS 开发环境 Skill 快照
 
 `NODE_ENV=development` 且 macOS 时，SandboxRpc 使用本机 Docker 的一次性 Linux 收集容器（现有 `PIWORK_SANDBOX_IMAGE`，缺省 `pi-runtime:dev`，禁止自动拉取）读取受管 Skill 目录。只绑定该目录为只读，无网络、无宿主凭据、禁用 capabilities，限额与 30 秒超时；Linux 内 pinned fd / O_NOFOLLOW 验证并读取普通单链接文件，宿主继续校验路径、限额及官方 Pi frontmatter，再经原有原子复制/显式 --skill 链路安装。容器不执行 Skill 脚本。Docker 不可用或收集失败即拒绝，不回退 macOS 路径读取；生产仍要求 Linux 原生 collector，portable fallback 仍仅显式 test。macOS 文件共享语义不是生产 Linux 安全等价证明。真实本机测试：`PIWORK_SKILL_COLLECTOR_DOCKER_TEST=1 node --conditions=react-server --import tsx --test tests/unit/runtime/backends/sandbox-rpc/linux-skill-collector.test.ts`，验证资源复制、软/硬链接和凭据拒绝、生产门禁，不调用模型。
+
+## 国际化验证
+
+新增展示文案使用 i18n/messages 的中英文翻译键，不使用中文作为新键、不拼接数量/名称后缀。纯函数仅使用 use-intl/core，后台错误不读取 Next 请求状态；接口在边界翻译。`pnpm test:i18n` 检查键/ICU 参数与应用 AST 文案扫描，随 test:runtime 收集；`pnpm test:i18n:ui` 为隔离 Chromium/模拟 API 验证，替身归 tests/support/i18n，无真实数据库或模型。用户输入及 Skill 内容不改写。详情见 [国际化约定](i18n.md)。

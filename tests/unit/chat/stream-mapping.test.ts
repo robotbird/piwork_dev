@@ -91,6 +91,7 @@ test("工具开始/结束映射为 transient data-tool-status", () => {
   assert.deepEqual(started, [
     {
       data: {
+        detail: ": python3 run.py",
         message: "正在执行命令: python3 run.py",
         phase: "start",
         toolName: "bash",

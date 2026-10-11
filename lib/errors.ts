@@ -1,4 +1,6 @@
 import { CHAT_TEXT_PART_MAX_LENGTH } from "@/lib/chat-input";
+import { DEFAULT_LANGUAGE } from "@/lib/i18n";
+import { translateMessage } from "@/lib/i18n/messages";
 
 export type ErrorType =
   | "bad_request"
@@ -61,11 +63,12 @@ export class ChatbotError extends Error {
     this.statusCode = getStatusCodeByType(this.type);
   }
 
-  toResponse() {
+  toResponse(locale: string = DEFAULT_LANGUAGE) {
     const code: ErrorCode = `${this.type}:${this.surface}`;
     const visibility = visibilityBySurface[this.surface];
 
-    const { message, cause, statusCode } = this;
+    const { cause, statusCode } = this;
+    const message = getMessageByErrorCode(code, locale);
 
     if (visibility === "log") {
       console.error({
@@ -75,7 +78,7 @@ export class ChatbotError extends Error {
       });
 
       return Response.json(
-        { code: "", message: "Something went wrong. Please try again later." },
+        { code: "", message: translateMessage("errors.generic", {}, locale) },
         { status: statusCode }
       );
     }
@@ -84,53 +87,58 @@ export class ChatbotError extends Error {
   }
 }
 
-export function getMessageByErrorCode(errorCode: ErrorCode): string {
+export function getMessageByErrorCode(
+  errorCode: ErrorCode,
+  locale = "en"
+): string {
   if (errorCode.includes("database")) {
-    return "An error occurred while executing a database query.";
+    return translateMessage("errors.database", {}, locale);
   }
 
   switch (errorCode) {
     case "bad_request:api":
-      return "The request couldn't be processed. Please check your input and try again.";
+      return translateMessage("errors.badRequestApi", {}, locale);
 
     case "bad_request:activate_gateway":
-      return "AI Gateway requires a valid credit card on file to service requests. Please visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card to add a card and unlock your free credits.";
+      return translateMessage("errors.gateway", {}, locale);
 
     case "unauthorized:auth":
-      return "You need to sign in before continuing.";
+      return translateMessage("errors.signIn", {}, locale);
     case "forbidden:auth":
-      return "Your account does not have access to this feature.";
+      return translateMessage("errors.forbiddenAuth", {}, locale);
 
     case "rate_limit:chat":
-      return "You've reached the message limit. Come back in 1 hour to continue chatting.";
+      return translateMessage("errors.messageLimit", {}, locale);
     case "conflict:chat":
-      return "A response is still being generated in this chat. Wait for it to finish or stop it before sending a new message.";
+      return translateMessage("errors.conflictChat", {}, locale);
     case "not_found:chat":
-      return "The requested chat was not found. Please check the chat ID and try again.";
+      return translateMessage("errors.chatNotFound", {}, locale);
     case "forbidden:model":
-      return "The selected model is unavailable or not authorized. Please select an available model and try again.";
+      return translateMessage("errors.forbiddenModel", {}, locale);
     case "forbidden:chat":
-      return "This chat belongs to another user. Please check the chat ID and try again.";
+      return translateMessage("errors.forbiddenChat", {}, locale);
     case "unauthorized:chat":
-      return "You need to sign in to view this chat. Please sign in and try again.";
+      return translateMessage("errors.signInChat", {}, locale);
     case "bad_request:chat":
-      return `The message is too long. Please keep each message under ${CHAT_TEXT_PART_MAX_LENGTH.toLocaleString(
-        "en-US"
-      )} characters or split it into several messages.`;
+      return translateMessage(
+        "errors.messageTooLong",
+        { limit: CHAT_TEXT_PART_MAX_LENGTH.toLocaleString(locale) },
+        locale
+      );
     case "offline:chat":
-      return "We're having trouble sending your message. Please check your internet connection and try again.";
+      return translateMessage("errors.offlineChat", {}, locale);
 
     case "not_found:document":
-      return "The requested document was not found. Please check the document ID and try again.";
+      return translateMessage("errors.documentNotFound", {}, locale);
     case "forbidden:document":
-      return "This document belongs to another user. Please check the document ID and try again.";
+      return translateMessage("errors.forbiddenDocument", {}, locale);
     case "unauthorized:document":
-      return "You need to sign in to view this document. Please sign in and try again.";
+      return translateMessage("errors.signInDocument", {}, locale);
     case "bad_request:document":
-      return "The request to create or update the document was invalid. Please check your input and try again.";
+      return translateMessage("errors.badRequestDocument", {}, locale);
 
     default:
-      return "Something went wrong. Please try again later.";
+      return translateMessage("errors.generic", {}, locale);
   }
 }
 

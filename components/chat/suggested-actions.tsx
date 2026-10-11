@@ -15,21 +15,13 @@ type SuggestedActionsProps = {
 };
 
 function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
-  const { language } = usePreferences();
-  const suggestedActions =
-    language === "zh"
-      ? [
-          "总结这份文档的关键结论",
-          "帮我起草一份项目执行计划",
-          "分析这组数据并提出建议",
-          "将这段内容整理成专业报告",
-        ]
-      : [
-          "Summarize the key findings in this document",
-          "Draft a project execution plan",
-          "Analyze this data and suggest next steps",
-          "Turn this content into a professional report",
-        ];
+  const { t } = usePreferences();
+  const suggestedActions = [
+    t("chat.suggestDocument"),
+    t("chat.suggestPlan"),
+    t("chat.suggestData"),
+    t("chat.suggestReport"),
+  ];
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
       window.history.pushState(

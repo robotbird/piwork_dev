@@ -1,5 +1,6 @@
 import type { UIMessageChunk } from "ai";
-import { formatToolStatus } from "@/lib/ai/agent-tools";
+import { formatToolStatus, toolStatusDetail } from "@/lib/chat/tool-status";
+import { translateMessage } from "@/lib/i18n/messages";
 import type { RuntimeEvent } from "@/lib/runtime/protocol";
 import type { RunSubscription } from "@/lib/runtime/run/run-manager";
 import type { CustomUIDataTypes, MessageMetadata } from "@/lib/types";
@@ -15,8 +16,8 @@ export type ChatStreamWriter = {
 
 /**
  * RuntimeEvent → AI SDK stream chunk 的纯翻译（route 内联事件桥的接替者）。
- * wire 格式与重构前逐字节一致：part id 规则 `text-<seq>-<ci>` /
- * `reasoning-<seq>-<ci>`、transient 标记、data 部件形状均照抄原实现。
+ * 保持 part id 规则 `text-<seq>-<ci>` / `reasoning-<seq>-<ci>` 与 transient 标记；
+ * tool-status 新增可选 detail 用于前端按当前语言格式化，兼容 message 字段。
  * tool 通道的 delta 只驱动上层"模型活跃"标记，不产出 wire chunk。
  */
 export function runtimeEventToUIMessageChunks(
@@ -49,7 +50,14 @@ export function runtimeEventToUIMessageChunks(
     return [
       {
         data: {
-          message: formatToolStatus("start", event.toolName, event.args),
+          detail: toolStatusDetail(event.toolName, event.args),
+          message: formatToolStatus(
+            "start",
+            event.toolName,
+            event.args,
+            false,
+            translateMessage
+          ),
           phase: "start",
           toolName: event.toolName,
         },
@@ -68,7 +76,8 @@ export function runtimeEventToUIMessageChunks(
             "end",
             event.toolName,
             undefined,
-            event.isError
+            Boolean(event.isError),
+            translateMessage
           ),
           phase: "end",
           toolName: event.toolName,

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { LocalizedError } from "@/lib/i18n/messages";
 import {
   documentCompleteness,
   MAX_PROJECT_MANIFEST_BYTES,
@@ -25,7 +26,7 @@ function assertSnapshot(spec: RuntimeSpec, sources: ProjectDocumentSource[]) {
     expected.length !== actual.length ||
     new Set(expected.map((item) => item.sourceId)).size !== actual.length
   ) {
-    throw new Error("项目资料目录已变更，请重新发送请求。");
+    throw new LocalizedError("runtimeMessages.sourceDirectoryChanged");
   }
   const indexed = new Map(actual.map((item) => [item.sourceId, item]));
   for (const reference of expected) {
@@ -35,7 +36,7 @@ function assertSnapshot(spec: RuntimeSpec, sources: ProjectDocumentSource[]) {
       reference.sha256 !== current.sha256 ||
       reference.bytes !== current.bytes
     ) {
-      throw new Error("项目资料内容已变更或删除，请重新发送请求。");
+      throw new LocalizedError("runtimeMessages.sourceChanged");
     }
   }
 }

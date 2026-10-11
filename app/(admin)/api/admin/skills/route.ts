@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+import { requireAdminRole } from "@/lib/admin/access";
 import {
   deleteManagedProjectSkill,
   loadManagedProjectSkillSummaries,
@@ -16,11 +18,18 @@ import {
 } from "@/lib/ai/skills";
 import { getUserById } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
-import { requireAdminRole } from "@/lib/admin/access";
 
-function apiError(error: unknown, status = 400) {
+async function apiError(error: unknown, status = 400) {
+  const t = await getTranslations("api");
   return Response.json(
-    { error: error instanceof Error ? error.message : "Unknown error" },
+    {
+      error:
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : t("unknownError"),
+    },
     { status }
   );
 }
@@ -47,6 +56,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const t = await getTranslations("api");
   const session = await requireAdminRole();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
@@ -57,11 +67,11 @@ export async function POST(request: Request) {
     if (request.headers.get("content-type")?.includes("application/json")) {
       const body = (await request.json()) as { catalogSkillName?: unknown };
       if (typeof body.catalogSkillName !== "string") {
-        return apiError("A catalog skill name is required.");
+        return apiError(t("catalogSkillNameRequired"));
       }
       const catalogSkill = getInstallableCatalogSkill(body.catalogSkillName);
       if (!catalogSkill) {
-        return apiError("The requested catalog skill was not found.", 404);
+        return apiError(t("catalogSkillNotFound"), 404);
       }
       const created = await createProjectSkill({
         description: catalogSkill.description,
@@ -77,11 +87,11 @@ export async function POST(request: Request) {
         .filter((item) => item instanceof File);
       const paths = formData.getAll("paths").map(String);
       if (files.length === 0) {
-        return apiError("Choose a skill folder or ZIP archive to upload.");
+        return apiError(t("skillUploadRequired"));
       }
       if (files.length > MAX_SKILL_UPLOAD_FILE_COUNT) {
         return apiError(
-          `A skill can contain at most ${MAX_SKILL_UPLOAD_FILE_COUNT} files.`
+          t("skillFileCount", { count: MAX_SKILL_UPLOAD_FILE_COUNT })
         );
       }
 
@@ -92,24 +102,22 @@ export async function POST(request: Request) {
         !isZipUpload &&
         files.some((file) => file.name.toLocaleLowerCase().endsWith(".zip"))
       ) {
-        return apiError("Upload one ZIP archive at a time.");
+        return apiError(t("skillSingleZip"));
       }
       if (!isZipUpload && files.length !== paths.length) {
-        return apiError("The uploaded skill folder has invalid file paths.");
+        return apiError(t("skillPathsInvalid"));
       }
 
       let totalSize = 0;
       for (const file of files) {
         if (!isZipUpload && file.size > MAX_SKILL_UPLOAD_FILE_SIZE) {
-          return apiError(`File "${file.name}" exceeds the 5 MB limit.`);
+          return apiError(t("skillFileLimit", { name: file.name }));
         }
         totalSize += file.size;
       }
       if (totalSize > MAX_SKILL_UPLOAD_TOTAL_SIZE) {
         return apiError(
-          isZipUpload
-            ? "The ZIP file exceeds the 15 MB upload limit."
-            : "The skill folder exceeds the 15 MB total limit."
+          isZipUpload ? t("skillZipLimit") : t("skillFolderLimit")
         );
       }
 
@@ -145,6 +153,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const t = await getTranslations("api");
   const session = await requireAdminRole();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
@@ -156,7 +165,7 @@ export async function PATCH(request: Request) {
       name?: unknown;
     };
     if (typeof body.name !== "string" || typeof body.enabled !== "boolean") {
-      return apiError("A skill name and an enabled flag are required.");
+      return apiError(t("skillEnableRequired"));
     }
     await setManagedProjectSkillEnabled(body.name, body.enabled);
     return Response.json({ updated: true });
@@ -168,6 +177,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const t = await getTranslations("api");
   const session = await requireAdminRole();
   if (!session) {
     return new ChatbotError("unauthorized:chat").toResponse();
@@ -176,7 +186,7 @@ export async function DELETE(request: Request) {
   try {
     const body = (await request.json()) as { name?: unknown };
     if (typeof body.name !== "string") {
-      return apiError("A skill name is required.");
+      return apiError(t("skillNameRequired"));
     }
     await deleteManagedProjectSkill(body.name);
     return Response.json({ deleted: true });

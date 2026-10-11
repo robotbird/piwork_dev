@@ -37,6 +37,7 @@ export type WaitingStatusData = {
 };
 
 export type ToolStatusData = {
+  detail?: string;
   phase: "start" | "end";
   toolName: string;
   message: string;

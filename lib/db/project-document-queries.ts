@@ -1,3 +1,4 @@
+import { LocalizedError } from "@/lib/i18n/messages";
 import "server-only";
 
 import { and, eq } from "drizzle-orm";
@@ -39,14 +40,14 @@ export async function loadAuthorizedProjectDocuments(spec: RuntimeSpec) {
     !(access?.isOwner || access?.isCollaborator) ||
     !(await getProject(grant.userId, grant.projectId))
   ) {
-    throw new Error("项目资料访问权限已失效，不能启动读取。");
+    throw new LocalizedError("runtimeMessages.sourceAccessExpired");
   }
   const sources = await getProjectDocumentSources(
     grant.userId,
     grant.projectId
   );
   if (sources.length > MAX_PROJECT_DOCUMENTS) {
-    throw new Error("项目资料超过 50 份，请减少资料或拆分项目。");
+    throw new LocalizedError("runtimeMessages.sourceCount");
   }
   return sources.filter((source) => source.content.trim());
 }

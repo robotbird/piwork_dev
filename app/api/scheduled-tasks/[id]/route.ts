@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
@@ -15,20 +16,22 @@ import { taskInputSchema } from "@/lib/scheduler/validation";
 
 export const maxDuration = 360;
 type Context = { params: Promise<{ id: string }> };
-const missing = () => Response.json({ error: "任务不存在" }, { status: 404 });
-const conflict = () =>
-  Response.json({ error: "任务正在运行，请结束后重试" }, { status: 409 });
+const missing = (t: (key: string) => string) =>
+  Response.json({ error: t("taskMissing") }, { status: 404 });
+const conflict = (t: (key: string) => string) =>
+  Response.json({ error: t("taskRunning") }, { status: 409 });
 
 export async function GET(_request: Request, { params }: Context) {
+  const t = await getTranslations("api");
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return Response.json({ error: "请先登录" }, { status: 401 });
+      return Response.json({ error: t("signIn") }, { status: 401 });
     }
     const id = z.uuid().parse((await params).id);
     const task = await getScheduledTask(user.id, id);
     if (!task) {
-      return missing();
+      return missing(t);
     }
     return Response.json({ runs: await listTaskRuns(user.id, id), task });
   } catch (error) {
@@ -37,28 +40,30 @@ export async function GET(_request: Request, { params }: Context) {
 }
 
 export async function PATCH(request: Request, { params }: Context) {
+  const t = await getTranslations("api");
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return Response.json({ error: "请先登录" }, { status: 401 });
+      return Response.json({ error: t("signIn") }, { status: 401 });
     }
     const id = z.uuid().parse((await params).id);
     const input = taskInputSchema.parse(await request.json());
     if (!(await getScheduledTask(user.id, id))) {
-      return missing();
+      return missing(t);
     }
     const task = await editScheduledTask(user.id, id, input);
-    return task ? Response.json(task) : conflict();
+    return task ? Response.json(task) : conflict(t);
   } catch (error) {
     return taskApiError(error);
   }
 }
 
 export async function POST(request: Request, { params }: Context) {
+  const t = await getTranslations("api");
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return Response.json({ error: "请先登录" }, { status: 401 });
+      return Response.json({ error: t("signIn") }, { status: 401 });
     }
     const id = z.uuid().parse((await params).id);
     const { action } = z
@@ -66,36 +71,37 @@ export async function POST(request: Request, { params }: Context) {
       .strict()
       .parse(await request.json());
     if (!(await getScheduledTask(user.id, id))) {
-      return missing();
+      return missing(t);
     }
     if (action === "run") {
       const task = await claimScheduledTask(user.id, id, true);
       if (!task) {
-        return conflict();
+        return conflict(t);
       }
       after(() => executeScheduledTask(task).then(() => undefined));
       return Response.json(task, { status: 202 });
     }
     const task = await setTaskEnabled(user.id, id, action === "resume");
-    return task ? Response.json(task) : missing();
+    return task ? Response.json(task) : missing(t);
   } catch (error) {
     return taskApiError(error);
   }
 }
 
 export async function DELETE(_request: Request, { params }: Context) {
+  const t = await getTranslations("api");
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return Response.json({ error: "请先登录" }, { status: 401 });
+      return Response.json({ error: t("signIn") }, { status: 401 });
     }
     const id = z.uuid().parse((await params).id);
     if (!(await getScheduledTask(user.id, id))) {
-      return missing();
+      return missing(t);
     }
     return (await deleteScheduledTask(user.id, id))
       ? Response.json({ success: true })
-      : conflict();
+      : conflict(t);
   } catch (error) {
     return taskApiError(error);
   }

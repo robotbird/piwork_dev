@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { translateMessage } from "@/lib/i18n/messages";
 import { DEFAULT_TIMEZONE, getNextRunTime } from "./cron-utils";
 
 export const taskInputSchema = z
@@ -16,7 +17,7 @@ export const taskInputSchema = z
         } catch {
           ctx.addIssue({
             code: "custom",
-            message: "无效的计划或时区",
+            message: translateMessage("runtimeMessages.invalidSchedule"),
             path: ["cron"],
           });
         }

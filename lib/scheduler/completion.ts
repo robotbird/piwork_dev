@@ -1,3 +1,4 @@
+import { LocalizedError, translateMessage } from "@/lib/i18n/messages";
 import type { RunHandle } from "@/lib/runtime/run/run-manager";
 
 export async function waitForTaskCompletion(
@@ -6,7 +7,7 @@ export async function waitForTaskCompletion(
 ) {
   const subscription = handle.attach();
   if (!subscription) {
-    throw new Error("无法订阅任务运行");
+    throw new LocalizedError("runtimeMessages.subscriptionFailed");
   }
   // The scheduler only needs the completion promise, not an unbounded event queue.
   subscription.close();
@@ -16,14 +17,16 @@ export async function waitForTaskCompletion(
       subscription.settled,
       new Promise<never>((_, reject) => {
         timer = setTimeout(
-          () => reject(new Error("任务执行超时，已停止")),
+          () => reject(new LocalizedError("runtimeMessages.taskTimeout")),
           timeoutMs
         );
       }),
     ]);
     if (outcome !== "settled") {
       throw new Error(
-        outcome === "aborted" ? "任务已停止" : "AI 执行失败，请查看运行对话"
+        outcome === "aborted"
+          ? translateMessage("runtimeMessages.taskStopped")
+          : translateMessage("runtimeMessages.taskFailed")
       );
     }
   } finally {

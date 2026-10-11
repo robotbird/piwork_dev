@@ -254,7 +254,7 @@ function formatStamp(
   iso: string,
   labels: { today: string; yesterday: string },
   locale: Locale,
-  english: boolean
+  pattern: string
 ): string {
   const date = new Date(iso);
   const time = format(date, "HH:mm");
@@ -264,7 +264,7 @@ function formatStamp(
   if (isYesterday(date)) {
     return `${labels.yesterday} ${time}`;
   }
-  return format(date, english ? "MMM d, HH:mm" : "M月d日 HH:mm", { locale });
+  return format(date, pattern, { locale });
 }
 
 function shortDay(date: string): string {
@@ -775,7 +775,7 @@ export function DashboardOverview({
                                 yesterday: t("dashboard.yesterday"),
                               },
                               locale,
-                              english
+                              t("dashboard.dateTimePattern")
                             )}
                           </td>
                           <td className="whitespace-nowrap px-4">

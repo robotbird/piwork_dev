@@ -33,11 +33,14 @@ test("valid preferences survive and stale IDs resolve to the displayed default",
 
 test("model authorization errors do not claim another user's chat", async () => {
   const error = new ChatbotError("forbidden:model", "Model not authorized");
-  const response = error.toResponse();
+  const response = error.toResponse("en");
   assert.equal(response.status, 403);
   const body = await response.json();
   assert.equal(body.code, "forbidden:model");
   assert.match(body.message, /model.*unavailable or not authorized/);
   assert.doesNotMatch(body.message, /another user/);
+  const localized = await error.toResponse("zh").json();
+  assert.equal(localized.code, body.code);
+  assert.match(localized.message, /模型/);
   assert.match(new ChatbotError("forbidden:chat").message, /another user/);
 });

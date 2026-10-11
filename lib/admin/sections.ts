@@ -24,51 +24,63 @@ export type AdminSection = {
 };
 
 const SKILL_SECTION: AdminSection = {
-  description: "沉淀企业级技能资产，让智能体能力可上传、可共享、可复用。",
-  features: ["技能库浏览", "创建与上传", "分发复用"],
+  description: "admin.sectionSkillsDescription",
+  features: ["admin.browseSkills", "admin.createUpload", "admin.reuse"],
   href: "/admin/skills",
   icon: BlocksIcon,
   ready: true,
-  tagline: "企业技能库 · 沉淀与复用",
-  title: "Skill管理",
+  tagline: "admin.skillsTagline",
+  title: "adminSidebar.skillManagement",
 };
 
 const TOOL_SECTION: AdminSection = {
-  description: "统一接入与管理 MCP 服务、API 与插件，扩展智能体的能力边界。",
-  features: ["MCP 服务", "API 接入", "插件管理"],
+  description: "admin.toolsDescription",
+  features: [
+    "adminSidebar.mcpServices",
+    "admin.apiIntegration",
+    "admin.plugins",
+  ],
   href: "/admin/tools",
   icon: WrenchIcon,
   ready: true,
-  tagline: "MCP / API / 插件 · 接入与管理",
-  title: "工具管理",
+  tagline: "admin.toolsTagline",
+  title: "admin.toolsManagementTitle",
 };
 
 const DATA_SECTION: AdminSection = {
-  description: "管理企业知识库、数据库与企业文档，为智能体回答提供数据支撑。",
-  features: ["知识库", "数据库", "企业文档"],
+  description: "admin.dataDescription",
+  features: ["admin.knowledge", "admin.databases", "admin.enterpriseDocuments"],
   href: "/admin/data",
   icon: DatabaseIcon,
-  tagline: "知识库 / 数据库 / 企业文档",
-  title: "数据管理",
+  tagline: "admin.dataTagline",
+  title: "adminSidebar.dataManagement",
 };
 
 const MODEL_SECTION: AdminSection = {
-  description: "统一接入多模型与企业私有模型，管理模型的可用性与配置。",
-  features: ["多模型接入", "私有模型", "接入配置"],
+  description: "admin.modelsDescription",
+  features: [
+    "admin.multiModel",
+    "admin.privateModels",
+    "admin.modelConfiguration",
+  ],
   href: "/admin/models",
   icon: BrainIcon,
   ready: true,
-  tagline: "多模型接入 · 企业私有模型",
-  title: "模型管理",
+  tagline: "admin.modelsTagline",
+  title: "adminSidebar.modelManagement",
 };
 
 const ORGANIZATION_SECTION: AdminSection = {
-  description: "维护组织架构与成员，配置角色与访问权限。",
-  features: ["组织架构", "成员管理", "角色与权限"],
+  description: "admin.organizationDescription",
+  features: [
+    "adminSidebar.organization",
+    "adminSidebar.members",
+    "adminSidebar.rolesAndPermissions",
+  ],
   href: "/admin/organization",
   icon: UsersIcon,
-  tagline: "组织架构 / 成员管理 · 角色与权限",
-  title: "组织与用户",
+  tagline: "admin.organizationTagline",
+  title: "admin.organizationUsers",
 };
 
 export type AdminNavGroup = {
@@ -89,8 +101,9 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   },
 ];
 
-export const ADMIN_SECTIONS: AdminSection[] =
-  ADMIN_NAV_GROUPS.flatMap((group) => group.items);
+export const ADMIN_SECTIONS: AdminSection[] = ADMIN_NAV_GROUPS.flatMap(
+  (group) => group.items
+);
 
 export function getAdminSection(href: string): AdminSection {
   const section = ADMIN_SECTIONS.find((item) => item.href === href);

@@ -1,7 +1,9 @@
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import { joinProjectShare } from "@/lib/db/project-share-queries";
 export async function POST(request: Request) {
+  const t = await getTranslations("api");
   const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
@@ -19,10 +21,7 @@ export async function POST(request: Request) {
       parsed.data.token
     ))
   ) {
-    return Response.json(
-      { error: "分享链接失效或账号未启用" },
-      { status: 403 }
-    );
+    return Response.json({ error: t("inviteInvalid") }, { status: 403 });
   }
   return Response.json({ projectId: parsed.data.projectId });
 }

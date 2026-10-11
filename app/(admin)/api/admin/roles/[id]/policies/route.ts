@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { requireAdminSession } from "@/lib/admin/access";
 import { roleModelPolicySchema } from "@/lib/admin/role-model-policy";
@@ -19,17 +20,18 @@ const inputSchema = z
 const idSchema = z.string().uuid();
 type Context = { params: Promise<{ id: string }> };
 export async function GET(_request: Request, context: Context) {
+  const t = await getTranslations("api");
   if (!(await requireAdminSession())) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    return Response.json({ error: t("unauthorizedAccess") }, { status: 401 });
   }
   const { id } = await context.params;
   if (!idSchema.safeParse(id).success) {
-    return Response.json({ error: "Invalid role ID" }, { status: 400 });
+    return Response.json({ error: t("invalidRoleId") }, { status: 400 });
   }
   try {
     const role = await getRoleById(id);
     if (!role) {
-      return Response.json({ error: "Role not found" }, { status: 404 });
+      return Response.json({ error: t("roleNotFound") }, { status: 404 });
     }
     const [catalog, usage] = await Promise.all([
       getActiveModelCatalog(),
@@ -41,27 +43,28 @@ export async function GET(_request: Request, context: Context) {
     );
   } catch {
     return Response.json(
-      { error: "Unable to load role policies" },
+      { error: t("rolePoliciesLoadFailed") },
       { status: 500 }
     );
   }
 }
 export async function PUT(request: Request, context: Context) {
+  const t = await getTranslations("api");
   if (!(await requireAdminSession())) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    return Response.json({ error: t("unauthorizedAccess") }, { status: 401 });
   }
   const { id } = await context.params;
   if (!idSchema.safeParse(id).success) {
-    return Response.json({ error: "Invalid role ID" }, { status: 400 });
+    return Response.json({ error: t("invalidRoleId") }, { status: 400 });
   }
   const parsed = inputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return Response.json({ error: "Invalid policy" }, { status: 400 });
+    return Response.json({ error: t("invalidPolicy") }, { status: 400 });
   }
   try {
     const role = await getRoleById(id);
     if (!role) {
-      return Response.json({ error: "Role not found" }, { status: 404 });
+      return Response.json({ error: t("roleNotFound") }, { status: 404 });
     }
     const policy = parsed.data.modelPolicy;
     if (policy) {
@@ -75,14 +78,11 @@ export async function PUT(request: Request, context: Context) {
             !role.modelPolicy?.enabledModelIds.includes(modelId)
         )
       ) {
-        return Response.json(
-          { error: "Model is not available" },
-          { status: 400 }
-        );
+        return Response.json({ error: t("modelUnavailable") }, { status: 400 });
       }
       if (policy.defaultModelId && !ids.has(policy.defaultModelId)) {
         return Response.json(
-          { error: "Default model is not available" },
+          { error: t("defaultModelUnavailable") },
           { status: 400 }
         );
       }
@@ -93,7 +93,7 @@ export async function PUT(request: Request, context: Context) {
     });
   } catch {
     return Response.json(
-      { error: "Unable to save role policies" },
+      { error: t("rolePoliciesSaveFailed") },
       { status: 500 }
     );
   }

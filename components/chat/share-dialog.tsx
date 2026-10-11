@@ -324,11 +324,11 @@ export function ShareDialog({
       >
         <DialogHeader className="shrink-0 px-6 pb-5 pt-6 pr-14">
           <DialogTitle className="text-base font-semibold leading-6">
-            {resource === "project" ? "分享项目" : t("title")}
+            {resource === "project" ? t("projectTitle") : t("title")}
           </DialogTitle>
           <DialogDescription className="text-sm leading-5">
             {resource === "project"
-              ? "共享项目资料，各自的对话保持私有。"
+              ? t("projectDescription")
               : t("description")}
           </DialogDescription>
         </DialogHeader>

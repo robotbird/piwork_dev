@@ -3,7 +3,7 @@
 
 import { FolderIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -33,6 +33,7 @@ import {
 
 export function ProjectsPanel() {
   const t = useTranslations("projects");
+  const locale = useLocale();
   const router = useRouter();
   const { data, isLoading, mutate } = useSWR<{ projects: ProjectSummary[] }>(
     "/api/projects",
@@ -123,7 +124,7 @@ export function ProjectsPanel() {
                     </span>
                     <span className="block text-sm text-muted-foreground">
                       {t("updatedAtLabel", {
-                        date: formatShortDate(project.updatedAt),
+                        date: formatShortDate(project.updatedAt, locale),
                       })}
                     </span>
                   </span>

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { DocumentInputError } from "@/lib/ai/document-errors";
+import { LocalizedError } from "@/lib/i18n/messages";
 import type { ProjectSourceReference } from "@/lib/runtime/protocol";
 import { sourceImageMime } from "./source-files";
 
@@ -35,9 +36,7 @@ export function projectSourceReferences(
   sources: readonly ProjectDocumentSource[]
 ): ProjectSourceReference[] {
   if (sources.length > MAX_PROJECT_DOCUMENTS) {
-    throw new DocumentInputError(
-      "项目资料超过 50 份，请减少本项目资料或拆分项目。"
-    );
+    throw new DocumentInputError("runtimeMessages.sourceCountInput");
   }
   let totalTextBytes = 0;
   const ids = new Set<string>();
@@ -48,22 +47,18 @@ export function projectSourceReferences(
       ) ||
       ids.has(source.id)
     ) {
-      throw new Error("项目资料身份无效或重复。");
+      throw new LocalizedError("runtimeMessages.sourceIdentityInvalid");
     }
     ids.add(source.id);
     const bytes = Buffer.byteLength(source.content, "utf8");
     if (!sourceImageMime(source.type)) {
       totalTextBytes += bytes;
       if (bytes > MAX_PROJECT_TEXT_BYTES) {
-        throw new DocumentInputError(
-          "单份项目文本超过 2 MB，请按章节拆分资料。"
-        );
+        throw new DocumentInputError("runtimeMessages.sourceTextLimit");
       }
     }
     if (totalTextBytes > MAX_PROJECT_TOTAL_TEXT_BYTES) {
-      throw new DocumentInputError(
-        "本次项目文本超过 8 MB，请减少资料或分批处理。"
-      );
+      throw new DocumentInputError("runtimeMessages.totalTextLimit");
     }
     return { bytes, sha256: textSha256(source.content), sourceId: source.id };
   });
@@ -73,7 +68,7 @@ export function projectSourceReferences(
 export function splitProjectText(content: string): Buffer[] {
   const bytes = Buffer.from(content, "utf8");
   if (bytes.length > MAX_PROJECT_TEXT_BYTES) {
-    throw new DocumentInputError("单份项目文本超过 2 MB，请按章节拆分资料。");
+    throw new DocumentInputError("runtimeMessages.sourceTextLimit");
   }
   const segments: Buffer[] = [];
   for (let start = 0; start < bytes.length; ) {

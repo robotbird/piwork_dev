@@ -12,6 +12,7 @@
 | [对话分享与协作](chat-collaboration.md) | 分享链接/协作成员/fork、消息归属头像、实时协作（SSE presence/typing/事件通知）与权限模型 | 当前实现；token 只存哈希且明文仅展示一次；协作成员走经典 lane 不参与 Durable 分流；实时层单实例进程内 hub，事件不携带正文 |
 | [聊天业务链路与 RPC](rpc-business-flow.md) | 从用户输入到模型回复；RPC 与 HTTP、Provider 的关系 | 当前实现与已实现适配器分开说明 |
 | [平台与 Runtime 演进架构](platform-runtime-roadmap.md) | Web → Worker/Sandbox → 未来 Desktop 的目标边界与分期 | 目标架构；含现有代码映射和验收条件 |
+| [应用文案国际化](i18n.md) | 展示文案、接口错误、语言切换与兼容边界 | 当前实现；不修改 Skill 内容与用户数据 |
 | [开发与测试](development.md) | 目录约定、测试位置和验证命令 | 当前规范 |
 | [运行手册](operations.md) | 本地/单机启动顺序与命令、健康检查、日常维护、已知故障处置 | 当前实现；组件/配置变化时同步维护 |
 | [Pi Package 与 Runtime 架构](pi-plugin-support-research.md) | Package、RPC、Sandbox 的分阶段目标设计 | 含已实现步骤与后续规划；逐节核对状态 |

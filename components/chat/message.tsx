@@ -1,9 +1,11 @@
 "use client";
+
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import { isChatFileUrl } from "@/lib/ai/attachment-types";
+import { formatToolStatus } from "@/lib/chat/tool-status";
 import type { Vote } from "@/lib/db/schema";
 import { publicSourceUrl } from "@/lib/search/protocol";
 import type { ChatMessage } from "@/lib/types";
@@ -48,6 +50,7 @@ function WaitingText() {
 
 // 工具执行进度（如“正在执行命令: python3 …”），仅流式期间展示。
 function ToolStatusText() {
+  const { t } = usePreferences();
   const { toolStatus } = useDataStream();
   if (!toolStatus) {
     return null;
@@ -60,7 +63,14 @@ function ToolStatusText() {
         className="font-medium whitespace-normal break-words"
         duration={1}
       >
-        {toolStatus.message}
+        {formatToolStatus(
+          toolStatus.phase,
+          toolStatus.toolName,
+          undefined,
+          Boolean(toolStatus.isError),
+          t,
+          toolStatus.detail
+        )}
       </Shimmer>
     </div>
   );

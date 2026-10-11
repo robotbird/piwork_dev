@@ -55,12 +55,12 @@ export async function POST(request: Request) {
       parentId &&
       (typeof parentId !== "string" || !z.uuid().safeParse(parentId).success)
     ) {
-      return NextResponse.json({ error: "无效的文件夹" }, { status: 400 });
+      return NextResponse.json({ error: t("folderInvalid") }, { status: 400 });
     }
     try {
       await assertLibraryFolder(session.user.id, parentId as string | null);
     } catch {
-      return NextResponse.json({ error: "文件夹不存在" }, { status: 400 });
+      return NextResponse.json({ error: t("folderMissing") }, { status: 400 });
     }
     const isLibraryUpload = formData.get("library") === "true";
     const filename = (formData.get("file") as File).name;

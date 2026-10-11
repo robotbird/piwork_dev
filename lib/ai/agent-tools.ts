@@ -3,6 +3,8 @@ import path from "node:path";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { Type } from "@earendil-works/pi-ai";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+import { formatToolStatus as formatLocalizedToolStatus } from "@/lib/chat/tool-status";
+import { translateMessage } from "@/lib/i18n/messages";
 import type { ChatMessage, DeliveredFileData } from "@/lib/types";
 import { getSupportedAttachmentType } from "./attachment-types";
 import { downloadAttachment } from "./attachments";
@@ -136,45 +138,19 @@ function promptSnippetFromDescription(description: string) {
   return firstSentence.trim().slice(0, 120) || description.slice(0, 120);
 }
 
-const TOOL_LABELS: Record<string, string> = {
-  bash: "执行命令",
-  create_skill: "创建技能",
-  deliver_file: "交付文件",
-  edit: "编辑文件",
-  load_skill: "加载技能",
-  mcp: "MCP 调用",
-  mcpScript: "MCP 脚本",
-  platform_web_search: "联网搜索",
-  read: "读取文件",
-  write: "写入文件",
-};
-
 export function formatToolStatus(
   phase: "start" | "end",
   toolName: string,
   args?: unknown,
   isError = false
 ) {
-  // mcp 命名空间代理形如 mcp__<server>__<tool>，展示成 <server>/<tool>
-  let label = TOOL_LABELS[toolName] ?? toolName;
-  if (toolName.startsWith("mcp__")) {
-    const segments = toolName.split("__").slice(1);
-    label = segments.length > 1 ? segments.join("/") : toolName;
-  }
-  if (phase === "end") {
-    return isError ? `${label}失败` : `${label}完成`;
-  }
-
-  const a = (args ?? {}) as Record<string, unknown>;
-  const detail =
-    toolName === "bash" && typeof a.command === "string"
-      ? `: ${a.command.slice(0, 80)}`
-      : typeof a.path === "string"
-        ? `: ${a.path}`
-        : toolName === "load_skill" && typeof a.name === "string"
-          ? `: ${a.name}`
-          : "";
-  return `正在${label}${detail}`;
+  return formatLocalizedToolStatus(
+    phase,
+    toolName,
+    args,
+    isError,
+    translateMessage
+  );
 }
 
 // 将本轮用户上传附件的原始字节落盘到工作区，供 skill 脚本直接读取

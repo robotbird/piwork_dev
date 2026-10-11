@@ -375,7 +375,7 @@ export function RolePoliciesPanel({
                       value={limits[key]}
                     />
                     <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-muted-foreground">
-                      Tokens
+                      {t("common.tokenUnit")}
                     </span>
                   </div>
                 </div>
