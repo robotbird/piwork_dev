@@ -311,3 +311,9 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 ## 国际化验证
 
 新增展示文案使用 i18n/messages 的中英文翻译键，不使用中文作为新键、不拼接数量/名称后缀。纯函数仅使用 use-intl/core，后台错误不读取 Next 请求状态；接口在边界翻译。`pnpm test:i18n` 检查键/ICU 参数与应用 AST 文案扫描，随 test:runtime 收集；`pnpm test:i18n:ui` 为隔离 Chromium/模拟 API 验证，替身归 tests/support/i18n，无真实数据库或模型。用户输入及 Skill 内容不改写。详情见 [国际化约定](i18n.md)。
+
+### 聊天搜索
+
+左上角搜索打开 ChatSearchDialog（复用 Dialog/Command），空输入显示最近可访问聊天；250ms 防抖，Cmd/Ctrl+K 打开、方向键/Enter 选择、Escape 关闭。`GET /api/history/search?q=` 仅 enabled 成员，最多 200 字符，private/no-store；`lib/db/chat-search-queries.ts` 复用 getDb，按 owner ∪ collaborator 查询（含项目聊天），标题及 Message_v2 text parts 做字面子串匹配，返回有界文本摘要，最多 50 条并提示收窄关键词。不搜索 reasoning/工具/附件/Pi 原生 session；不调用模型、不改变 Pi 1.1.0 SDK 或 agent loop。无索引/容量验收，当前不搜索项目名或文档库。
+
+验证：`pnpm test:chat:search:db` 使用独立账号及聊天，验证正文/标题、通配符字面量、协作撤销、禁用与跨用户隔离，仅清理自己的夹具。

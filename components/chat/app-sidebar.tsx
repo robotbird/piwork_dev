@@ -16,10 +16,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { useTranslations } from "next-intl";
-import { useCallback, useState } from "react";
-import { toast } from "sonner";
+import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 import { BrandMark } from "@/components/chat/brand-mark";
+import { ChatSearchDialog } from "@/components/chat/chat-search-dialog";
 import { SidebarHistory } from "@/components/chat/sidebar-history";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
 import {
@@ -68,6 +68,18 @@ export function AppSidebar({
   const router = useRouter();
   const { setOpenMobile, toggleSidebar } = useSidebar();
   const [createOpen, setCreateOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const handleOpenSearch = useCallback(() => setSearchOpen(true), []);
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen((value) => !value);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   const { data: projectsData, mutate: mutateProjects } = useSWR<{
     projects: ProjectSummary[];
@@ -97,15 +109,6 @@ export function AppSidebar({
     [mutateProjects, router, setOpenMobile]
   );
 
-  const handleComingSoon = useCallback(
-    (event: React.MouseEvent<HTMLElement>) => {
-      toast.info(
-        t("comingSoon", { label: event.currentTarget.dataset.label ?? "" })
-      );
-    },
-    [t]
-  );
-
   return (
     <Sidebar className="border-r border-sidebar-border" collapsible="icon">
       <SidebarHeader className="px-3 pb-4 pt-3 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:pb-5 group-data-[collapsible=icon]:pt-5">
@@ -123,8 +126,7 @@ export function AppSidebar({
             <button
               aria-label={t("search")}
               className="grid size-9 place-items-center rounded-lg text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-              data-label={t("search")}
-              onClick={handleComingSoon}
+              onClick={handleOpenSearch}
               type="button"
             >
               <SearchIcon className="size-[18px]" />
@@ -193,6 +195,17 @@ export function AppSidebar({
                     )}
                   />
                   <span>{t("newChat")}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
+                <SidebarMenuButton
+                  aria-label={t("search")}
+                  className="h-10 rounded-[10px] px-3 text-[14px] leading-5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:[&>span]:hidden [&_svg]:size-[18px] group-data-[collapsible=icon]:[&_svg]:size-5 group-data-[collapsible=icon]:[&_svg]:text-[#0d0d0d] dark:group-data-[collapsible=icon]:[&_svg]:text-[#ececec] group-data-[collapsible=icon]:[&_svg]:stroke-[1.7]"
+                  onClick={handleOpenSearch}
+                  tooltip={t("search")}
+                >
+                  <SearchIcon className="shrink-0 transition-colors text-muted-foreground group-hover/menu-button:text-foreground" />
+                  <span>{t("search")}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {primaryItems.map(({ href, icon: Icon, labelKey }) => (
@@ -293,6 +306,12 @@ export function AppSidebar({
           </Link>
         )}
       </SidebarFooter>
+      <ChatSearchDialog
+        onNavigate={handleCloseMobile}
+        onOpenChange={setSearchOpen}
+        open={searchOpen}
+        signedIn={Boolean(user)}
+      />
       <CreateProjectDialog
         onCreated={handleProjectCreated}
         onOpenChange={setCreateOpen}

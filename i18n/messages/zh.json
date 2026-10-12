@@ -1881,5 +1881,20 @@
     "badRequestDocument": "创建或更新文档的请求无效，请检查输入后重试。",
     "generic": "发生错误，请稍后重试。",
     "messageTooLong": "消息过长，请将每条消息控制在 {limit} 字符以内，或拆分为多条消息。"
+  },
+  "chatSearch": {
+    "title": "搜索聊天",
+    "description": "搜索你有权访问的聊天标题和消息内容",
+    "placeholder": "搜索聊天…",
+    "loading": "正在搜索…",
+    "recent": "最近聊天",
+    "results": "搜索结果",
+    "empty": "未找到相关聊天，试试其他关键词",
+    "noHistory": "还没有聊天记录",
+    "error": "搜索失败，请重试",
+    "retry": "重试",
+    "shared": "共享",
+    "signIn": "登录后搜索聊天记录",
+    "limit": "显示前 50 条结果，请使用更具体的关键词"
   }
 }

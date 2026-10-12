@@ -179,3 +179,7 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 ## 应用文案国际化边界
 
 代码展示文案/提示/接口错误归 i18n/messages 的 zh/en 资源，新增文案直接使用翻译键；分类和模型/角色标识不使用翻译后的文字。纯函数使用 use-intl/core，LocalizedError 在请求边界翻译；工具进度的 detail 仅是 stream-mapping UI 投影，不改 Pi 事件/loop。用户名称、Skill 目录及内容、行为匹配规则和历史协议标记不按界面语言改写。test:i18n（含键/ICU/AST 扫描）随 test:runtime；test:i18n:ui 为 tests/e2e + tests/support/i18n 隔离浏览器与模拟 API，不访问真实身份/DB/模型/Skill。见 docs/i18n.md。
+
+## 聊天搜索边界
+
+左上角 Dialog/Command 搜索经 `/api/history/search` 调用 `lib/db/chat-search-queries.ts`，仅 enabled 成员，owner ∪ collaborator（含项目聊天），只查标题与 text parts；最多 200 字符/50 条，无 reasoning/工具/附件/Pi session，不调用模型。查询复用 getDb，授权不得用客户端筛选替代；通配符按字面量转义。test:chat:search:db 仅清理独立夹具，不宣称容量验收。

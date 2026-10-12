@@ -892,3 +892,13 @@ samp {
 .dark .skill-menu [data-slot="command-list"]::-webkit-scrollbar-thumb {
   background: oklch(1 0 0 / 0.12);
 }
+
+/* Search has a borderless input; focus remains inside the modal's input row. */
+input[data-slot="chat-search-input"],
+input[data-slot="chat-search-input"]:focus,
+input[data-slot="chat-search-input"]:focus-visible {
+  border: 0 !important;
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+}

@@ -296,3 +296,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 ## 应用文案与语言边界
 
 应用文案使用 next-intl zh/en 资源，纯函数和后台错误使用 use-intl/core；请求边界选择语言，分类/角色/模型标识保持稳定。工具进度的可选 detail 仅在 RuntimeEvent → stream-mapping 的平台 UI 投影添加，前端按当前语言格式化，Pi loop 与 runtime 协议不变。Skill 内容、用户数据、行为匹配规则/历史标记不随界面语言改写；规则和验证见 [应用文案国际化](i18n.md)。
+
+### 聊天搜索
+
+左上角搜索打开 ChatSearchDialog（复用 Dialog/Command），空输入显示最近可访问聊天；250ms 防抖，Cmd/Ctrl+K 打开、方向键/Enter 选择、Escape 关闭。`GET /api/history/search?q=` 仅 enabled 成员，最多 200 字符，private/no-store；`lib/db/chat-search-queries.ts` 复用 getDb，按 owner ∪ collaborator 查询（含项目聊天），标题及 Message_v2 text parts 做字面子串匹配，返回有界文本摘要，最多 50 条并提示收窄关键词。不搜索 reasoning/工具/附件/Pi 原生 session；不调用模型、不改变 Pi 1.1.0 SDK 或 agent loop。无索引/容量验收，当前不搜索项目名或文档库。

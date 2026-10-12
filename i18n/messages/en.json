@@ -1881,5 +1881,20 @@
     "badRequestDocument": "The request to create or update the document was invalid. Please check your input and try again.",
     "generic": "Something went wrong. Please try again later.",
     "messageTooLong": "The message is too long. Please keep each message under {limit} characters or split it into several messages."
+  },
+  "chatSearch": {
+    "title": "Search chats",
+    "description": "Search titles and messages in chats you can access",
+    "placeholder": "Search chats…",
+    "loading": "Searching…",
+    "recent": "Recent chats",
+    "results": "Search results",
+    "empty": "No matching chats. Try another keyword.",
+    "noHistory": "No chat history yet",
+    "error": "Search failed. Please try again.",
+    "retry": "Retry",
+    "shared": "Shared",
+    "signIn": "Sign in to search your chats",
+    "limit": "Showing the first 50 results. Try a more specific keyword."
   }
 }

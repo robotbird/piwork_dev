@@ -79,7 +79,8 @@
     "test:projects:runtime": "node --conditions=react-server --import tsx --test tests/unit/chat/automatic-routing.test.ts tests/unit/runtime/backends/routing.test.ts",
     "test:skills:sandbox:collector": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/sandbox-rpc/linux-skill-collector.test.ts",
     "test:i18n": "node --conditions=react-server --import tsx --test tests/unit/i18n/*.test.ts",
-    "test:i18n:ui": "node --import tsx tests/e2e/i18n-ui.mts"
+    "test:i18n:ui": "node --import tsx tests/e2e/i18n-ui.mts",
+    "test:chat:search:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/chat-search-queries.test.ts"
   },
   "dependencies": {
     "@ai-sdk/provider": "^4.0.2",
