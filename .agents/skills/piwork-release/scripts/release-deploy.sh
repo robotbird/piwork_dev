@@ -148,7 +148,7 @@ done
 # ---------- 获取 Release 产物并部署到服务器 ----------
 if [ "$SERVER_DL" = "1" ]; then
   [ "$SKIP_DEPLOY" = "0" ] || die "--skip-deploy 不能与 --server-download 同用（产物留在 GitHub，服务器直接取）"
-  log "服务器直连下载模式：由服务器从 GitHub Release 下载 $ASSET，本机不经手产物"
+  log "服务器直连下载模式：由服务器从 GitHub Release 下载 ${ASSET}，本机不经手产物"
   bash "$DEPLOY_SH" ci "https://github.com/$REPO/releases/download/$TAG/$ASSET"
 else
   ARTDIR="$(mktemp -d /tmp/piwork-release.XXXXXX)"
