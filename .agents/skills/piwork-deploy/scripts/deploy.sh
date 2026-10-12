@@ -8,7 +8,9 @@
 # 用法:
 #   deploy.sh first              首次部署：服务器初始化（建库/生成 .env.local/nginx 配置）+ 构建 + 启动
 #   deploy.sh daily              日常部署：本机构建 → rsync 上传 → 服务器装依赖/迁移 → 原子切换 → 健康检查（失败自动回滚）
-#   deploy.sh ci <file|url>      CI 产物部署：参数为本地 tar.gz 则上传；为 http(s) URL 则由服务器直接下载（其余同 daily）
+#   deploy.sh ci <file|url>      CI 产物部署：参数为本地 tar.gz 则上传；为 http(s) URL 则由服务器直接下载（其余同 daily）。
+#                                URL 模式可用 PIWORK_DEPLOY_ARTIFACT_FALLBACK_URLS（空格分隔候选直链）和
+#                                PIWORK_DEPLOY_ARTIFACT_SHA256（下载后强校验，不匹配拒绝解包）
 #   deploy.sh rollback           回滚到上一个版本（current 软链切回并重启）
 #   deploy.sh status             查看当前版本、pm2 状态与健康检查
 # 选项:
@@ -230,26 +232,46 @@ upload_artifact() {
   local note="上传"
   case "$ARTIFACT" in
     http://* | https://*)
-      # 服务器端下载模式：本机不经手产物，服务器直连 GitHub Release 下载。
-      # curl 7.61 不支持 --retry-all-errors，重试在 bash 层做；
-      # --speed-limit/--speed-time 在长期停滞（<10KB/s 持续 60s）时中止以便重试。
+      # 服务器端下载模式：本机不经手产物，服务器按候选直链下载（主链路可为 GitHub 加速镜像）。
+      # curl 7.61 不支持 --retry-all-errors，重试在 bash 层做；每个 URL 两次尝试，
+      # 第二次带 -C - 断点续传；--speed-limit/--speed-time 在长期停滞时中止以便换下家。
       if [ "$DRY" = "1" ]; then
         log "(dry-run) 服务器下载 $ARTIFACT → $REL 后校验并解包"
       else
         log "服务器直接下载 CI 产物: $ARTIFACT"
         rr "mkdir -p $REL"
-        local attempt ok=1
-        for attempt in 1 2 3; do
-          if rr "curl -fL --connect-timeout 15 --max-time 1500 --speed-limit 10240 --speed-time 60 -o '$REL/piwork.tar.gz' '$ARTIFACT'"; then
-            ok=0
+        local url ok=1 downloaded=0
+        for url in "$ARTIFACT" ${PIWORK_DEPLOY_ARTIFACT_FALLBACK_URLS:-}; do
+          [ "$url" = "$ARTIFACT" ] || log "尝试候选直链: $url"
+          local attempt
+          for attempt in 1 2; do
+            local resume=""
+            [ "$attempt" = "2" ] && resume="-C -"
+            if rr "curl -fSL $resume --connect-timeout 15 --max-time 1500 --speed-limit 10240 --speed-time 60 -o '$REL/piwork.tar.gz' '$url'"; then
+              ok=0
+              break
+            fi
+            warn "直链第 ${attempt} 次下载失败: $url"
+            sleep 5
+          done
+          if [ "$ok" = "0" ]; then
+            downloaded=1
             break
           fi
-          warn "服务器第 ${attempt} 次下载失败，重试..."
-          sleep 5
         done
-        [ "$ok" = 0 ] || die "服务器下载 CI 产物失败（GitHub CDN 不可达或超时）: $ARTIFACT"
-        rq "[ -s $REL/piwork.tar.gz ]" || die "服务器下载产物为空: $ARTIFACT"
-        rq "gzip -t $REL/piwork.tar.gz" || die "服务器产物不是合法 gzip（下载不完整？）: $ARTIFACT"
+        [ "$downloaded" = "1" ] || die "服务器下载 CI 产物失败（所有候选直链均不可达或超时）"
+        rq "[ -s $REL/piwork.tar.gz ]" || die "服务器下载产物为空"
+        if [ -n "${PIWORK_DEPLOY_ARTIFACT_SHA256:-}" ]; then
+          local actual
+          actual="$(rq "sha256sum $REL/piwork.tar.gz | cut -d' ' -f1")"
+          if [ "$actual" != "$PIWORK_DEPLOY_ARTIFACT_SHA256" ]; then
+            die "产物 sha256 不匹配（期望 ${PIWORK_DEPLOY_ARTIFACT_SHA256:0:12}...，实际 ${actual:0:12}...），拒绝解包（镜像篡改或下载不完整）"
+          fi
+          log "sha256 校验通过 (${PIWORK_DEPLOY_ARTIFACT_SHA256:0:12}...)"
+        else
+          warn "未设置 PIWORK_DEPLOY_ARTIFACT_SHA256，跳过强校验（仅靠 gzip/BUILD_ID 检查）"
+        fi
+        rq "gzip -t $REL/piwork.tar.gz" || die "服务器产物不是合法 gzip（下载不完整？）"
         log "服务器下载完成 ($(rq "du -h $REL/piwork.tar.gz | cut -f1"))，解包 → $REL"
         rr "tar --no-same-owner -xzf $REL/piwork.tar.gz -C $REL && rm -f $REL/piwork.tar.gz"
         note="服务器下载"

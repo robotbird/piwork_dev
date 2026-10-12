@@ -5,9 +5,9 @@ description: 提交代码 push 到 GitHub 后的 CI 自动打包发版部署。�
 
 # piwork CI 发版部署
 
-链路：`git 提交/推送 → 打 v* tag → release.yml 在 GitHub Actions 自动构建打包 → 等 CI 完成 → 从 GitHub Release 下载 piwork.tar.gz → deploy.sh ci 推送到 root@123.56.79.62:/yepeng/web/piwork.net → 装依赖/迁移/切换 → pm2 重启 → 健康检查（失败自动回滚）`。
+链路：`git 提交/推送 → 打 v* tag → release.yml 在 GitHub Actions 自动构建打包 → 等 CI 完成 → 获取 piwork.tar.gz（默认本机下载；--server-download 则由服务器经加速镜像下载）→ deploy.sh ci 部署到 root@123.56.79.62:/yepeng/web/piwork.net → 装依赖/迁移/切换 → pm2 重启 → 健康检查（失败自动回滚）`。
 
-构建发生在 GitHub Actions（7GB 内存），服务器只做装依赖/迁移/切换/重启——这是服务器 3.5G 内存禁止构建约束下的推荐发版路径。
+构建发生在 GitHub Actions（7GB 内存），服务器只做装依赖/迁移/切换/重启——这是服务器 3.5G 内存禁止构建约束下的推荐发版路径。生产服务器直连 github.com 被阻断、GitHub CDN 直链仅 ~20KB/s，但加速镜像（gh-proxy.com/ghfast.top）可达 ~1MB/s；`--server-download` 模式本机不经手产物，从 GitHub API 取官方 sha256 digest，服务器经镜像下载后强校验再解包（篡改/不完整拒绝部署）。
 
 ## 触发判断
 
@@ -25,6 +25,7 @@ description: 提交代码 push 到 GitHub 后的 CI 自动打包发版部署。�
    ```bash
    bash .agents/skills/piwork-release/scripts/release-deploy.sh             # patch 自增（默认）
    bash .agents/skills/piwork-release/scripts/release-deploy.sh minor       # 或 major / vX.Y.Z
+   bash .agents/skills/piwork-release/scripts/release-deploy.sh --server-download  # 服务器经镜像直接下载产物（推荐，本机不经手 50MB 包）
    ```
    - 脚本要求工作区干净；分支与 tag 推送内置 SSH 兜底（HTTPS 被断不影响）。
    - CI 等待最长 30 分钟（`PIWORK_RELEASE_TIMEOUT` 可调）；产物下载失败自动重试，仍失败按脚本提示浏览器手动下载后 `deploy.sh ci <文件>`。

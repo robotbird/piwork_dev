@@ -10,14 +10,17 @@
 #   release-deploy.sh vX.Y.Z             显式版本号
 # 选项:
 #   --skip-deploy      只发版（tag → CI → 下载产物），不部署服务器（产物目录保留；不能与 --server-download 同用）
-#   --server-download  跳过本机下载：CI 完成后由服务器直接从 GitHub Release 下载产物并部署
+#   --server-download  跳过本机下载：CI 完成后由服务器经加速镜像直接下载产物并部署（带官方 sha256 强校验）
 #   --keep-dir         部署后也保留下载的产物临时目录
 # 环境变量:
 #   PIWORK_RELEASE_REPO / PIWORK_RELEASE_TAG / PIWORK_RELEASE_TIMEOUT(默认1800s)
 #   PIWORK_DEPLOY_HOST / PIWORK_DEPLOY_RATE 等透传给 deploy.sh
+#   PIWORK_RELEASE_MIRRORS --server-download 的镜像列表（空格分隔，默认 gh-proxy.com ghfast.top）
 # 产物链路: tag push → release.yml 构建 → GitHub Release 附件 piwork.tar.gz
 #           → 本机下载 → deploy.sh ci 上传解包/装依赖/迁移/切软链 → pm2 reload + 健康检查
-#           --server-download 时改为服务器直接从 GitHub Release 下载产物（本机不经手，仓库须可匿名访问）
+#           --server-download 时改为服务器直接下载产物（本机不经手）：优先走 GitHub 加速镜像
+#           （PIWORK_RELEASE_MIRRORS，默认 gh-proxy.com/ghfast.top），并用 GitHub API 官方 sha256
+#           digest 强校验后解包，镜像篡改/不完整会拒绝部署
 
 set -euo pipefail
 
@@ -36,7 +39,7 @@ log()  { printf '\033[1;36m[release]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31m[失败]\033[0m %s\n' "$*" >&2; exit 1; }
 
-usage() { sed -n '2,20p' "$0"; exit 1; }
+usage() { sed -n '2,22p' "$0"; exit 1; }
 
 bump_version() { # $1=基准版本(vX.Y.Z) $2=patch|minor|major → 新版本号
   local base="${1#v}" kind="$2" major minor patch
@@ -148,8 +151,24 @@ done
 # ---------- 获取 Release 产物并部署到服务器 ----------
 if [ "$SERVER_DL" = "1" ]; then
   [ "$SKIP_DEPLOY" = "0" ] || die "--skip-deploy 不能与 --server-download 同用（产物留在 GitHub，服务器直接取）"
-  log "服务器直连下载模式：由服务器从 GitHub Release 下载 ${ASSET}，本机不经手产物"
-  bash "$DEPLOY_SH" ci "https://github.com/$REPO/releases/download/$TAG/$ASSET"
+  log "服务器直连下载模式：本机不经手产物，从 GitHub API 取官方 sha256 后由服务器经加速镜像下载"
+  DIGEST="$(gh api "repos/$REPO/releases/tags/$TAG" --jq ".assets[] | select(.name==\"$ASSET\") | .digest" 2>/dev/null || true)"
+  ART_SHA=""
+  case "$DIGEST" in sha256:*) ART_SHA="${DIGEST#sha256:}" ;; esac
+  [ -n "$ART_SHA" ] || die "拿不到 Release 附件官方 sha256（API digest 为空），拒绝无校验的服务器端下载"
+  log "官方 sha256: $ART_SHA"
+  GH_PATH="https://github.com/$REPO/releases/download/$TAG/$ASSET"
+  MIRRORS="${PIWORK_RELEASE_MIRRORS:-https://gh-proxy.com https://ghfast.top}"
+  PRIMARY=""
+  FALLBACKS=""
+  for M in $MIRRORS; do
+    if [ -z "$PRIMARY" ]; then PRIMARY="${M}/$GH_PATH"; else FALLBACKS="$FALLBACKS ${M}/$GH_PATH"; fi
+  done
+  [ -n "$PRIMARY" ] || die "镜像列表为空（PIWORK_RELEASE_MIRRORS）"
+  export PIWORK_DEPLOY_ARTIFACT_SHA256="$ART_SHA"
+  export PIWORK_DEPLOY_ARTIFACT_FALLBACK_URLS="$FALLBACKS"
+  log "服务器下载直链: $PRIMARY（备用:$FALLBACKS）"
+  bash "$DEPLOY_SH" ci "$PRIMARY"
 else
   ARTDIR="$(mktemp -d /tmp/piwork-release.XXXXXX)"
   cleanup() { [ "$KEEP_ART" = "1" ] || rm -rf "$ARTDIR"; }
