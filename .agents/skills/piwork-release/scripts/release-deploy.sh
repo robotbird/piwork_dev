@@ -9,13 +9,15 @@
 #   release-deploy.sh patch|minor|major  指定自增位
 #   release-deploy.sh vX.Y.Z             显式版本号
 # 选项:
-#   --skip-deploy      只发版（tag → CI → 下载产物），不部署服务器（产物目录保留）
+#   --skip-deploy      只发版（tag → CI → 下载产物），不部署服务器（产物目录保留；不能与 --server-download 同用）
+#   --server-download  跳过本机下载：CI 完成后由服务器直接从 GitHub Release 下载产物并部署
 #   --keep-dir         部署后也保留下载的产物临时目录
 # 环境变量:
 #   PIWORK_RELEASE_REPO / PIWORK_RELEASE_TAG / PIWORK_RELEASE_TIMEOUT(默认1800s)
 #   PIWORK_DEPLOY_HOST / PIWORK_DEPLOY_RATE 等透传给 deploy.sh
 # 产物链路: tag push → release.yml 构建 → GitHub Release 附件 piwork.tar.gz
 #           → 本机下载 → deploy.sh ci 上传解包/装依赖/迁移/切软链 → pm2 reload + 健康检查
+#           --server-download 时改为服务器直接从 GitHub Release 下载产物（本机不经手，仓库须可匿名访问）
 
 set -euo pipefail
 
@@ -24,6 +26,7 @@ ASSET="piwork.tar.gz"
 TIMEOUT="${PIWORK_RELEASE_TIMEOUT:-1800}"
 SKIP_DEPLOY=0
 KEEP_ART=0
+SERVER_DL=0
 EXPLICIT_TAG="${PIWORK_RELEASE_TAG:-}"
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
@@ -33,7 +36,7 @@ log()  { printf '\033[1;36m[release]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31m[失败]\033[0m %s\n' "$*" >&2; exit 1; }
 
-usage() { sed -n '2,18p' "$0"; exit 1; }
+usage() { sed -n '2,20p' "$0"; exit 1; }
 
 bump_version() { # $1=基准版本(vX.Y.Z) $2=patch|minor|major → 新版本号
   local base="${1#v}" kind="$2" major minor patch
@@ -67,6 +70,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     patch | minor | major) BUMP="$1" ;;
     --skip-deploy) SKIP_DEPLOY=1 ;;
+    --server-download) SERVER_DL=1 ;;
     --keep-dir) KEEP_ART=1 ;;
     -h | --help) usage ;;
     v*) EXPLICIT_TAG="$1" ;;
@@ -141,33 +145,39 @@ while :; do
   sleep 20
 done
 
-# ---------- 下载 Release 产物 ----------
-ARTDIR="$(mktemp -d /tmp/piwork-release.XXXXXX)"
-cleanup() { [ "$KEEP_ART" = "1" ] || rm -rf "$ARTDIR"; }
-trap cleanup EXIT
-log "从 GitHub Release 下载 $ASSET"
-ARTIFACT="$ARTDIR/$ASSET"
-OK=0
-for ATTEMPT in 1 2 3; do
-  if gh release download "$TAG" -R "$REPO" --pattern "$ASSET" --dir "$ARTDIR" --clobber >/dev/null 2>&1 && [ -s "$ARTIFACT" ]; then
-    OK=1
-    break
+# ---------- 获取 Release 产物并部署到服务器 ----------
+if [ "$SERVER_DL" = "1" ]; then
+  [ "$SKIP_DEPLOY" = "0" ] || die "--skip-deploy 不能与 --server-download 同用（产物留在 GitHub，服务器直接取）"
+  log "服务器直连下载模式：由服务器从 GitHub Release 下载 $ASSET，本机不经手产物"
+  bash "$DEPLOY_SH" ci "https://github.com/$REPO/releases/download/$TAG/$ASSET"
+else
+  ARTDIR="$(mktemp -d /tmp/piwork-release.XXXXXX)"
+  cleanup() { [ "$KEEP_ART" = "1" ] || rm -rf "$ARTDIR"; }
+  trap cleanup EXIT
+  log "从 GitHub Release 下载 $ASSET"
+  ARTIFACT="$ARTDIR/$ASSET"
+  OK=0
+  for ATTEMPT in 1 2 3; do
+    if gh release download "$TAG" -R "$REPO" --pattern "$ASSET" --dir "$ARTDIR" --clobber >/dev/null 2>&1 && [ -s "$ARTIFACT" ]; then
+      OK=1
+      break
+    fi
+    warn "第 ${ATTEMPT} 次下载失败，重试..."
+    sleep 10
+  done
+  if [ "$OK" != "1" ]; then
+    die "下载 $ASSET 失败（Release 附件 CDN 可能被墙）。手动方案：浏览器打开 https://github.com/$REPO/releases/tag/$TAG 下载后执行: bash $DEPLOY_SH ci <文件路径>；或改用 --server-download 让服务器直接下载"
   fi
-  warn "第 ${ATTEMPT} 次下载失败，重试..."
-  sleep 10
-done
-if [ "$OK" != "1" ]; then
-  die "下载 $ASSET 失败（Release 附件 CDN 可能被墙）。手动方案：浏览器打开 https://github.com/$REPO/releases/tag/$TAG 下载后执行: bash $DEPLOY_SH ci <文件路径>"
-fi
-log "产物就绪: $ARTIFACT ($(du -h "$ARTIFACT" | cut -f1))"
+  log "产物就绪: $ARTIFACT ($(du -h "$ARTIFACT" | cut -f1))"
 
-# ---------- 部署到服务器 ----------
-if [ "$SKIP_DEPLOY" = "1" ]; then
-  KEEP_ART=1
-  log "--skip-deploy: 仅发版完成，产物保留在 ${ARTDIR}（部署时执行: bash $DEPLOY_SH ci ${ARTIFACT}）"
-  exit 0
+  # ---------- 部署到服务器 ----------
+  if [ "$SKIP_DEPLOY" = "1" ]; then
+    KEEP_ART=1
+    log "--skip-deploy: 仅发版完成，产物保留在 ${ARTDIR}（部署时执行: bash $DEPLOY_SH ci ${ARTIFACT}）"
+    exit 0
+  fi
+  bash "$DEPLOY_SH" ci "$ARTIFACT"
 fi
-bash "$DEPLOY_SH" ci "$ARTIFACT"
 
 RUN_URL="$(gh run view "$RUN_ID" -R "$REPO" --json url --jq .url 2>/dev/null || echo "https://github.com/$REPO/actions")"
 cat <<EOF

@@ -8,7 +8,7 @@
 # 用法:
 #   deploy.sh first              首次部署：服务器初始化（建库/生成 .env.local/nginx 配置）+ 构建 + 启动
 #   deploy.sh daily              日常部署：本机构建 → rsync 上传 → 服务器装依赖/迁移 → 原子切换 → 健康检查（失败自动回滚）
-#   deploy.sh ci <piwork.tar.gz> CI 产物部署：上传 GitHub Actions 构建的产物（piwork-release 技能自动调用，也可手工），其余同 daily
+#   deploy.sh ci <file|url>      CI 产物部署：参数为本地 tar.gz 则上传；为 http(s) URL 则由服务器直接下载（其余同 daily）
 #   deploy.sh rollback           回滚到上一个版本（current 软链切回并重启）
 #   deploy.sh status             查看当前版本、pm2 状态与健康检查
 # 选项:
@@ -225,31 +225,64 @@ upload_release() {
   log "上传完成"
 }
 
-# ---------- 上传 CI 产物（deploy.sh ci）----------
+# ---------- 上传 CI 产物（deploy.sh ci；参数为 http(s) URL 时由服务器直接下载）----------
 upload_artifact() {
-  if [ "$DRY" = "1" ]; then
-    log "(dry-run) cat $ARTIFACT | ssh tar -xzf - -C $REL"
-    return 0
-  fi
-  [ -s "$ARTIFACT" ] || die "CI 产物不存在或为空: $ARTIFACT"
-  log "上传 CI 产物 $(basename "$ARTIFACT") → $HOST:$REL"
-  rr "mkdir -p $REL"
-  local rate_pipe=""
-  if [ -n "${PIWORK_DEPLOY_RATE:-}" ]; then
-    if command -v pv >/dev/null; then
-      rate_pipe="pv -L ${PIWORK_DEPLOY_RATE}k"
-      log "上传限速 ${PIWORK_DEPLOY_RATE}KB/s"
-    else
-      warn "设置了 PIWORK_DEPLOY_RATE 但本机没有 pv，未限速"
-    fi
-  fi
-  # CI 产物自身已含 .release-info（release=<tag>），不需要重写
-  cat "$ARTIFACT" \
-    | { if [ -n "$rate_pipe" ]; then $rate_pipe; else cat; fi; } \
-    | ssh "${SSH_OPTS[@]}" "$HOST" "tar --no-same-owner -xzf - -C $REL"
+  local note="上传"
+  case "$ARTIFACT" in
+    http://* | https://*)
+      # 服务器端下载模式：本机不经手产物，服务器直连 GitHub Release 下载。
+      # curl 7.61 不支持 --retry-all-errors，重试在 bash 层做；
+      # --speed-limit/--speed-time 在长期停滞（<10KB/s 持续 60s）时中止以便重试。
+      if [ "$DRY" = "1" ]; then
+        log "(dry-run) 服务器下载 $ARTIFACT → $REL 后校验并解包"
+      else
+        log "服务器直接下载 CI 产物: $ARTIFACT"
+        rr "mkdir -p $REL"
+        local attempt ok=1
+        for attempt in 1 2 3; do
+          if rr "curl -fL --connect-timeout 15 --max-time 1500 --speed-limit 10240 --speed-time 60 -o '$REL/piwork.tar.gz' '$ARTIFACT'"; then
+            ok=0
+            break
+          fi
+          warn "服务器第 ${attempt} 次下载失败，重试..."
+          sleep 5
+        done
+        [ "$ok" = 0 ] || die "服务器下载 CI 产物失败（GitHub CDN 不可达或超时）: $ARTIFACT"
+        rq "[ -s $REL/piwork.tar.gz ]" || die "服务器下载产物为空: $ARTIFACT"
+        rq "gzip -t $REL/piwork.tar.gz" || die "服务器产物不是合法 gzip（下载不完整？）: $ARTIFACT"
+        log "服务器下载完成 ($(rq "du -h $REL/piwork.tar.gz | cut -f1"))，解包 → $REL"
+        rr "tar --no-same-owner -xzf $REL/piwork.tar.gz -C $REL && rm -f $REL/piwork.tar.gz"
+        note="服务器下载"
+      fi
+      ;;
+    *)
+      if [ "$DRY" = "1" ]; then
+        log "(dry-run) cat $ARTIFACT | ssh tar -xzf - -C $REL"
+      else
+        [ -s "$ARTIFACT" ] || die "CI 产物不存在或为空: $ARTIFACT"
+        log "上传 CI 产物 $(basename "$ARTIFACT") → $HOST:$REL"
+        rr "mkdir -p $REL"
+        local rate_pipe=""
+        if [ -n "${PIWORK_DEPLOY_RATE:-}" ]; then
+          if command -v pv >/dev/null; then
+            rate_pipe="pv -L ${PIWORK_DEPLOY_RATE}k"
+            log "上传限速 ${PIWORK_DEPLOY_RATE}KB/s"
+          else
+            warn "设置了 PIWORK_DEPLOY_RATE 但本机没有 pv，未限速"
+          fi
+        fi
+        # CI 产物自身已含 .release-info（release=<tag>），不需要重写
+        cat "$ARTIFACT" \
+          | { if [ -n "$rate_pipe" ]; then $rate_pipe; else cat; fi; } \
+          | ssh "${SSH_OPTS[@]}" "$HOST" "tar --no-same-owner -xzf - -C $REL"
+      fi
+      ;;
+  esac
   # 完整性：与 daily 同一标准，CI 生产构建必有 BUILD_ID
-  rq "[ -f $REL/.next/BUILD_ID ]" || die "服务器缺少 $REL/.next/BUILD_ID —— 产物不是 CI 生产构建（release.yml）"
-  log "上传完成"
+  if [ "$DRY" != "1" ]; then
+    rq "[ -f $REL/.next/BUILD_ID ]" || die "服务器缺少 $REL/.next/BUILD_ID —— 产物不是 CI 生产构建（release.yml）"
+  fi
+  log "${note}完成"
 }
 
 # ---------- 服务器侧装配 ----------
