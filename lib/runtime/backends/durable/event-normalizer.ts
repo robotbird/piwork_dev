@@ -20,7 +20,7 @@ type Channel = "text" | "reasoning" | "tool";
  *   先合成 start；snapshot 帧按快照重同步 open 块（补差量/补 start+全量），
  *   保证客户端 wire 不变量 text-start → text-delta* → text-end 恒成立。
  * - `tool_execution_end` 不带 isError，从结果条目的 ToolResultMessage 推导
- *   （条目缺失即 faulted/orphaned，按错误处理）；
+ *   （嵌套调用读 result.isError；两者缺失即 faulted/orphaned，按错误处理）；
  * - 运行级终态由 backend 在 run_end 时读 submission 结算记录推导；
  *   run.started 由 backend 在 send 时先行入队。
  */
@@ -211,7 +211,9 @@ export class DurableEventNormalizer {
       }
       case "tool_execution_end": {
         const result = event.entry?.model?.[0];
-        const isError = result?.role === "toolResult" ? result.isError : true;
+        const isError =
+          event.result?.isError ??
+          (result?.role === "toolResult" ? result.isError : true);
         return [
           {
             isError,

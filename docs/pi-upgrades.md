@@ -1,6 +1,44 @@
 # Pi 官方依赖升级记录
 
-## 当前基线（2026-10-10 核对）
+## 当前基线（2026-10-13 核对）
+
+pi-ai、pi-agent-core、pi-coding-agent、pi-durable、chord 从 1.1.0 精确升级为 1.2.0。三份模型插件开发依赖、pnpm 锁文件、镜像两处默认值、Durable binding 和 chat input hash 同步。SDK peer 仍由宿主提供。
+
+### 官方变更与适配
+
+- Durable `ToolExecutionResult.content` 改为 `output`：平台 AgentTool 桥显式映射，避免无 progress 工具的完整返回值丢失。
+- Durable 工具任务变为 model/nested tagged union，官方 `pi.tool` v2 承接；完成事件的嵌套调用读取 `result.isError`，缺结果仍按错误处理。未启用 codemode、tool-search 或嵌套执行入口。
+- Storage 普通错误会关闭 Session，watch 结束为 `session_failed`：平台先停止受管执行，再发唯一失败终态，不自动重试/重开。恢复检查仍在调度前，所有平台通用工具保持 unsafe。
+- 官方 bash/powershell 非零退出改为带 exit_code 的错误结果；组合后端仍使用现有 SandboxHandle 四工具，不自动切换官方宿主 shell。
+- coding-agent `before_agent_start` 新增 messageType 判别及启动 busy 语义：项目没有直接消费该 hook，不需兼容旧 prompt 访问。MCP list JSON 的 resources 改为 boolean：项目配置走官方 SDK，未解析该 CLI 输出。
+- pi-ai OpenRouter key-specific catalog 为新增能力；平台仍按成员目录/角色权限决定模型准入，不以远端目录替代授权。Inference Proxy 继续使用官方 pi-messages wire。
+- Chord 更换 facet/service runtime、移除旧服务与 bundler API；平台只直接使用保留的 context/delta，模型插件宿主是独立 Worker 协议，无旧 Chord 服务接口需要迁移。
+- 可选 ExecutionEnv.listFiles、Durable 图像处理由官方实现承接，不扩展 SandboxHandle 或开启宿主图片处理。
+- 配置 schema/theme 变更未涉及项目自定义主题；部署的第三方扩展/主题仍需独立验收。
+
+### 官方依据
+
+核对 1.2.0 npm 发布包的 docs/sdk.md、docs/rpc.md、docs/extensions.md、Durable README Errors、dist/harness/types.d.ts、tool.d.ts、events.d.ts、dist/types.d.ts，以及官方版本源码：
+
+- [coding-agent CHANGELOG](https://github.com/earendil-works/pi/blob/v1.2.0/packages/coding-agent/CHANGELOG.md)
+- [Durable CHANGELOG](https://github.com/earendil-works/pi/blob/v1.2.0/packages/durable/CHANGELOG.md)
+- [pi-ai CHANGELOG](https://github.com/earendil-works/pi/blob/v1.2.0/packages/ai/CHANGELOG.md)
+- [Chord CHANGELOG](https://github.com/earendil-works/pi/blob/v1.2.0/packages/chord/CHANGELOG.md)
+
+### 本轮验证
+
+- `pnpm exec tsc --noEmit`：通过。
+- `pnpm test:unit`：75/75 通过。
+- `PIWORK_SANDBOX_DOCKER_TESTS=0 pnpm test:runtime`：388 项，372 通过、16 跳过、0 失败（包含新增完整工具输出、嵌套结果与存储故障回归）。
+- 修改文件定向 Biome：通过。
+- `pnpm test:skills:sandbox`：专用 TypeScript 检查与 14/14 Skill/RPC 测试通过。
+- 本地 `pi-runtime:dev` 重建成功（npm mirror build arg；Dockerfile 默认 registry 保持官方）；无网络容器内核验 pi-ai/pi-agent-core/pi-coding-agent 均为 1.2.0。
+- `PIWORK_SANDBOX_DOCKER_RPC_TESTS=1` 的 backends.test.ts：49 项，41 通过、8 既有边界跳过、0 失败，真实 SandboxDocker 六项通过。
+- 未运行真实模型/OpenSandbox HTTP、DB/浏览器、旧存储迁移或容量验收。
+
+旧 SQLite 不迁移、owner marker 不删除、不重放 shell；Durable 仍 experimental，生产/Worker/恢复/容量门禁不变。本地镜像构建不代表远端部署。
+
+## 历史基线（2026-10-10 核对）
 
 官方 npm registry（`https://registry.npmjs.org`）的 `latest`：
 

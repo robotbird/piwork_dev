@@ -317,3 +317,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 左上角搜索打开 ChatSearchDialog（复用 Dialog/Command），空输入显示最近可访问聊天；250ms 防抖，Cmd/Ctrl+K 打开、方向键/Enter 选择、Escape 关闭。`GET /api/history/search?q=` 仅 enabled 成员，最多 200 字符，private/no-store；`lib/db/chat-search-queries.ts` 复用 getDb，按 owner ∪ collaborator 查询（含项目聊天），标题及 Message_v2 text parts 做字面子串匹配，返回有界文本摘要，最多 50 条并提示收窄关键词。不搜索 reasoning/工具/附件/Pi 原生 session；不调用模型、不改变 Pi 1.1.0 SDK 或 agent loop。无索引/容量验收，当前不搜索项目名或文档库。
 
 验证：`pnpm test:chat:search:db` 使用独立账号及聊天，验证正文/标题、通配符字面量、协作撤销、禁用与跨用户隔离，仅清理自己的夹具。
+
+## Pi 1.2.0 升级（2026-10-13）
+
+五个 Pi/chord 核心包及模型插件开发依赖精确固定 1.2.0，镜像 CLI 默认值同步。Durable AgentTool 桥将官方 coding-agent 的 content 映射到新版 ToolExecutionResult.output；嵌套工具完成事件读取官方 result.isError，Storage 故障引起 session_failed 时先回收受管执行再发布平台失败，不重试副作用。持久 binding/input hash 同步，旧版本运行拒绝静默重开。SDK/RPC/Inference Proxy 保持官方实现与既有职责边界；不启用新增 Durable codemode/tool-search/自动恢复。官方依据与本轮验证见 [升级记录](pi-upgrades.md)，上线须更新执行端镜像并重启 Web/HMR 单例。

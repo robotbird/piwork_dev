@@ -72,7 +72,7 @@ function toDurableTool(
           onFailure?.(new Error("runtime:durable:tool-reported-failure"));
         }
         return {
-          content: result.content,
+          output: result.content,
           ...(result.details === undefined ? {} : { details: result.details }),
           ...(result.isError === undefined ? {} : { isError: result.isError }),
         };
@@ -277,6 +277,15 @@ export class DurableBackend implements RuntimeBackend {
           }
         }
       });
+      // Pi 1.2 closes the Session/watch after a storage failure, without run_end.
+      // Stop managed execution before publishing failure; never retry effects.
+      stream.closed
+        .then(async (end) => {
+          if (end.reason === "session_failed") {
+            await session.failSession(end.error);
+          }
+        })
+        .catch(() => undefined);
       session.attachWatchStop(async () => {
         await stream.stop();
       });
@@ -557,6 +566,11 @@ class DurableRuntimeSession implements RuntimeSession, StreamSink {
         ? { reason: "aborted", runId, type: "run.settled" }
         : { reason: "completed", runId, type: "run.settled" }
     );
+  }
+
+  async failSession(error: unknown): Promise<void> {
+    await this.stopExecution();
+    this.failTerminal(this.lastError ?? messageOf(error));
   }
 
   private async stopExecution(): Promise<void> {

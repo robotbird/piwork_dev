@@ -7,9 +7,30 @@ import {
   type TextContent,
   type Usage,
 } from "@earendil-works/pi-ai";
-import type { SnapshotEvent } from "@earendil-works/pi-durable";
+import type { SnapshotEvent, TaskId } from "@earendil-works/pi-durable";
 import { DurableEventNormalizer } from "../../../../../lib/runtime/backends/durable/event-normalizer";
 import type { RuntimeEvent } from "../../../../../lib/runtime/protocol";
+
+test("Durable nested tool completion uses the official result error flag", () => {
+  const normalizer = new DurableEventNormalizer();
+  for (const isError of [false, true]) {
+    const events = normalizer.feed({
+      parentToolCallId: "parent",
+      result: { diagnostics: [], isError, taskId: 1 as TaskId },
+      toolCallId: "parent/child",
+      toolName: "read",
+      type: "tool_execution_end",
+    });
+    assert.deepEqual(events, [
+      {
+        isError,
+        toolCallId: "parent/child",
+        toolName: "read",
+        type: "tool.completed",
+      },
+    ]);
+  }
+});
 
 const usage: Usage = {
   cacheRead: 0,

@@ -181,3 +181,100 @@ test("Durable backend: official loop writes SQLite and closes its ownership mark
   assert.equal(files.includes("session.sqlite"), true);
   assert.equal(files.includes("owner.lock"), false);
 });
+
+test("Durable adapter preserves full tool output in the next official model request", {
+  timeout: 10_000,
+}, async (t) => {
+  const request = await spec();
+  request.tools = [
+    {
+      description: "return a fixed result",
+      execute: async () => ({
+        content: [{ text: "complete output without progress", type: "text" }],
+        details: {},
+      }),
+      label: "output probe",
+      name: "output_probe",
+      parameters: Type.Object({}),
+    },
+  ];
+  const faux = getTestFauxHandle();
+  assert.ok(faux);
+  let output: unknown;
+  faux.setResponses([
+    fauxAssistantMessage([fauxToolCall("output_probe", {})], {
+      stopReason: "toolUse",
+    }),
+    (context) => {
+      output = context.messages.find(
+        (message) => message.role === "toolResult"
+      )?.content;
+      return fauxAssistantMessage("done");
+    },
+  ]);
+  const session = await new DurableBackend().open(request);
+  t.after(() => session.close("test"));
+  await session.send({ text: "probe", type: "prompt" });
+  for await (const event of session.events()) {
+    if (event.type === "run.failed") {
+      assert.fail(event.error);
+    }
+    if (event.type === "run.settled") {
+      break;
+    }
+  }
+  assert.deepEqual(output, [
+    { text: "complete output without progress", type: "text" },
+  ]);
+});
+
+test("Durable storage failure closes the official watch and emits platform failure", {
+  timeout: 10_000,
+}, async (t) => {
+  const root = await mkdtemp(
+    path.join(tmpdir(), "piwork-durable-storage-failure-")
+  );
+  const request = await spec();
+  let failCommit = () => undefined;
+  const backend = new DurableBackend({
+    authorize: () => Promise.resolve(),
+    storageFactory: async () => {
+      const owned = await openOwnedDurableStorage(root, {
+        chatId: request.chatId,
+        inputHash: "a".repeat(64),
+        runId: request.runId ?? "",
+        userId: "00000000-0000-0000-0000-000000000001",
+      });
+      failCommit = () => {
+        owned.storage.commit = () =>
+          Promise.reject(new Error("storage probe failed"));
+      };
+      return owned;
+    },
+  });
+  const faux = getTestFauxHandle();
+  assert.ok(faux);
+  faux.setResponses([
+    () => {
+      failCommit();
+      return fauxAssistantMessage("must not settle successfully");
+    },
+  ]);
+  const session = await backend.open(request);
+  t.after(async () => {
+    try {
+      await session.close("test");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+  await session.send({ text: "probe", type: "prompt" });
+  let outcome = "";
+  for await (const event of session.events()) {
+    if (event.type === "run.failed" || event.type === "run.settled") {
+      outcome = event.type;
+      break;
+    }
+  }
+  assert.equal(outcome, "run.failed");
+});
