@@ -130,7 +130,7 @@ pi 的定制能力是一个"从轻到重"的阶梯（quickstart「Choose how to 
 
 ### 3.2 现有插件机制：模型供应商插件（piwork-llm-*）
 
-按 `docs/model-provider-plugin-architecture.md`（713 行，v2）实现，链路：
+按 `docs/research/model-provider-plugin-architecture.md`（713 行，v2）实现，链路：
 
 ```
 管理页/API（builtin catalog 选择安装）
@@ -594,7 +594,7 @@ mock OpenAI 服务器日志 3 次请求（tool_call → tool_call → 文本）=
 
 **E. 凭据边界顺带改善**：现在模型插件凭据在 web 进程解密（`pi-credential-store.ts`）喂给 `ModelRuntime`。sidecar 形态下解密移到 spawn 时刻、以子进程 env（`<PROVIDER_ID>_API_KEY` 命名约定，附录 E.4 实测有效）注入——明文 key 不再出现在持多租户数据访问权的 web 进程内存。
 
-**F. 与模型插件 RemotePluginHost 的关系：互补不重叠**：`docs/model-provider-plugin-architecture.md` 规划的 RemotePluginHost 隔离的是 provider 注册；RPC sidecar 隔离的是扩展+执行工具。同一安全思路在两个插件体系上的应用，进程管理/健康检查/凭据注入基建可共用，但一个吞不掉另一个。
+**F. 与模型插件 RemotePluginHost 的关系：互补不重叠**：`docs/research/model-provider-plugin-architecture.md` 规划的 RemotePluginHost 隔离的是 provider 注册；RPC sidecar 隔离的是扩展+执行工具。同一安全思路在两个插件体系上的应用，进程管理/健康检查/凭据注入基建可共用，但一个吞不掉另一个。
 
 ### F.4 成本与"RPC 解决不了"清单
 
@@ -655,7 +655,7 @@ chat route
 
 - pi 文档：[quickstart](https://pi.dev/docs/latest/quickstart) · [extensions](https://pi.dev/docs/latest/extensions) · [packages](https://pi.dev/docs/latest/packages) · [custom-provider](https://pi.dev/docs/latest/custom-provider) · [sdk](https://pi.dev/docs/latest/sdk) · [configuration](https://pi.dev/docs/latest/configuration) · [cli](https://pi.dev/docs/latest/cli) · [rpc](https://pi.dev/docs/latest/rpc) · [rpc-commands](https://pi.dev/docs/latest/rpc-commands)（后两页 v1.7 补研，附录 F）
 - pi 画廊：https://pi.dev/packages
-- piwork 代码：`package.json`、`app/(chat)/api/chat/route.ts`、`lib/ai/pi.ts`、`lib/ai/agent-tools.ts`、`packages/model-provider-sdk/src/index.ts`、`lib/model-plugins/*`、`app/(management)/api/management/model-plugins/route.ts`、`docs/model-provider-plugin-architecture.md`
+- piwork 代码：`package.json`、`app/(chat)/api/chat/route.ts`、`lib/ai/pi.ts`、`lib/ai/agent-tools.ts`、`packages/model-provider-sdk/src/index.ts`、`lib/model-plugins/*`、`app/(management)/api/management/model-plugins/route.ts`、`docs/research/model-provider-plugin-architecture.md`
 - npm：`@earendil-works/pi-coding-agent`（latest 0.87.1 / 0.83.0 存在）
 - 附录 A 实测材料：10 个画廊抽样包 + `pi-coding-agent@0.83.0` 的 npm tarball，解压于 `/tmp/pi-verify/`（临时目录，可直接翻看源码复核）
 - 附录 B spike harness：`/tmp/pi-verify/spike-b/`（2026-09-25 晚些时候 /tmp 清理后已失，结论以本报告记载为准；方法可按 B.4 重建）

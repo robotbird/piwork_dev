@@ -1,7 +1,7 @@
 import type { LanguageModelV3GenerateResult } from "@ai-sdk/provider";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { getResponseChunksByPrompt } from "@/tests/prompts/utils";
+import { getResponseChunksByPrompt } from "@/tests/support/prompts/utils";
 
 const mockUsage = {
   inputTokens: { cacheRead: 0, cacheWrite: 0, noCache: 10, total: 10 },

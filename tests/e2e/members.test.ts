@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { cleanupTestData } from "./helpers/test-cleanup";
+import { cleanupTestData } from "../support/playwright/test-cleanup";
 
 const MEMBER_URL = "/admin/organization?view=members";
 const DEFAULT_PASSWORD = "test123456";

@@ -1,9 +1,9 @@
 # 千人企业 MVP 与沙箱执行面实施方案
 
-> **状态：已进入分阶段实现。** P0 契约、P1 lazy/限额文件/四工具、SandboxToolsBackend 协议适配器与私有存储/交付回调已落地，Docker 新契约与 CSV 交付 smoke 已通过，**未接入生产装配**；正式权限/账本/输入/治理/办公验收与单 Worker 仍待完成；OpenSandbox 新 tools 不开放，不能将适配器测试当作完整 P2/P3 验收。本轮按要求不做容量、持续负载或突发并发测试。详见 [实施记录](runtime-foundation-implementation.md)。当前后端、安全配置与普通问答路由不变。
+> **状态：已进入分阶段实现。** P0 契约、P1 lazy/限额文件/四工具、SandboxToolsBackend 协议适配器与私有存储/交付回调已落地，Docker 新契约与 CSV 交付 smoke 已通过，**未接入生产装配**；正式权限/账本/输入/治理/办公验收与单 Worker 仍待完成；OpenSandbox 新 tools 不开放，不能将适配器测试当作完整 P2/P3 验收。本轮按要求不做容量、持续负载或突发并发测试。详见 [实施记录](../runtime/runtime-foundation-implementation.md)。当前后端、安全配置与普通问答路由不变。
 > 适用目标：约 1000 个企业内部账户，先提供受限并发的办公 MVP，逐步支持稳定后台任务；不是 1000 个并发任务或高可用承诺。
-> 当前 Pi 版本以仓库安装包和锁文件为准，最新基线见 [升级记录](pi-upgrades.md)。正文的旧版本查证保留为方案制定时的历史证据，不代表当前安装版本。
-> 当前事实见 [architecture.md](architecture.md)；Durable 专项门禁见 [pi-durable-evaluation.md](pi-durable-evaluation.md)。本方案替代旧稿中无条件 shell 重试、Docker 自动 TTL 回收、文件工具天然 safe、容量已足够与 Durable 先于 Worker 生产化的设计。
+> 当前 Pi 版本以仓库安装包和锁文件为准，最新基线见 [升级记录](../pi-upgrades.md)。正文的旧版本查证保留为方案制定时的历史证据，不代表当前安装版本。
+> 当前事实见 [architecture.md](../architecture.md)；Durable 专项门禁见 [pi-durable-evaluation.md](../research/pi-durable-evaluation.md)。本方案替代旧稿中无条件 shell 重试、Docker 自动 TTL 回收、文件工具天然 safe、容量已足够与 Durable 先于 Worker 生产化的设计。
 
 ## 1. 目标、范围与架构决策
 
@@ -234,7 +234,7 @@ P2 可先内部验证工具；P3 将 Pi session 生命周期移出 Next.js。先
 
 ## 8. Durable 后台车道
 
-完整门禁见 [专项评估](pi-durable-evaluation.md) §5–7。
+完整门禁见 [专项评估](../research/pi-durable-evaluation.md) §5–7。
 
 D0 可提前做版本与恢复测试；**D1 生产试点依赖 P0–P3**。Worker 内选择 Durable harness，共享 RunDescriptor、运行账本、工具、workspace、操作日志、准入与审计。
 
@@ -275,7 +275,7 @@ D0 可提前做版本与恢复测试；**D1 生产试点依赖 P0–P3**。Worke
 - `tests/unit/runtime/backends/durable/`：真实子进程崩溃恢复、safe/unsafe、快照重建、权限变更。
 - `tests/unit/db/`：job/operation/artifact 唯一键、投影事务、取消/删除 tombstone、过期 claim、调度结果对账。
 - `tests/e2e/`：办公交付与下载、权限隔离、进度/重连/停止、限流/排队、删除待清理、管理复核。
-- `tests/integration/`：真实 provider 网络/Office 镜像/负载与混沌；fixture 与替身仍在 tests/fixtures、tests/support。
+- `tests/e2e/`：真实 provider 网络/Office 镜像/负载与混沌；fixture 与替身仍在 tests/fixtures、tests/support。
 
 实现时将命令纳入 package.json。已新增 `pnpm test:runtime:foundation` 并将协议测试纳入 `test:runtime`。最低回归：`pnpm exec tsc --noEmit`、`pnpm test:unit`、`pnpm test:runtime`、涉及持久化时的 `pnpm test:runtime:db` 及相关 Playwright/真实 provider 契约。实际执行与跳过项记录于实施记录，不把替身测试冒充生产 provider 验收。
 

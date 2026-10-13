@@ -5,9 +5,10 @@ Piwork 是基于 Pi Agent 的企业智能体平台，提供聊天、模型供应
 ## 文档
 
 - [文档导航](docs/README.md)
+- [仓库目录指南](docs/repository-layout.md)：代码职责、文档分类和验证产物位置
 - [当前项目架构](docs/architecture.md)：模块职责、聊天运行链路、已实现能力和目标方案边界
 - [开发与测试约定](docs/development.md)：目录位置、验证命令和测试迁移规则
-- [Pi Package 与 Runtime 目标架构](docs/pi-plugin-support-research.md)
+- [Pi Package 与 Runtime 目标架构](docs/research/pi-plugin-support-research.md)
 - [后续编码规则](AGENTS.md)
 
 ## 本地运行

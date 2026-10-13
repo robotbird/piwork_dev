@@ -9,7 +9,7 @@ const MAX_STACK = 4;
  * 对话参与者头像堆叠：最多 4 个，超出显示 +N。分享协作的成员在对话头部的
  * 常驻展示；单人对话不渲染（由调用方判断）。
  *
- * 实时态（docs/chat-collaboration.md §8）：在线参与者头像右下角显示小绿点；
+ * 实时态（docs/features/chat-collaboration.md §8）：在线参与者头像右下角显示小绿点；
  * 正在输入的参与者显示蓝色脉冲点（蓝色仅表达「进行中」的设计语义）。
  */
 export function ParticipantAvatars({

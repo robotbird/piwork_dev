@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 
-import { cleanupTestData } from "./helpers/test-cleanup";
+import { cleanupTestData } from "../support/playwright/test-cleanup";
 
 const MODELS_URL = "/admin/models";
 const DEFAULT_PASSWORD = "test123456";

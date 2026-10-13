@@ -220,7 +220,7 @@ RunManager 必然落 `AgentRun.status=failed`（errorMessage 带真实错误）�
 
 ### Skill 基础执行验证（2026-10-10）
 
-最新实现与使用见 [Skill 沙箱基本执行](skill-sandbox-execution.md)：复用 SandboxRpc 同步完整启用目录、原生 Skill 加载与脚本执行，不新增 Worker/backend/审批库。早期独立打包探针以 faux 模型验证脚本/assets/references、测试归档回调及底座删除，成功与失败沙箱均已回收。
+最新实现与使用见 [Skill 沙箱基本执行](runtime/skill-sandbox-execution.md)：复用 SandboxRpc 同步完整启用目录、原生 Skill 加载与脚本执行，不新增 Worker/backend/审批库。早期独立打包探针以 faux 模型验证脚本/assets/references、测试归档回调及底座删除，成功与失败沙箱均已回收。
 
 随后通过 GitHub Actions v3.1.5（b970246，run 38038272804）和 deploy.sh ci 部署至 releases/20261010084151，保留 shared/.env.local；HTTP 307 健康检查通过。部署脚本的限速管道修复另提交为 61e2139，不改变该 CI 应用产物。正式 HTTP 真实模型探针上传并启用唯一名称的完整 Skill，经 `/名称` 执行已有 Node 脚本，精确下载 `SKILL_SCRIPT_OK:沙箱资源:引用说明`；run 4e7edec1-a634-4ed7-a669-e1e861ff2e20 settled，sandbox a65fa71e-a617-459c-bb1c-b634724eb124 已由 DB 与 provider 确认销毁，仅清理本组 Skill/身份/聊天/输出。该模式使用 PIWORK_OPENSANDBOX_CHAT_TEST=1 + PIWORK_OPENSANDBOX_SKILL_HTTP_TEST=1 + 绝对 PIWORK_SKILL_HTTP_FIXTURE_ROOT，源文件是 tests/e2e/opensandbox-chat-smoke.mts，生产缺源码/tsx 时本地打包为外部依赖 ESM 后在宿主执行。
 
@@ -230,7 +230,7 @@ RunManager 必然落 `AgentRun.status=failed`（errorMessage 带真实错误）�
 
 - [项目架构](architecture.md)：模块边界与运行链路
 - [开发与测试](development.md)：测试命令、沙箱契约组、排障记录（历史细节）
-- [OpenSandbox 接入 Spec](opensandbox-integration-spec.md)：provider 设计与安全基线
+- [OpenSandbox 接入 Spec](runtime/opensandbox-integration-spec.md)：provider 设计与安全基线
 - 本地基线官方依据：安装版 `@alibaba-group/opensandbox@1.1.0`（SDK）、`/tmp/OpenSandbox/server/opensandbox_server`（docker runtime 的 create/egress/readiness 实现）；Linux server 1.1.1 依据见下一节。
 
 ## 8. 3.5 GB Linux 测试服务器 OpenSandbox
@@ -262,7 +262,7 @@ PIWORK_OPENSANDBOX_CHAT_TEST=1 pnpm test:opensandbox:chat # 会真实调用模�
 
 **当前状态：OpenSandbox matrix 已启用（2026-10-10）。** 首次真实聊天暴露F6，先撤回分流，再通过官方SessionManager cwd修复、Runtime回归344通过/15跳过（0失败）、类型/Biome检查与本机Next构建，首次使用deploy.sh daily部署到 releases/20261010053540，随后F7分类修复部署到 releases/20261010061055（历史）。早期基线Git为ace2c5f（v3.1.4）加未提交 hotfix；现两项修复与 Skill 基本执行已提交至 b970246，通过 v3.1.5 Release 部署至 releases/20261010084151（当前），详见上节。
 
-2026-10-10 补充安全核查：activation 探针实际 execd 命令 UID=100/GID=101、NoNewPrivs=1、CapEff=0；Docker privileged=false、securityOpt=no-new-privileges=true，rootfs 仍可写。临时核查 sandbox ef868226-6795-4e6c-afab-d4f7f4bcabad 已由 provider 确认销毁。仅更新/运行探针，没有部署新的应用或调整路由。该核查不等于只读 Skill、账本、恢复、完整出网绕过或企业安全验收；新 Skill 方案及生产门禁见 [实施方案](skill-sandbox-security-design.md)。
+2026-10-10 补充安全核查：activation 探针实际 execd 命令 UID=100/GID=101、NoNewPrivs=1、CapEff=0；Docker privileged=false、securityOpt=no-new-privileges=true，rootfs 仍可写。临时核查 sandbox ef868226-6795-4e6c-afab-d4f7f4bcabad 已由 provider 确认销毁。仅更新/运行探针，没有部署新的应用或调整路由。该核查不等于只读 Skill、账本、恢复、完整出网绕过或企业安全验收；新 Skill 方案及生产门禁见 [实施方案](plans/skill-sandbox-security-design.md)。
 
 实测通过：Docker实际CPU=0.5/内存=768MB和所有映射HostIp=127.0.0.1；file/PTY/Pi1.1.0/401/renew/kill；官方RpcClient带交付扩展与合成历史getState；正式HTTP先问候(in_process settled)，再带历史bash创建/读取hello.txt(sandbox_rpc settled)，官方工具完成、资源快照、注册表destroyed与provider inspect=null。最终成功夹具已清理；两次诊断失败夹具的成员已禁用并保留证据（首次RPC故障与一次终态后异步清理的过早断言，均确认沙箱已销毁）；旧failed run没有翻转或重放。测试等待后台close/release后再核验销毁，不把AgentRun settled等同于资源已回收。
 
@@ -272,4 +272,4 @@ PIWORK_OPENSANDBOX_CHAT_TEST=1 pnpm test:opensandbox:chat # 会真实调用模�
 
 ## 附件上传配置上线
 
-运行现有数据库迁移命令应用 `0023_upload_settings` 并重启 Next 应用，以加载新路由与 `experimental.proxyClientMaxBodySize=128mb`。反向代理请求体上限也须允许 100 MiB 文件及 multipart 封装。首次无配置行默认 100 MB；之后在「后台 → 通用设置 → 文件上传」保存 1–100 MB 整数，配置保存对新上传即时生效，无需再次重启。不得在表缺失或数据库错误时把 503 当作默认限额继续处理。既有文件访问与各处理限额不变，详见 [附件上传配置](upload-settings-design.md)。本轮不代表已部署生产。
+运行现有数据库迁移命令应用 `0023_upload_settings` 并重启 Next 应用，以加载新路由与 `experimental.proxyClientMaxBodySize=128mb`。反向代理请求体上限也须允许 100 MiB 文件及 multipart 封装。首次无配置行默认 100 MB；之后在「后台 → 通用设置 → 文件上传」保存 1–100 MB 整数，配置保存对新上传即时生效，无需再次重启。不得在表缺失或数据库错误时把 503 当作默认限额继续处理。既有文件访问与各处理限额不变，详见 [附件上传配置](features/upload-settings-design.md)。本轮不代表已部署生产。

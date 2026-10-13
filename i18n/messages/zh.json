@@ -1913,5 +1913,14 @@
     "shared": "共享",
     "signIn": "登录后搜索聊天记录",
     "limit": "显示前 50 条结果，请使用更具体的关键词"
+  },
+  "memberPagination": {
+    "label": "成员列表分页",
+    "total": "共 {count} 位成员",
+    "pageSize": "每页人数",
+    "perPage": "{count} 人/页",
+    "previous": "上一页",
+    "next": "下一页",
+    "page": "第 {page} / {pages} 页"
   }
 }

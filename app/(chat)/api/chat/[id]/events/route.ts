@@ -11,7 +11,7 @@ import { ChatbotError } from "@/lib/errors";
 const PING_INTERVAL_MS = 15_000;
 
 /**
- * 聊天协作事件流（docs/chat-collaboration.md §8.3）：成员专用 SSE，
+ * 聊天协作事件流（docs/features/chat-collaboration.md §8.3）：成员专用 SSE，
  * 只承载 presence/typing/message/run 通知，不推送消息正文——客户端收到
  * 事件后重拉 /api/messages 或 resumeStream attach 活跃 run。
  */

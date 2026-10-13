@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 
-import { cleanupTestData } from "./helpers/test-cleanup";
+import { cleanupTestData } from "../support/playwright/test-cleanup";
 
 const TOOLS_URL = "/admin/tools";
 const DEFAULT_PASSWORD = "test123456";

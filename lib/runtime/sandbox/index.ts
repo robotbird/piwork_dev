@@ -1,5 +1,5 @@
 /**
- * SandboxProvider seam（docs/opensandbox-integration-spec.md §4.1 缝 2/3、§7）。
+ * SandboxProvider seam（docs/runtime/opensandbox-integration-spec.md §4.1 缝 2/3、§7）。
  *
  * 本目录是「沙箱知识收敛点」：接口对 Pi 无感知（不 import 任何
  * @earendil-works 包），backend 层只经 SandboxChannel 见「一条到沙箱内命令

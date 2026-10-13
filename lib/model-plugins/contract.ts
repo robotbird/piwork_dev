@@ -2,7 +2,7 @@ import type { LocalizedText } from "@piwork/model-provider-sdk";
 import { z } from "zod";
 
 /**
- * piwork-llm-* 插件包契约（docs/model-provider-plugin-architecture.md §5）。
+ * piwork-llm-* 插件包契约（docs/research/model-provider-plugin-architecture.md §5）。
  * 本模块只做纯校验与类型定义，不触碰文件系统，可被任意宿主复用。
  */
 

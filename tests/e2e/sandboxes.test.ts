@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 
-import { cleanupTestData } from "./helpers/test-cleanup";
+import { cleanupTestData } from "../support/playwright/test-cleanup";
 
 const SANDBOXES_URL = "/admin/sandboxes";
 const DEFAULT_PASSWORD = "test123456";

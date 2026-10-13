@@ -7,7 +7,7 @@
  * 流式调用（文本 / thinking / abort）。
  *
  * 凭据来源：.env.local 的 DEEPSEEK_API_KEY（临时方案）。
- * 用法：pnpm tsx tests/integration/plugin-chain.mts
+ * 用法：pnpm tsx tests/e2e/plugin-chain.mts
  */
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";

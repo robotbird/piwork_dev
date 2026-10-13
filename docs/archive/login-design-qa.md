@@ -4,10 +4,8 @@ final result: passed
 
 ## 参考与证据
 
-- 设计稿：`/var/folders/9b/8y0kwpzj4h1_wzryl7kzmbfm0000gn/T/codex-clipboard-7a3b297c-7dc4-48ab-b6b3-fce9d78c5d59.png`
-- Logo：`/var/folders/9b/8y0kwpzj4h1_wzryl7kzmbfm0000gn/T/codex-clipboard-a47daf8b-c320-49cf-b165-0bc49aabb56f.png`
-- 桌面：`.next/login-design-qa/desktop.png`，CSS viewport / source / screenshot 均为 1672 × 941，1×，无需密度归一化。
-- 手机：`.next/login-design-qa/mobile.png`，390 × 844，1×。
+- 原设计参考及验证截图为当次临时证据，已清理，不随仓库保存。历史检查结论保留；不代表本轮重新执行 UI 验收。
+- 当时桌面视口 1672 × 941，手机视口 390 × 844，均为 1×。
 - 状态：中文、未登录、浅色、空表单、无焦点。浏览器：Codex In-app Browser，http://localhost:3000/login。
 - 最终设计稿与桌面截图已在同一图像比较输入中打开对照。全图中的文案、标志与输入框清晰可读，无需额外局部裁剪。
 

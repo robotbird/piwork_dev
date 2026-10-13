@@ -1,9 +1,9 @@
 # Piwork 平台与 Agent Runtime 演进架构
 
-> Pi 版本说明：正文版本为方案制定时的查证背景；当前依赖和升级验证见 [升级记录](pi-upgrades.md)，不将历史版本当作当前安装版本。
+> Pi 版本说明：正文版本为方案制定时的查证背景；当前依赖和升级验证见 [升级记录](../pi-upgrades.md)，不将历史版本当作当前安装版本。
 
-> 状态：**目标架构与迁移路线，不是当前部署拓扑。** 当前实现见 [architecture.md](architecture.md)。
-> 最新执行基线：[千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)；Durable 专项门禁见 [pi-durable-evaluation.md](pi-durable-evaluation.md)。
+> 状态：**目标架构与迁移路线，不是当前部署拓扑。** 当前实现见 [architecture.md](../architecture.md)。
+> 最新执行基线：[千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)；Durable 专项门禁见 [pi-durable-evaluation.md](../research/pi-durable-evaluation.md)。
 > 本次修订将旧目标“Worker → Sandbox → Pi RPC”调整为“Worker 承载 Pi loop，Sandbox 承载工具执行”。现有 SandboxRpcBackend 保持当前事实，不因文档修订退役。
 
 ## 1. 平台与 Pi 的职责
@@ -22,7 +22,7 @@
 | SandboxRpcBackend | 已有 Docker/OpenSandbox、bridge、文件与模型代理链路 | 保留迁移兼容，按能力矩阵逐步 tools 灰度 |
 | SandboxProvider | 已有 seam、注册表、租约、管理与 provider | 强杀/操作查询、原子写、限额传输、持久 workspace、reaper |
 | DurableBackend | MemoryStorage 实验原型 | 单 Worker 内的受控文件任务恢复试点；不是默认耐久执行 |
-| Runtime 基础 / 沙箱工具工厂 | RunDescriptor/状态、lazy/限额文件、SandboxToolsBackend/私有存储与交付回调已落地，Docker 新契约通过；未接生产路由 | 首发先验 Docker deny-all；生产账本/权限/附件/治理与 P2/P3 尚缺，OpenSandbox tools 未开放；本轮容量测试排除；见 [实施记录](runtime-foundation-implementation.md) |
+| Runtime 基础 / 沙箱工具工厂 | RunDescriptor/状态、lazy/限额文件、SandboxToolsBackend/私有存储与交付回调已落地，Docker 新契约通过；未接生产路由 | 首发先验 Docker deny-all；生产账本/权限/附件/治理与 P2/P3 尚缺，OpenSandbox tools 未开放；本轮容量测试排除；见 [实施记录](../runtime/runtime-foundation-implementation.md) |
 | Worker / 通用持久 job 队列 | 未实施 | 单 Worker 起步，claim/取消/游标/发布排空；先不做多主 |
 | Desktop / 用户扩展强隔离 | 规划 | 独立需求和安全设计，不作为企业 MVP 前置 |
 

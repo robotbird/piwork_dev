@@ -162,7 +162,7 @@ const harnesses: Harness[] = [
       const faux = getTestFauxHandle();
       assert.ok(faux, "Durable 契约测试需在测试环境运行（faux 未注册）");
       faux.setResponses(scenario.fauxSteps ?? []);
-      // 原型差口（docs/pi-durable-evaluation.md §5 P2）：平台侧工具闭包与
+      // 原型差口（docs/research/pi-durable-evaluation.md §5 P2）：平台侧工具闭包与
       // deliver_file 归档未接入，强制空工具、无 workspace
       const spec = await makeSpec({
         ...scenario,

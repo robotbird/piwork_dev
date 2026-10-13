@@ -2,7 +2,7 @@
 
 状态：**设计及第一批协议基础，未生产接线**（2026-10-10）。不是安全认证、生产验收或容量证明。现有 OpenSandbox RPC 路由保持不变；不因此开放 SandboxToolsBackend 的 OpenSandbox 门禁，不启用 Durable。
 
-> 最新范围调整：用户要求简化为基础脚本执行，现已完成 [现有 RPC Skill 资源补齐](skill-sandbox-execution.md)，不以本方案的 Worker/审批数据库作为该基础功能的前置开发项。本文件保留为完整企业目标；下文“第一批仅协议”的记录为此前阶段，不代表最新基本功能状态。RPC 复制不是只读 mount/审批，不能因此宣称企业安全目标已实现。执行-only OpenSandbox tools/P2/P3 生产门禁仍不变。
+> 最新范围调整：用户要求简化为基础脚本执行，现已完成 [现有 RPC Skill 资源补齐](../runtime/skill-sandbox-execution.md)，不以本方案的 Worker/审批数据库作为该基础功能的前置开发项。本文件保留为完整企业目标；下文“第一批仅协议”的记录为此前阶段，不代表最新基本功能状态。RPC 复制不是只读 mount/审批，不能因此宣称企业安全目标已实现。执行-only OpenSandbox tools/P2/P3 生产门禁仍不变。
 
 ## 1. 目标与信任边界
 
@@ -74,7 +74,7 @@
 - `pnpm test:runtime`：368 通过、8 跳过、0 失败；不是容量测试，也不能替代尚未实现功能的验收。
 - TypeScript、相关 Biome、git diff whitespace 检查通过。
 - 第一阶段服务器仅串行 1 个探针，确认实际资源/身份/控制标志及销毁。当时未部署新应用代码、未创建 Git commit。
-- 后续按用户收缩需求完成现有 RPC 基本复制功能，并发布部署 v3.1.5；真实模型/正式 HTTP 上传、脚本执行、归档鉴权下载及回收通过，详见 [基本执行记录](skill-sandbox-execution.md)。不等于本方案企业审批、只读挂载或执行-only 门禁验收。
+- 后续按用户收缩需求完成现有 RPC 基本复制功能，并发布部署 v3.1.5；真实模型/正式 HTTP 上传、脚本执行、归档鉴权下载及回收通过，详见 [基本执行记录](../runtime/skill-sandbox-execution.md)。不等于本方案企业审批、只读挂载或执行-only 门禁验收。
 
 ## 6. 官方依据
 

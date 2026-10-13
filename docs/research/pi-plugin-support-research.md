@@ -4,9 +4,9 @@
 >
 > 范围：Pi Package 网页安装、企业治理、Agent Runtime、Sandbox、Web/Desktop 复用
 >
-> Pi 版本：以 `package.json` / `pnpm-lock.yaml` 为准，最新基线见 [升级记录](pi-upgrades.md)；历史版本与实施证据保留，不代表当前版本。MCP 为 Pi 内置扩展，见架构文档第 10/11 节。
+> Pi 版本：以 `package.json` / `pnpm-lock.yaml` 为准，最新基线见 [升级记录](../pi-upgrades.md)；历史版本与实施证据保留，不代表当前版本。MCP 为 Pi 内置扩展，见架构文档第 10/11 节。
 >
-> 历史与证据库：v1.x 为调研报告（spike 实录与实施 gotchas，附录 A–F），已归档至 [docs/archive/pi-plugin-research-v1.7.md](archive/pi-plugin-research-v1.7.md)（git 8cb4286）。Step 3/4 实施前必读其附录 E.4（loader reload / CredentialStore / 事件桥）与 F.1（RPC 协议纪律：`agent_settled` 判据、JSONL 分帧、停机语义）。
+> 历史与证据库：v1.x 为调研报告（spike 实录与实施 gotchas，附录 A–F），已归档至 [docs/archive/pi-plugin-research-v1.7.md](../archive/pi-plugin-research-v1.7.md)（git 8cb4286）。Step 3/4 实施前必读其附录 E.4（loader reload / CredentialStore / 事件桥）与 F.1（RPC 协议纪律：`agent_settled` 判据、JSONL 分帧、停机语义）。
 
 ## 1. 架构结论
 
@@ -397,6 +397,6 @@ runtime-worker/
 - [Run Pi safely](https://pi.dev/docs/latest/security)
 - [Run Pi in an isolated environment](https://pi.dev/docs/latest/containerization)
 - [Pi Package Catalog](https://pi.dev/packages)
-- [v1.x 调研报告归档（证据库）](archive/pi-plugin-research-v1.7.md)
-- [skill 安全执行方案](security/skill-execution-security-plan.md)——沙箱治理细节（依赖预构建、命令 AST 门控、网络策略 schema、密钥占位符）；其 `RemoteSandboxEnv` 接入点已被本文取代
+- [v1.x 调研报告归档（证据库）](../archive/pi-plugin-research-v1.7.md)
+- [skill 安全执行方案](../security/skill-execution-security-plan.md)——沙箱治理细节（依赖预构建、命令 AST 门控、网络策略 schema、密钥占位符）；其 `RemoteSandboxEnv` 接入点已被本文取代
 - [模型供应商插件架构](model-provider-plugin-architecture.md)——插件契约与安装链路；运行时收敛见本文 §7.2

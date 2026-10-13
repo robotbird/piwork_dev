@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
-const OUT_DIR = "artifacts/member-screens";
+const OUT_DIR = "test-results/members-screens";
 
 async function main() {
   mkdirSync(OUT_DIR, { recursive: true });

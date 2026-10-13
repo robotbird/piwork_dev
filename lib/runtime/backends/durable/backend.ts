@@ -114,7 +114,7 @@ type StreamSink = {
 
 /**
  * DurableBackend：以 Pi Durable Harness 承载 RuntimeSpec 的实验后端
- * （docs/pi-durable-evaluation.md §5 P2 原型）。
+ * （docs/research/pi-durable-evaluation.md §5 P2 原型）。
  *
  * 默认仅开发 MemoryStorage；可注入单写者 SQLite + 当前授权，恢复前阻断
  * 未决工具。生产禁用 MemoryStorage，正式 Worker/映射/投影接线尚未完成。

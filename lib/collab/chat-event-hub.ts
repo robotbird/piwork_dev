@@ -6,7 +6,7 @@
  * 在 PostgreSQL（Message_v2），客户端收到事件后重拉 /api/messages 或
  * resumeStream attach 活跃 run。
  *
- * 边界（与 docs/chat-collaboration.md §8 一致）：
+ * 边界（与 docs/features/chat-collaboration.md §8 一致）：
  * - 单常驻 Node 实例前提；无跨进程/多副本广播，不提供容量保证；
  * - 状态纯内存：presence/typing 重启即失，SSE 客户端自动重连重建；
  * - typing 6s TTL 自动清除（与 pi-pocket TYPING_MS 一致）；

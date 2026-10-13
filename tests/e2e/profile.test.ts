@@ -2,7 +2,7 @@ import { rm } from "node:fs/promises";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import postgres from "postgres";
-import { cleanupTestData } from "./helpers/test-cleanup";
+import { cleanupTestData } from "../support/playwright/test-cleanup";
 
 test("members can edit their profile and password without management access", async ({
   page,

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { encode } from "next-auth/jwt";
-import { cleanupTestData } from "./helpers/test-cleanup";
+import { cleanupTestData } from "../support/playwright/test-cleanup";
 
 test("signing out requires login and does not create a guest session", async ({
   page,

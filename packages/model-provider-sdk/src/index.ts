@@ -5,7 +5,7 @@
  * 插件入口 `src/index.ts` 默认导出 activate factory，通过受限的
  * `PiworkLlmExtensionAPI.registerProvider()` 注册完整 Pi `Provider`。
  *
- * 详见 docs/model-provider-plugin-architecture.md §5.4。
+ * 详见 docs/research/model-provider-plugin-architecture.md §5.4。
  */
 
 import type { Provider } from "@earendil-works/pi-ai";

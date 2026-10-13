@@ -1,9 +1,9 @@
 import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
-import { cleanupTestData } from "./helpers/test-cleanup";
+import { cleanupTestData } from "../support/playwright/test-cleanup";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
-const OUT_DIR = "artifacts/role-screens";
+const OUT_DIR = "test-results/roles-screens";
 
 async function main() {
   mkdirSync(OUT_DIR, { recursive: true });

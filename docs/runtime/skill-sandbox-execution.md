@@ -58,7 +58,7 @@ node --conditions=react-server --import tsx --env-file=.env.local tests/e2e/sand
 
 启用状态沿用原管理员信任模式，**不是不可变审核或细粒度执行授权**；目录是受限复制，不是只读 mount。沙箱内任意 bash 能修改自身文件，也可能读取其窄模型代理 token；已有网络/Artifact Gateway/公开 Blob 边界不因本功能自动升级。父目录共享依赖、运行时自动装包、宿主 create_skill/MCP/Package 桥、跨 run 文件延续、Worker/reaper/持久 intent/自动恢复均不增加。Linux pinned 文件能力不是完整内核隔离或业务审批。
 
-完整企业目标仍见 [安全实施方案](skill-sandbox-security-design.md)，其中执行-only backend/P2/P3 门禁不取消；本次只是已有 RPC 资源补齐，不能改称完成企业安全建设。
+完整企业目标仍见 [安全实施方案](../plans/skill-sandbox-security-design.md)，其中执行-only backend/P2/P3 门禁不取消；本次只是已有 RPC 资源补齐，不能改称完成企业安全建设。
 
 依据 Pi 1.1.0 `docs/skills.md`、`cli.md`、`settings.md`、`packages.md`；安装源码 `dist/core/resource-loader.js`（noSkills 保留 additionalSkillPaths）、`dist/core/agent-session.js` `_expandSkillCommand`、`dist/core/system-prompt.js`（customPrompt 仍添加 Skill catalog）、官方 RpcClient。没有自建 loop/Skill 命令解释器或 RPC 协议。
 

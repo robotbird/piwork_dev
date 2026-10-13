@@ -1,12 +1,12 @@
 # Piwork 项目架构（当前实现）
 
-> Pi 依赖核对日期：2026-10-10。当前版本以 `package.json` 和 `pnpm-lock.yaml` 为准，最新升级与验证见 [Pi 升级记录](pi-upgrades.md)；Durable 仍 experimental。本文历史升级章节中的版本和测试结果仅代表当时基线。本文描述现状；目标架构见 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)。
+> Pi 依赖核对日期：2026-10-10。当前版本以 `package.json` 和 `pnpm-lock.yaml` 为准，最新升级与验证见 [Pi 升级记录](pi-upgrades.md)；Durable 仍 experimental。本文历史升级章节中的版本和测试结果仅代表当时基线。本文描述现状；目标架构见 [Pi Package 与 Runtime 架构](research/pi-plugin-support-research.md)。
 
-Web、独立 Worker/Sandbox 与未来 Desktop 的整体演进方向见 [平台与 Agent Runtime 演进架构](platform-runtime-roadmap.md)。最新实施基线见 [千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)：目标为工具级沙箱 → 单 Worker → 受控 Durable 车道。**执行路径改造尚未接入生产**；RunDescriptor/ExecutionState、LazySandbox、操作错误分类、限额/原子文件能力与四工具工厂已落地；已实现 SandboxToolsBackend 协议适配器、私有制品存储与交付回调，Docker 新契约已通过，生产接线与治理尚未完成，见 [实施记录](runtime-foundation-implementation.md)。现状中的 RPC、Next.js 内 RunManager、Docker 无 reaper 保持不变；Durable 新增 SQLite/单写者/恢复阻断基础，生产默认 MemoryStorage 路径已明确拒绝，但正式 Worker 接线仍未完成。
+Web、独立 Worker/Sandbox 与未来 Desktop 的整体演进方向见 [平台与 Agent Runtime 演进架构](plans/platform-runtime-roadmap.md)。最新实施基线见 [千人企业 MVP 与沙箱执行面实施方案](plans/sandbox-execution-surface-design.md)：目标为工具级沙箱 → 单 Worker → 受控 Durable 车道。**执行路径改造尚未接入生产**；RunDescriptor/ExecutionState、LazySandbox、操作错误分类、限额/原子文件能力与四工具工厂已落地；已实现 SandboxToolsBackend 协议适配器、私有制品存储与交付回调，Docker 新契约已通过，生产接线与治理尚未完成，见 [实施记录](runtime/runtime-foundation-implementation.md)。现状中的 RPC、Next.js 内 RunManager、Docker 无 reaper 保持不变；Durable 新增 SQLite/单写者/恢复阻断基础，生产默认 MemoryStorage 路径已明确拒绝，但正式 Worker 接线仍未完成。
 
-本轮新增 [Durable + Sandbox 受控组合](durable-sandbox-composition.md)：`DurableSandboxBackend` 复用官方 Harness/私有 owned SQLite 与现有 lazy 四工具，已通过真实 OpenSandbox 功能契约；fresh-run、单 prompt、deny-all、非生产显式探针。执行映射存官方 document；终态前回收，清理失败保留归属。**已接非生产自动聊天分流：开发环境所有正式启用成员无需勾选，test 保留 UUID 白名单；未启用时默认矩阵不变，Worker/自动恢复不变**；全局 env 互斥仍保留，现有 SandboxToolsBackend 的 OpenSandbox 拒绝门禁不变。`/api/chat/runtime-options` 仅保留能力查询，UI 不选择后端；分类不是授权；正式 DB 授权、水合/私有归档在服务端装配，实际后端落 `AgentRun.backend=durable_sandbox`（varchar，仅扩 TS 值域，无 SQL enum/迁移）。
+本轮新增 [Durable + Sandbox 受控组合](runtime/durable-sandbox-composition.md)：`DurableSandboxBackend` 复用官方 Harness/私有 owned SQLite 与现有 lazy 四工具，已通过真实 OpenSandbox 功能契约；fresh-run、单 prompt、deny-all、非生产显式探针。执行映射存官方 document；终态前回收，清理失败保留归属。**已接非生产自动聊天分流：开发环境所有正式启用成员无需勾选，test 保留 UUID 白名单；未启用时默认矩阵不变，Worker/自动恢复不变**；全局 env 互斥仍保留，现有 SandboxToolsBackend 的 OpenSandbox 拒绝门禁不变。`/api/chat/runtime-options` 仅保留能力查询，UI 不选择后端；分类不是授权；正式 DB 授权、水合/私有归档在服务端装配，实际后端落 `AgentRun.backend=durable_sandbox`（varchar，仅扩 TS 值域，无 SQL enum/迁移）。
 
-按最新需求新增 [Skill 沙箱基本执行](skill-sandbox-execution.md)：现有 SandboxRpc 在启动 Pi 前限额快照并原子复制启用 Skill 全目录，CLI 仅加载显式沙箱 SKILL.md；`/name` 经官方 `/skill:name` 在沙箱展开，自动调用通过 read 加载，无通用 load_skill/create_skill 闭包桥。聊天/定时任务传 RuntimeSpec.skills 宿主路径元数据（非 Worker DTO），不新建后端/Worker/DB。Linux collector 拒绝链接，复制不是只读 mount/不可变审批；真实 OpenSandbox 脚本及资源探针已通过；v3.1.5/b970246 已部署，正式 HTTP Skill 上传/命令/脚本、归档与鉴权下载、底座删除验证通过（独立身份、真实模型、单容器，不含浏览器 UI）。完整 [企业目标](skill-sandbox-security-design.md) 的审批、执行-only OpenSandbox tools、账本/Worker 门禁不变；原 manifest helper 仍仅协议基础，enabled 不等于审批。
+按最新需求新增 [Skill 沙箱基本执行](runtime/skill-sandbox-execution.md)：现有 SandboxRpc 在启动 Pi 前限额快照并原子复制启用 Skill 全目录，CLI 仅加载显式沙箱 SKILL.md；`/name` 经官方 `/skill:name` 在沙箱展开，自动调用通过 read 加载，无通用 load_skill/create_skill 闭包桥。聊天/定时任务传 RuntimeSpec.skills 宿主路径元数据（非 Worker DTO），不新建后端/Worker/DB。Linux collector 拒绝链接，复制不是只读 mount/不可变审批；真实 OpenSandbox 脚本及资源探针已通过；v3.1.5/b970246 已部署，正式 HTTP Skill 上传/命令/脚本、归档与鉴权下载、底座删除验证通过（独立身份、真实模型、单容器，不含浏览器 UI）。完整 [企业目标](plans/skill-sandbox-security-design.md) 的审批、执行-only OpenSandbox tools、账本/Worker 门禁不变；原 manifest helper 仍仅协议基础，enabled 不等于审批。
 
 ## 1. 系统边界
 
@@ -38,6 +38,8 @@ flowchart LR
 
 ## 2. 代码目录与职责
 
+完整仓库分类与文档位置见 [仓库目录指南](repository-layout.md)。`artifacts/` 是文档产物业务源码；验证截图归忽略目录 `test-results/`。
+
 | 目录 | 职责与主要入口 |
 | --- | --- |
 | `app/(auth)` | Auth.js、正式账号登录、注册与鉴权动作（访客已关闭） |
@@ -48,11 +50,11 @@ flowchart LR
 | `lib/runtime/protocol` | 平台内的 `RuntimeSpec`、命令、事件、`RuntimeBackend`/`RuntimeSession` 契约；RuntimeSpec 的 durableChat 是宿主 reference-only 授权输入（无附件字节/闭包），仍非 Worker DTO；新增 P0 `RunDescriptor` 严格 JSON 契约与独立 `ExecutionState` 转换检查，尚未接入 job/DB/路由 |
 | `lib/runtime/backends` | `in-process` 当前运行适配器；`local-rpc` 是已实现的本机子进程适配器，尚未接入生产默认路径；`sandbox-rpc` 把官方 `RpcClient` 经 bridge 泵接进沙箱内 pi，含 Artifact Gateway（deliver_file 出站）与 Inference Proxy 客户端装配（models.json/run token/egress 派生）；`routing` 按 v2.0 §8.1 矩阵逐 run 分流（执行工具 → 沙箱、纯对话 → in-process）；经 `PIWORK_SANDBOX_PROVIDER=docker\|opensandbox` 装配（默认关闭）；Pi 事件归一化和事件队列。新增 `sandbox-tools` 已实现 RuntimeBackend（复用 InProcessRuntimeSession/官方 SDK、资源回收后终结、未知结果/授权失败强制失败），可注入私有交付；尚未接入生产路由/DB backend 枚举 |
 | `lib/runtime/inference-proxy` | 控制面旁路 HTTP 反代（pi-messages wire 协议）：`server.ts`（鉴权/SSE 中继/审计）、`tokens.ts`（AgentRun 级短期窄 token）、`models-manifest.ts`（沙箱 agentDir models.json 生成）、`events.ts`（AssistantMessageEvent → SSE 行映射）；真实模型凭据只在本层内侧（模型插件 Worker host） |
-| `lib/runtime/sandbox` | Pi 无关的 `SandboxProvider`/`SandboxHandle`/`SandboxChannel` seam、DB 注册表/租约、UDS bridge 泵与 shim、`docker/` CLI provider（安全基线自持，egress 默认 deny-all / allowlist 网桥近似）与 `opensandbox/` 生产 provider（SDK 隔离在该目录）；新增可选 `SandboxHandle.filesystem` 能力（Linux 固定 Node helper、限额/stat/原子写）与 `readCombined`（RPC stdout 不变），旧 RPC 文件 API 不变；详见 [OpenSandbox 接入 Spec](opensandbox-integration-spec.md) |
+| `lib/runtime/sandbox` | Pi 无关的 `SandboxProvider`/`SandboxHandle`/`SandboxChannel` seam、DB 注册表/租约、UDS bridge 泵与 shim、`docker/` CLI provider（安全基线自持，egress 默认 deny-all / allowlist 网桥近似）与 `opensandbox/` 生产 provider（SDK 隔离在该目录）；新增可选 `SandboxHandle.filesystem` 能力（Linux 固定 Node helper、限额/stat/原子写）与 `readCombined`（RPC stdout 不变），旧 RPC 文件 API 不变；详见 [OpenSandbox 接入 Spec](runtime/opensandbox-integration-spec.md) |
 | `lib/runtime/run` | `RunManager` 生命周期、订阅、事件日志、消息构建、事件存储接口；`index.ts` 组装当前后端和 PostgreSQL 实现 |
 | `lib/ai` | Pi session 装配、模型适配、系统提示、Skill、工具、附件和文件存储；`agent-session.ts` 调用 Pi SDK |
 | `lib/search` | 可信平台联网搜索 Gateway、固定 Tavily API、逐次正式身份/聊天/模型授权、单进程准入及有界来源投影；不运行第三方插件或抓取任意网页 |
-| `lib/collab` | 聊天协作实时事件 hub（进程内 pub/sub）：SSE 房间/presence/typing TTL、消息与 run 生命周期通知；事件不携带正文，真相在 PostgreSQL；单实例前提，多副本需外部总线，见 [对话分享与协作](chat-collaboration.md) |
+| `lib/collab` | 聊天协作实时事件 hub（进程内 pub/sub）：SSE 房间/presence/typing TTL、消息与 run 生命周期通知；事件不携带正文，真相在 PostgreSQL；单实例前提，多副本需外部总线，见 [对话分享与协作](features/chat-collaboration.md) |
 | `lib/pi-packages`、`lib/mcp` | 受管 Pi 包安装/资源清点；将管理端 MCP 配置同步到受管 agentDir `mcp.json`，并提供 Pi 内置 MCP 扩展的自定义 `loadConfig` |
 | `lib/model-plugins`、`packages/model-provider-sdk`、`plugins` | 模型供应商插件契约、检查/构建/Worker host/注册；SDK 与示例 DeepSeek 插件 |
 | `lib/db`、`lib/admin` | Drizzle schema、迁移和查询；管理权限与管理业务逻辑 |
@@ -66,7 +68,7 @@ flowchart LR
 
 ## 3. 聊天运行链路
 
-逐步时序图和 RPC 边界见 [聊天业务链路与 RPC](rpc-business-flow.md)。
+逐步时序图和 RPC 边界见 [聊天业务链路与 RPC](runtime/rpc-business-flow.md)。
 
 1. `app/(chat)/api/chat/route.ts` 校验请求、身份、配额及模型目录；读取/保存聊天消息，处理附件，加载启用的 Skill，按聊天创建工作区，并把启用的 MCP 服务同步进受管 agentDir 的 `mcp.json`。
 2. 请求将模型、历史、提示、工具和工作区组成 `RuntimeSpec`，交给 `getRunManager().start()`；页面流订阅运行事件。断线重连走 `api/chat/[id]/stream`，显式停止走 `api/chat/[id]/stop`。
@@ -103,7 +105,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 
 ### 管理端对话记录
 
-`/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员可读；侧边栏「记录与统计 → 对话记录」。`components/admin/conversations` 复用后台组件与主题，提供真实 Chat 列表、标题/用户/项目检索、项目/最近运行状态/UTC 更新时间筛选、排序、分页、详情和只读消息文本分页。查询归 `lib/db/conversation-queries.ts`，只读 repeatable-read 保持计数与页内数据一致；共享校验与文本投影归 `lib/admin/conversations.ts`。不读 Pi JSONL/私有 SQLite，不启动或重建会话，不改变普通聊天所有权。模型已补运行级请求快照（AgentRun.requestedModel，迁移 0017）与完成事件实际模型（SDK/RPC 与 Durable 两类归一化器）；按 run 优先实际 model/responseModel，其次请求快照，最后同 run/chat 的 allowed 推理审计证据，保留跨轮模型切换并支持筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，列表/详情/筛选复用包内 Logo API，不显示内部 installation ID；未知/卸载与图标失败保守回退，不用当前模型目录覆盖历史模型身份。Token 按会话全部持久化 message.completed.usage 聚合五字段，官方 totalTokens 不重复加 reasoning/缓存；缺失显示未记录/部分记录，不与代理审计 Token 重复累计，不含分类/标题/压缩/工具嵌套费用。不虚构归档状态。完整链路与口径见 [对话模型与用量](conversation-model-usage.md)。仅投影 Message_v2 的 text parts，排除 reasoning/工具参数/结果/附件地址；这不是 Pi 完整 transcript 或不可变审计账本，删除聊天会删除相关记录。官方依据：Pi `docs/sdk.md`、`docs/message-types.md`、`docs/session-format.md`（平台历史投影与 Pi 原生会话树不同）。
+`/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员可读；侧边栏「记录与统计 → 对话记录」。`components/admin/conversations` 复用后台组件与主题，提供真实 Chat 列表、标题/用户/项目检索、项目/最近运行状态/UTC 更新时间筛选、排序、分页、详情和只读消息文本分页。查询归 `lib/db/conversation-queries.ts`，只读 repeatable-read 保持计数与页内数据一致；共享校验与文本投影归 `lib/admin/conversations.ts`。不读 Pi JSONL/私有 SQLite，不启动或重建会话，不改变普通聊天所有权。模型已补运行级请求快照（AgentRun.requestedModel，迁移 0017）与完成事件实际模型（SDK/RPC 与 Durable 两类归一化器）；按 run 优先实际 model/responseModel，其次请求快照，最后同 run/chat 的 allowed 推理审计证据，保留跨轮模型切换并支持筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，列表/详情/筛选复用包内 Logo API，不显示内部 installation ID；未知/卸载与图标失败保守回退，不用当前模型目录覆盖历史模型身份。Token 按会话全部持久化 message.completed.usage 聚合五字段，官方 totalTokens 不重复加 reasoning/缓存；缺失显示未记录/部分记录，不与代理审计 Token 重复累计，不含分类/标题/压缩/工具嵌套费用。不虚构归档状态。完整链路与口径见 [对话模型与用量](features/conversation-model-usage.md)。仅投影 Message_v2 的 text parts，排除 reasoning/工具参数/结果/附件地址；这不是 Pi 完整 transcript 或不可变审计账本，删除聊天会删除相关记录。官方依据：Pi `docs/sdk.md`、`docs/message-types.md`、`docs/session-format.md`（平台历史投影与 Pi 原生会话树不同）。
 
 ### 管理端 Token 统计
 
@@ -124,10 +126,10 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 | Pi SDK 会话、受管 Package、模型 Provider 桥接 | 已接入当前聊天路径 |
 | InProcessBackend + RunManager + PostgreSQL 事件/消息持久化 | 当前默认路径 |
 | LocalRpcBackend | 已有实现与契约测试；生产组装尚未选用 |
-| SandboxRpcBackend + SandboxProvider seam | spec Phase 0/1/2/3 已落地（完成标准全部达成）：seam/契约测试/沙箱注册表与租约/管理页、DockerSandboxProvider（契约套件 12/12，含 egress allowlist 对照）、OpenSandboxProvider（离线 21 用例 + 真实 server 契约 gated 复验 12/12）、Artifact Gateway（deliver_file 出站）、`PIWORK_SANDBOX_PROVIDER=docker\|opensandbox` 装配开关（默认关闭 = InProcess 不变，fail-closed）、pi-runtime 镜像（`docker/pi-runtime`）与 Docker provider 上的 RPC 契约 gated 入口（`PIWORK_SANDBOX_DOCKER_RPC_TESTS=1`，7/7）。见 [OpenSandbox 接入 Spec](opensandbox-integration-spec.md) |
+| SandboxRpcBackend + SandboxProvider seam | spec Phase 0/1/2/3 已落地（完成标准全部达成）：seam/契约测试/沙箱注册表与租约/管理页、DockerSandboxProvider（契约套件 12/12，含 egress allowlist 对照）、OpenSandboxProvider（离线 21 用例 + 真实 server 契约 gated 复验 12/12）、Artifact Gateway（deliver_file 出站）、`PIWORK_SANDBOX_PROVIDER=docker\|opensandbox` 装配开关（默认关闭 = InProcess 不变，fail-closed）、pi-runtime 镜像（`docker/pi-runtime`）与 Docker provider 上的 RPC 契约 gated 入口（`PIWORK_SANDBOX_DOCKER_RPC_TESTS=1`，7/7）。见 [OpenSandbox 接入 Spec](runtime/opensandbox-integration-spec.md) |
 | 路由矩阵（v2.0 §8.1） | spec Phase 5 MVP 已落地：`RoutingRuntimeBackend` 逐 run 分流（执行工具 → 沙箱、纯对话 → in-process 并存非降级），AgentRun.backend 落实际执行位，fail-closed 不回落；`PIWORK_SANDBOX_ROUTING=matrix`（默认）\|`all`；docker 档冷启动实测 P50 490ms（≤3s 达标）。Package/MCP 入沙箱、闭包工具桥接、Worker 化与资源审计未落地（spec §6 Phase 5 未落地清单） |
 | Durable 聊天自动分流 | route 在附件解析/宿主 workspace 创建前复用执行分类器与 `routing/chat-routing.ts` 选择内部 lane；客户端不指定后端。问答走轻量路径，四工具执行任务走 Durable；Skill/平台能力关键词、已登记能力名称、近期非四工具调用、审批与分类不确定保守留原矩阵，不扩张其已有能力。`ExplicitDurableRuntimeBackend` 接服务端选定的 lane；正式启用成员 + 非生产（development 无需白名单，test 仍要求 UUID 白名单），owned SQLite 留宿主，四工具/私有交付进 fresh 临时沙箱，水合前复核 LibraryItem/hash/size。backendKindFor 落 durable_sandbox，Skill/MCP/Package/定时任务/审批续跑不支持，失败无 fallback；真实 OpenSandbox/模型 `/api/chat` HTTP 验收通过。无 Worker、自动恢复、持久 workspace 或容量承诺 |
-| DurableBackend（Pi Durable） | 开发旁路原型 + D0 持久化增量：可注入官方 SQLite/单写者/授权，恢复前阻断未知工具；NODE_ENV=production 禁用默认 MemoryStorage，持久路径拒绝未接线的 workspace 执行。14 项专项测试含真实 SIGKILL；`PIWORK_RUNTIME_BACKEND=durable` 仍仅实验开关，Worker/运行映射/快照投影未落地，不代表生产采用。评估与采用计划见 [Pi Durable 评估](pi-durable-evaluation.md) |
+| DurableBackend（Pi Durable） | 开发旁路原型 + D0 持久化增量：可注入官方 SQLite/单写者/授权，恢复前阻断未知工具；NODE_ENV=production 禁用默认 MemoryStorage，持久路径拒绝未接线的 workspace 执行。14 项专项测试含真实 SIGKILL；`PIWORK_RUNTIME_BACKEND=durable` 仍仅实验开关，Worker/运行映射/快照投影未落地，不代表生产采用。评估与采用计划见 [Pi Durable 评估](research/pi-durable-evaluation.md) |
 | Inference Proxy、egress 派生、访问审计 | spec Phase 4 已落地：pi-messages wire 代理 + AgentRun 级 run token（真实凭据不出控制面）+ egress 只收紧派生 + `InferenceAccessAudit` 脱敏审计；`PIWORK_INFERENCE_URL` 显式启用。资源用量审计与生产档 FQDN 级硬拒绝（OpenSandbox egress sidecar/NetworkPolicy）后续完善（spec §6 Phase 5 未落地清单） |
 | 企业 Runtime 基础契约与 LazySandbox | `protocol/run-descriptor.ts`（版本、引用/hash、严格编解码/总量上限）、`execution-state.ts`（独立 job 状态检查）；`sandbox/lazy.ts`（单飞、取消/迟到 acquire 回收、kill-only）与 `operation-error.ts`（未知结果不建议重放）。35 项基础测试通过；文件/工具/后端新增 41 项通过（含 6 项真实 Docker，新增 SDK→Docker CSV→私有存储/归档回调→制品事件）；私有存储与 SDK 图像隔离另有 5 项单测，超时/取消/未知命令 kill-only 不重放。工具观察不是持久账本；SandboxToolsBackend 已实现但未装配生产，未提供 reaper/Worker。私有本地存储通过已有鉴权下载路由，但正式归档/权限接线仍待完成；OpenSandbox 新契约和 workspace 持久性待验收；本轮不做容量测试 |
 | 用户上传扩展/模型插件的强隔离与凭据网关 | 安全规划；现有 Worker 与进程内扩展不应被描述为强沙箱 |
@@ -144,7 +146,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 
 `PIWORK_WEB_SEARCH_ENABLED=1` + 服务端 `TAVILY_API_KEY` 显式启用。`lib/ai/web-tools.ts` 经官方 customTools 注册 `platform_web_search`，只在无工作区会话装配；轻量白名单与受管扩展/MCP 禁用保持不变。纯联网搜索分类为平台能力，默认 matrix 不启动沙箱；混合执行/附件/插件与近期执行上下文保守保留原矩阵。固定 Tavily 搜索、逐次 Chat 归属/enabled/模型/Token 授权、限额/超时/取消/输出截断，无搜索供应商或后端 fallback。查询词会外发，不能宣称 DLP 或不可变费用账本。
 
-官方工具成功 sources 投影为新 RuntimeEvent `source.created`，通过 stream-mapping 的标准 source-url 与 message-builder 同形持久化到聊天，UI 展示来源；不存搜索原始响应/Key。第三方 `web_search` 不同名且不因本功能自动加载。SandboxRpc/LocalRpc 收到平台搜索工具在执行前拒绝（含 all 模式），Durable 不装配；混合搜索+文件执行尚不支持。不提供 web_fetch/任意网页抓取，也不改变已知沙箱网络问题。配置、数据发送与验证边界见 [联网搜索](web-search.md)。依据 Pi SDK/Extensions、sdk.d.ts 和 AgentTool signal/result 契约。
+官方工具成功 sources 投影为新 RuntimeEvent `source.created`，通过 stream-mapping 的标准 source-url 与 message-builder 同形持久化到聊天，UI 展示来源；不存搜索原始响应/Key。第三方 `web_search` 不同名且不因本功能自动加载。SandboxRpc/LocalRpc 收到平台搜索工具在执行前拒绝（含 all 模式），Durable 不装配；混合搜索+文件执行尚不支持。不提供 web_fetch/任意网页抓取，也不改变已知沙箱网络问题。配置、数据发送与验证边界见 [联网搜索](features/web-search.md)。依据 Pi SDK/Extensions、sdk.d.ts 和 AgentTool signal/result 契约。
 
 ## 6. Pi 官方依据
 
@@ -186,7 +188,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 - 聊天链路完全复用既有 `route → RunManager → RuntimeBackend → Pi AgentSession`：`use-active-chat` 从路径 `/chat/:chatId` 段提取 id，项目聊天页自身返回 null、由 `ChatShell` 渲染。项目主页大输入框先经 `POST /api/projects/:id/chats` 预建聊天，再带 `?query=` 跳转，由 `use-active-chat` 的 query 副作用发出首条消息（该项目页就地消费 query，不再跳回 `/chat/:id`）。
 - 聊天模型同步：`ActiveChatProvider` 从本人 `/api/models` 目录解析 cookie 偏好（失效时只在客户端选择目录默认/首个），显示与请求使用同一个有效 ID；`?query=` 等待目录、cookie 初始化及可写聊天元数据后仅发送一次。服务端仍拒绝越权模型，不 fallback；模型拒绝使用 `forbidden:model`，不再误报聊天归属。未改变 Pi API/agent loop。
 - 项目聊天标题：预建聊天标题为占位 "New chat"，首条用户消息经 `/api/chat` 时用既有 `generateTitleFromUserMessage` 生成；消息写入（`saveMessages`/`upsertMessage`）会刷新 `Chat.updatedAt`，项目聊天列表按它排序并附最近一条消息摘要。
-- 项目资料完整读取（2026-10-11，方案 A）：`extractDocumentText` 与聊天预览截断分离，上传完整限额文本存 `Source.content`，不再在 60k 字符处静默截断或 trim 原文。单原件≤100MB；提取文本单份≤2MiB、项目文本合计≤8MiB、目录≤50份，解析使用官方库取消信号和 60s 协作式超时（不是进程硬隔离）；超限拒绝、无部分保存。上传预检与运行复检防止并发预检遗漏造成静默丢失。`context.ts` 提供全部资料目录、每份前512字符预览及 hash/reference-only grant；`db/project-document-queries.ts` 在 sandbox_rpc/starting 阶段重新核验真实 actor、正式 enabled/non-anonymous 成员、chat 和项目共享权限。`SandboxRpcBackend` 在启动官方 Pi 前经 `SandboxHandle.filesystem.writeAtomic` 复制32KiB UTF-8 无损文本片段，提交前再核验资料目录/hash及授权，manifest 最后发布，系统提示提供沙箱实际路径。物化限时120s，失败杀沙箱并核验 destroyed、撤销 run token；不回退宿主，其他后端显式拒绝 projectSources。输入副本可被 bash 修改，不是只读 mount/持续授权；运行中撤权回收未接线。图片保持签名/base64/5张合计8MB验证及官方 ImageContent → RuntimeCommand.images，不做文本截断或 OCR。不开 Durable、Embedding、原件版本库、新 Worker/agent loop。`PIWORK_PROJECT_DOCUMENT_INPUTS_ENABLED` 默认开启，`0` 仅回滚为明确不完整的旧20k/80k预览；旧 RunManager 装配需重启。历史截断标记显示 known_truncated，其他记录完整性未知；源原件/页码未保留，模型覆盖记录与语义正确性不当可信审计。详见 [大文档方案及实施状态](project-document-processing-design.md)。
+- 项目资料完整读取（2026-10-11，方案 A）：`extractDocumentText` 与聊天预览截断分离，上传完整限额文本存 `Source.content`，不再在 60k 字符处静默截断或 trim 原文。单原件≤100MB；提取文本单份≤2MiB、项目文本合计≤8MiB、目录≤50份，解析使用官方库取消信号和 60s 协作式超时（不是进程硬隔离）；超限拒绝、无部分保存。上传预检与运行复检防止并发预检遗漏造成静默丢失。`context.ts` 提供全部资料目录、每份前512字符预览及 hash/reference-only grant；`db/project-document-queries.ts` 在 sandbox_rpc/starting 阶段重新核验真实 actor、正式 enabled/non-anonymous 成员、chat 和项目共享权限。`SandboxRpcBackend` 在启动官方 Pi 前经 `SandboxHandle.filesystem.writeAtomic` 复制32KiB UTF-8 无损文本片段，提交前再核验资料目录/hash及授权，manifest 最后发布，系统提示提供沙箱实际路径。物化限时120s，失败杀沙箱并核验 destroyed、撤销 run token；不回退宿主，其他后端显式拒绝 projectSources。输入副本可被 bash 修改，不是只读 mount/持续授权；运行中撤权回收未接线。图片保持签名/base64/5张合计8MB验证及官方 ImageContent → RuntimeCommand.images，不做文本截断或 OCR。不开 Durable、Embedding、原件版本库、新 Worker/agent loop。`PIWORK_PROJECT_DOCUMENT_INPUTS_ENABLED` 默认开启，`0` 仅回滚为明确不完整的旧20k/80k预览；旧 RunManager 装配需重启。历史截断标记显示 known_truncated，其他记录完整性未知；源原件/页码未保留，模型覆盖记录与语义正确性不当可信审计。详见 [大文档方案及实施状态](features/project-document-processing-design.md)。
 - API：`/api/projects`（列表/创建）、`/api/projects/:id`（改名/删除，删除前 abort 项目内活跃 run）、`/api/projects/:id/chats`（列表/预建）、`/api/projects/:id/sources`（列表/上传）、`/api/projects/:id/sources/:sourceId`（删除）；聊天删除复用 `DELETE /api/chat`。主侧边栏「最近」与「全部删除」排除项目内聊天（`Chat.projectId IS NULL`）。
 - 测试：`pnpm test:runtime:db` 覆盖 `tests/unit/db/project-queries.test.ts`（归属隔离、聊天列表摘要排序、资料写入/删除/级联清理）。
 - Pi 依据：未新增 Pi API 调用；聊天执行仍由既有 RunManager/Pi 会话装配承担，资料注入只发生在 route 组装 prompt 阶段。
@@ -209,7 +211,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 - **pi-agent-core 1.0.0 拆出 harness**：`index` 不再 re-export telemetry/`agent-harness`/`skills`/`NodeExecutionEnv`。项目侧迁移：`Skill`/`loadSkillsFromDir`/`formatSkillsForPrompt`/`stripFrontmatter` 改自 `pi-coding-agent`（`core/skills.ts`）；`NodeExecutionEnv` 改自 `@earendil-works/pi-durable/env/node`；`BACKGROUND_CONTEXT` 改自 `@earendil-works/chord/context`；`@earendil-works/pi-agent-core/node` 子路径已不存在。
 - **Skill API 形态变化**：`loadSkills(env, dirs, ctx)`（异步、env 驱动）→ `loadSkillsFromDir({dir, source})`（同步，直接 fs）；`formatSkillsForSystemPrompt` → `formatSkillsForPrompt`；`ResourceDiagnostic` 的 `code` 字段改名为 `type`（管理/聊天 API wire 格式保持 `code` 字段映射 `type`）；`formatSkillInvocation` 不再导出——`invokeSkill`/`load_skill` 工具按官方 `_expandSkillCommand` 同构实现（读 SKILL.md → `stripFrontmatter` → `<skill name location>` 块，`References are relative to ${skill.baseDir}`），`invokeSkill` 因此异步化。
 - `AgentTool`/`AgentSession`/SDK 会话装配/MCP 扩展契约在 1.0.0 无破坏（仅新增字段，如 MCP `oauth.authServerMetadataUrl`）。
-- **1.0.2 全量对齐（2026-10-04，本条关闭上文的“对齐后移除”遗留项）**：五包（三主包 + pi-durable + chord）全部对齐 **1.0.2**，pnpm 下不再存在 pi-ai 双版本嵌套；`toDurableTool` 的 3 处 `as never` 转型移除后 `tsc --noEmit` 直接全绿（类型自然兼容，无需任何适配）。验证：DurableBackend 契约套件 35/35、手动 spike 16/16（含 kill -9 恢复与 replay 双重门，`scripts/pi-durable-manual-spike.mts`）、全量 Runtime 套件 284 项 278 通过 0 失败。待办：`docker/pi-runtime` 镜像内 pi-coding-agent 仍为 1.0.0，需按新版本重建镜像。
+- **1.0.2 全量对齐（2026-10-04，本条关闭上文的“对齐后移除”遗留项）**：五包（三主包 + pi-durable + chord）全部对齐 **1.0.2**，pnpm 下不再存在 pi-ai 双版本嵌套；`toDurableTool` 的 3 处 `as never` 转型移除后 `tsc --noEmit` 直接全绿（类型自然兼容，无需任何适配）。验证：DurableBackend 契约套件 35/35、手动 spike 16/16（含 kill -9 恢复与 replay 双重门，`tests/e2e/pi-durable-manual-spike.mts`）、全量 Runtime 套件 284 项 278 通过 0 失败。待办：`docker/pi-runtime` 镜像内 pi-coding-agent 仍为 1.0.0，需按新版本重建镜像。
 
 ### Pi / Durable 1.0.3 升级
 
@@ -309,4 +311,4 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 
 后台 `/admin/settings` 的「文件上传」分组配置全平台新上传的单文件限额（整数 1–100 MB，默认 100）。`lib/uploads/settings.ts` 持有纯校验/单位转换，`lib/db/upload-settings-queries.ts` 持有 UploadSettings 单例读取/upsert（迁移 0023，复用 getDb，不缓存），记录最后修改人/时间。`/api/admin/upload-settings` GET/PATCH 仅正式启用管理员；`/api/upload-settings` 仅正式启用成员读取公开限额。配置缺行用默认，非法存量/DB 故障拒绝，不静默恢复默认。
 
-新上传 `/api/files/upload`（聊天/文档库）与 `/api/projects/:id/sources` 在鉴权/归属检查后按最新配置校验；各 UI 通过共享 hook 读取动态提示和预检，服务端为最终准入。降低配置不追溯已有 LibraryItem 的下载/聊天选择；后者仍用 100 MB 部署硬上限。项目从 Library 导入为新 sources 上传，遵循最新限额。Next Proxy 请求体固定 128 MB，后台只允许≤100；图片、提取文本、Durable 单份 20 MB/合计 50 MB 处理限额不变。无 Pi loop/API/RuntimeSpec 变更，无容量验收；需求及交互见 [附件上传配置](upload-settings-design.md)。
+新上传 `/api/files/upload`（聊天/文档库）与 `/api/projects/:id/sources` 在鉴权/归属检查后按最新配置校验；各 UI 通过共享 hook 读取动态提示和预检，服务端为最终准入。降低配置不追溯已有 LibraryItem 的下载/聊天选择；后者仍用 100 MB 部署硬上限。项目从 Library 导入为新 sources 上传，遵循最新限额。Next Proxy 请求体固定 128 MB，后台只允许≤100；图片、提取文本、Durable 单份 20 MB/合计 50 MB 处理限额不变。无 Pi loop/API/RuntimeSpec 变更，无容量验收；需求及交互见 [附件上传配置](features/upload-settings-design.md)。

@@ -1,10 +1,10 @@
 # Pi Pocket 技术架构分析与 Piwork 借鉴建议
 
-> 版本说明：本文 Pocket 外部仓库版本和 Piwork 对照版本是调研时的历史快照，不代表 Piwork 当前依赖。当前版本与兼容性验证见 [升级记录](pi-upgrades.md)。
+> 版本说明：本文 Pocket 外部仓库版本和 Piwork 对照版本是调研时的历史快照，不代表 Piwork 当前依赖。当前版本与兼容性验证见 [升级记录](../pi-upgrades.md)。
 
 > 核对日期：2026-10-09。对象：本机 `~/Works/yepeng/code/pi-pocket` 工作树，版本 **0.11.0**，HEAD `d01f763b02f06ff6144d4366eb966a76dbb35577`；其 `package-lock.json` 有未提交修改，本报告不将工作树等同于纯净发布包。Piwork 对照基线：HEAD `73144356fe419cf849495d690910b334da773dad` 与当前代码。
 >
-> **性质：源码调研与建议，不是实施记录。** 本次未启动服务、未执行两项目测试、未调用真实模型，也未修改 Pi Pocket。依赖版本、实现路径与测试设计来自静态核查；不构成安全审计、生产恢复或容量验收。Piwork 现状以 [当前架构](architecture.md)、[开发约定](development.md) 和代码为准。
+> **性质：源码调研与建议，不是实施记录。** 本次未启动服务、未执行两项目测试、未调用真实模型，也未修改 Pi Pocket。依赖版本、实现路径与测试设计来自静态核查；不构成安全审计、生产恢复或容量验收。Piwork 现状以 [当前架构](../architecture.md)、[开发约定](../development.md) 和代码为准。
 
 ## 1. 核心结论
 
@@ -234,7 +234,7 @@ Piwork 不应引入这一信任模型：保留正式 enabled 身份、成员/角
 
 **第三批：旁聊与共享笔记。** 现有协作已让多人共享对话，下一步应让“人类讨论”和“发给 Agent 执行”明确分开，避免无意增加上下文、费用及执行风险。
 
-生产恢复仍沿 [沙箱执行面方案](sandbox-execution-surface-design.md) 与 [Durable 采用门禁](pi-durable-evaluation.md) 推进；不可用这些 UI 改进作为绕过 P2/P3/D1 的理由。
+生产恢复仍沿 [沙箱执行面方案](../plans/sandbox-execution-surface-design.md) 与 [Durable 采用门禁](pi-durable-evaluation.md) 推进；不可用这些 UI 改进作为绕过 P2/P3/D1 的理由。
 
 ## 9. 不建议照搬的做法
 
@@ -268,8 +268,8 @@ Piwork 不应引入这一信任模型：保留正式 enabled 身份、成员/角
 - `package.json`；`lib/ai/agent-session.ts`（AgentSession/资源装配）。
 - `lib/runtime/protocol/{commands,events,run-descriptor}.ts`；`lib/runtime/run/run-manager.ts`（关键事件先落库，部分 delta 仅内存）。
 - `lib/runtime/backends/durable/{storage,recovery,sandbox-backend}.ts`（版本绑定、owned SQLite、FULL、未知结果阻断、生产拒绝）。
-- `lib/collab/chat-event-hub.ts`；`lib/db/chat-share-queries.ts`；[协作文档](chat-collaboration.md)。
-- [当前架构](architecture.md)、[开发约定](development.md)、[Durable + Sandbox](durable-sandbox-composition.md)、[Runtime 实施记录](runtime-foundation-implementation.md)。
+- `lib/collab/chat-event-hub.ts`；`lib/db/chat-share-queries.ts`；[协作文档](../features/chat-collaboration.md)。
+- [当前架构](../architecture.md)、[开发约定](../development.md)、[Durable + Sandbox](../runtime/durable-sandbox-composition.md)、[Runtime 实施记录](../runtime/runtime-foundation-implementation.md)。
 
 ### 官方 Pi 资料
 

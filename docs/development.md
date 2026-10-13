@@ -2,13 +2,13 @@
 
 ## 企业 MVP 目标方案的实施规则
 
-[千人企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md) 是 P0–P3/D0–D2 的执行基线。P0 契约、P1 lazy/限额原子文件、四工具与 SandboxToolsBackend 协议适配器、私有制品存储/交付回调已落地，Docker 新契约已通过，但尚未接入生产；本轮不做容量/持续负载/突发并发测试，资源限额和安全契约仍须实现；进度、inventory 和样例规格见 [实施记录](runtime-foundation-implementation.md)。新增 RunDescriptor/Worker、操作与产物账本、provider 强杀/限额/原子写、reaper 和 Durable 恢复测试时，按其工作包顺序与上线门禁推进；实际新增目录、迁移和 package.json 命令在落地时同步本文。不得把方案里的保护值当成已有配置，也不得把 close 测试、提交去重或同名工具覆盖当成崩溃恢复、业务恰好一次或安全隔离证明。
+[千人企业 MVP 与沙箱执行面实施方案](plans/sandbox-execution-surface-design.md) 是 P0–P3/D0–D2 的执行基线。P0 契约、P1 lazy/限额原子文件、四工具与 SandboxToolsBackend 协议适配器、私有制品存储/交付回调已落地，Docker 新契约已通过，但尚未接入生产；本轮不做容量/持续负载/突发并发测试，资源限额和安全契约仍须实现；进度、inventory 和样例规格见 [实施记录](runtime/runtime-foundation-implementation.md)。新增 RunDescriptor/Worker、操作与产物账本、provider 强杀/限额/原子写、reaper 和 Durable 恢复测试时，按其工作包顺序与上线门禁推进；实际新增目录、迁移和 package.json 命令在落地时同步本文。不得把方案里的保护值当成已有配置，也不得把 close 测试、提交去重或同名工具覆盖当成崩溃恢复、业务恰好一次或安全隔离证明。
 
 ## Skill 沙箱实施约束
 
-最新需求优先实现 [Skill 沙箱基本执行](skill-sandbox-execution.md)：复用现有 RPC，不新建 Worker/backend/审批系统；`sandbox-rpc/skills.ts` 在 Linux 宿主用 pinned fd 限额收集启用目录，使用 SandboxHandle.filesystem 原子复制，在 Pi 启动前完成。RuntimeSpec.skills 仅宿主装配引用；不要接受客户端路径/原始脚本字节，不作为 Worker DTO。官方 CLI --no-skills + 显式 --skill 与原生 /skill:name 承接加载/展开，模型使用 read，不新增宿主工具闭包桥。Mac portable collector 仅明确 test 选项（NODE_ENV=test）；生产不得 fallback。`pnpm test:skills:sandbox` 包含 14 项，随 test:runtime 收集；fixture 在 tests/fixtures/skills，独立 RPC 探针默认跳过且不调用真实 LLM。test:opensandbox:chat 增加 PIWORK_OPENSANDBOX_SKILL_HTTP_TEST=1 模式（仍要求 PIWORK_OPENSANDBOX_CHAT_TEST=1、绝对 PIWORK_SKILL_HTTP_FIXTURE_ROOT），真实模型验证独立 Skill 上传/命令/脚本、正式归档/鉴权下载及底座删除，成功只清理本组资源，失败禁用身份并留证；两类 .mts 均由 tests/support/sandbox/skill-smoke-tsconfig.json 检查。v3.1.5/b970246 已部署并通过本机入口 HTTP 验证，非浏览器/公网域名验收。
+最新需求优先实现 [Skill 沙箱基本执行](runtime/skill-sandbox-execution.md)：复用现有 RPC，不新建 Worker/backend/审批系统；`sandbox-rpc/skills.ts` 在 Linux 宿主用 pinned fd 限额收集启用目录，使用 SandboxHandle.filesystem 原子复制，在 Pi 启动前完成。RuntimeSpec.skills 仅宿主装配引用；不要接受客户端路径/原始脚本字节，不作为 Worker DTO。官方 CLI --no-skills + 显式 --skill 与原生 /skill:name 承接加载/展开，模型使用 read，不新增宿主工具闭包桥。Mac portable collector 仅明确 test 选项（NODE_ENV=test）；生产不得 fallback。`pnpm test:skills:sandbox` 包含 14 项，随 test:runtime 收集；fixture 在 tests/fixtures/skills，独立 RPC 探针默认跳过且不调用真实 LLM。test:opensandbox:chat 增加 PIWORK_OPENSANDBOX_SKILL_HTTP_TEST=1 模式（仍要求 PIWORK_OPENSANDBOX_CHAT_TEST=1、绝对 PIWORK_SKILL_HTTP_FIXTURE_ROOT），真实模型验证独立 Skill 上传/命令/脚本、正式归档/鉴权下载及底座删除，成功只清理本组资源，失败禁用身份并留证；两类 .mts 均由 tests/support/sandbox/skill-smoke-tsconfig.json 检查。v3.1.5/b970246 已部署并通过本机入口 HTTP 验证，非浏览器/公网域名验收。
 
-原 manifest/hash/path 协议、Node-only hash helper 与 tests/unit/runtime/protocol/skill-bundle.test.ts 保留。只读 mount/不可变审批、逐次正式授权、持久 intent、执行-only OpenSandbox tools/Worker 属于 [企业目标](skill-sandbox-security-design.md)，其门禁不因 RPC 资源补齐取消；enabled/复制/regular 元数据不代表批准或企业安全验收。
+原 manifest/hash/path 协议、Node-only hash helper 与 tests/unit/runtime/protocol/skill-bundle.test.ts 保留。只读 mount/不可变审批、逐次正式授权、持久 intent、执行-only OpenSandbox tools/Worker 属于 [企业目标](plans/skill-sandbox-security-design.md)，其门禁不因 RPC 资源补齐取消；enabled/复制/regular 元数据不代表批准或企业安全验收。
 
 ## 新代码放置
 
@@ -24,18 +24,16 @@
 ```text
 tests/
   unit/                 node:test；按被测业务模块分组
-    ai/ db/ mcp/ pi-packages/ chat/ runtime/
-  integration/          需要真实外部服务的专项验证脚本
-  support/              node:test 专用环境、契约用例和替身
-  fixtures/             文件、Pi package 和模型 fixture
-  e2e/                  Playwright 场景
-  pages/ prompts/       E2E page object 与 prompt 辅助
-  fixtures.ts helpers.ts  E2E 公共入口
+  e2e/                  Playwright、HTTP、RPC 和真实服务专项验证
+  support/              环境、契约用例、替身与手动演示
+    playwright/         E2E fixtures、helpers、page objects 与清理工具
+    prompts/            模型 fixture 的 prompt 辅助
+  fixtures/             静态文件、Pi package 和模型 fixture
 ```
 
 单元测试优先用 `@/lib/...` 或显式相对导入被测模块。测试前置环境 `tests/support/runtime-env.ts`、`tests/support/db-env.ts` 必须按测试文件中的首个 side-effect import 先加载；RPC faux 扩展是 `tests/support/faux-provider-extension.ts`，通过文件路径传给子进程。`tests/fixtures/mock-models.ts` 和 `legacy-ai-sdk-models.ts` 是 AI SDK 模型替身，不作为 `node:test` 用例收集；后者仍由 `lib/ai/providers.ts` 的测试环境分支引用，后续调整该旧链路时应改为显式注入测试模型。
 
-手工验证 MCP 管理链路的 stdio/HTTP 服务在 `tests/fixtures/mcp-servers/`；用法见该目录的 README。真实模型插件链路验证在 `tests/integration/plugin-chain.mts`，需要可用的 DeepSeek 凭据。`scripts/` 只保留构建脚本，不存放测试实现。
+手工验证 MCP 管理链路的 stdio/HTTP 服务在 `tests/fixtures/mcp-servers/`；用法见该目录的 README。真实模型插件链路验证在 `tests/e2e/plugin-chain.mts`，需要可用的 DeepSeek 凭据。`scripts/` 保留构建、初始化和运维脚本；Durable 交互演示仍在 `scripts/pi-durable-demo.mts`，手动验证脚本归 `tests/e2e/pi-durable-manual-spike.mts`。
 
 ## 常用验证
 
@@ -66,7 +64,7 @@ pnpm plugin:verify     # 模型插件链路验证
 
 配置 `PIWORK_WEB_SEARCH_ENABLED=1` 与服务端 `TAVILY_API_KEY` 后重启，新对话明确要求联网并引用来源。首版为固定 Tavily public search，不依赖已安装 pi-web-access、不抓取任意 URL；只有无工作区轻量会话装配官方 customTools 的 platform_web_search。matrix 可在现有 OpenSandbox/Durable 配置下保持轻量；all/RPC 不支持时拒绝，不能回退宿主，混合执行仍按原门禁。Key/供应商原始错误不进入模型或事件，查询词会发送到 Tavily，不是自动 DLP。sources 经新 source.created → source-url 在 stream 与最终消息同形保存。
 
-`pnpm test:search` 覆盖测试替身与真实官方 AgentSession 工具循环；网关/工具测试随 test:unit，来源/路由测试随 test:runtime。单进程限额契约不等于容量或分布式配额验证。无新 DB 表/迁移，未改 .env.local，默认关闭；缺 Key 明确工具错误。真实联网与浏览器 UI 尚需配置后验收。完整配置/安全口径见 [联网搜索](web-search.md)，参考 Pi docs/sdk.md、docs/extensions.md、sdk.d.ts 和 pi-agent-core AgentTool 类型，以及 Tavily 官方 Search API。
+`pnpm test:search` 覆盖测试替身与真实官方 AgentSession 工具循环；网关/工具测试随 test:unit，来源/路由测试随 test:runtime。单进程限额契约不等于容量或分布式配额验证。无新 DB 表/迁移，未改 .env.local，默认关闭；缺 Key 明确工具错误。真实联网与浏览器 UI 尚需配置后验收。完整配置/安全口径见 [联网搜索](features/web-search.md)，参考 Pi docs/sdk.md、docs/extensions.md、sdk.d.ts 和 pi-agent-core AgentTool 类型，以及 Tavily 官方 Search API。
 
 ## 企业 Runtime 基础验证
 
@@ -86,7 +84,7 @@ pnpm plugin:verify     # 模型插件链路验证
 
 ## 非生产 Durable 聊天自动分流
 
-- `PIWORK_DURABLE_CHAT_ENABLED=1` 仅 development/test 的正式启用成员：development 无需用户白名单，所有正式启用账号可自动分流（忽略旧名单）；test 仍要求非空 UUID 白名单。生产/未知环境拒绝；必须 private absolute `PIWORK_DURABLE_STORAGE_DIR`/`UPLOAD_DIR`，不重叠/不在宿主 workspace，env 改动重启。不能用全局 `PIWORK_RUNTIME_BACKEND=durable` 开这个车道，原 provider/global Durable 互斥不删。启动配置见 [组合说明](durable-sandbox-composition.md) 与 [运行手册](operations.md)。本地启用只需车道开关和私有绝对目录；未启用时保持原矩阵。
+- `PIWORK_DURABLE_CHAT_ENABLED=1` 仅 development/test 的正式启用成员：development 无需用户白名单，所有正式启用账号可自动分流（忽略旧名单）；test 仍要求非空 UUID 白名单。生产/未知环境拒绝；必须 private absolute `PIWORK_DURABLE_STORAGE_DIR`/`UPLOAD_DIR`，不重叠/不在宿主 workspace，env 改动重启。不能用全局 `PIWORK_RUNTIME_BACKEND=durable` 开这个车道，原 provider/global Durable 互斥不删。启动配置见 [组合说明](runtime/durable-sandbox-composition.md) 与 [运行手册](operations.md)。本地启用只需车道开关和私有绝对目录；未启用时保持原矩阵。
 - `run/durable-chat.ts` 注入 DB 授权（查询 `db/durable-chat-queries.ts`）、Leasing reuse=false、库文件查询/有界读取与私有归档；`backends/durable/chat-*` 负责策略/hash/binding/水合/受管执行。RuntimeSpec 仅包含服务端 reference-only grant（身份、最终 promptHash、模型目录 ID、LibraryItem/hash/size/相对路径），不传附件字节/闭包，也不冒充跨进程 RunDescriptor。AgentRun.backend 新增 durable_sandbox，数据库原列是 varchar，无 SQL enum/迁移。
 - UI 无后端勾选框，客户端 runtimeLane 被 schema 剥离。route 在附件解析/宿主工作区创建前复用执行分类器，由 routing/chat-routing.ts 决定内部 lane；问答走轻量链路，四工具执行任务走 Durable。Skill 命令、平台关键词/启用技能与 MCP/extension Package 名称、近期非四工具调用、审批与分类不确定保守留既有链路，不扩张其原有闭包/MCP/Package 能力。元数据只在宿主用于准入保护，不向模型发送凭据。Durable 不装配 Skill/Package/MCP/定时任务，组合适配器非空 tools 仍拒绝。每消息是 fresh-run，不能续用上次临时文件。附件先核验本人归档 metadata/限额，再首次工具命令前重新查归属/hash/size，经 filesystem 原子水合；不在宿主解析 Office/解码图片。私有写入/正式 LibraryItem 归档完成才发制品事件。未启用 Durable 时保持原矩阵，选定后授权/附件/后端失败不 fallback；无工作区普通会话本就禁用受管扩展/MCP，现在也不写共享 MCP 配置。
 - 取消中断水合并强杀沙箱，shell 未知结果允许 failed/outcome unknown，不能为了 Stop 测试强行改成干净 aborted；终态前核验停止、不自动重放。Leasing release 必须解包原 handle，不能向严格 provider 传 lease wrapper，单测覆盖归属与记账。
@@ -109,7 +107,7 @@ pnpm plugin:verify     # 模型插件链路验证
 - 私有根必须是可信持久卷；binding 由平台已授权的 user/chat/run 与不可变输入/配置 hash 组装。目录/文件不可公开，不挂入沙箱。SQLite FULL 不是已测主机容灾或备份。
 - owner marker 使用 O_EXCL，不因进程 PID/租约过期自动删除；崩溃后 fail-closed，需要未来 Worker/reaper 停止旧执行端并重新授权后对账。存储锁不是 workspace lock，不支持多 Writer/共享盘分布式恢复。
 - 先授权/open/inspect，后 submit/wait/resume；后者均可启动官方调度。所有通用工具 replay=unsafe，每次 execute 都授权并透传 signal；禁止只依赖恢复会跳过的 beforeTool hook。未知 intent/已物化未知结果拒绝恢复，当前返回 needs-review 错误，尚未落平台 needs_review DB 状态。
-- `DurableBackend` storageFactory 必须搭配 authorize；NODE_ENV=production 默认 MemoryStorage 抛错；持久路径 workspace 非 null 默认拒绝，仅可信 executionFactory + owned storage/authorize/runId 可承载受管执行。新 `DurableSandboxBackend` 本身生产拒绝，OpenSandbox 需显式非生产探针；fresh-run/单 prompt/deny-all，无平台工具/MCP/自动恢复。默认实验开关仍无正式持久 factory，不能用于生产部署，也不与 Sandbox provider 同启。装配/真实契约命令和剩余门禁见 [组合适配器](durable-sandbox-composition.md)。
+- `DurableBackend` storageFactory 必须搭配 authorize；NODE_ENV=production 默认 MemoryStorage 抛错；持久路径 workspace 非 null 默认拒绝，仅可信 executionFactory + owned storage/authorize/runId 可承载受管执行。新 `DurableSandboxBackend` 本身生产拒绝，OpenSandbox 需显式非生产探针；fresh-run/单 prompt/deny-all，无平台工具/MCP/自动恢复。默认实验开关仍无正式持久 factory，不能用于生产部署，也不与 Sandbox provider 同启。装配/真实契约命令和剩余门禁见 [组合适配器](runtime/durable-sandbox-composition.md)。
 - `tests/unit/runtime/backends/durable/` 的 14 项由新 test:runtime:durable 与全 Runtime 收集；子进程 fixture 在 tests/support/durable，测试显式 kill/exit 后解锁不是生产策略。生产尚缺 Worker/job mapping、snapshot/source cursor、正式授权/账本/取消删除对账及部署演练；见 pi-durable-evaluation.md。
 
 SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选项。当前每个 run 的 SQLite 必须位于可靠私有持久卷，不得依赖容器临时盘；单 Writer、备份恢复、Worker 唤醒与崩溃副作用对账是独立上线门禁。旧版本 binding 数据不可静默跨版本重开，须另做版本迁移验收。Cloudflare DO 的 SQLite/Alarm/PITR 不是当前 Node 部署的现状。
@@ -157,7 +155,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 
 完整文本读取（方案 A）：`pnpm test:projects:documents` 包含20k/60k/150k边界、真实Office提取、UTF-8/长单行无损切分、官方read续读、真实官方RpcClient+faux模型、取消/变更/写入失败及经典路由；随 test:unit/test:runtime 对应目录收集。`pnpm test:projects:documents:db` 创建唯一schema（无public fallback，不复制用户/运行/模型），验证正式成员、共享资料、actor/run/backend/chat/project绑定与撤权，结束仅删自己schema。`pnpm test:projects:documents:http` 启动独立Next服务（默认3017，PIWORK_PROJECT_DOCUMENT_HTTP_PORT可改）及独立schema，验证>150k文本上传完整保存、列表字符数/历史告警、超限/越权拒绝；无模型调用，失败保留本组日志。测试环境/替身在 tests/support/project-documents 和 tests/support/project-document-faux-extension.ts；断言处理范围不等于真实模型完整提取准确性。若pnpm环境自动安装检查要求清空现有node_modules，不清空工作目录依赖；可使用package.json中的原始node命令。
 
-默认启用完整资料输入，`PIWORK_PROJECT_DOCUMENT_INPUTS_ENABLED=0` 仅回滚为明确不完整的旧预览。projectSources 是宿主reference grant；装配已缓存于HMR RunManager，代码更新后重启本地服务。资料限额50份、文本单份2MiB/总8MiB、片段32KiB、索引/manifest128KiB；超限拒绝，不能把保存截断视为成功。60s解析/120s物化为协作式超时，非硬隔离。现有Source.content无需数据迁移，原件缺失/历史完整性未知不能推断补全。无新Worker、Durable入口、原件版本库、页码/OCR/检索或可信覆盖门禁。方案与当前状态见 [项目大文档处理](project-document-processing-design.md)。
+默认启用完整资料输入，`PIWORK_PROJECT_DOCUMENT_INPUTS_ENABLED=0` 仅回滚为明确不完整的旧预览。projectSources 是宿主reference grant；装配已缓存于HMR RunManager，代码更新后重启本地服务。资料限额50份、文本单份2MiB/总8MiB、片段32KiB、索引/manifest128KiB；超限拒绝，不能把保存截断视为成功。60s解析/120s物化为协作式超时，非硬隔离。现有Source.content无需数据迁移，原件缺失/历史完整性未知不能推断补全。无新Worker、Durable入口、原件版本库、页码/OCR/检索或可信覆盖门禁。方案与当前状态见 [项目大文档处理](features/project-document-processing-design.md)。
 
 `pnpm test:projects:sources`（也随 test:unit 收集）覆盖格式白名单、旧格式拒绝、真实 DOCX/CSV/Markdown/JSON 提取、图像载荷往返/签名/大小与上下文截断隔离、图片总量限制和损坏拒绝；不调用真实模型。项目图片直接经 Pi 1.1.0 官方 ImageContent（base64/MIME）与既有 RuntimeCommand.images 输入，需视觉模型；无 OCR、新 agent loop 或向量检索。文档单份 100 MB，项目图片最多 5 张合计 8 MB；上传后请在视觉模型项目聊天中另做真实图像问答验收。旧 DOC/XLS/PPT、加密文档、扫描 PDF OCR 不在支持声明中。无需 SQL 迁移；Source.type 本来就是 varchar。
 
@@ -167,7 +165,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 - `pnpm test:chat:share:unit`（无 DB）：token 生成格式与哈希拒绝。
 - `pnpm test:chat:navigation:ui`：隔离 Chromium，使用实际 ActiveChatProvider/ChatHeader/SidebarHistory，模拟 Next 导航与 HTTP，不连接 DB/真实模型；覆盖新对话生成中分享、即时侧栏刷新、多次切换后历史水合，以及协作成员无分享入口和头部占位按钮隐藏；实际 MultimodalInput 另覆盖缓存草稿 `n` 初始化恢复、Backspace 删除与全量清空，恢复仅初始化一次，持久化必须晚于恢复，空字符串不能重新回填旧缓存。新对话元数据刷新不得覆盖本地生成流，也不得在 submitted/streaming 时另行 resume。标题通知须晚于 DB 更新。Pi 依据为安装版 Pi `docs/message-types.md`；本次仅修平台 UI 状态与消息投影，不新增 Pi API。
 - `pnpm test:chat:collab`（无 DB，`tests/unit/collab/chat-event-hub.test.ts`）：SSE 房间 attach/detach 的 hello/presence 广播、typing 6s TTL 到期清除与手动停止、同用户多连接的 typing 生命周期、message/run 事件广播与空房间 no-op；不测 HTTP 层。
-- 实时协作 HTTP 冒烟（SSE 鉴权 401/403/404、hello/presence/typing 事件到达、typing POST 204）已用本地 dev server + 临时脚本验证，脚本不入库；完整链路验证见 docs/chat-collaboration.md §7 手工路径。
+- 实时协作 HTTP 冒烟（SSE 鉴权 401/403/404、hello/presence/typing 事件到达、typing POST 204）已用本地 dev server + 临时脚本验证，脚本不入库；完整链路验证见 docs/features/chat-collaboration.md §7 手工路径。
 - 手动路径：A 分享给 B（直接添加）+ 生成链接给 C；两个浏览器登录 A/B 打开同一对话，一方发消息/输入，另一方实时看到消息出现、在线绿点与「正在输入」；A 移除 B 后 B 的 SSE 在 15s 内收到 missing 断开。
 
 ## 沙箱 Runtime 验证
@@ -181,7 +179,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 5. **Docker provider 上的 RPC 契约组（gated）**：`PIWORK_SANDBOX_DOCKER_RPC_TESTS=1` 时 `tests/unit/runtime/backends/backends.test.ts` 追加 `SandboxDocker` harness（需镜像已构建 + 本机 docker）：同一契约套件跑真实容器底座（RpcClient → UDS bridge → docker exec → 容器内完整 pi）。faux 扩展经 esbuild 预打包为自包含 .mjs（`tests/support/sandbox/faux-extension-bundle.ts`），与 LocalRpc 共用同一扩展源文件。默认关闭（不设该变量 = 不注册 harness）。
 6. `pnpm test:runtime:db` 覆盖 `tests/unit/db/sandbox-queries.test.ts`（注册表/租约、externalId 重连、运行中停止与归属过滤）与 `tests/unit/db/inference-audit-queries.test.ts`（脱敏字段落库、chatId 无外键——chat 删除后审计仍在）。
 7. 生产装配开关：`PIWORK_SANDBOX_PROVIDER=docker|opensandbox` + `PIWORK_SANDBOX_CLI_PATH`（沙箱内 pi 安装绝对路径；可选 `PIWORK_SANDBOX_IMAGE`/`PIWORK_SANDBOX_TTL_SECONDS`）切换沙箱装配；`PIWORK_SANDBOX_ROUTING=matrix`（默认，路由矩阵：执行工具的 run 走沙箱、纯对话 in-process，AgentRun.backend 落实际执行位）|`all`（全量沙箱）；opensandbox 另需 `OPENSANDBOX_DOMAIN`/`OPENSANDBOX_API_KEY` 必填（可选 `OPENSANDBOX_PROTOCOL`/`OPENSANDBOX_READY_TIMEOUT_SECONDS`/`OPENSANDBOX_EXECD_PORT`）；未设置 = InProcess 不变；错误取值/缺配置启动即抛错（fail-closed）。Inference Proxy：设置 `PIWORK_INFERENCE_URL`（沙箱视角可达地址，如 `http://host.docker.internal:3210`）即启用（缺省 = deny-all 无模型通道），可选 `PIWORK_INFERENCE_PROXY_HOST`（默认 `0.0.0.0`）/`PIWORK_INFERENCE_PROXY_PORT`（默认 3210）/`PIWORK_INFERENCE_EGRESS_ALLOWLIST`（逗号分隔 FQDN 基线）。
-8. OpenSandbox server 是外部依赖，不在默认测试内：本地 spike 方式见 [OpenSandbox 接入 Spec](opensandbox-integration-spec.md) §6 Phase 0（源码运行、colima 注意事项、已知坑）。本地复跑：`~/.sandbox.toml` 就绪后在 `/tmp/OpenSandbox/server` 以 `DOCKER_HOST=unix://$HOME/.colima/default/docker.sock OPENSANDBOX_SERVER_API_KEY=<key> uv run opensandbox-server` 启动。
+8. OpenSandbox server 是外部依赖，不在默认测试内：本地 spike 方式见 [OpenSandbox 接入 Spec](runtime/opensandbox-integration-spec.md) §6 Phase 0（源码运行、colima 注意事项、已知坑）。本地复跑：`~/.sandbox.toml` 就绪后在 `/tmp/OpenSandbox/server` 以 `DOCKER_HOST=unix://$HOME/.colima/default/docker.sock OPENSANDBOX_SERVER_API_KEY=<key> uv run opensandbox-server` 启动。
 9. **OpenSandbox provider 真实 server 契约组（gated）**：`PIWORK_SANDBOX_CONTRACT_OPENSANDBOX=1 OPENSANDBOX_DOMAIN=127.0.0.1:8080 OPENSANDBOX_API_KEY=<key> node --conditions=react-server --import tsx --test tests/unit/runtime/sandbox/provider-contract.test.ts`（可选 `OPENSANDBOX_PROTOCOL`/`OPENSANDBOX_IMAGE`，默认 `pi-runtime:dev` 需已构建并预拉 `opensandbox/execd:v1.1.0`/`opensandbox/egress:v1.1.7`）。同一契约套件追加 `[OpenSandbox]` harness（12 用例，2026-10-02 实测 12/12）；离线单测 `opensandbox-provider.test.ts`（21 用例）常驻默认套件，不需要 server。
 10. 路由矩阵测试：`tests/unit/runtime/backends/routing.test.ts`（矩阵判定、分流、fail-closed 不回落、RunManager 逐 run 落库、真实 SandboxRpcBackend 分流闭环）随 `pnpm test:runtime` 常驻。冷启动为一次性实测（2026-10-03 colima docker 档 P50 490ms），无常驻测试。
 
@@ -226,7 +224,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 ## 对话记录验证
 
 - `pnpm test:conversations:http`：真实本地 Next HTTP，独立身份/聊天夹具验证页面、供应商公开名称/providerKey、模型/Token 列表详情一致、筛选和管理员权限；不调用真实模型。`PIWORK_CONVERSATION_BROWSER_TESTS=1` 追加 Playwright Chromium 验证可见文本不含内部 installation ID、供应商 Logo/筛选/详情与加载失败回退。DB usage 测试另覆盖 installation/legacy key 精确映射、禁用与卸载、未知 provider、不泄露凭据、不改变历史模型/筛选 key，以及按供应商名称检索。
-- `pnpm test:conversations:db` 另覆盖模型快照、实际 responseModel、跨轮多模型、同 run/chat 审计证据、真实零/未知用量、事件幂等和 Token 累计；完整链路见 [对话模型与用量](conversation-model-usage.md)。
+- `pnpm test:conversations:db` 另覆盖模型快照、实际 responseModel、跨轮多模型、同 run/chat 审计证据、真实零/未知用量、事件幂等和 Token 累计；完整链路见 [对话模型与用量](features/conversation-model-usage.md)。
 - `pnpm test:conversations`：筛选 schema、分页限额与仅 text 的消息投影；也随 test:runtime 收集。
 - `pnpm test:conversations:db`：独立用户/项目/聊天夹具，验证文字搜索（含 `%_` 字面量）、真实最新 run 状态、无 run/无项目、时间筛选、页码钳制、UTC 输出和预览顺序；也随 test:runtime:db 收集。需要可用 PostgreSQL 连接额度。
 - 手工打开 `/admin/conversations`，检查后台侧栏与主题、筛选/分页/排序/刷新、桌面并列详情与窄屏上下布局、完整记录只读弹窗、复制 ID、空态/错误态。列表 10/20/50 条，全文消息每页 50 条，预览最近三条。模型按实际完成消息/请求快照/历史审计证据展示并可筛选；详情提供会话累计 Token、输入/输出/缓存明细与记录覆盖，状态是最近 run 而非会话归档状态。
@@ -327,3 +325,9 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 ## 附件上传配置验证
 
 `pnpm test:uploads` 覆盖 1/100 边界与非法配置、既有附件及选择器；`pnpm test:uploads:db` 用独立 schema 验证默认/upsert/updatedBy/即时读取和 DB 故障拒绝。`pnpm test:uploads:http` 复用隔离项目资料 HTTP 夹具，验证管理员/普通成员/禁用身份权限、新限额对文件/项目上传生效、精确字节边界、既有文件在降额后仍能下载和选择及故障 503。`PIWORK_UPLOAD_BROWSER_TESTS=1` 追加 Chromium 表单保存、校验、失败输入保留与移动布局检查。独立 Next/dist/schema/私有上传目录，不改日常配置、不调用真实模型、不做容量测试。生产上线须迁移 0023 并重启应用；之后后台策略保存对新请求即时生效。
+
+## 仓库与文档归类
+
+完整目录职责见 [仓库目录指南](repository-layout.md)。文档入口为 [docs/README.md](README.md)，功能、Runtime、方案、研究、设计和历史记录分别归各自子目录；顶层保留架构、开发、运维、国际化及依赖升级基线。移动文件须同步文档链接、源码注释、导入路径和 package.json 命令。
+
+验证截图统一输出到 gitignored `test-results/`，不得写入业务源码 `artifacts/` 或 `public/`；截图可清理，测试源码、fixture、应用图标和供应商 Logo 保留。

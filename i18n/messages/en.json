@@ -1913,5 +1913,14 @@
     "shared": "Shared",
     "signIn": "Sign in to search your chats",
     "limit": "Showing the first 50 results. Try a more specific keyword."
+  },
+  "memberPagination": {
+    "label": "Member list pagination",
+    "total": "{count} members",
+    "pageSize": "Members per page",
+    "perPage": "{count} / page",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page} of {pages}"
   }
 }

@@ -19,7 +19,7 @@
     "db:up": "drizzle-kit up",
     "scripts:create-daily-report": "tsx scripts/create-daily-report-task.ts",
     "plugin:package": "tsx scripts/package-plugin.mts",
-    "plugin:verify": "tsx tests/integration/plugin-chain.mts",
+    "plugin:verify": "tsx tests/e2e/plugin-chain.mts",
     "test:chat:models": "node --conditions=react-server --import tsx --test tests/unit/chat/chat-model.test.ts",
     "test:chat:models:http": "node --conditions=react-server --import tsx tests/e2e/chat-model-http.mts",
     "test:roles": "node --conditions=react-server --import tsx --test tests/unit/admin/role-policies.test.ts tests/unit/runtime/run/run-manager.test.ts",

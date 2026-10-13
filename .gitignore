@@ -31,3 +31,7 @@ __pycache__/
 packages/model-provider-sdk/dist/
 .pi/test-sandboxes/
 /dist/
+
+# Legacy verification screenshot output (artifacts/ itself contains source)
+/artifacts/member-screens/
+/artifacts/role-screens/

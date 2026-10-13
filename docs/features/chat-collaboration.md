@@ -1,6 +1,6 @@
 # 聊天分享与协作（分享链接 + 协作成员 + Fork）
 
-> 状态：已实现（首版 + 实时协作）。参考 [pi-pocket](https://github.com/TannerMidd/pi-pocket) 的 invite/fork/attribution 机制（`src/server/config.ts` 的 StoredInvite、`auth.ts` 的 redeem、`commands.ts` 的 #fork、`web/avatar.js` 的稳定色头像）与 multiplayer 实时机制（`src/server/room.ts`、`src/server/http/events.ts`），按 piwork 的正式账号企业平台与 PostgreSQL/RunManager 架构重新设计。本文描述当前实现与边界；架构总览见 [架构](architecture.md)。
+> 状态：已实现（首版 + 实时协作）。参考 [pi-pocket](https://github.com/TannerMidd/pi-pocket) 的 invite/fork/attribution 机制（`src/server/config.ts` 的 StoredInvite、`auth.ts` 的 redeem、`commands.ts` 的 #fork、`web/avatar.js` 的稳定色头像）与 multiplayer 实时机制（`src/server/room.ts`、`src/server/http/events.ts`），按 piwork 的正式账号企业平台与 PostgreSQL/RunManager 架构重新设计。本文描述当前实现与边界；架构总览见 [架构](../architecture.md)。
 
 ## 1. 需求
 
@@ -66,7 +66,7 @@
 
 ## 5. 交互与视觉
 
-遵循 [设计系统](design-system/openai-unified-interface/design-spec.md)：内容先行、结构安静、蓝色只表达可交互/进行中、`1px` 轻边框、胶囊/中圆角。
+遵循 [设计系统](../design-system/openai-unified-interface/design-spec.md)：内容先行、结构安静、蓝色只表达可交互/进行中、`1px` 轻边框、胶囊/中圆角。
 
 - **分享弹窗**（`components/chat/share-dialog.tsx`，Radix Dialog）：桌面最大宽 `520px`、圆角 `22px`、内边距 `24px`，分享弹窗单独使用 20% 遮罩，不改变其他弹窗。三个区块——① 成员选择（搜索 + 复选列表，排除已有协作者，浅灰选中态，次级「添加」操作）；② 当前协作成员（头像 + 名字 + 带 Tooltip/姓名标签的移除按钮）；③ 底部分享链接（自动展示可全选的只读链接 + 主操作「复制链接」，弱化「重新生成」，始终可撤销有效链接）。两个成员列表分别最多 `144px`、独立滚动；窄屏宽度为视口减 `32px`，短屏链接区也可滚动，触屏按钮至少 `44px`。打开后按所有者权限自动生成并展示链接，去掉底部一次性/有效期提示；同一组件存活期重开复用按 chatId 绑定、未过期的内存链接，不重复轮换。刷新/切换对话后若只有活跃链接摘要而无 token 原文，自动轮换一次（旧链接失效）；每次打开最多自动尝试一次，失败可手动重试，撤销后保持撤销状态，不自动重建。token 仍仅由创建响应返回，不持久化明文、不增加 GET 回显。
 - **参与者头像堆叠**（`components/chat/participant-avatars.tsx`）：对话头部分享按钮左侧，最多显示 4 个圆形头像（`size-6`，白描边叠压 `-ml-1.5`），超出显示 `+N`；hover 提示名字。有 `User.image` 用 `next/image`（unoptimized，复用 `user-nav.tsx` 模式），否则显示姓名首字母。

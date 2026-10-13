@@ -31,7 +31,7 @@
 
 ## 架构与目录约束
 
-新增或修改代码前先读 [当前架构](docs/architecture.md) 和 [开发与测试约定](docs/development.md)，文档导航见 [docs/README.md](docs/README.md)。企业 MVP 后续实施基线为 [千人企业 MVP 与沙箱执行面实施方案](docs/sandbox-execution-surface-design.md)：先工具执行安全/平台账本，再单 Worker，后受控 Durable 生产试点；RunDescriptor/独立执行状态、LazySandbox/操作错误分类、限额/原子文件能力与四工具工厂已落地但未接生产，进度见 docs/runtime-foundation-implementation.md；SandboxToolsBackend 协议适配器、私有本地制品与交付回调已实现，但生产路由/DB 枚举/权限与账本尚未接线；Durable 已补官方 SQLite 单写者/绑定/调度前未知结果阻断与 SIGKILL 测试基础；正式 Worker/reaper/Durable 生产恢复仍不得改写为当前能力。本轮容量/持续负载/突发并发测试已按要求排除，资源准入和安全契约实现仍保留，不能宣称千人容量已验证。RunDescriptor 校验不等于授权，独立执行状态不等于现有 DB enum；LazySandbox 当前 kill-only。shell 结果未知不自动重放，Docker keep 前须有 reaper，工具同名覆盖不是安全保证，Durable 提交去重不等于副作用恰好一次。`docs/pi-plugin-support-research.md` 是分阶段目标设计；其中的 Sandbox/RPC 目标不能当成已部署现状。
+新增或修改代码前先读 [当前架构](docs/architecture.md) 和 [开发与测试约定](docs/development.md)，文档导航见 [docs/README.md](docs/README.md)。企业 MVP 后续实施基线为 [千人企业 MVP 与沙箱执行面实施方案](docs/plans/sandbox-execution-surface-design.md)：先工具执行安全/平台账本，再单 Worker，后受控 Durable 生产试点；RunDescriptor/独立执行状态、LazySandbox/操作错误分类、限额/原子文件能力与四工具工厂已落地但未接生产，进度见 docs/runtime/runtime-foundation-implementation.md；SandboxToolsBackend 协议适配器、私有本地制品与交付回调已实现，但生产路由/DB 枚举/权限与账本尚未接线；Durable 已补官方 SQLite 单写者/绑定/调度前未知结果阻断与 SIGKILL 测试基础；正式 Worker/reaper/Durable 生产恢复仍不得改写为当前能力。本轮容量/持续负载/突发并发测试已按要求排除，资源准入和安全契约实现仍保留，不能宣称千人容量已验证。RunDescriptor 校验不等于授权，独立执行状态不等于现有 DB enum；LazySandbox 当前 kill-only。shell 结果未知不自动重放，Docker keep 前须有 reaper，工具同名覆盖不是安全保证，Durable 提交去重不等于副作用恰好一次。`docs/research/pi-plugin-support-research.md` 是分阶段目标设计；其中的 Sandbox/RPC 目标不能当成已部署现状。
 
 | 目录 | 职责 |
 | --- | --- |
@@ -48,21 +48,23 @@
 | `docker/` | 沙箱运行时镜像（`pi-runtime` 预装完整 pi，版本随仓库 `package.json` 同步） |
 | `packages/`、`plugins/` | 可复用 SDK 与项目内插件样例 |
 | `tests/` | 所有自动化测试、fixture、测试环境与替身；源码目录不得新增测试代码 |
-| `docs/` | 当前架构、开发约定、方案与历史调研；状态需明确 |
+| `docs/` | 顶层规范入口；features/runtime/plans/research/security/design-system/archive 分类文档；状态需明确 |
 
 变更聊天链路时保持 `route → RunManager → RuntimeBackend → Pi AgentSession` 的职责方向，并通过 `RuntimeEvent → stream-mapping` 向前端输出。新后端先满足 `lib/runtime/protocol` 契约。数据访问留在 `lib/db` 查询层，路由负责鉴权和编排。跨模块边界、运行状态或目录发生变化时，同步更新 `docs/architecture.md`、`docs/development.md` 和本文件。
 
 P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/非原子 readFile/writeFile；生产 Linux helper 必须 pin directory fd、拒绝 symlink/hardlink/特殊文件；非 Linux fallback 仅测试显式启用。工具工厂复用 Pi 官方 schema/truncation 与 edit/write operations，不调用默认宿主执行、图片解码或临时日志；每次执行先调用注入 authorization，P2 前仍需持久 intent/fencing/归档。命令观察仅进程内，shell exit 不代表子孙退出；超时/取消/未知结果 kill 全沙箱并验证状态，不自动重放。Docker 新契约通过不能当 OpenSandbox、重启恢复或容量证明。SandboxToolsBackend 当前只支持 Docker/Test 注入，OpenSandbox 新 tools 明确拒绝，生产必须 Leasing reuse=false。SDK 自身会归一化 prompt/tool-result 图像，新 tools 会话须以 session-local images.autoResize=false 加受支持 MIME/体积校验，不能只关闭 read 自带 resize。私有制品必须平台绑定 user/run/tool-call key、存入不向沙箱暴露的持久私有根目录、先正式归档再发事件；不得用返回受保护 URL 的后验检查代替私有写入/身份授权。旧 public Blob 未静默迁移。
 
+验证截图输出到忽略目录 `test-results/`，不得混入业务源码 `artifacts/` 或 `public/`。目录总览见 [仓库目录指南](docs/repository-layout.md)。
+
 测试文件放在 `tests/unit` 或 `tests/e2e`；测试专用环境、替身和 fixture 分别放 `tests/support`、`tests/fixtures`。更新运行脚本并执行相关测试，不要在 `app/` 或 `lib/` 中就地新建 `*.test.*`、`*.spec.*` 或测试专用代码。
 
 ## Skill 沙箱执行门禁
 
-最新需求收缩为现有 SandboxRpc 资源补齐，见 docs/skill-sandbox-execution.md：RuntimeSpec.skills 仅可信宿主目录元数据（非客户端输入/Worker DTO），聊天和 scheduler 注入启用目录；Linux pinned fd 限额快照/拒绝链接，SandboxHandle.filesystem 原子复制随机本次目录，再用官方 --no-skills + 显式 --skill、/skill:name 展开及 read/bash 执行。无新 backend/Worker/DB/通用闭包桥，不回落宿主、不运行时装包；Mac fallback 仅显式 test。test:skills:sandbox/:smoke 的独立探针为单容器 faux 模型；v3.1.5/b970246 已部署。test:opensandbox:chat 的 PIWORK_OPENSANDBOX_SKILL_HTTP_TEST=1 模式显式调用真实模型，独立身份上传/启用完整 Skill 后验证 /名称、脚本/资源、正式归档/鉴权下载、底座删除，仅清理自己的夹具；默认仍跳过，不代表浏览器 UI 验收。复制不是只读 mount、enabled 不是审批。企业目标 docs/skill-sandbox-security-design.md 和 manifest 协议仍保留，执行-only OpenSandbox tools/P2/P3 门禁、默认矩阵/Durable 不变；不得把基本 RPC 功能或单次探针称为企业安全/恢复/容量验收。
+最新需求收缩为现有 SandboxRpc 资源补齐，见 docs/runtime/skill-sandbox-execution.md：RuntimeSpec.skills 仅可信宿主目录元数据（非客户端输入/Worker DTO），聊天和 scheduler 注入启用目录；Linux pinned fd 限额快照/拒绝链接，SandboxHandle.filesystem 原子复制随机本次目录，再用官方 --no-skills + 显式 --skill、/skill:name 展开及 read/bash 执行。无新 backend/Worker/DB/通用闭包桥，不回落宿主、不运行时装包；Mac fallback 仅显式 test。test:skills:sandbox/:smoke 的独立探针为单容器 faux 模型；v3.1.5/b970246 已部署。test:opensandbox:chat 的 PIWORK_OPENSANDBOX_SKILL_HTTP_TEST=1 模式显式调用真实模型，独立身份上传/启用完整 Skill 后验证 /名称、脚本/资源、正式归档/鉴权下载、底座删除，仅清理自己的夹具；默认仍跳过，不代表浏览器 UI 验收。复制不是只读 mount、enabled 不是审批。企业目标 docs/plans/skill-sandbox-security-design.md 和 manifest 协议仍保留，执行-only OpenSandbox tools/P2/P3 门禁、默认矩阵/Durable 不变；不得把基本 RPC 功能或单次探针称为企业安全/恢复/容量验收。
 
 ## Durable + Sandbox 组合适配器（非生产）
 
-`lib/runtime/backends/durable/sandbox-backend.ts` 的 DurableSandboxBackend 已实现 fresh-run 组合：官方 Harness/owned SQLite 留可信宿主，四工具经 LazySandbox/SandboxHandle；sandbox 映射存官方 defineDoc/commit。OpenSandbox 仅显式 experimentalOpenSandbox 非生产探针，现 SandboxToolsBackend 默认拒绝不变；组合后端生产拒绝、单 prompt/deny-all、平台 tools 非空拒绝、已登记会话重开 needs-review，不提供自动恢复。终态前回收并验证，清理失败保留 owner；通用工具 unsafe。默认聊天/环境开关互斥保持不变。测试为 tests/unit/runtime/backends/durable，新增 test:runtime:durable-sandbox；真实组 PIWORK_DURABLE_OPENSANDBOX_TESTS=1，默认跳过。真实四工具/超时契约通过不等于 launcher 控制路径、持久 workspace、生产授权治理/账本/Worker/snapshot 投影/容量已验收；见 docs/durable-sandbox-composition.md。不得把这个适配器变成绕过 P2/P3/D1 的生产入口。
+`lib/runtime/backends/durable/sandbox-backend.ts` 的 DurableSandboxBackend 已实现 fresh-run 组合：官方 Harness/owned SQLite 留可信宿主，四工具经 LazySandbox/SandboxHandle；sandbox 映射存官方 defineDoc/commit。OpenSandbox 仅显式 experimentalOpenSandbox 非生产探针，现 SandboxToolsBackend 默认拒绝不变；组合后端生产拒绝、单 prompt/deny-all、平台 tools 非空拒绝、已登记会话重开 needs-review，不提供自动恢复。终态前回收并验证，清理失败保留 owner；通用工具 unsafe。默认聊天/环境开关互斥保持不变。测试为 tests/unit/runtime/backends/durable，新增 test:runtime:durable-sandbox；真实组 PIWORK_DURABLE_OPENSANDBOX_TESTS=1，默认跳过。真实四工具/超时契约通过不等于 launcher 控制路径、持久 workspace、生产授权治理/账本/Worker/snapshot 投影/容量已验收；见 docs/runtime/durable-sandbox-composition.md。不得把这个适配器变成绕过 P2/P3/D1 的生产入口。
 
 ### 非生产自动聊天分流
 
@@ -82,11 +84,11 @@ P1 tools 文件能力只用 `SandboxHandle.filesystem`，不可回退旧无界/�
 
 分享/加入/fork 归 `lib/db/chat-share-queries.ts`（ChatCollaborator/ChatShareInvite，迁移 0020）：token 只存 sha256（恒时比较），明文仅创建响应展示一次，7 天过期可撤销/轮换；管理动作仅对话所有者。所有权判定统一 `getChatAccess`（owner ∪ collaborator），聊天/流/停止/投票/历史均接入；重写历史/可见性/删除仍 owner-only。协作成员可续发消息但固定走经典 lane（不触发 Durable 分流），用自己的模型目录/额度；并发沿用 per-chat 单活跃 run。Fork 事务复制全部消息（新消息 id、归属新 owner、private、不复制成员/链接）；受保护附件仍按原归属鉴权，fork 后可能无权读取。
 
-实时协作（第二版，参考 pi-pocket room/presence/typing 机制）归 `lib/collab/chat-event-hub.ts` + `/api/chat/[id]/events|typing`：SSE 只承载 presence/typing/message/run/missing 小事件，不推消息正文——watcher 重拉 `/api/messages` 或 `resumeStream` attach 活跃 run（复用断线重连重放）；typing 6s TTL；建连鉴权 + 15s ping 复查，被移除成员收 missing 断开。发布点：chat route 用户消息落库后与 run attach 后、scheduler executor 同位置、`run/index.ts` messageStore 终态 upsert（actorId=null）。单实例进程内广播，多副本需外部总线（非现状）；HMR 重建 hub 由客户端自动重连；不做容量验收。测试 test:chat:collab 在 tests/unit/collab，DB 契约归 test:chat:share；见 docs/chat-collaboration.md。
+实时协作（第二版，参考 pi-pocket room/presence/typing 机制）归 `lib/collab/chat-event-hub.ts` + `/api/chat/[id]/events|typing`：SSE 只承载 presence/typing/message/run/missing 小事件，不推消息正文——watcher 重拉 `/api/messages` 或 `resumeStream` attach 活跃 run（复用断线重连重放）；typing 6s TTL；建连鉴权 + 15s ping 复查，被移除成员收 missing 断开。发布点：chat route 用户消息落库后与 run attach 后、scheduler executor 同位置、`run/index.ts` messageStore 终态 upsert（actorId=null）。单实例进程内广播，多副本需外部总线（非现状）；HMR 重建 hub 由客户端自动重连；不做容量验收。测试 test:chat:collab 在 tests/unit/collab，DB 契约归 test:chat:share；见 docs/features/chat-collaboration.md。
 
 ## 平台联网搜索边界
 
-`lib/search` 持有可信固定 Tavily 搜索 Gateway/限额/来源投影，`lib/ai/web-tools.ts` 通过官方 Pi customTools 提供 `platform_web_search`（不与插件 web_search 同名）。环境 `PIWORK_WEB_SEARCH_ENABLED=1` + `TAVILY_API_KEY` 显式开启、默认关闭；查询词外发，提示最小化不等于自动 DLP，Key 不进模型/沙箱。每次 execute 经注入宿主回调复核 Chat 归属、enabled/模型/Token 权限，身份不能由模型输入。纯搜索可选轻量，只有 workspaceDir=null 装配白名单工具，受管扩展/MCP/内建执行仍关闭；附件/混合执行/第三方插件和近期执行上下文保守不扩张能力。RPC/all 在执行前拒绝不支持的平台搜索工具，Durable 不装配，不自动换后端或启用宿主第三方 Extension。`source.created` 经 RuntimeEvent → stream-mapping → source-url 与最终消息同形持久化，只有公开链接元数据，无供应商原始响应/凭据。首版不提供 web_fetch/任意 URL 抓取/浏览器/复杂文件解析；静态来源 URL 过滤不能宣称 SSRF 安全抓取。单轮/用户/进程限额是进程内准入，不是账本/分布式配额/容量验收。测试 test:search 在 tests/unit/ai、chat、runtime/backends，真实联网/UI 需配置后独立验收；见 docs/web-search.md。
+`lib/search` 持有可信固定 Tavily 搜索 Gateway/限额/来源投影，`lib/ai/web-tools.ts` 通过官方 Pi customTools 提供 `platform_web_search`（不与插件 web_search 同名）。环境 `PIWORK_WEB_SEARCH_ENABLED=1` + `TAVILY_API_KEY` 显式开启、默认关闭；查询词外发，提示最小化不等于自动 DLP，Key 不进模型/沙箱。每次 execute 经注入宿主回调复核 Chat 归属、enabled/模型/Token 权限，身份不能由模型输入。纯搜索可选轻量，只有 workspaceDir=null 装配白名单工具，受管扩展/MCP/内建执行仍关闭；附件/混合执行/第三方插件和近期执行上下文保守不扩张能力。RPC/all 在执行前拒绝不支持的平台搜索工具，Durable 不装配，不自动换后端或启用宿主第三方 Extension。`source.created` 经 RuntimeEvent → stream-mapping → source-url 与最终消息同形持久化，只有公开链接元数据，无供应商原始响应/凭据。首版不提供 web_fetch/任意 URL 抓取/浏览器/复杂文件解析；静态来源 URL 过滤不能宣称 SSRF 安全抓取。单轮/用户/进程限额是进程内准入，不是账本/分布式配额/容量验收。测试 test:search 在 tests/unit/ai、chat、runtime/backends，真实联网/UI 需配置后独立验收；见 docs/features/web-search.md。
 
 ## 数据库连接池边界
 
@@ -108,7 +110,7 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 
 ## 后台对话记录边界
 
-`/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员只读访问；`lib/db/conversation-queries.ts` 持有 Chat/Message_v2/最新 AgentRun 的检索与分页，`lib/admin/conversations.ts` 持有共享校验/文本投影。仅 text parts，不返回 reasoning/工具载荷/附件地址，不读 Pi 原生 session/SQLite，不开放跨用户聊天写入。状态取最近 run；模型经 AgentRun.requestedModel（迁移 0017）请求快照与 SDK/RPC/Durable 的 message.completed.model 持久化。查询逐 run 优先实际 model/responseModel、其次请求快照、最后同 run/chat 的 allowed 代理审计证据，不用当前配置猜历史，支持跨轮模型筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，复用包内 Logo API，不显示内部 installation ID，未知/卸载与图标失败保守回退；当前展示元数据不能覆盖历史模型身份或读取凭据。Token 聚合会话所有已保留 message.completed.usage 五字段，totalTokens 以官方值为准、不重复 reasoning/缓存，不与代理审计相加；不含分类/标题/压缩/嵌套工具费用，未知不填零、记录缺口标部分。不能虚构会话归档状态或不可变审计能力，口径见 docs/conversation-model-usage.md。测试 test:conversations/:db 在 tests/unit/admin 与 tests/unit/db，:http 在 tests/e2e；新增模型快照需迁移和重启开发 RunManager 后生效。
+`/admin/conversations` 与 `/api/admin/conversations[/<id>]` 仅 enabled/admin 成员只读访问；`lib/db/conversation-queries.ts` 持有 Chat/Message_v2/最新 AgentRun 的检索与分页，`lib/admin/conversations.ts` 持有共享校验/文本投影。仅 text parts，不返回 reasoning/工具载荷/附件地址，不读 Pi 原生 session/SQLite，不开放跨用户聊天写入。状态取最近 run；模型经 AgentRun.requestedModel（迁移 0017）请求快照与 SDK/RPC/Durable 的 message.completed.model 持久化。查询逐 run 优先实际 model/responseModel、其次请求快照、最后同 run/chat 的 allowed 代理审计证据，不用当前配置猜历史，支持跨轮模型筛选。供应商展示按已记录 provider 精确关联 ModelProviderPlugin 的公开 displayName/providerKey，复用包内 Logo API，不显示内部 installation ID，未知/卸载与图标失败保守回退；当前展示元数据不能覆盖历史模型身份或读取凭据。Token 聚合会话所有已保留 message.completed.usage 五字段，totalTokens 以官方值为准、不重复 reasoning/缓存，不与代理审计相加；不含分类/标题/压缩/嵌套工具费用，未知不填零、记录缺口标部分。不能虚构会话归档状态或不可变审计能力，口径见 docs/features/conversation-model-usage.md。测试 test:conversations/:db 在 tests/unit/admin 与 tests/unit/db，:http 在 tests/e2e；新增模型快照需迁移和重启开发 RunManager 后生效。
 
 ## 管理端 Token 统计边界
 
@@ -130,7 +132,7 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 
 `lib/projects` 持有资料文本提取与聊天上下文组装；`lib/db/project-queries.ts` 持有项目/项目聊天/来源的归属查询与事务删除。项目聊天复用既有 Chat 表（`Chat.projectId`）与完整聊天链路，页面不实现第二个 agent loop；项目主页输入通过预建聊天加 `?query=` 进入聊天页。项目来源复用聊天格式白名单，支持常见现代 Office/文本与 PNG/JPEG/WebP/GIF；文档单份 100 MB，图片版本化 base64 存 Source.content，经官方 ImageContent/RuntimeCommand.images 输入视觉模型，项目图片最多 5 张合计 8 MB。图像不按文本截断，不做宿主 OCR；不支持旧 DOC/XLS/PPT、加密文件或扫描 PDF OCR。上下文失败/非视觉模型不能静默忽略图片；test:projects:sources 随 test:unit 收集。Source.type 实为 varchar，无 SQL enum 迁移，原文档仍仅存提取文本、无新 LibraryItem 归档。
 
-项目资料默认目录+每份512字符预览，完整已存文本由 SandboxRpc 在启动官方 Pi 前按32KiB UTF-8 无损切分，经 SandboxHandle.filesystem.writeAtomic 复制随机本次目录，manifest 最后提交；官方 read offset/limit 继续读取，禁止重写 agent loop/RPC/compaction。RuntimeSpec.projectSources 仅宿主 reference/hash grant；db/project-document-queries.ts 在复制前及发布前核验 actor/run（starting/sandbox_rpc）、enabled/非匿名成员、Chat及项目共享权限、资料目录/hash。其他 backend 明确拒绝，不进 Durable、不 fallback；物化失败 kill并核验destroyed、撤销 token。上传完整限额提取与聊天预览分离：原件≤100MB、提取文本单份≤2MiB、总文本≤8MiB、资料≤50份，超限拒绝不能存截断文本；60s解析取消是协作式，不是硬隔离。PIWORK_PROJECT_DOCUMENT_INPUTS_ENABLED 默认开，0退旧20k/80k预览但明确范围不足；装配变更需重启HMR manager。未知历史完整性不填已验证，已有截断需重上传；无原件版本/页码/OCR/检索/Embedding/Worker/恢复，模型覆盖自报不等于准确性验证。资料副本可写，运行中撤权销毁仍未接线。不要把 Source 查询写入 Pi 通用工具，也不要让项目逻辑绕过 RunManager。删除项目必须先停活跃 run 并在事务内清理 vote/message。test:projects:documents/:db/:http 为单元+真实官方RPC/faux模型、独立schema授权与独立Next上传接口，不调用真实模型/不做容量验收；方案及状态见 docs/project-document-processing-design.md。
+项目资料默认目录+每份512字符预览，完整已存文本由 SandboxRpc 在启动官方 Pi 前按32KiB UTF-8 无损切分，经 SandboxHandle.filesystem.writeAtomic 复制随机本次目录，manifest 最后提交；官方 read offset/limit 继续读取，禁止重写 agent loop/RPC/compaction。RuntimeSpec.projectSources 仅宿主 reference/hash grant；db/project-document-queries.ts 在复制前及发布前核验 actor/run（starting/sandbox_rpc）、enabled/非匿名成员、Chat及项目共享权限、资料目录/hash。其他 backend 明确拒绝，不进 Durable、不 fallback；物化失败 kill并核验destroyed、撤销 token。上传完整限额提取与聊天预览分离：原件≤100MB、提取文本单份≤2MiB、总文本≤8MiB、资料≤50份，超限拒绝不能存截断文本；60s解析取消是协作式，不是硬隔离。PIWORK_PROJECT_DOCUMENT_INPUTS_ENABLED 默认开，0退旧20k/80k预览但明确范围不足；装配变更需重启HMR manager。未知历史完整性不填已验证，已有截断需重上传；无原件版本/页码/OCR/检索/Embedding/Worker/恢复，模型覆盖自报不等于准确性验证。资料副本可写，运行中撤权销毁仍未接线。不要把 Source 查询写入 Pi 通用工具，也不要让项目逻辑绕过 RunManager。删除项目必须先停活跃 run 并在事务内清理 vote/message。test:projects:documents/:db/:http 为单元+真实官方RPC/faux模型、独立schema授权与独立Next上传接口，不调用真实模型/不做容量验收；方案及状态见 docs/features/project-document-processing-design.md。
 
 ## 沙箱 Runtime 边界
 
@@ -188,4 +190,4 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 
 后台 `/admin/settings` 的「文件上传」分组配置全平台新上传的单文件限额（整数 1–100 MB，默认 100）。`lib/uploads/settings.ts` 持有纯校验/单位转换，`lib/db/upload-settings-queries.ts` 持有 UploadSettings 单例读取/upsert（迁移 0023，复用 getDb，不缓存），记录最后修改人/时间。`/api/admin/upload-settings` GET/PATCH 仅正式启用管理员；`/api/upload-settings` 仅正式启用成员读取公开限额。配置缺行用默认，非法存量/DB 故障拒绝，不静默恢复默认。
 
-新上传 `/api/files/upload`（聊天/文档库）与 `/api/projects/:id/sources` 在鉴权/归属检查后按最新配置校验；各 UI 通过共享 hook 读取动态提示和预检，服务端为最终准入。降低配置不追溯已有 LibraryItem 的下载/聊天选择；后者仍用 100 MB 部署硬上限。项目从 Library 导入为新 sources 上传，遵循最新限额。Next Proxy 请求体固定 128 MB，后台只允许≤100；图片、提取文本、Durable 单份 20 MB/合计 50 MB 处理限额不变。无 Pi loop/API/RuntimeSpec 变更，无容量验收；需求及交互见 [附件上传配置](upload-settings-design.md)。
+新上传 `/api/files/upload`（聊天/文档库）与 `/api/projects/:id/sources` 在鉴权/归属检查后按最新配置校验；各 UI 通过共享 hook 读取动态提示和预检，服务端为最终准入。降低配置不追溯已有 LibraryItem 的下载/聊天选择；后者仍用 100 MB 部署硬上限。项目从 Library 导入为新 sources 上传，遵循最新限额。Next Proxy 请求体固定 128 MB，后台只允许≤100；图片、提取文本、Durable 单份 20 MB/合计 50 MB 处理限额不变。无 Pi loop/API/RuntimeSpec 变更，无容量验收；需求及交互见 [附件上传配置](docs/features/upload-settings-design.md)。

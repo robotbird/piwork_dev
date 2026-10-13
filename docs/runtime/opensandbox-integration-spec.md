@@ -1,14 +1,14 @@
 # OpenSandbox 接入与 Runtime Sandbox 升级 Spec
 
-> Pi 版本说明：本文旧版本签名、镜像与双版本风险是各 Phase 实施时的历史快照；当前版本统一以依赖文件及 [升级记录](pi-upgrades.md) 为准。旧双版本依赖已消除，不能将历史风险当作当前事实。
+> Pi 版本说明：本文旧版本签名、镜像与双版本风险是各 Phase 实施时的历史快照；当前版本统一以依赖文件及 [升级记录](../pi-upgrades.md) 为准。旧双版本依赖已消除，不能将历史风险当作当前事实。
 
-> 状态：**规划稿 v1.5**（2026-10-03）。本文是 [Pi Package 与 Runtime 架构](pi-plugin-support-research.md)（v2.0）Step 5「接入 SandboxProvider」的具体化，并吸收外部参考文章的分层建议（见 §3）。**Phase 0–4 完整落地；Phase 5 MVP 落地（路由矩阵 + 冷启动达标；Package 灰度/资源审计/Worker 化等后续完善，见 §6 Phase 5 未落地清单）**（进度见 §6；接口契约 §7 为落地版）；现状以 [项目架构](architecture.md) 与代码为准。
+> 状态：**规划稿 v1.5**（2026-10-03）。本文是 [Pi Package 与 Runtime 架构](../research/pi-plugin-support-research.md)（v2.0）Step 5「接入 SandboxProvider」的具体化，并吸收外部参考文章的分层建议（见 §3）。**Phase 0–4 完整落地；Phase 5 MVP 落地（路由矩阵 + 冷启动达标；Package 灰度/资源审计/Worker 化等后续完善，见 §6 Phase 5 未落地清单）**（进度见 §6；接口契约 §7 为落地版）；现状以 [项目架构](../architecture.md) 与代码为准。
 > v1.5 修订：Phase 5 MVP——`RoutingRuntimeBackend` 路由矩阵（执行工具 → 沙箱、纯对话 in-process 并存非降级、逐 run 落 AgentRun.backend 实际执行位、fail-closed 不回落）+ `PIWORK_SANDBOX_ROUTING=matrix|all` 装配 + docker 档冷启动实测 P50 490ms（≤3s 达标）；未落地项逐条声明（§6 Phase 5）。
 > v1.4 修订：Phase 4 完成——`lib/runtime/inference-proxy/`（pi-messages wire 代理 + RunTokenRegistry + models.json 生成）与 egress 派生/审计落地，§11 D-3 定案为 **pi-messages 协议代理**（非 openai-compatible）；docker 档 allowlist 实测修正：`--internal` 网桥连宿主网关都不可达（会掐断代理通道），改为每沙箱独立非 internal 网桥 + `--add-host host-gateway` + `--dns 127.0.0.1`，raw-IP 直连残余缺口如实声明（§6 Phase 4、§8）。
 > v1.3 修订：Phase 3 完成——`OpenSandboxProvider` + PTY pipe 通道落地（`lib/runtime/sandbox/opensandbox/`），§6 Phase 3 落地条目、§7 组装段、§9 gated 契约、§11 D-2 实现级修正（二进制 exec 帧、`exit_code` snake_case、`OPEN-SANDBOX-API-KEY` header 名）。
 > v1.2 修订：Phase 0 spike 完成——§5.1 新增实测审计结论（rootfs/直连 IP/横向暴露/snapshot 供应链 + 两项计划外发现），§11 D-2 定案、D-1/D-4 补输入。
 > v1.1 修订：按「最大化复用 Pi 官方能力 + 显式解耦缝」重写 §4/§6/§7——`SandboxRpcBackend` 从「泛化重写」改为「官方 `RpcClient` + `cliPath` 注入 bridge shim」（依据 `rpc-client.js` spawn 实测核对，§4.2）；支线 E 补充官方 extension 形态；接口契约增加 `SandboxChannel` 解耦缝。
-> 关联：[skill 执行安全方案](security/skill-execution-security-plan.md)（治理细则）、[Pi Durable 评估](pi-durable-evaluation.md)（支线 E 的前置裁决）、[平台演进架构](platform-runtime-roadmap.md)（整体分期）。
+> 关联：[skill 执行安全方案](../security/skill-execution-security-plan.md)（治理细则）、[Pi Durable 评估](../research/pi-durable-evaluation.md)（支线 E 的前置裁决）、[平台演进架构](../plans/platform-runtime-roadmap.md)（整体分期）。
 
 ## 1. 背景与目标
 
@@ -17,7 +17,7 @@
 1. **选型审计更新**：skill 安全方案 §8.2 对 OpenSandbox 挂起的「隔离底座待审」项，依据 2026-10-02 核对的官方文档给出结论（§5）。
 2. **升级方案**：给出从当前代码到「OpenSandbox 上跑完整 Pi 进程」的分阶段路径、接口契约、安全映射与验收标准（§6–§10）。
 
-不在本文范围：Package 制品流水线（v2.0 Step 6，独立模块）、Durable 主链路迁移（受 [pi-durable-evaluation.md](pi-durable-evaluation.md) §4 触发条件约束）、Desktop Local Runtime（Step 9）。
+不在本文范围：Package 制品流水线（v2.0 Step 6，独立模块）、Durable 主链路迁移（受 [pi-durable-evaluation.md](../research/pi-durable-evaluation.md) §4 触发条件约束）、Desktop Local Runtime（Step 9）。
 
 ## 2. 现状基线（2026-10-02 代码核对）
 
@@ -45,7 +45,7 @@
 
 **修正 3 项（依据本地源码与官方文档，非推测）：**
 
-1. **「Pi Durable 是 Harness 层」不能推出「主链路切 Durable」**。项目已裁决（[pi-durable-evaluation.md](pi-durable-evaluation.md) §4）：pi-durable 0.99.2 实验期 API、MCP/Skill/模型插件/deliver_file 均无对应物，现阶段不替换主链路。**Sandbox 接入与 backend 选择正交**：`SandboxProvider` 服务于 RPC 族 backend，主链路切换与 Durable 采用各自按既有评估推进。
+1. **「Pi Durable 是 Harness 层」不能推出「主链路切 Durable」**。项目已裁决（[pi-durable-evaluation.md](../research/pi-durable-evaluation.md) §4）：pi-durable 0.99.2 实验期 API、MCP/Skill/模型插件/deliver_file 均无对应物，现阶段不替换主链路。**Sandbox 接入与 backend 选择正交**：`SandboxProvider` 服务于 RPC 族 backend，主链路切换与 Durable 采用各自按既有评估推进。
 2. **`OpenSandboxExecutionEnv` 插不进主链路**。ExecutionEnv 是 pi-durable 的接口（0.99.2 `env/index.d.ts` 核实）；主链路 pi-coding-agent 的执行工具是内建工具，pi-agent-core 1.0.0 无 ExecutionEnv 概念。且 Pi 官方 containerization 页明确：仅路由执行工具（Gondolin 形态）是**更窄的隔离**——「other extension tools still run on the host unless they also delegate their work」，且 VM 内命令继承宿主环境变量。因此工具级路由只保留为支线 E（DurableBackend 实验，§6.6），不作为生产目标态。
 3. **文章的 Pi Durable 恢复叙事忽略差口**：DurableBackend 现为 MemoryStorage、无 MCP/Skill/归档；「服务重启 → resume() → 重新绑定 Sandbox 继续」依赖 Postgres 存储与平台工具桥先补齐（评估文档 P3 前置）。
 
@@ -349,7 +349,7 @@ interface SandboxProvider {
 - fail-closed 用例：provider down、沙箱中途死亡、TTL 到期——run 终态与错误信息断言。
 - 路由矩阵（Phase 5 ✅）：`tests/unit/runtime/backends/routing.test.ts`——`requiresSandbox` 判定（workspaceDir）、RoutingRuntimeBackend 分流、沙箱路由失败原样上抛且不回落 in-process、RunManager `backendKindFor` 逐 run 落 AgentRun.backend 实际执行位、与真实 SandboxRpcBackend（TestSandboxProvider）的分流闭环（纯对话零 acquire、workspace run 真起沙箱且 close→kill 回收）。冷启动为一次性实测（docker 档 P50 490ms，§6 Phase 5），不做常驻测试。
 - e2e：沙箱模式跑通第一条验收链路（§10）；本地 e2e 前置杀残留 dev server 的既有约定不变。
-- 测试数据清理沿用 `tests/e2e/helpers/test-cleanup.ts` afterAll 模式；OpenSandbox server 为外部依赖，CI 用 Docker provider 跑安全用例，OpenSandbox provider 用例标记可选/nightly。
+- 测试数据清理沿用 `tests/support/playwright/test-cleanup.ts` afterAll 模式；OpenSandbox server 为外部依赖，CI 用 Docker provider 跑安全用例，OpenSandbox provider 用例标记可选/nightly。
 
 ## 10. 验收标准（第一条链路，转录 v2.0 §11 并具体化）
 
@@ -387,4 +387,4 @@ interface SandboxProvider {
 
 ---
 
-*本文档为规划稿。实现过程中若与本规划偏离，请更新本文档并升版本号；落地状态变化时同步更新 [docs/README.md](README.md) 与 [architecture.md](architecture.md) 的对应条目。*
+*本文档为规划稿。实现过程中若与本规划偏离，请更新本文档并升版本号；落地状态变化时同步更新 [docs/README.md](../README.md) 与 [architecture.md](../architecture.md) 的对应条目。*

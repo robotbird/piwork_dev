@@ -22,7 +22,7 @@ export type ChatCollabHandler = (event: ClientChatCollabEvent) => void;
 const TYPING_REPORT_INTERVAL_MS = 2000;
 
 /**
- * 聊天协作实时订阅（docs/chat-collaboration.md §8.4）：
+ * 聊天协作实时订阅（docs/features/chat-collaboration.md §8.4）：
  * - 成员视图维持一条 EventSource（同源带 cookie，断线自动重连）；
  * - 收到 message/run 通知后由调用方决定重拉 /api/messages 或
  *   resumeStream attach 活跃 run（事件本身不携带消息正文）；

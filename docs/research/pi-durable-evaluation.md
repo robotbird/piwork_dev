@@ -1,8 +1,8 @@
 # Pi Durable 评估与采用门禁
 
 > 状态：**评估与试点计划，不是生产恢复能力承诺**。当前 `DurableBackend` 已补持久存储与恢复安全基础，但仍未完成 Worker/平台映射/恢复投影接线；默认生产路径不改变，不能宣称已生产上线。
-> 当前五包版本以 `package.json` / `pnpm-lock.yaml` 为准，最新兼容性变化与验证见 [Pi 升级记录](pi-upgrades.md)。Durable 仍 Experimental；项目复用官方 NodeExecutionEnv，无自定义环境适配；旧 binding/input hash 不静默跨版本重开。本文旧版本与 spike 数字为历史证据，不代表当前基线验收。已适配新版 Registry/Extension/Agent configuration API 并移除旧选项兼容转型；存储继续官方 SQLite。
-> 完整执行顺序、企业 MVP 门禁与代码落点见 [企业 MVP 与沙箱执行面实施方案](sandbox-execution-surface-design.md)。本文替代旧版中“定时任务恰好一次”“版本化承诺部分成立”“全面迁移后退役 RunManager”等结论。
+> 当前五包版本以 `package.json` / `pnpm-lock.yaml` 为准，最新兼容性变化与验证见 [Pi 升级记录](../pi-upgrades.md)。Durable 仍 Experimental；项目复用官方 NodeExecutionEnv，无自定义环境适配；旧 binding/input hash 不静默跨版本重开。本文旧版本与 spike 数字为历史证据，不代表当前基线验收。已适配新版 Registry/Extension/Agent configuration API 并移除旧选项兼容转型；存储继续官方 SQLite。
+> 完整执行顺序、企业 MVP 门禁与代码落点见 [企业 MVP 与沙箱执行面实施方案](../plans/sandbox-execution-surface-design.md)。本文替代旧版中“定时任务恰好一次”“版本化承诺部分成立”“全面迁移后退役 RunManager”等结论。
 
 ## 1. 决策摘要
 
@@ -37,14 +37,14 @@
 - 默认开发原型仍用 MemoryStorage；生产明确拒绝该默认值。可注入官方 SQLite 单写者存储与当前授权回调，尚未装配生产入口。
 - AgentTool 转 durable 工具，模型 Provider 与提示装配有桥接；历史回灌有损。
 - 存储/身份与输入 hash 绑定、进程强杀后的官方恢复、未知 intent 阻断已进入重复测试；平台工具桥、完整跨重启映射、snapshot 重建仍未完成生产验收。
-- ~~主包 1.0.0 与 durable 嵌套 pi-ai 0.99.2 共存；一处显式类型转型不构成跨版本兼容保证。~~ **已解决（2026-10-04）**：五包全部对齐 1.0.2，双版本嵌套消除；`toDurableTool` 的 3 处 `as never` 转型移除后 `tsc --noEmit` 全绿，无需任何适配层。验证：Durable 契约套件 35/35、手动 spike 16/16（`scripts/pi-durable-manual-spike.mts`，含 SIGKILL 恢复与 replay 双重门）、全量 Runtime 套件 284 项 0 失败。
+- ~~主包 1.0.0 与 durable 嵌套 pi-ai 0.99.2 共存；一处显式类型转型不构成跨版本兼容保证。~~ **已解决（2026-10-04）**：五包全部对齐 1.0.2，双版本嵌套消除；`toDurableTool` 的 3 处 `as never` 转型移除后 `tsc --noEmit` 全绿，无需任何适配层。验证：Durable 契约套件 35/35、手动 spike 16/16（`tests/e2e/pi-durable-manual-spike.mts`，含 SIGKILL 恢复与 replay 双重门）、全量 Runtime 套件 284 项 0 失败。
 - 实验开关不应开放给普通生产用户，不能宣称“已有 DurableBackend 即已有耐久执行”。
 
 升级时须核对**全部相关包与锁文件实际解析版本**，包括 chord 与使用它的 NodeExecutionEnv。只把 durable 升到依赖 `pi-ai ^1.0.2` 的版本，不能保证仍固定 1.0.0 的主包与嵌套版本自动合一。
 
 ### 受控组合增量（非生产，不是 D1）
 
-新增 `DurableSandboxBackend`：复用官方 Harness/owned SQLite + 现有沙箱四工具，映射存官方 document，终态前停止资源；真实 OpenSandbox 四工具/合并输出与超时不重放两项契约通过。fresh-run、单 prompt、deny-all、生产拒绝；已登记会话重开 needs-review。默认聊天与全局环境开关互斥不变；另已接非生产、正式启用成员的自动聊天分流（development 全部启用成员无需勾选，test 保留 UUID 白名单；问答轻量、四工具任务 Durable、平台兼容与分类不确定留原链路），补服务端 DB 授权、输入/hash 绑定、附件限额/水合与私有 LibraryItem 归档，真实 OpenSandbox/模型 HTTP 流、下载隔离、停止/超时/实例删除与普通问答验证通过。仍未落地 Worker/生产平台操作账本/workspace 持久性/恢复投影，不是 D1 或正式生产入口。详见 [组合实现与验证](durable-sandbox-composition.md)。
+新增 `DurableSandboxBackend`：复用官方 Harness/owned SQLite + 现有沙箱四工具，映射存官方 document，终态前停止资源；真实 OpenSandbox 四工具/合并输出与超时不重放两项契约通过。fresh-run、单 prompt、deny-all、生产拒绝；已登记会话重开 needs-review。默认聊天与全局环境开关互斥不变；另已接非生产、正式启用成员的自动聊天分流（development 全部启用成员无需勾选，test 保留 UUID 白名单；问答轻量、四工具任务 Durable、平台兼容与分类不确定留原链路），补服务端 DB 授权、输入/hash 绑定、附件限额/水合与私有 LibraryItem 归档，真实 OpenSandbox/模型 HTTP 流、下载隔离、停止/超时/实例删除与普通问答验证通过。仍未落地 Worker/生产平台操作账本/workspace 持久性/恢复投影，不是 D1 或正式生产入口。详见 [组合实现与验证](../runtime/durable-sandbox-composition.md)。
 
 ## 4. 为什么现阶段不全面替换
 

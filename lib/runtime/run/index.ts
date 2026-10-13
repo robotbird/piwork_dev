@@ -46,7 +46,7 @@ import { RunManager } from "./run-manager";
  * LiveRun 丢失，由 attach 落空 → failZombieRuns 兜底（§2.12）。
  *
  * - PIWORK_RUNTIME_BACKEND=durable 切换实验性 Pi Durable 后端
- *   （docs/pi-durable-evaluation.md D0；本装配仍无持久 factory/Worker，
+ *   （docs/research/pi-durable-evaluation.md D0；本装配仍无持久 factory/Worker，
  *   NODE_ENV=production 时 DurableBackend 拒绝默认 MemoryStorage）。
  * - PIWORK_SANDBOX_PROVIDER=docker|opensandbox 切换沙箱装配（spec §6
  *   Phase 2/3/5；opensandbox-integration-spec.md §7 组装）。默认未设置 =

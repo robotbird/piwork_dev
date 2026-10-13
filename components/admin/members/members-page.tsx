@@ -12,6 +12,10 @@ import {
 import { type ChangeEvent, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  MemberPagination,
+  useMemberPagination,
+} from "@/components/admin/member-pagination";
+import {
   type DepartmentOption,
   MemberDialog,
   type MemberFormValues,
@@ -345,6 +349,8 @@ export function MembersPage({
     );
   }, [members, normalizedQuery]);
 
+  const pagination = useMemberPagination(visibleMembers, normalizedQuery);
+
   const handleQueryChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) =>
       setQuery(event.currentTarget.value),
@@ -620,7 +626,7 @@ export function MembersPage({
                       </td>
                     </tr>
                   ) : visibleMembers.length > 0 ? (
-                    visibleMembers.map((member) => (
+                    pagination.items.map((member) => (
                       <MemberRow
                         isSelf={member.userId === currentUserId}
                         key={member.id}
@@ -645,6 +651,7 @@ export function MembersPage({
                 </tbody>
               </table>
             </div>
+            {!loadFailed && <MemberPagination {...pagination} />}
           </div>
         </div>
       </section>

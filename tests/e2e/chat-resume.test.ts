@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 
-import { cleanupTestData } from "./helpers/test-cleanup";
+import { cleanupTestData } from "../support/playwright/test-cleanup";
 
 /**
  * 断线恢复与显式中止（v2.0 Step 2）：faux "longstream" 关键词产出 ~4.8k

@@ -378,7 +378,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     { revalidateOnFocus: false }
   );
 
-  // ── 协作实时（docs/chat-collaboration.md §8.4）──
+  // ── 协作实时（docs/features/chat-collaboration.md §8.4）──
   const { data: sessionData } = useSession();
   const selfUserId = sessionData?.user?.id ?? null;
 

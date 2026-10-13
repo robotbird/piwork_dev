@@ -14,6 +14,10 @@ import { Tabs } from "radix-ui";
 import { type ChangeEvent, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  MemberPagination,
+  useMemberPagination,
+} from "@/components/admin/member-pagination";
+import {
   RoleDialog,
   type RoleFormValues,
 } from "@/components/admin/roles/role-dialog";
@@ -153,6 +157,11 @@ export function RolesPage({
     null;
   const selectedMembers = members.filter((member) =>
     selectedRole?.memberIds.includes(member.id)
+  );
+
+  const pagination = useMemberPagination(
+    selectedMembers,
+    selectedRole?.id ?? ""
   );
 
   const handleViewRequest = useCallback((role: AdminRole) => {
@@ -315,9 +324,8 @@ export function RolesPage({
                   <button
                     aria-pressed={selectedRole?.id === role.id}
                     className={cn(
-                      "flex w-full items-center justify-between gap-3 rounded-md border-l-2 border-transparent px-5 py-4 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring",
-                      selectedRole?.id === role.id &&
-                        "border-primary bg-muted text-foreground"
+                      "flex w-full items-center justify-between gap-3 rounded-md px-5 py-4 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring",
+                      selectedRole?.id === role.id && "bg-muted text-foreground"
                     )}
                     key={role.id}
                     onClick={() => {
@@ -469,7 +477,7 @@ export function RolesPage({
                             </tr>
                           </thead>
                           <tbody>
-                            {selectedMembers.map((member) => {
+                            {pagination.items.map((member) => {
                               const name = getRoleMemberDisplayName(member);
                               return (
                                 <tr
@@ -510,6 +518,7 @@ export function RolesPage({
                           </tbody>
                         </table>
                       </div>
+                      <MemberPagination {...pagination} />
                     </Tabs.Content>
                     {(["models", "quota"] as const).map((tab) => (
                       <Tabs.Content key={tab} value={tab}>

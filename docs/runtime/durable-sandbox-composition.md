@@ -139,7 +139,7 @@ node --env-file=.env.local --conditions=react-server --import tsx \
 
 成功后停止测试服务器并删除仅该 schema/私有目录；失败保留 schema/owner/文件证据，先核对正式 provider 实例并逐个销毁后再清理，不能按 PID/TTL 偷锁或自动重放。早期真实 HTTP 验证发现 lease wrapper 被严格 provider.release 拒绝，已修复并加回归；该轮残留实例均经独立控制面确认删除后手工清理，不宣称已有自动 reaper。
 
-## 官方依据（安装版本优先，当前基线见 [升级记录](pi-upgrades.md)）
+## 官方依据（安装版本优先，当前基线见 [升级记录](../pi-upgrades.md)）
 
 - `node_modules/@earendil-works/pi-durable/README.md`：Extensions、Tools、Environment、Persist and Resume、Your Own State、Agent Events、Storage。
 - `pi-durable/dist/harness/tool.js`：intent 在 execute 前 commit，stored/current replay 都 safe 才重跑，恢复不执行 beforeTool；复用该机制而不另写调度器。

@@ -1,10 +1,10 @@
 /**
- * pi-durable 手动验证 spike —— docs/pi-durable-evaluation.md §3 的可重放版。
+ * pi-durable 手动验证 spike —— docs/research/pi-durable-evaluation.md §3 的可重放版。
  * 对象：仓库已安装的 @earendil-works/pi-durable（当前 1.0.2，五包对齐；faux provider，无网络依赖）。
  *
  * 运行（仓库根目录）：
- *   pnpm exec tsx scripts/pi-durable-manual-spike.mts all    # 全部用例
- *   pnpm exec tsx scripts/pi-durable-manual-spike.mts t1     # 单跑某个用例（t1..t6）
+ *   pnpm exec tsx tests/e2e/pi-durable-manual-spike.mts all    # 全部用例
+ *   pnpm exec tsx tests/e2e/pi-durable-manual-spike.mts t1     # 单跑某个用例（t1..t6）
  *
  * 用例对应关系：
  *   T1 冒烟（MemoryStorage 一问一答）
@@ -17,7 +17,7 @@
  * 验证 pi-durable 1.0.2（不动机器内仓库依赖）：
  *   mkdir /tmp/pidurable102 && cd /tmp/pidurable102 && npm init -y
  *   npm install $(npm pack @earendil-works/pi-durable@1.0.2 @earendil-works/pi-ai@1.0.2 @earendil-works/chord@1.0.2 | tr '\n' ' ')
- *   cp <repo>/scripts/pi-durable-manual-spike.mts spike.mts
+ *   cp <repo>/tests/e2e/pi-durable-manual-spike.mts spike.mts
  *   npx tsx spike.mts all
  */
 import { spawn } from "node:child_process";
@@ -44,7 +44,7 @@ import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite
 
 const scriptPath = fileURLToPath(import.meta.url);
 /** 仓库根（脚本位于 <repo>/scripts/ 下） */
-const repoRoot = path.dirname(path.dirname(scriptPath));
+const repoRoot = path.resolve(path.dirname(scriptPath), "../..");
 /** 子进程直启 tsx（绕开 pnpm 层；spawn 不走 shell，PATH 内的 pnpm shim 可能不可用） */
 const tsxCli = path.join(repoRoot, "node_modules/tsx/dist/cli.mjs");
 
