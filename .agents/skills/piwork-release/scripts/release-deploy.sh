@@ -167,7 +167,7 @@ if [ "$SERVER_DL" = "1" ]; then
   [ -n "$PRIMARY" ] || die "镜像列表为空（PIWORK_RELEASE_MIRRORS）"
   export PIWORK_DEPLOY_ARTIFACT_SHA256="$ART_SHA"
   export PIWORK_DEPLOY_ARTIFACT_FALLBACK_URLS="$FALLBACKS"
-  log "服务器下载直链: $PRIMARY（备用:$FALLBACKS）"
+  log "服务器下载直链: ${PRIMARY}（备用:${FALLBACKS}）"
   bash "$DEPLOY_SH" ci "$PRIMARY"
 else
   ARTDIR="$(mktemp -d /tmp/piwork-release.XXXXXX)"
