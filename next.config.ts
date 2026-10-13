@@ -33,6 +33,9 @@ const nextConfig: NextConfig = {
     cachedNavigations: true,
     inlineCss: true,
     prefetchInlining: true,
+    // Preserve 100 MiB uploads plus multipart overhead through the auth proxy.
+    // Individual upload routes still enforce their own file-size limits.
+    proxyClientMaxBodySize: "128mb",
     turbopackFileSystemCacheForDev: true,
   },
   images: {

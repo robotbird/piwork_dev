@@ -118,7 +118,7 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 
 `components/documents` 与 `lib/documents` 持有文档库界面及可共享类型；`lib/db/library-queries.ts` 持有归档、文件夹和所有权查询。上传入口必须登记 LibraryItem；生产 Runtime 在组装处注入归档回调，Pi `deliver_file` 完成归档后才发送 `artifact.created`。不要将数据库访问或用户身份判断写入 Pi 通用工具。文件夹为用户目录，当前不是项目权限模型。
 
-聊天「文件」选择器复用本人 `/api/library`，`POST /api/library/:id/attachment` 按本人归属解析既有 Attachment，支持格式/20 MB/五份限制；已有上传复用 URL，可编辑 Document 归档字节快照后进入既有附件链路（可能新增文档库记录，沿用现有 Blob 模式，不宣称私有化旧 Blob）。图片鉴权缩略图、其他文件名，浏览全部仍在选择弹窗内；不新增 agent loop/检索。项目预建 `?query=` 仍禁止附件，不能静默丢失。测试 test:chat:library/:http 与 documents:http，浏览器截获模型请求，不调用真实模型。
+聊天「文件」选择器复用本人 `/api/library`，`POST /api/library/:id/attachment` 按本人归属解析既有 Attachment，支持格式/100 MB/五份限制；已有上传复用 URL，可编辑 Document 归档字节快照后进入既有附件链路（可能新增文档库记录，沿用现有 Blob 模式，不宣称私有化旧 Blob）。图片鉴权缩略图、其他文件名，浏览全部仍在选择弹窗内；不新增 agent loop/检索。项目预建 `?query=` 仍禁止附件，不能静默丢失。测试 test:chat:library/:http 与 documents:http，浏览器截获模型请求，不调用真实模型。
 
 ## 定时任务边界
 
@@ -128,9 +128,9 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 
 聊天模型由 ActiveChatProvider 按本人 `/api/models` 目录统一解析 cookie 偏好；首条 query 等待目录/偏好初始化/可写聊天元数据，不用静态占位 ID 发请求。模型拒绝用 forbidden:model，聊天归属拒绝保持 forbidden:chat；服务端越权仍拒绝不 fallback。test:chat:models/:http 覆盖同步与提示，HTTP 浏览器使用独立夹具并截获模型请求，不调用真实模型。
 
-`lib/projects` 持有资料文本提取与聊天上下文组装；`lib/db/project-queries.ts` 持有项目/项目聊天/来源的归属查询与事务删除。项目聊天复用既有 Chat 表（`Chat.projectId`）与完整聊天链路，页面不实现第二个 agent loop；项目主页输入通过预建聊天加 `?query=` 进入聊天页。项目来源复用聊天格式白名单，支持常见现代 Office/文本与 PNG/JPEG/WebP/GIF；文档单份 20 MB，图片版本化 base64 存 Source.content，经官方 ImageContent/RuntimeCommand.images 输入视觉模型，项目图片最多 5 张合计 8 MB。图像不按文本截断，不做宿主 OCR；不支持旧 DOC/XLS/PPT、加密文件或扫描 PDF OCR。上下文失败/非视觉模型不能静默忽略图片；test:projects:sources 随 test:unit 收集。Source.type 实为 varchar，无 SQL enum 迁移，原文档仍仅存提取文本、无新 LibraryItem 归档。
+`lib/projects` 持有资料文本提取与聊天上下文组装；`lib/db/project-queries.ts` 持有项目/项目聊天/来源的归属查询与事务删除。项目聊天复用既有 Chat 表（`Chat.projectId`）与完整聊天链路，页面不实现第二个 agent loop；项目主页输入通过预建聊天加 `?query=` 进入聊天页。项目来源复用聊天格式白名单，支持常见现代 Office/文本与 PNG/JPEG/WebP/GIF；文档单份 100 MB，图片版本化 base64 存 Source.content，经官方 ImageContent/RuntimeCommand.images 输入视觉模型，项目图片最多 5 张合计 8 MB。图像不按文本截断，不做宿主 OCR；不支持旧 DOC/XLS/PPT、加密文件或扫描 PDF OCR。上下文失败/非视觉模型不能静默忽略图片；test:projects:sources 随 test:unit 收集。Source.type 实为 varchar，无 SQL enum 迁移，原文档仍仅存提取文本、无新 LibraryItem 归档。
 
-项目资料默认目录+每份512字符预览，完整已存文本由 SandboxRpc 在启动官方 Pi 前按32KiB UTF-8 无损切分，经 SandboxHandle.filesystem.writeAtomic 复制随机本次目录，manifest 最后提交；官方 read offset/limit 继续读取，禁止重写 agent loop/RPC/compaction。RuntimeSpec.projectSources 仅宿主 reference/hash grant；db/project-document-queries.ts 在复制前及发布前核验 actor/run（starting/sandbox_rpc）、enabled/非匿名成员、Chat及项目共享权限、资料目录/hash。其他 backend 明确拒绝，不进 Durable、不 fallback；物化失败 kill并核验destroyed、撤销 token。上传完整限额提取与聊天预览分离：原件≤20MB、提取文本单份≤2MiB、总文本≤8MiB、资料≤50份，超限拒绝不能存截断文本；60s解析取消是协作式，不是硬隔离。PIWORK_PROJECT_DOCUMENT_INPUTS_ENABLED 默认开，0退旧20k/80k预览但明确范围不足；装配变更需重启HMR manager。未知历史完整性不填已验证，已有截断需重上传；无原件版本/页码/OCR/检索/Embedding/Worker/恢复，模型覆盖自报不等于准确性验证。资料副本可写，运行中撤权销毁仍未接线。不要把 Source 查询写入 Pi 通用工具，也不要让项目逻辑绕过 RunManager。删除项目必须先停活跃 run 并在事务内清理 vote/message。test:projects:documents/:db/:http 为单元+真实官方RPC/faux模型、独立schema授权与独立Next上传接口，不调用真实模型/不做容量验收；方案及状态见 docs/project-document-processing-design.md。
+项目资料默认目录+每份512字符预览，完整已存文本由 SandboxRpc 在启动官方 Pi 前按32KiB UTF-8 无损切分，经 SandboxHandle.filesystem.writeAtomic 复制随机本次目录，manifest 最后提交；官方 read offset/limit 继续读取，禁止重写 agent loop/RPC/compaction。RuntimeSpec.projectSources 仅宿主 reference/hash grant；db/project-document-queries.ts 在复制前及发布前核验 actor/run（starting/sandbox_rpc）、enabled/非匿名成员、Chat及项目共享权限、资料目录/hash。其他 backend 明确拒绝，不进 Durable、不 fallback；物化失败 kill并核验destroyed、撤销 token。上传完整限额提取与聊天预览分离：原件≤100MB、提取文本单份≤2MiB、总文本≤8MiB、资料≤50份，超限拒绝不能存截断文本；60s解析取消是协作式，不是硬隔离。PIWORK_PROJECT_DOCUMENT_INPUTS_ENABLED 默认开，0退旧20k/80k预览但明确范围不足；装配变更需重启HMR manager。未知历史完整性不填已验证，已有截断需重上传；无原件版本/页码/OCR/检索/Embedding/Worker/恢复，模型覆盖自报不等于准确性验证。资料副本可写，运行中撤权销毁仍未接线。不要把 Source 查询写入 Pi 通用工具，也不要让项目逻辑绕过 RunManager。删除项目必须先停活跃 run 并在事务内清理 vote/message。test:projects:documents/:db/:http 为单元+真实官方RPC/faux模型、独立schema授权与独立Next上传接口，不调用真实模型/不做容量验收；方案及状态见 docs/project-document-processing-design.md。
 
 ## 沙箱 Runtime 边界
 
@@ -183,3 +183,9 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 ## 聊天搜索边界
 
 左上角 Dialog/Command 搜索经 `/api/history/search` 调用 `lib/db/chat-search-queries.ts`，仅 enabled 成员，owner ∪ collaborator（含项目聊天），只查标题与 text parts；最多 200 字符/50 条，无 reasoning/工具/附件/Pi session，不调用模型。查询复用 getDb，授权不得用客户端筛选替代；通配符按字面量转义。test:chat:search:db 仅清理独立夹具，不宣称容量验收。
+
+## 附件上传限额配置
+
+后台 `/admin/settings` 的「文件上传」分组配置全平台新上传的单文件限额（整数 1–100 MB，默认 100）。`lib/uploads/settings.ts` 持有纯校验/单位转换，`lib/db/upload-settings-queries.ts` 持有 UploadSettings 单例读取/upsert（迁移 0023，复用 getDb，不缓存），记录最后修改人/时间。`/api/admin/upload-settings` GET/PATCH 仅正式启用管理员；`/api/upload-settings` 仅正式启用成员读取公开限额。配置缺行用默认，非法存量/DB 故障拒绝，不静默恢复默认。
+
+新上传 `/api/files/upload`（聊天/文档库）与 `/api/projects/:id/sources` 在鉴权/归属检查后按最新配置校验；各 UI 通过共享 hook 读取动态提示和预检，服务端为最终准入。降低配置不追溯已有 LibraryItem 的下载/聊天选择；后者仍用 100 MB 部署硬上限。项目从 Library 导入为新 sources 上传，遵循最新限额。Next Proxy 请求体固定 128 MB，后台只允许≤100；图片、提取文本、Durable 单份 20 MB/合计 50 MB 处理限额不变。无 Pi loop/API/RuntimeSpec 变更，无容量验收；需求及交互见 [附件上传配置](upload-settings-design.md)。

@@ -8,7 +8,10 @@ import type {
   RuntimeSpec,
 } from "../../protocol";
 import type { SandboxProvider } from "../../sandbox";
-import type { DurableChatFiles } from "./chat-attachments";
+import {
+  type DurableChatFiles,
+  MAX_DURABLE_CHAT_ATTACHMENT_SIZE,
+} from "./chat-attachments";
 import { hashDurableChatInput, hashDurablePrompt, sha256 } from "./chat-input";
 import { assertDurableChatUser, type DurableChatConfig } from "./chat-policy";
 import { DurableSandboxBackend } from "./sandbox-backend";
@@ -101,7 +104,7 @@ export class DurableChatBackend implements RuntimeBackend {
             !/^inputs\/\d+-[a-zA-Z0-9._-]{1,150}$/.test(file.path) ||
             !Number.isSafeInteger(file.size) ||
             file.size < 0 ||
-            file.size > 20 * 1024 * 1024
+            file.size > MAX_DURABLE_CHAT_ATTACHMENT_SIZE
           ) {
             throw new Error(
               "runtime:durable-chat:invalid-attachment-reference"
@@ -122,7 +125,7 @@ export class DurableChatBackend implements RuntimeBackend {
           // No unbounded/parallel downloads.
           const content = await this.services.files.read(
             item.url,
-            20 * 1024 * 1024,
+            MAX_DURABLE_CHAT_ATTACHMENT_SIZE,
             signal
           );
           if (content.length !== file.size || sha256(content) !== file.sha256) {
@@ -133,7 +136,7 @@ export class DurableChatBackend implements RuntimeBackend {
           await handle.filesystem.writeAtomic({
             content,
             expectedSha256: null,
-            maxBytes: 20 * 1024 * 1024,
+            maxBytes: MAX_DURABLE_CHAT_ATTACHMENT_SIZE,
             path: `${handle.workspaceRoot}/${file.path}`,
             signal,
           });

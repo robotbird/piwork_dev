@@ -80,7 +80,10 @@
     "test:skills:sandbox:collector": "node --conditions=react-server --import tsx --test tests/unit/runtime/backends/sandbox-rpc/linux-skill-collector.test.ts",
     "test:i18n": "node --conditions=react-server --import tsx --test tests/unit/i18n/*.test.ts",
     "test:i18n:ui": "node --import tsx tests/e2e/i18n-ui.mts",
-    "test:chat:search:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/chat-search-queries.test.ts"
+    "test:chat:search:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/chat-search-queries.test.ts",
+    "test:uploads": "node --conditions=react-server --import tsx --test tests/unit/admin/upload-settings.test.ts tests/unit/ai/attachments.test.ts tests/unit/ai/project-source-files.test.ts tests/unit/chat/library-attachments.test.ts tests/unit/runtime/backends/durable/chat-attachments.test.ts tests/unit/runtime/backends/durable/chat-backend.test.ts",
+    "test:uploads:db": "node --conditions=react-server --import tsx --test --test-force-exit tests/unit/db/upload-settings-queries.test.ts",
+    "test:uploads:http": "node --import tsx tests/e2e/project-documents-http.mts"
   },
   "dependencies": {
     "@ai-sdk/provider": "^4.0.2",

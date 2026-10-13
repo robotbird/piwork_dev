@@ -31,6 +31,16 @@ export const user = pgTable("User", {
 
 export type User = InferSelectModel<typeof user>;
 
+/** Global admission limit for new uploads; existing files retain access. */
+export const uploadSettings = pgTable("UploadSettings", {
+  id: varchar("id", { length: 32 }).primaryKey().notNull(),
+  maxFileSizeMB: integer("maxFileSizeMB").notNull(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  updatedBy: uuid("updatedBy").references(() => user.id, {
+    onDelete: "set null",
+  }),
+});
+
 /** Singleton administrator policy for newly created RPC sandboxes. */
 export const sandboxSettings = pgTable("SandboxSettings", {
   cpuCores: doublePrecision("cpuCores").notNull(),

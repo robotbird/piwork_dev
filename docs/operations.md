@@ -269,3 +269,7 @@ PIWORK_OPENSANDBOX_CHAT_TEST=1 pnpm test:opensandbox:chat # 会真实调用模�
 只有单沙箱串行功能验证；本次 Skill 的真实deliver_file归档/鉴权HTTP下载已通过，浏览器UI、附件解析/水合、并发容量、重启恢复或完整安全隔离仍未验证，Durable未启用。公共域名访问此前异常不在本项修复内，本轮HTTP使用服务器本机入口。Docker网关绑定不是完整跨租户/宿主隔离证明，仍需安全、Worker/reaper、未知副作用对账等独立验收。
 
 依据：官方OpenSandbox server配置指南与1.1.1 wheel内config.py（publish_host为实际HostIp绑定）、CLI、Docker runtime；Pi 1.1.0 docs/sdk.md/session-format.md、SessionManager与CLI session-cwd检查。保持官方存储/进程协议，不替换agent loop。
+
+## 附件上传配置上线
+
+运行现有数据库迁移命令应用 `0023_upload_settings` 并重启 Next 应用，以加载新路由与 `experimental.proxyClientMaxBodySize=128mb`。反向代理请求体上限也须允许 100 MiB 文件及 multipart 封装。首次无配置行默认 100 MB；之后在「后台 → 通用设置 → 文件上传」保存 1–100 MB 整数，配置保存对新上传即时生效，无需再次重启。不得在表缺失或数据库错误时把 503 当作默认限额继续处理。既有文件访问与各处理限额不变，详见 [附件上传配置](upload-settings-design.md)。本轮不代表已部署生产。

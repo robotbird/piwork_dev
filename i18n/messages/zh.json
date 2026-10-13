@@ -54,7 +54,7 @@
     "uploadingLabel": "正在上传…",
     "uploadFailed": "上传失败",
     "sourcesUploaded": "已上传 {count} 个文件",
-    "emptySourcesHint": "上传图片、PDF、Word、Excel、PPT 等资料（文档每份最多 20 MB；项目图片最多 5 张、合计 8 MB，需视觉模型）",
+    "emptySourcesHint": "上传图片、PDF、Word、Excel、PPT 等资料（文档每份最多 {maxMB} MB；项目图片最多 5 张、合计 8 MB，需视觉模型）",
     "deleteSourceConfirmTitle": "删除此资料？",
     "deleteSourceConfirmDescription": "将从项目中移除「{name}」，其内容不再参与聊天检索，删除后无法恢复。",
     "emptySourcesTitle": "为项目提供更多上下文",
@@ -76,7 +76,8 @@
     "joinDescription": "加入后可查看项目资料并创建自己的对话。各自的对话保持私有。",
     "joinTitle": "加入共享项目",
     "loadingPage": "正在加载项目...",
-    "requestFailed": "请求失败"
+    "requestFailed": "请求失败",
+    "emptySourcesHintUnavailable": "上传图片、PDF、Word、Excel、PPT 等资料；项目图片最多 5 张、合计 8 MB，需视觉模型。"
   },
   "conversations": {
     "heading": "对话记录",
@@ -1050,7 +1051,7 @@
     "libraryEmpty": "没有找到文件，请先上传到我的文档库",
     "libraryLoadFailed": "无法加载文档库",
     "librarySelectFailed": "无法选择该文件，请刷新文档库后重试",
-    "libraryUnsupported": "暂不支持此格式或文件超过 20 MB",
+    "libraryUnsupported": "暂不支持此格式或文件超过 100 MB",
     "libraryRetry": "重试",
     "libraryDone": "完成",
     "addProject": "添加项目",
@@ -1254,7 +1255,21 @@
     "chooseLightDarkOrMatchYourSystem": "选择浅色、深色或跟随系统",
     "language": "语言",
     "light": "浅色",
-    "system": "跟随系统"
+    "system": "跟随系统",
+    "uploads": {
+      "title": "文件上传",
+      "label": "单个文件大小上限",
+      "range": "整数 1–100 MB",
+      "invalid": "请输入 1–100 之间的整数。",
+      "save": "保存更改",
+      "saving": "保存中…",
+      "saved": "已保存，对新上传生效。",
+      "saveFailed": "保存失败，请重试。输入内容已保留。",
+      "loadFailed": "无法读取上传配置，请重试。",
+      "retry": "重试",
+      "unit": "MB"
+    },
+    "preferences": "界面偏好"
   },
   "metadata": {
     "description": "piwork 企业 AI 任务助手"
@@ -1268,7 +1283,7 @@
     "goToMembersSuffix": "维护成员与角色信息。"
   },
   "api": {
-    "fileTooLarge": "文件超过 20 MB",
+    "fileTooLarge": "文件超过 {maxMB} MB",
     "unsupportedFile": "不支持该文件格式。支持：图片、PDF、Word、Excel、PowerPoint、OpenDocument、RTF、EPUB、Draw.io、文本与网页文件",
     "modelNoImages": "当前模型不支持图片，请切换到支持图片的模型。",
     "modelUnavailable": "模型不可用",
@@ -1300,7 +1315,7 @@
     "folderCreateFailed": "无法创建文件夹",
     "fileInvalid": "文件无效",
     "fileMissing": "文件不存在",
-    "attachmentUnsupported": "该文件格式暂不支持问答，或文件超过 20 MB",
+    "attachmentUnsupported": "该文件格式暂不支持问答，或文件超过 100 MB",
     "fileUnavailable": "文件不可用",
     "inviteInvalid": "分享链接失效或账号未启用",
     "taskInputInvalid": "输入无效，请检查任务名称、内容、计划和时区",
@@ -1332,7 +1347,8 @@
     "skillFileCount": "技能最多包含 {count} 个文件",
     "skillFileLimit": "文件“{name}”超过 5 MB 限制",
     "noAuthorizedModel": "没有可使用的模型",
-    "messageNotFound": "消息不存在"
+    "messageNotFound": "消息不存在",
+    "uploadSettingsUnavailable": "暂时无法读取上传限制，请稍后重试。"
   },
   "reasoning": {
     "thinking": "思考中…",
@@ -1644,7 +1660,7 @@
     "empty": "这里还没有文件",
     "trySearch": "试试其他文件名或分类。",
     "emptyHint": "拖入文件或点击上传。聊天附件和 AI 交付的文件也会自动保存在这里。",
-    "limits": "支持任意类型文件，单个文件最大 20 MB；AI 交付文件最大 50 MB。",
+    "limits": "支持任意类型文件，单个文件最大 {maxMB} MB；AI 交付文件最大 50 MB。",
     "dropHint": "拖放到此处，保存到当前文件夹",
     "newNote": "新建笔记",
     "newFolder": "新建文件夹",
@@ -1659,7 +1675,7 @@
     "save": "保存",
     "imagePreview": "图片预览",
     "downloadImage": "下载图片",
-    "fileLimit": "{name} 超过 20 MB 限制",
+    "fileLimit": "{name} 超过 {maxMB} MB 限制",
     "archived": "已归档 {count} 个文件",
     "itemActions": "{name}的操作",
     "previewFile": "预览 {name}",
@@ -1669,7 +1685,8 @@
     "coverImage": "图片",
     "coverSheet": "表格",
     "coverSlides": "演示",
-    "coverFile": "文件"
+    "coverFile": "文件",
+    "limitsUnavailable": "支持任意类型文件，上传大小以平台当前配置为准；AI 交付文件最大 50 MB。"
   },
   "scheduledTasks": {
     "paused": "已暂停",

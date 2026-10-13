@@ -38,6 +38,7 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import { usePreferences } from "@/components/preferences-provider";
+import { useUploadSettings } from "@/hooks/use-upload-settings";
 import {
   CHAT_ATTACHMENT_ACCEPT,
   MAX_CHAT_ATTACHMENT_COUNT,
@@ -50,6 +51,7 @@ import {
   normalizePastedText,
 } from "@/lib/chat-input";
 import type { Attachment, ChatMessage } from "@/lib/types";
+import { uploadLimitBytes } from "@/lib/uploads/settings";
 import { cn, fetcher, generateUUID } from "@/lib/utils";
 import {
   PromptInput,
@@ -386,8 +388,17 @@ function PureMultimodalInput({
     [chatT, router, setAttachments, setInput, setLocalStorageInput]
   );
 
+  const { data: uploadSettings } = useUploadSettings();
+  const uploadT = useTranslations("api");
+
   const uploadFile = useCallback(
     async (file: File) => {
+      if (uploadSettings && file.size > uploadLimitBytes(uploadSettings)) {
+        toast.error(
+          uploadT("fileTooLarge", { maxMB: uploadSettings.maxFileSizeMB })
+        );
+        return;
+      }
       const formData = new FormData();
       formData.append("file", file);
 
@@ -416,7 +427,7 @@ function PureMultimodalInput({
         toast.error(commonT("uploadFailed"));
       }
     },
-    [commonT]
+    [commonT, uploadSettings, uploadT]
   );
 
   const submitForm = useCallback(async () => {

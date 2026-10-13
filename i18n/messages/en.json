@@ -54,7 +54,7 @@
     "uploadingLabel": "Uploading…",
     "uploadFailed": "Upload failed",
     "sourcesUploaded": "Uploaded {count} file(s)",
-    "emptySourcesHint": "Upload images, PDF, Word, Excel, PowerPoint and more. Documents: up to 20 MB each. Project images: up to 5 and 8 MB total; requires a vision model.",
+    "emptySourcesHint": "Upload images, PDF, Word, Excel, PowerPoint and more. Documents: up to {maxMB} MB each. Project images: up to 5 and 8 MB total; requires a vision model.",
     "deleteSourceConfirmTitle": "Delete this source?",
     "deleteSourceConfirmDescription": "\"{name}\" will be removed from the project and no longer used for chat retrieval. This cannot be undone.",
     "emptySourcesTitle": "Add more context for your project",
@@ -76,7 +76,8 @@
     "joinDescription": "Join to view project sources and create your own chats. Each member’s chats remain private.",
     "joinTitle": "Join shared project",
     "loadingPage": "Loading projects…",
-    "requestFailed": "Request failed"
+    "requestFailed": "Request failed",
+    "emptySourcesHintUnavailable": "Upload images, PDF, Word, Excel, PowerPoint and more. Project images: up to 5 and 8 MB total; requires a vision model."
   },
   "conversations": {
     "heading": "Conversation records",
@@ -1050,7 +1051,7 @@
     "libraryEmpty": "No files found. Upload files to your library first.",
     "libraryLoadFailed": "Unable to load your library",
     "librarySelectFailed": "Unable to select this file. Refresh your library and try again.",
-    "libraryUnsupported": "Unsupported format or file exceeds 20 MB",
+    "libraryUnsupported": "Unsupported format or file exceeds 100 MB",
     "libraryRetry": "Retry",
     "libraryDone": "Done",
     "addProject": "Add project",
@@ -1254,7 +1255,21 @@
     "chooseLightDarkOrMatchYourSystem": "Choose light, dark, or match your system",
     "language": "Language",
     "light": "Light",
-    "system": "System"
+    "system": "System",
+    "uploads": {
+      "title": "File uploads",
+      "label": "Maximum file size",
+      "range": "Whole number from 1–100 MB",
+      "invalid": "Enter a whole number from 1 to 100.",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "saved": "Saved. Applies to new uploads.",
+      "saveFailed": "Could not save. Your input is preserved. Please try again.",
+      "loadFailed": "Could not load upload settings. Please try again.",
+      "retry": "Retry",
+      "unit": "MB"
+    },
+    "preferences": "Preferences"
   },
   "metadata": {
     "description": "piwork enterprise AI task assistant"
@@ -1268,7 +1283,7 @@
     "goToMembersSuffix": "to maintain member and role information."
   },
   "api": {
-    "fileTooLarge": "File exceeds 20 MB",
+    "fileTooLarge": "File exceeds {maxMB} MB",
     "unsupportedFile": "Unsupported file format. Supported types: images, PDF, Word, Excel, PowerPoint, OpenDocument, RTF, EPUB, Draw.io, text, and web files",
     "modelNoImages": "The current model does not support images. Switch to a model with image support.",
     "modelUnavailable": "Model is not available",
@@ -1300,7 +1315,7 @@
     "folderCreateFailed": "Unable to create folder",
     "fileInvalid": "Invalid file",
     "fileMissing": "File not found",
-    "attachmentUnsupported": "This file type is not supported for chat, or the file exceeds 20 MB",
+    "attachmentUnsupported": "This file type is not supported for chat, or the file exceeds 100 MB",
     "fileUnavailable": "File unavailable",
     "inviteInvalid": "Share link invalid or account disabled",
     "taskInputInvalid": "Invalid input. Check the task name, instructions, schedule and time zone.",
@@ -1332,7 +1347,8 @@
     "skillFileCount": "A skill can contain at most {count} files.",
     "skillFileLimit": "File \"{name}\" exceeds the 5 MB limit.",
     "noAuthorizedModel": "No authorized model",
-    "messageNotFound": "Message not found"
+    "messageNotFound": "Message not found",
+    "uploadSettingsUnavailable": "Upload limits are temporarily unavailable. Please try again."
   },
   "reasoning": {
     "thinking": "Thinking…",
@@ -1644,7 +1660,7 @@
     "empty": "No files here yet",
     "trySearch": "Try another file name or category.",
     "emptyHint": "Drop files here or click Upload. Chat attachments and files delivered by AI are also saved here.",
-    "limits": "All file types supported. Uploads: up to 20 MB per file; AI delivered files: up to 50 MB.",
+    "limits": "All file types supported. Uploads: up to {maxMB} MB per file; AI delivered files: up to 50 MB.",
     "dropHint": "Drop here to save to the current folder",
     "newNote": "New note",
     "newFolder": "New folder",
@@ -1659,7 +1675,7 @@
     "save": "Save",
     "imagePreview": "Image preview",
     "downloadImage": "Download image",
-    "fileLimit": "{name} exceeds the 20 MB limit",
+    "fileLimit": "{name} exceeds the {maxMB} MB limit",
     "archived": "Archived {count, plural, one {# file} other {# files}}",
     "itemActions": "Actions for {name}",
     "previewFile": "Preview {name}",
@@ -1669,7 +1685,8 @@
     "coverImage": "IMAGE",
     "coverSheet": "SHEET",
     "coverSlides": "SLIDES",
-    "coverFile": "FILE"
+    "coverFile": "FILE",
+    "limitsUnavailable": "All file types supported. Upload limits follow the current platform settings; AI delivered files: up to 50 MB."
   },
   "scheduledTasks": {
     "paused": "Paused",

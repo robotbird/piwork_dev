@@ -129,7 +129,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 
 ### 聊天文档库选择验证
 
-- `pnpm test:chat:library` 验证搜索/最近排序、目录排除、跨文件夹选择、格式与20 MB限制、笔记 MIME 归一化；也由 `test:runtime` 收集。
+- `pnpm test:chat:library` 验证搜索/最近排序、目录排除、跨文件夹选择、格式与100 MB限制、笔记 MIME 归一化；也由 `test:runtime` 收集。
 - `pnpm test:documents:http` 新增选择接口：本人文件解析、非本人/文件夹拒绝、无效 ID 与不支持扩展名拒绝。沿用独立账号与文件清理，不调用模型。
 - `pnpm test:chat:library:http` 使用本地服务和独立正式身份（`LIBRARY_TEST_URL`），Chromium 截获文档库、模型目录、附件解析与聊天 POST，验证搜索、图片/文件名、浏览全部、附件发送和390px布局；不调用真实模型，不等于真实附件问答或容量验收。
 - 上传文件复用现有存储引用；可编辑笔记选择时归档快照，沿用原存储模式（旧 public Blob 不迁移）。项目预建 query 链路仍不传附件。Pi 依据为安装版 Pi SDK/Message Types与PromptOptions.images/ImageContent，既有Runtime负责运行。
@@ -153,11 +153,13 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 
 ### 项目资料格式验证
 
+上传请求经过鉴权 Proxy，`next.config.ts` 的 `experimental.proxyClientMaxBodySize` 设为 `128mb`，覆盖 100 MiB 文件及 multipart 封装，避免 Next 默认 10 MiB 截断。接口按数据库配置校验单文件 1–100 MiB 与既有提取文本限额；配置变更须重启 Next 服务。`test:projects:documents:http` 用 11 MiB 文本验证请求完整到达接口并按提取限额拒绝，不报请求体为空，并验证 100 MiB + 1 字节文件按文件限额拒绝。
+
 完整文本读取（方案 A）：`pnpm test:projects:documents` 包含20k/60k/150k边界、真实Office提取、UTF-8/长单行无损切分、官方read续读、真实官方RpcClient+faux模型、取消/变更/写入失败及经典路由；随 test:unit/test:runtime 对应目录收集。`pnpm test:projects:documents:db` 创建唯一schema（无public fallback，不复制用户/运行/模型），验证正式成员、共享资料、actor/run/backend/chat/project绑定与撤权，结束仅删自己schema。`pnpm test:projects:documents:http` 启动独立Next服务（默认3017，PIWORK_PROJECT_DOCUMENT_HTTP_PORT可改）及独立schema，验证>150k文本上传完整保存、列表字符数/历史告警、超限/越权拒绝；无模型调用，失败保留本组日志。测试环境/替身在 tests/support/project-documents 和 tests/support/project-document-faux-extension.ts；断言处理范围不等于真实模型完整提取准确性。若pnpm环境自动安装检查要求清空现有node_modules，不清空工作目录依赖；可使用package.json中的原始node命令。
 
 默认启用完整资料输入，`PIWORK_PROJECT_DOCUMENT_INPUTS_ENABLED=0` 仅回滚为明确不完整的旧预览。projectSources 是宿主reference grant；装配已缓存于HMR RunManager，代码更新后重启本地服务。资料限额50份、文本单份2MiB/总8MiB、片段32KiB、索引/manifest128KiB；超限拒绝，不能把保存截断视为成功。60s解析/120s物化为协作式超时，非硬隔离。现有Source.content无需数据迁移，原件缺失/历史完整性未知不能推断补全。无新Worker、Durable入口、原件版本库、页码/OCR/检索或可信覆盖门禁。方案与当前状态见 [项目大文档处理](project-document-processing-design.md)。
 
-`pnpm test:projects:sources`（也随 test:unit 收集）覆盖格式白名单、旧格式拒绝、真实 DOCX/CSV/Markdown/JSON 提取、图像载荷往返/签名/大小与上下文截断隔离、图片总量限制和损坏拒绝；不调用真实模型。项目图片直接经 Pi 1.1.0 官方 ImageContent（base64/MIME）与既有 RuntimeCommand.images 输入，需视觉模型；无 OCR、新 agent loop 或向量检索。文档单份 20 MB，项目图片最多 5 张合计 8 MB；上传后请在视觉模型项目聊天中另做真实图像问答验收。旧 DOC/XLS/PPT、加密文档、扫描 PDF OCR 不在支持声明中。无需 SQL 迁移；Source.type 本来就是 varchar。
+`pnpm test:projects:sources`（也随 test:unit 收集）覆盖格式白名单、旧格式拒绝、真实 DOCX/CSV/Markdown/JSON 提取、图像载荷往返/签名/大小与上下文截断隔离、图片总量限制和损坏拒绝；不调用真实模型。项目图片直接经 Pi 1.1.0 官方 ImageContent（base64/MIME）与既有 RuntimeCommand.images 输入，需视觉模型；无 OCR、新 agent loop 或向量检索。文档单份 100 MB，项目图片最多 5 张合计 8 MB；上传后请在视觉模型项目聊天中另做真实图像问答验收。旧 DOC/XLS/PPT、加密文档、扫描 PDF OCR 不在支持声明中。无需 SQL 迁移；Source.type 本来就是 varchar。
 
 ## 对话分享与协作验证（2026-10-09）
 
@@ -321,3 +323,7 @@ SQLite 不是 Demo 标记，PostgreSQL 也不是所有状态的唯一生产选�
 ## Pi 1.2.0 升级（2026-10-13）
 
 五个 Pi/chord 核心包及模型插件开发依赖精确固定 1.2.0，镜像 CLI 默认值同步。Durable AgentTool 桥将官方 coding-agent 的 content 映射到新版 ToolExecutionResult.output；嵌套工具完成事件读取官方 result.isError，Storage 故障引起 session_failed 时先回收受管执行再发布平台失败，不重试副作用。持久 binding/input hash 同步，旧版本运行拒绝静默重开。SDK/RPC/Inference Proxy 保持官方实现与既有职责边界；不启用新增 Durable codemode/tool-search/自动恢复。官方依据与本轮验证见 [升级记录](pi-upgrades.md)，上线须更新执行端镜像并重启 Web/HMR 单例。
+
+## 附件上传配置验证
+
+`pnpm test:uploads` 覆盖 1/100 边界与非法配置、既有附件及选择器；`pnpm test:uploads:db` 用独立 schema 验证默认/upsert/updatedBy/即时读取和 DB 故障拒绝。`pnpm test:uploads:http` 复用隔离项目资料 HTTP 夹具，验证管理员/普通成员/禁用身份权限、新限额对文件/项目上传生效、精确字节边界、既有文件在降额后仍能下载和选择及故障 503。`PIWORK_UPLOAD_BROWSER_TESTS=1` 追加 Chromium 表单保存、校验、失败输入保留与移动布局检查。独立 Next/dist/schema/私有上传目录，不改日常配置、不调用真实模型、不做容量测试。生产上线须迁移 0023 并重启应用；之后后台策略保存对新请求即时生效。

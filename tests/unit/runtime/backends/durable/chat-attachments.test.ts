@@ -108,3 +108,18 @@ test("bounded stored-file reader rejects oversize/symlink/hardlink/unsafe roots 
     readBoundedStoredFile("/api/files/source.txt", root, 6, AbortSignal.abort())
   );
 });
+
+test("upload allowance does not expand Durable bounded attachment processing", async () => {
+  let readLimit = 0;
+  await assert.rejects(
+    prepareDurableChatAttachments(owner, message(), {
+      ...files,
+      read: (_url, maxBytes) => {
+        readLimit = maxBytes;
+        return Promise.resolve(new Uint8Array(21 * 1024 * 1024));
+      },
+    }),
+    /attachment-size-limit/
+  );
+  assert.equal(readLimit, 20 * 1024 * 1024);
+});

@@ -52,7 +52,14 @@ export async function POST(
           )
         : Buffer.from(doc.content ?? "", "utf8");
     if (bytes.byteLength > MAX_CHAT_ATTACHMENT_SIZE) {
-      return Response.json({ error: t("fileTooLarge") }, { status: 400 });
+      return Response.json(
+        {
+          error: t("fileTooLarge", {
+            maxMB: MAX_CHAT_ATTACHMENT_SIZE / (1024 * 1024),
+          }),
+        },
+        { status: 400 }
+      );
     }
     // Editable notes are snapshotted so this turn refers to stable bytes,
     // including in Durable's existing owned LibraryItem/hash pipeline.

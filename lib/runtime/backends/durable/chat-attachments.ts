@@ -3,12 +3,14 @@ import {
   getSupportedAttachmentType,
   isVisionAttachment,
   MAX_CHAT_ATTACHMENT_COUNT,
-  MAX_CHAT_ATTACHMENT_SIZE,
 } from "@/lib/ai/attachment-types";
 import { sanitizeFilename } from "@/lib/ai/file-store";
 import type { ChatMessage } from "@/lib/types";
 import type { DurableChatAttachment } from "../../protocol";
 import { sha256 } from "./chat-input";
+
+// Runtime hydration retains its processing limit, independent of upload admission.
+export const MAX_DURABLE_CHAT_ATTACHMENT_SIZE = 20 * 1024 * 1024;
 
 export type OwnedChatFile = {
   id: string;
@@ -58,10 +60,10 @@ export async function prepareDurableChatAttachments(
     // Do not read all attachments concurrently.
     const content = await files.read(
       item.url,
-      MAX_CHAT_ATTACHMENT_SIZE,
+      MAX_DURABLE_CHAT_ATTACHMENT_SIZE,
       signal
     );
-    if (content.length > MAX_CHAT_ATTACHMENT_SIZE) {
+    if (content.length > MAX_DURABLE_CHAT_ATTACHMENT_SIZE) {
       throw new Error("durable-chat:attachment-size-limit");
     }
     total += content.length;

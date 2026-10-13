@@ -41,12 +41,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { MAX_CHAT_ATTACHMENT_SIZE } from "@/lib/ai/attachment-types";
+import { useUploadSettings } from "@/hooks/use-upload-settings";
 import {
   fileCategory,
   formatFileSize,
   type LibraryItem,
 } from "@/lib/documents/types";
+import { uploadLimitBytes } from "@/lib/uploads/settings";
 import { cn } from "@/lib/utils";
 import styles from "./document-library.module.css";
 
@@ -108,6 +109,7 @@ function fileStyle(item: LibraryItem) {
 
 export function DocumentLibrary() {
   const { t, language } = usePreferences();
+  const { data: uploadSettings } = useUploadSettings();
   const requestJSON = (url: string, options?: RequestInit) =>
     fetchJSON(url, t("documents.operationFailed"), options);
   const {
@@ -170,8 +172,13 @@ export function DocumentLibrary() {
     setDialog({ item, mode });
   }
   async function upload(file: File) {
-    if (file.size > MAX_CHAT_ATTACHMENT_SIZE) {
-      throw new Error(t("documents.fileLimit", { name: file.name }));
+    if (uploadSettings && file.size > uploadLimitBytes(uploadSettings)) {
+      throw new Error(
+        t("documents.fileLimit", {
+          maxMB: uploadSettings.maxFileSizeMB,
+          name: file.name,
+        })
+      );
     }
     const form = new FormData();
     form.append("file", file);
@@ -644,7 +651,9 @@ export function DocumentLibrary() {
       )}
       <p className={styles.hint}>
         <Sparkles className="size-3.5" />
-        {t("documents.limits")}
+        {uploadSettings
+          ? t("documents.limits", { maxMB: uploadSettings.maxFileSizeMB })
+          : t("documents.limitsUnavailable")}
       </p>
       {dragging === true && (
         <div className="pointer-events-none absolute inset-3 z-40 grid place-items-center rounded-2xl border-2 border-dashed border-blue-400 bg-background/95">

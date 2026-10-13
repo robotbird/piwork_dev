@@ -49,8 +49,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useUploadSettings } from "@/hooks/use-upload-settings";
 import { CHAT_ATTACHMENT_ACCEPT } from "@/lib/ai/attachment-types";
 import type { Attachment } from "@/lib/types";
+import { uploadLimitBytes } from "@/lib/uploads/settings";
 import { generateUUID } from "@/lib/utils";
 import {
   formatShortDate,
@@ -74,6 +76,8 @@ export function ProjectHome({
   projectName: string;
 }) {
   const t = useTranslations("projects");
+  const apiT = useTranslations("api");
+  const { data: uploadSettings } = useUploadSettings();
   const locale = useLocale();
   const router = useRouter();
   const { mutate: globalMutate } = useSWRConfig();
@@ -153,6 +157,11 @@ export function ProjectHome({
       const form = new FormData();
       form.append("file", file);
       try {
+        if (uploadSettings && file.size > uploadLimitBytes(uploadSettings)) {
+          throw new Error(
+            apiT("fileTooLarge", { maxMB: uploadSettings.maxFileSizeMB })
+          );
+        }
         // biome-ignore lint/performance/noAwaitInLoops: 逐个上传，避免并发触发解析压力
         await request(`/api/projects/${projectId}/sources`, {
           body: form,
@@ -491,7 +500,11 @@ export function ProjectHome({
                 {t("emptySourcesTitle")}
               </p>
               <p className="text-sm text-muted-foreground">
-                {t("emptySourcesHint")}
+                {uploadSettings
+                  ? t("emptySourcesHint", {
+                      maxMB: uploadSettings.maxFileSizeMB,
+                    })
+                  : t("emptySourcesHintUnavailable")}
               </p>
               <Button
                 className="mt-4 rounded-full"

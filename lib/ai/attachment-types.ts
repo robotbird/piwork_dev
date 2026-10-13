@@ -1,5 +1,5 @@
 export const MAX_CHAT_ATTACHMENT_COUNT = 5;
-export const MAX_CHAT_ATTACHMENT_SIZE = 20 * 1024 * 1024;
+export const MAX_CHAT_ATTACHMENT_SIZE = 100 * 1024 * 1024;
 
 const ATTACHMENT_TYPES = {
   csv: "text/csv",

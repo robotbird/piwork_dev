@@ -5,6 +5,7 @@
 | 文档 | 用途 | 状态 |
 | --- | --- | --- |
 | [Pi 官方依赖升级记录](pi-upgrades.md) | 当前依赖基线、官方兼容性变化、验证与版本描述约定 | 当前版本以 package.json / pnpm-lock.yaml 为准；历史研究版本不代表当前基线 |
+| [附件上传配置](upload-settings-design.md) | 通用设置的全平台上传限额、权限/即时生效、既有文件兼容与验收 | 当前实现，需迁移 0023；不扩张图片/文本/Runtime 处理限制 |
 | [项目架构](architecture.md) | 模块职责、运行链路、数据边界、当前状态 | 当前实现；新开发先读 |
 | [项目大文档处理方案](project-document-processing-design.md) | 全文保存、沙箱分段读取、覆盖与字段验证、私有原件和分期实施 | A 已实现及验证；B/C 仍为设计，无检索/OCR/Worker/恢复或可信覆盖门禁 |
 | [平台联网搜索](web-search.md) | 固定 Tavily 受控搜索、轻量路由、逐次授权/限额与来源持久化 | 当前实现；默认关闭，需 PIWORK_WEB_SEARCH_ENABLED + TAVILY_API_KEY；不含 web_fetch/任意抓取 |

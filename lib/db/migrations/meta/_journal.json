@@ -162,6 +162,13 @@
       "when": 1791684840532,
       "tag": "0022_project_sharing",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791882397055,
+      "tag": "0023_upload_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -171,7 +171,9 @@ export async function downloadAttachment(
       throw new Error(`Unable to read attachment "${part.filename}".`);
     }
     if (file.content.byteLength > MAX_CHAT_ATTACHMENT_SIZE) {
-      throw new Error(`Attachment "${part.filename}" exceeds the 20 MB limit.`);
+      throw new Error(
+        `Attachment "${part.filename}" exceeds the 100 MB limit.`
+      );
     }
     return new Uint8Array(file.content);
   }
@@ -184,12 +186,12 @@ export async function downloadAttachment(
 
   const declaredSize = Number(response.headers.get("content-length") ?? 0);
   if (declaredSize > MAX_CHAT_ATTACHMENT_SIZE) {
-    throw new Error(`Attachment "${part.filename}" exceeds the 20 MB limit.`);
+    throw new Error(`Attachment "${part.filename}" exceeds the 100 MB limit.`);
   }
 
   const content = new Uint8Array(await response.arrayBuffer());
   if (content.byteLength > MAX_CHAT_ATTACHMENT_SIZE) {
-    throw new Error(`Attachment "${part.filename}" exceeds the 20 MB limit.`);
+    throw new Error(`Attachment "${part.filename}" exceeds the 100 MB limit.`);
   }
   return content;
 }

@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
-import { MAX_CHAT_ATTACHMENT_SIZE } from "@/lib/ai/attachment-types";
 import { DocumentInputError } from "@/lib/ai/document-errors";
 import {
   createSource,
@@ -9,6 +8,7 @@ import {
   getProjectDocumentSources,
   listSources,
 } from "@/lib/db/project-queries";
+import { getUploadSettings } from "@/lib/db/upload-settings-queries";
 import { assembleProjectSourcesContext } from "@/lib/projects/context";
 import {
   extractSourceText,
@@ -16,6 +16,7 @@ import {
   sourceImageMime,
   sourceTypeFromFilename,
 } from "@/lib/projects/source-files";
+import { type UploadSettings, uploadLimitBytes } from "@/lib/uploads/settings";
 
 type Context = { params: Promise<{ projectId: string }> };
 
@@ -51,6 +52,16 @@ export async function POST(request: Request, context: Context) {
     return Response.json({ error: t("projectNotFound") }, { status: 404 });
   }
 
+  let settings: UploadSettings;
+  try {
+    settings = await getUploadSettings();
+  } catch {
+    return Response.json(
+      { error: t("uploadSettingsUnavailable") },
+      { status: 503 }
+    );
+  }
+
   let file: File;
   try {
     const formData = await request.formData();
@@ -63,8 +74,11 @@ export async function POST(request: Request, context: Context) {
     return Response.json({ error: t("requestBodyEmpty") }, { status: 400 });
   }
 
-  if (file.size > MAX_CHAT_ATTACHMENT_SIZE) {
-    return Response.json({ error: t("fileTooLarge") }, { status: 400 });
+  if (file.size > uploadLimitBytes(settings)) {
+    return Response.json(
+      { error: t("fileTooLarge", { maxMB: settings.maxFileSizeMB }) },
+      { status: 400 }
+    );
   }
   const type = sourceTypeFromFilename(file.name);
   if (!type) {

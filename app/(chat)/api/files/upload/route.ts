@@ -3,30 +3,39 @@ import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
-import {
-  getSupportedAttachmentType,
-  MAX_CHAT_ATTACHMENT_SIZE,
-} from "@/lib/ai/attachment-types";
+import { getSupportedAttachmentType } from "@/lib/ai/attachment-types";
 import { storeFile } from "@/lib/ai/file-store";
 import {
   assertLibraryFolder,
   registerLibraryFile,
 } from "@/lib/db/library-queries";
+import { getUploadSettings } from "@/lib/db/upload-settings-queries";
+import { type UploadSettings, uploadLimitBytes } from "@/lib/uploads/settings";
 
 export async function POST(request: Request) {
   const t = await getTranslations("api");
-  const fileSchema = z.object({
-    file: z
-      .instanceof(Blob)
-      .refine((file) => file.size <= MAX_CHAT_ATTACHMENT_SIZE, {
-        message: t("fileTooLarge"),
-      }),
-  });
   const session = await auth();
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: t("unauthorized") }, { status: 401 });
   }
+
+  let settings: UploadSettings;
+  try {
+    settings = await getUploadSettings();
+  } catch {
+    return NextResponse.json(
+      { error: t("uploadSettingsUnavailable") },
+      { status: 503 }
+    );
+  }
+  const fileSchema = z.object({
+    file: z
+      .instanceof(Blob)
+      .refine((file) => file.size <= uploadLimitBytes(settings), {
+        message: t("fileTooLarge", { maxMB: settings.maxFileSizeMB }),
+      }),
+  });
 
   if (request.body === null) {
     return new Response(t("requestBodyEmpty"), { status: 400 });
