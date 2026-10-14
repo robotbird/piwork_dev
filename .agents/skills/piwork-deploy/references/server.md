@@ -65,7 +65,7 @@ SCHEDULED_TASKS_ENABLED=true        # 本机是唯一常驻 RunManager 实例
 server {
     listen 80;
     server_name piwork.net www.piwork.net;
-    client_max_body_size 20M;
+    client_max_body_size 128M;
     location / {
         proxy_pass http://127.0.0.1:3002;
         proxy_http_version 1.1;

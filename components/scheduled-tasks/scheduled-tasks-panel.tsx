@@ -20,7 +20,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 import { usePreferences } from "@/components/preferences-provider";
@@ -50,7 +50,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { describeSchedule } from "@/lib/scheduler/display";
-import { copyTextToClipboard } from "@/lib/utils";
+import { cn, copyTextToClipboard } from "@/lib/utils";
 
 type Task = {
   id: string;
@@ -99,13 +99,26 @@ const templates = [
   },
 ];
 
-async function fetchJSON(url: string, fallback: string, options?: RequestInit) {
-  const response = await fetch(url, options);
-  const body = await response.json();
-  if (!response.ok) {
-    throw new Error(body.error || fallback);
+async function fetchJSON(
+  url: string,
+  fallback: string,
+  timeoutMessage: string,
+  options?: RequestInit
+) {
+  const signal = options?.signal ?? AbortSignal.timeout(30_000);
+  try {
+    const response = await fetch(url, { ...options, signal });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.error || fallback);
+    }
+    return body;
+  } catch (error) {
+    if (signal.aborted && signal.reason?.name === "TimeoutError") {
+      throw new Error(timeoutMessage);
+    }
+    throw error;
   }
-  return body;
 }
 const date = (
   value: string | null,
@@ -144,7 +157,12 @@ const relativeTime = (
 export function ScheduledTasksPanel() {
   const { t, language } = usePreferences();
   const request = (url: string, options?: RequestInit) =>
-    fetchJSON(url, t("scheduledTasks.operationFailed"), options);
+    fetchJSON(
+      url,
+      t("scheduledTasks.operationFailed"),
+      t("scheduledTasks.requestTimedOut"),
+      options
+    );
   const {
     data: tasks,
     error,
@@ -154,6 +172,41 @@ export function ScheduledTasksPanel() {
     refreshInterval: 5000,
   });
   const [query, setQuery] = useState("");
+  const [multiline, setMultiline] = useState(false);
+  const composerRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    const composer = composerRef.current;
+    if (!textarea || !composer) {
+      return;
+    }
+    const resize = () => {
+      // 固定单行可用宽度，避免展开后的宽度变化导致布局反复切换。
+      textarea.style.width = `${Math.max(composer.clientWidth - 144, 1)}px`;
+      textarea.style.paddingInline = "0px";
+      textarea.style.height = "0px";
+      const needsMultiline = textarea.scrollHeight > 40;
+      textarea.style.width = "";
+      textarea.style.paddingInline = "";
+      const height = textarea.scrollHeight;
+      textarea.style.height = `${Math.min(height, 240)}px`;
+      textarea.style.overflowY = height > 240 ? "auto" : "hidden";
+      setMultiline(needsMultiline);
+    };
+    resize();
+    let width = composer.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (composer.clientWidth !== width) {
+        width = composer.clientWidth;
+        resize();
+      }
+    });
+    observer.observe(composer);
+    return () => observer.disconnect();
+  }, [query, multiline]);
+
   const [filter, setFilter] = useState("all");
   const [editing, setEditing] = useState<Task | null>(null);
   const [details, setDetails] = useState<Task | null>(null);
@@ -274,7 +327,11 @@ export function ScheduledTasksPanel() {
           </DropdownMenu>
         </header>
         <form
-          className="composer-plain flex h-14 items-center gap-2 rounded-full border border-[var(--hairline-strong)] bg-card px-2 shadow-[var(--shadow-whisper)]"
+          className={cn(
+            "composer-plain grid min-h-14 grid-cols-[40px_minmax(0,1fr)_32px_32px] items-center gap-x-2 border border-[var(--hairline-strong)] bg-card px-2 py-[7px] shadow-[var(--shadow-whisper)]",
+            multiline ? "gap-y-2 rounded-[28px]" : "rounded-full"
+          )}
+          ref={composerRef}
           onSubmit={(event) => {
             event.preventDefault();
             startChat(query);
@@ -284,7 +341,7 @@ export function ScheduledTasksPanel() {
             <TooltipTrigger asChild>
               <Button
                 aria-label={t("scheduledTasks.manual")}
-                className="size-10 shrink-0 cursor-pointer rounded-full p-0 text-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted"
+                className="col-start-1 row-start-2 size-10 shrink-0 cursor-pointer rounded-full p-0 text-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted"
                 onClick={() => setManual(true)}
                 size="icon"
                 type="button"
@@ -295,19 +352,37 @@ export function ScheduledTasksPanel() {
             </TooltipTrigger>
             <TooltipContent>{t("scheduledTasks.manual")}</TooltipContent>
           </Tooltip>
-          <input
+          <textarea
             aria-label={t("scheduledTasks.schedule")}
-            className="min-w-0 flex-1 bg-transparent py-2 text-base outline-none placeholder:text-muted-foreground"
+            className={cn(
+              "min-w-0 w-full resize-none overflow-x-hidden whitespace-pre-wrap break-words bg-transparent py-2 text-base leading-6 outline-none placeholder:text-muted-foreground",
+              multiline
+                ? "col-span-4 col-start-1 row-start-1 px-3"
+                : "col-start-2 row-start-2"
+            )}
             maxLength={2000}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key !== "Enter" ||
+                event.shiftKey ||
+                event.nativeEvent.isComposing
+              ) {
+                return;
+              }
+              event.preventDefault();
+              startChat(event.currentTarget.value);
+            }}
             placeholder={t("scheduledTasks.schedule")}
+            ref={textareaRef}
+            rows={1}
             value={query}
           />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 aria-label={t("scheduledTasks.voice")}
-                className="size-8 shrink-0 rounded-full text-foreground transition-colors duration-150 hover:bg-muted"
+                className="col-start-3 row-start-2 size-8 shrink-0 rounded-full text-foreground transition-colors duration-150 hover:bg-muted"
                 onClick={() => toast.info(t("scheduledTasks.voiceSoon"))}
                 size="icon"
                 type="button"
@@ -322,7 +397,7 @@ export function ScheduledTasksPanel() {
             <TooltipTrigger asChild>
               <Button
                 aria-label={t("scheduledTasks.scheduleWithAI")}
-                className="size-8 shrink-0 rounded-full"
+                className="col-start-4 row-start-2 size-8 shrink-0 rounded-full"
                 disabled={!query.trim()}
                 type="submit"
               >
@@ -572,6 +647,9 @@ export function ScheduledTasksPanel() {
               onClick={() => deleting && change(deleting, "delete")}
               variant="destructive"
             >
+              {busy === deleting?.id && (
+                <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+              )}
               {t("scheduledTasks.deleteTask")}
             </Button>
           </DialogFooter>
@@ -592,7 +670,12 @@ function TaskEditor({
 }) {
   const { t } = usePreferences();
   const request = (url: string, options?: RequestInit) =>
-    fetchJSON(url, t("scheduledTasks.operationFailed"), options);
+    fetchJSON(
+      url,
+      t("scheduledTasks.operationFailed"),
+      t("scheduledTasks.requestTimedOut"),
+      options
+    );
   const [title, setTitle] = useState(task?.taskType || "");
   const [prompt, setPrompt] = useState(task?.prompt || "");
   const [cron, setCron] = useState(task?.schedule.cron || "0 9 * * *");
@@ -747,7 +830,12 @@ function TaskEditor({
 function TaskHistory({ task, onClose }: { task: Task; onClose: () => void }) {
   const { t, language } = usePreferences();
   const request = (url: string, options?: RequestInit) =>
-    fetchJSON(url, t("scheduledTasks.operationFailed"), options);
+    fetchJSON(
+      url,
+      t("scheduledTasks.operationFailed"),
+      t("scheduledTasks.requestTimedOut"),
+      options
+    );
   const { data, error, isLoading } = useSWR<{ runs: Run[] }>(
     `/api/scheduled-tasks/${task.id}`,
     request,

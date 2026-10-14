@@ -1704,6 +1704,7 @@
     "inspirationQuery": "请创建定时任务：每天上午 8 点（北京时间）分享一个提升工作效率的方法，附具体例子与当天可以实践的小行动。",
     "inspirationTitle": "每日灵感",
     "operationFailed": "操作失败",
+    "requestTimedOut": "请求超时，操作结果尚未确认。请刷新任务列表核对状态。",
     "notScheduled": "尚未安排",
     "soon": "即将运行",
     "started": "任务已开始运行",

@@ -417,8 +417,8 @@ server {
     listen 80;
     server_name $DOMAIN www.$DOMAIN;
 
-    # 上传体积上限（与平台 20MB/文件限制一致）
-    client_max_body_size 20M;
+    # 允许平台最高 100 MiB 文件及 multipart 开销；业务限额由应用校验
+    client_max_body_size 128M;
 
     location / {
         proxy_pass http://127.0.0.1:$PORT;
@@ -582,6 +582,34 @@ cmd_rollback() {
   log "回滚完成，当前版本: $prev"
 }
 
+# Patch only this vhost; preserve custom listeners and TLS settings.
+cmd_upload_limit() {
+  precheck_local
+  log "调整 Piwork nginx 上传入口为 128M（备份、校验、失败回滚）"
+  rr "python3 - '$NGX_CONF' '$NGX_BIN'" <<'PYREMOTE'
+import pathlib, re, shutil, subprocess, sys, time
+conf = pathlib.Path(sys.argv[1])
+nginx = sys.argv[2]
+original = conf.read_text()
+updated, count = re.subn(r"(?m)^(\s*)client_max_body_size\s+[^;]+;", r"\1client_max_body_size 128M;", original)
+if count != 1:
+    raise SystemExit("Expected exactly one upload directive; refusing ambiguous configuration")
+updated = updated.replace("上传体积上限（与平台 20MB/文件限制一致）", "上传入口允许 100 MiB 文件及表单开销；业务限额由应用校验")
+backup = str(conf) + ".backup-" + str(int(time.time() * 1000000))
+shutil.copy2(conf, backup)
+try:
+    conf.write_text(updated)
+    subprocess.check_call([nginx, "-t"])
+    subprocess.check_call([nginx, "-s", "reload"])
+except BaseException:
+    shutil.copy2(backup, conf)
+    subprocess.check_call([nginx, "-t"])
+    subprocess.check_call([nginx, "-s", "reload"])
+    raise
+print("Upload ingress: 128M; backup:", backup)
+PYREMOTE
+}
+
 cmd_status() {
   precheck_local
   echo "== pm2 =="
@@ -598,7 +626,7 @@ cmd_status() {
 # ---------- 参数解析 ----------
 while [ $# -gt 0 ]; do
   case "$1" in
-    first | daily | rollback | status) CMD="$1" ;;
+    first | daily | rollback | status | upload-limit) CMD="$1" ;;
     ci)
       CMD="ci"
       shift
@@ -625,4 +653,5 @@ case "$CMD" in
   ci) cmd_ci ;;
   rollback) cmd_rollback ;;
   status) cmd_status ;;
+  upload-limit) cmd_upload_limit ;;
 esac

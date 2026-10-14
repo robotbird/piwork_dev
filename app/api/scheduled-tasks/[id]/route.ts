@@ -10,7 +10,6 @@ import {
   listTaskRuns,
   setTaskEnabled,
 } from "@/lib/db/scheduled-task-queries";
-import { executeScheduledTask } from "@/lib/scheduler/executor";
 import { taskApiError } from "@/lib/scheduler/http";
 import { taskInputSchema } from "@/lib/scheduler/validation";
 
@@ -78,7 +77,11 @@ export async function POST(request: Request, { params }: Context) {
       if (!task) {
         return conflict(t);
       }
-      after(() => executeScheduledTask(task).then(() => undefined));
+      after(async () => {
+        // CRUD 不加载模型/沙箱运行时；只有已领取的执行请求需要执行器。
+        const { executeScheduledTask } = await import("@/lib/scheduler/executor");
+        await executeScheduledTask(task);
+      });
       return Response.json(task, { status: 202 });
     }
     const task = await setTaskEnabled(user.id, id, action === "resume");

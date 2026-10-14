@@ -1704,6 +1704,7 @@
     "inspirationQuery": "Create a recurring task: every day at 8 AM Beijing time, share a productivity method with a concrete example and a small action to try that day.",
     "inspirationTitle": "Daily inspiration",
     "operationFailed": "Operation failed",
+    "requestTimedOut": "Request timed out. The outcome is unconfirmed. Refresh the task list to check its status.",
     "notScheduled": "Not scheduled",
     "soon": "Running soon",
     "started": "Task started",

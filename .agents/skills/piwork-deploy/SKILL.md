@@ -15,6 +15,7 @@ bash .agents/skills/piwork-deploy/scripts/deploy.sh daily     # 日常部署（�
 bash .agents/skills/piwork-deploy/scripts/deploy.sh ci <piwork.tar.gz>  # CI 产物部署（piwork-release 技能自动调用，也可手工）
 bash .agents/skills/piwork-deploy/scripts/deploy.sh rollback  # 回滚到上一版本
 bash .agents/skills/piwork-deploy/scripts/deploy.sh status    # 版本/pm2/健康检查
+bash .agents/skills/piwork-deploy/scripts/deploy.sh upload-limit # 仅修复既有 vhost 上传限制，保留端口/TLS，备份并校验重载
 # 通用选项: --dry-run（只打印动作）--skip-build --keep N --force-nginx
 ```
 

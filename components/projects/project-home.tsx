@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 import { LibraryFilePicker } from "@/components/chat/library-file-picker";
@@ -53,7 +53,7 @@ import { useUploadSettings } from "@/hooks/use-upload-settings";
 import { CHAT_ATTACHMENT_ACCEPT } from "@/lib/ai/attachment-types";
 import type { Attachment } from "@/lib/types";
 import { uploadLimitBytes } from "@/lib/uploads/settings";
-import { generateUUID } from "@/lib/utils";
+import { cn, generateUUID } from "@/lib/utils";
 import {
   formatShortDate,
   type ProjectChatSummary,
@@ -86,6 +86,9 @@ export function ProjectHome({
   const [projectName, setProjectName] = useState(initialProjectName);
   const [tab, setTab] = useState<Tab>("chats");
   const [input, setInput] = useState("");
+  const [multiline, setMultiline] = useState(false);
+  const composerRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -104,6 +107,38 @@ export function ProjectHome({
   const [sourceToDelete, setSourceToDelete] =
     useState<ProjectSourceSummary | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    const composer = composerRef.current;
+    if (!textarea || !composer) {
+      return;
+    }
+    const resize = () => {
+      // 用固定的单行可用宽度判断布局，避免展开后变宽又收起。
+      textarea.style.width = `${Math.max(composer.clientWidth - 104, 1)}px`;
+      textarea.style.paddingInline = "0px";
+      textarea.style.height = "0px";
+      const needsMultiline = textarea.scrollHeight > 40;
+      textarea.style.width = "";
+      textarea.style.paddingInline = "";
+      const height = textarea.scrollHeight;
+      textarea.style.height = `${Math.min(height, 240)}px`;
+      textarea.style.overflowY = height > 240 ? "auto" : "hidden";
+      setMultiline(needsMultiline);
+    };
+    resize();
+    // 仅观察外框宽度，避免单行/多行布局切换引起输入区宽度循环。
+    let width = composer.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (composer.clientWidth !== width) {
+        width = composer.clientWidth;
+        resize();
+      }
+    });
+    observer.observe(composer);
+    return () => observer.disconnect();
+  }, [input, multiline]);
 
   const { data: chatsData, mutate: mutateChats } = useSWR<{
     chats: ProjectChatSummary[];
@@ -339,7 +374,11 @@ export function ProjectHome({
       </header>
 
       <form
-        className="composer-plain mt-8 flex h-14 items-center gap-2 rounded-full border border-[var(--hairline-strong)] bg-card px-2 shadow-[var(--shadow-whisper)]"
+        className={cn(
+          "composer-plain mt-8 grid min-h-14 grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-x-2 border border-[var(--hairline-strong)] bg-card px-2 py-[7px] shadow-[var(--shadow-whisper)]",
+          multiline ? "gap-y-2 rounded-[28px]" : "rounded-full"
+        )}
+        ref={composerRef}
         onSubmit={(event) => {
           event.preventDefault();
           const value = input.trim();
@@ -353,7 +392,7 @@ export function ProjectHome({
           <DropdownMenuTrigger asChild>
             <Button
               aria-label={t("uploadMenu")}
-              className="size-10 shrink-0 cursor-pointer rounded-full p-0 text-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted data-[state=open]:bg-muted"
+              className="col-start-1 row-start-2 size-10 shrink-0 cursor-pointer rounded-full p-0 text-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted data-[state=open]:bg-muted"
               disabled={!isOwner || uploading || libraryBusy}
               size="icon"
               type="button"
@@ -390,16 +429,25 @@ export function ProjectHome({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <input
+        <textarea
           aria-label={t("startChatAction")}
-          className="min-w-0 flex-1 bg-transparent py-2 text-base outline-none placeholder:text-muted-foreground"
+          className={cn(
+            "min-w-0 w-full resize-none overflow-x-hidden whitespace-pre-wrap break-words bg-transparent py-2 text-base leading-6 outline-none placeholder:text-muted-foreground",
+            multiline
+              ? "col-span-3 col-start-1 row-start-1 px-3"
+              : "col-start-2 row-start-2"
+          )}
           disabled={creating}
           maxLength={2000}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
             // 显式处理 Enter：值直接读自输入框，避免依赖发送按钮的可用态；
             // IME 组合中的 Enter（如确认中文候选）不触发发送
-            if (event.key !== "Enter" || event.nativeEvent.isComposing) {
+            if (
+              event.key !== "Enter" ||
+              event.shiftKey ||
+              event.nativeEvent.isComposing
+            ) {
               return;
             }
             event.preventDefault();
@@ -410,12 +458,13 @@ export function ProjectHome({
             }
           }}
           placeholder={t("inputPlaceholder", { name: projectName })}
-          type="text"
+          ref={textareaRef}
+          rows={1}
           value={input}
         />
         <Button
           aria-label={t("startChatAction")}
-          className="size-8 shrink-0 rounded-full"
+          className="col-start-3 row-start-2 size-8 shrink-0 rounded-full"
           disabled={!input.trim() || creating}
           type="submit"
         >

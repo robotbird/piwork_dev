@@ -273,3 +273,7 @@ PIWORK_OPENSANDBOX_CHAT_TEST=1 pnpm test:opensandbox:chat # 会真实调用模�
 ## 附件上传配置上线
 
 运行现有数据库迁移命令应用 `0023_upload_settings` 并重启 Next 应用，以加载新路由与 `experimental.proxyClientMaxBodySize=128mb`。反向代理请求体上限也须允许 100 MiB 文件及 multipart 封装。首次无配置行默认 100 MB；之后在「后台 → 通用设置 → 文件上传」保存 1–100 MB 整数，配置保存对新上传即时生效，无需再次重启。不得在表缺失或数据库错误时把 503 当作默认限额继续处理。既有文件访问与各处理限额不变，详见 [附件上传配置](features/upload-settings-design.md)。本轮不代表已部署生产。
+
+### 上传请求被 Nginx 拦截（2026-10-14）
+
+Piwork vhost 请求体限制应为 `128M`，为平台最高 100 MiB 单文件及 multipart 开销留余量；应用继续按后台上传策略校验。旧部署模板为 `20M`，23,562,600 字节 PDF 在 `/api/projects/:id/sources` 被 Nginx 直接拒绝（413），不进入应用。运行 `bash .agents/skills/piwork-deploy/scripts/deploy.sh upload-limit` 仅调整该 vhost，保留自定义监听端口/TLS，备份配置、校验后平滑重载，失败回滚；无需构建或重启 Web。此操作不改变 Pi SDK/RPC/agent loop。
