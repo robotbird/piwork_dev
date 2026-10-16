@@ -257,7 +257,7 @@ function SidebarBody({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-3 pb-3 pt-1">
+      <div className="shrink-0 px-3 pb-3 pt-1">
         <label className="relative block">
           <span className="sr-only">{t("searchManagement")}</span>
           <SearchIcon
@@ -286,7 +286,7 @@ function SidebarBody({
 
       <nav
         aria-label={t("systemManagementNavigation")}
-        className="min-h-0 flex-1 overflow-y-auto px-3 pb-5"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-5"
       >
         {visibleGroups.length > 0 ? (
           visibleGroups.map((group, index) => (
@@ -312,7 +312,7 @@ function SidebarBody({
         )}
       </nav>
 
-      <div className="p-3">
+      <div className="shrink-0 p-3">
         <UserNav area="admin" user={user} />
       </div>
     </div>
@@ -331,7 +331,7 @@ export function AdminSidebar({
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur md:hidden">
+      <header className="z-20 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur md:hidden">
         <button
           aria-label={t("openManagementNavigation")}
           className="grid size-9 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted"
@@ -383,7 +383,7 @@ export function AdminSidebar({
         </SheetContent>
       </Sheet>
 
-      <aside className="sticky top-0 hidden h-dvh w-65 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
+      <aside className="hidden h-full min-h-0 w-65 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar md:flex">
         <Link
           className="group mx-3 mt-3 flex min-h-10 shrink-0 items-center gap-3 rounded-[10px] px-3 text-[14px] leading-5 text-foreground transition-colors duration-150 hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground"
           href="/"

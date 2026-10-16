@@ -10,10 +10,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("metadata");
-  return { description: t("description"), title: "piwork" };
-}
+export const metadata: Metadata = { title: "piwork" };
 
 export const viewport = {
   maximumScale: 1,
@@ -58,9 +55,11 @@ const THEME_COLOR_SCRIPT = `\
 async function IntlApplication({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const t = await getTranslations("metadata");
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
+      <meta content={t("description")} name="description" />
       <ThemeProvider
         attribute="class"
         defaultTheme="system"

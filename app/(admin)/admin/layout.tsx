@@ -42,7 +42,7 @@ async function AuthenticatedAdmin({ children }: { children: React.ReactNode }) {
   const account = await getUserById(session.user.id);
 
   return (
-    <div className="openai-admin flex min-h-dvh w-full flex-col bg-background text-foreground md:flex-row">
+    <div className="openai-admin flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground md:flex-row">
       <AdminSidebar
         user={{
           email: session.user.email,
@@ -50,7 +50,9 @@ async function AuthenticatedAdmin({ children }: { children: React.ReactNode }) {
           name: account?.name,
         }}
       />
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
+        {children}
+      </div>
     </div>
   );
 }
