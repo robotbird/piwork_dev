@@ -7,7 +7,9 @@ import {
   CheckIcon,
   FolderIcon,
   HammerIcon,
+  LibraryBigIcon,
   MicIcon,
+  PaperclipIcon,
   PlusIcon,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -61,6 +63,12 @@ import {
   PromptInputTools,
 } from "../ai-elements/prompt-input";
 import { Button } from "../ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { ArrowUpIcon, ChevronDownIcon, StopIcon } from "./icons";
 import { LibraryFilePicker } from "./library-file-picker";
@@ -166,6 +174,7 @@ function PureMultimodalInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
   const [librarySelecting, setLibrarySelecting] = useState(false);
+  const [libraryPickerOpen, setLibraryPickerOpen] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
   const [slashIndex, setSlashIndex] = useState(0);
@@ -770,6 +779,11 @@ function PureMultimodalInput({
     toast.info(t("chat.voiceInputIsComingSoon"));
   }, [t]);
 
+  // 「+」菜单的「从我的文档选择」：与项目首页一致，打开受控文档库弹窗
+  const openLibraryPicker = useCallback(() => {
+    setLibraryPickerOpen(true);
+  }, []);
+
   const handlePromptSubmit = useCallback(() => {
     if (input.startsWith("/") && !input.includes(" ")) {
       const query = input.slice(1).trim();
@@ -932,6 +946,18 @@ function PureMultimodalInput({
         type="file"
       />
 
+      {/* 「从我的文档选择」受控弹窗：与项目首页同款，仅由「+」菜单打开 */}
+      <LibraryFilePicker
+        attachments={attachments}
+        dialogOpen={libraryPickerOpen}
+        disabled={
+          isGenerating || selectedProject !== null || uploadQueue.length > 0
+        }
+        onBusyChange={setLibrarySelecting}
+        onDialogOpenChange={setLibraryPickerOpen}
+        onSelect={handleLibrarySelect}
+      />
+
       <div className="relative">
         {slashOpen ? (
           <SlashCommandMenu
@@ -1029,22 +1055,15 @@ function PureMultimodalInput({
         </div>
         <PromptInputFooter className="px-3 pb-2.5 pt-1">
           <PromptInputTools>
-            {isEmptyChat ? null : (
-              <LibraryFilePicker
-                attachments={attachments}
-                disabled={
-                  isGenerating ||
-                  selectedProject !== null ||
-                  uploadQueue.length > 0
-                }
-                onBusyChange={setLibrarySelecting}
-                onSelect={handleLibrarySelect}
-              />
-            )}
-            <AttachmentsButton
-              disabled={selectedProject !== null || librarySelecting}
+            <AttachmentsMenuButton
+              disabled={
+                selectedProject !== null ||
+                librarySelecting ||
+                uploadQueue.length > 0
+              }
               fileInputRef={fileInputRef}
-              status={status}
+              isGenerating={isGenerating}
+              onPickFromLibrary={openLibraryPicker}
             />
           </PromptInputTools>
           <PromptInputTools className="gap-1">
@@ -1149,16 +1168,6 @@ function PureMultimodalInput({
                 ) : null}
               </PopoverContent>
             </Popover>
-            <LibraryFilePicker
-              attachments={attachments}
-              disabled={
-                isGenerating ||
-                selectedProject !== null ||
-                uploadQueue.length > 0
-              }
-              onBusyChange={setLibrarySelecting}
-              onSelect={handleLibrarySelect}
-            />
           </div>
         </div>
       ) : null}
@@ -1269,37 +1278,67 @@ function PureProjectPickerItem({
 
 const ProjectPickerItem = memo(PureProjectPickerItem);
 
-function PureAttachmentsButton({
+function PureAttachmentsMenuButton({
   disabled = false,
   fileInputRef,
-  status,
+  isGenerating,
+  onPickFromLibrary,
 }: {
   disabled?: boolean;
   fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
-  status: UseChatHelpers<ChatMessage>["status"];
+  isGenerating: boolean;
+  onPickFromLibrary: () => void;
 }) {
-  const handleClick = useCallback(
-    (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      fileInputRef.current?.click();
-    },
-    [fileInputRef]
-  );
+  const t = useTranslations("chat");
 
+  const handleUploadFromComputer = useCallback(() => {
+    fileInputRef.current?.click();
+  }, [fileInputRef]);
+
+  // 与项目首页输入框「+」同款：下拉提供「从电脑上传」与「从我的文档选择」
   return (
-    <Button
-      className="size-8 rounded-md border-0 p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      data-testid="attachments-button"
-      disabled={disabled || status !== "ready"}
-      onClick={handleClick}
-      variant="ghost"
-    >
-      <PlusIcon className="size-5" />
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          aria-label={t("uploadMenu")}
+          className="size-8 rounded-md border-0 p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground"
+          data-testid="attachments-button"
+          disabled={disabled || isGenerating}
+          variant="ghost"
+        >
+          <PlusIcon className="size-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="w-[min(420px,calc(100vw-32px))] rounded-2xl p-2"
+        side="top"
+        sideOffset={12}
+      >
+        <DropdownMenuItem
+          className="gap-3 rounded-xl px-3 py-3"
+          onSelect={handleUploadFromComputer}
+        >
+          <PaperclipIcon className="size-5 shrink-0" />
+          <span>{t("uploadMenu")}</span>
+          <span className="text-muted-foreground">
+            {t("uploadFromComputer")}
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="gap-3 rounded-xl px-3 py-3"
+          onSelect={onPickFromLibrary}
+        >
+          <LibraryBigIcon className="size-5 shrink-0" />
+          <span>{t("pickDocuments")}</span>
+          <span className="text-muted-foreground">{t("browseDocuments")}</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
-const AttachmentsButton = memo(PureAttachmentsButton);
+const AttachmentsMenuButton = memo(PureAttachmentsMenuButton);
 
 function ModelSelectorOption({
   model,

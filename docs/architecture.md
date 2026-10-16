@@ -169,7 +169,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 
 ### 聊天选择文档库文件
 
-聊天输入器的「文件」打开 `components/chat/library-file-picker.tsx`：搜索本人文档库、最近七条文件和「浏览全部」弹窗，已有对话也可选择。`POST /api/library/:id/attachment` 只解析本人文件，校验支持扩展名/100 MB，返回既有 Attachment；上传文件复用存储 URL，不重新上传。可编辑 Document 选择时保存并归档字节快照（沿用既有 file-store/Blob 模式，可能新增一条文档库记录），不把可变 Document URL 发给 Runtime。图片使用鉴权缩略图、非图像展示文件名，支持移除；最多五份，不支持格式显示不可选。新建项目的 `?query=` 文本入口仍禁止附件，避免静默丢失。附件仍经既有 route → RunManager → RuntimeBackend → Pi 会话处理，不新增 agent loop、检索或向量库。依据安装版 Pi `docs/sdk.md` / `docs/message-types.md`、`dist/core/agent-session.d.ts` PromptOptions.images 与 pi-ai `dist/types.d.ts` ImageContent：图片保持 base64/MIME 输入，其他文件沿用现有提取/沙箱水合链路。
+聊天输入器「+」与项目首页同款下拉：「从电脑上传」走既有上传链路，「从我的文档选择」打开 `components/chat/library-file-picker.tsx` 受控弹窗（搜索本人文档库、全部文件与「完成」），新对话与历史对话均可选择。`POST /api/library/:id/attachment` 只解析本人文件，校验支持扩展名/100 MB，返回既有 Attachment；上传文件复用存储 URL，不重新上传。可编辑 Document 选择时保存并归档字节快照（沿用既有 file-store/Blob 模式，可能新增一条文档库记录），不把可变 Document URL 发给 Runtime。图片使用鉴权缩略图、非图像展示文件名，支持移除；最多五份，不支持格式显示不可选。新建项目的 `?query=` 文本入口仍禁止附件，避免静默丢失。附件仍经既有 route → RunManager → RuntimeBackend → Pi 会话处理，不新增 agent loop、检索或向量库。依据安装版 Pi `docs/sdk.md` / `docs/message-types.md`、`dist/core/agent-session.d.ts` PromptOptions.images 与 pi-ai `dist/types.d.ts` ImageContent：图片保持 base64/MIME 输入，其他文件沿用现有提取/沙箱水合链路。
 
 ## 8. 定时任务 MVP（2026-09-28）
 
@@ -281,7 +281,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 
 项目首页来源缩略图：`GET /api/projects/:projectId/sources/:sourceId` 通过 `lib/db/project-queries.ts` 同次查询核验项目访问权限及来源归属，仅返回既有受支持图片字节，`private, no-store` + `nosniff`；列表懒加载 48px 缩略图，失败回退图片图标，非图片显示文件图标。输入框使用完整胶囊圆角；不改变 Pi 图像上下文或附件链路。
 
-项目首页输入框「+」提供电脑上传与「我的文档」选择：复用 LibraryFilePicker 的搜索/鉴权预览及本人 attachment 解析，选中文档下载字节后经既有项目 sources 上传入口添加为项目资源（不是首轮 query 附件）。可编辑文档沿用现有快照行为；不新增 Pi API、检索或 agent loop。选择器支持受控 Dialog 和异步 onSelect，成功导入后才标记选中；保留原聊天选择器默认交互。
+项目首页输入框「+」提供电脑上传与「我的文档」选择：复用 LibraryFilePicker 的搜索/鉴权预览及本人 attachment 解析，选中文档下载字节后经既有项目 sources 上传入口添加为项目资源（不是首轮 query 附件）。可编辑文档沿用现有快照行为；不新增 Pi API、检索或 agent loop。选择器支持受控 Dialog 和异步 onSelect，成功导入后才标记选中；聊天输入器「+」已改为同款下拉（从电脑上传/从我的文档选择），不再保留独立「文件」触发按钮。
 
 项目分享：迁移 0022 新增 ProjectCollaborator/ProjectShareInvite，访问判定与成员/邀请查询归 `lib/db/project-share-queries.ts`，`getProject` 和列表支持 owner ∪ enabled collaborator。项目资料共享，只列本人项目对话、不自动授予 Chat 协作权限；模型/额度沿用本人目录。所有者才可改名/删除/维护资料及管理分享；删除项目停所有项目 run 后清理，成员移除/禁用后拒绝新增项目上下文访问，已生成的本人历史内容不追溯抹除，不承诺中止所有在途 run。链接 7 天有效，24 字节 CSPRNG、仅 sha256 存储、恒时比较，支持轮换/撤销；加入需正式启用成员，事务复核有效邀请，邀请行锁与撤销串行。GET 加入页不变更成员，POST 才加入。UI 复用 ShareDialog 的 project 模式（`/api/projects/share`、`/projects/:id/join`），分享胶囊/更多圆形按钮。Pi loop/SDK/RPC API 无变更，继续 route → RunManager → RuntimeBackend → Pi AgentSession。测试 `test:projects:share:db` 使用唯一测试账号清理自己的项目；分享 UI 浏览器契约在 `test:chat:share:ui`，模拟分享 API，不调用真实模型。
 

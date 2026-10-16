@@ -120,7 +120,7 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 
 `components/documents` 与 `lib/documents` 持有文档库界面及可共享类型；`lib/db/library-queries.ts` 持有归档、文件夹和所有权查询。上传入口必须登记 LibraryItem；生产 Runtime 在组装处注入归档回调，Pi `deliver_file` 完成归档后才发送 `artifact.created`。不要将数据库访问或用户身份判断写入 Pi 通用工具。文件夹为用户目录，当前不是项目权限模型。
 
-聊天「文件」选择器复用本人 `/api/library`，`POST /api/library/:id/attachment` 按本人归属解析既有 Attachment，支持格式/100 MB/五份限制；已有上传复用 URL，可编辑 Document 归档字节快照后进入既有附件链路（可能新增文档库记录，沿用现有 Blob 模式，不宣称私有化旧 Blob）。图片鉴权缩略图、其他文件名，浏览全部仍在选择弹窗内；不新增 agent loop/检索。项目预建 `?query=` 仍禁止附件，不能静默丢失。测试 test:chat:library/:http 与 documents:http，浏览器截获模型请求，不调用真实模型。
+聊天输入器「+」与项目首页同款下拉：提供「从电脑上传」（既有 `/api/files/upload`）与「从我的文档选择」；后者复用本人 `/api/library`，`POST /api/library/:id/attachment` 按本人归属解析既有 Attachment，支持格式/100 MB/五份限制；已有上传复用 URL，可编辑 Document 归档字节快照后进入既有附件链路（可能新增文档库记录，沿用现有 Blob 模式，不宣称私有化旧 Blob）。文档库选择为受控弹窗（搜索、鉴权缩略图、全部文件、完成），仅由「+」菜单打开，不再有独立「文件」按钮；不新增 agent loop/检索。项目预建 `?query=` 仍禁止附件，不能静默丢失。测试 test:chat:library/:http 与 documents:http，浏览器截获模型请求，不调用真实模型。
 
 ## 定时任务边界
 

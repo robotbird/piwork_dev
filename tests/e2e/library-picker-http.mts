@@ -107,21 +107,28 @@ try {
     });
   });
   await page.goto(base);
-  const openPicker = () =>
-    page
-      .getByRole("button", {
-        name: /选择我的文档库文件|Choose files from my library/,
+  // 「+」下拉与项目首页同款：「从电脑上传」/「从我的文档选择」；
+  // 文档库选择弹窗（搜索 + 全部文件 + 完成）由菜单项打开。
+  const attachmentsButton = page.getByTestId("attachments-button");
+  const openPicker = async () => {
+    await attachmentsButton.click();
+    await page
+      .getByRole("menuitem", {
+        name: /从我的文档选择|Choose from my documents/,
       })
       .click();
+  };
+  const picker = page.getByTestId("library-file-browser");
   await openPicker();
-  const picker = page.getByTestId("library-file-picker");
-  await picker.getByRole("button", { name: "参考图片.png" }).click();
+  await picker.getByRole("button", { name: /参考图片.png/ }).click();
+  // 模态弹窗打开时页面其余部分被标记 aria-hidden，角色查询查不到弹窗外的
+  // 附件芯片；改用 DOM alt 属性等待首张图片芯片完成挂载
   await page
     .getByTestId("attachments-preview")
-    .getByRole("img", { name: "参考图片.png" })
+    .locator("img[alt='参考图片.png']")
     .waitFor();
   await picker.getByRole("textbox").fill("方案");
-  await picker.getByRole("button", { name: "方案演示.pptx" }).click();
+  await picker.getByRole("button", { name: /方案演示.pptx/ }).click();
   await page
     .getByTestId("attachments-preview")
     .getByText("方案演示.pptx")
@@ -139,7 +146,7 @@ try {
     .click();
   assert.equal(await page.getByTestId("input-attachment-preview").count(), 1);
   await openPicker();
-  await picker.getByRole("button", { name: "方案演示.pptx" }).click();
+  await picker.getByRole("button", { name: /方案演示.pptx/ }).click();
   await page
     .getByTestId("attachments-preview")
     .getByText("方案演示.pptx")
@@ -147,10 +154,8 @@ try {
   await picker.getByRole("textbox").fill("不存在");
   await picker.getByText(/没有找到文件|No files found/).waitFor();
   await picker.getByRole("textbox").fill("");
-  await picker.getByRole("button", { name: /浏览全部|Browse all/ }).click();
-  const all = page.getByTestId("library-file-browser");
-  await all.getByRole("button", { name: /资料-7.txt/ }).click();
-  await all.getByRole("button", { name: /完成|Done/ }).click();
+  await picker.getByRole("button", { name: /资料-7.txt/ }).click();
+  await picker.getByRole("button", { name: /完成|Done/ }).click();
   await page.getByTestId("multimodal-input").fill("请根据这些文件回答问题");
   await page.screenshot({ path: "/tmp/piwork-library-selected.png" });
   await page.getByTestId("send-button").click();
@@ -177,7 +182,7 @@ try {
   );
   await context.close();
   console.log(
-    "PASS: library search, image preview, filename chip, browse all, attachment request and mobile layout (no model calls)"
+    "PASS: plus-menu library dialog, search, image preview, filename chip, attachment request and mobile layout (no model calls)"
   );
 } finally {
   await browser.close();
