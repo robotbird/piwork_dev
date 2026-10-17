@@ -1301,9 +1301,10 @@ function PureAttachmentsMenuButton({
       <DropdownMenuTrigger asChild>
         <Button
           aria-label={t("uploadMenu")}
-          className="size-8 rounded-md border-0 p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground"
+          className="size-10 shrink-0 cursor-pointer rounded-full p-0 text-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted data-[state=open]:bg-muted"
           data-testid="attachments-button"
           disabled={disabled || isGenerating}
+          size="icon"
           variant="ghost"
         >
           <PlusIcon className="size-5" />
@@ -1312,7 +1313,7 @@ function PureAttachmentsMenuButton({
       <DropdownMenuContent
         align="start"
         className="w-[min(420px,calc(100vw-32px))] rounded-2xl p-2"
-        side="top"
+        side="bottom"
         sideOffset={12}
       >
         <DropdownMenuItem

@@ -1720,6 +1720,8 @@
     "all": "全部任务",
     "enabled": "已开启",
     "manual": "手动创建任务",
+    "manualHint": "直接填写执行计划",
+    "attachmentHandoffFailed": "附件准备失败，请重试",
     "schedule": "安排任务",
     "voice": "语音输入",
     "voiceSoon": "语音输入功能正在准备中",

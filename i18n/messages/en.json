@@ -1720,6 +1720,8 @@
     "all": "All tasks",
     "enabled": "Enabled",
     "manual": "Create task manually",
+    "manualHint": "Fill in the schedule directly",
+    "attachmentHandoffFailed": "Failed to prepare attachments. Please try again.",
     "schedule": "Schedule a task",
     "voice": "Voice input",
     "voiceSoon": "Voice input is coming soon",

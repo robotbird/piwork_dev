@@ -124,7 +124,7 @@ Token 为当前角色全部成员已保留 message.completed 官方 totalTokens 
 
 ## 定时任务边界
 
-`lib/scheduler` 持有周期计划校验、调度与执行编排；`lib/db/scheduled-task-queries.ts` 持有归属查询、事务领取和运行记录。AI 创建工具通过回调注入平台身份，不接收模型提供的 userId。执行保持 `scheduler → RunManager → RuntimeBackend → Pi AgentSession`，等待 settled 后才写入结果；enabled 与运行 status 分离。MVP 只支持单个常驻 Node 实例，不能作为已部署分布式 Worker/Sandbox 能力描述。测试放在 tests/unit/scheduler 和 tests/unit/db。
+`lib/scheduler` 持有周期计划校验、调度与执行编排；`lib/db/scheduled-task-queries.ts` 持有归属查询、事务领取和运行记录。AI 创建工具通过回调注入平台身份，不接收模型提供的 userId。执行保持 `scheduler → RunManager → RuntimeBackend → Pi AgentSession`，等待 settled 后才写入结果；enabled 与运行 status 分离。MVP 只支持单个常驻 Node 实例，不能作为已部署分布式 Worker/Sandbox 能力描述。任务输入框「+」与聊天/项目首页同款文件选择下拉，附件经 sessionStorage 交接（仅元数据，消费即清除）进入新对话首条消息；附件会保守进入执行路径，闭包工具在沙箱路由下的可用性以平台既有矩阵为准。测试放在 tests/unit/scheduler 和 tests/unit/db。
 
 ## 项目 Workspace 边界
 

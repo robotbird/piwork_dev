@@ -4,14 +4,17 @@
 import {
   ArrowUp,
   Bot,
+  CalendarClock,
   ChevronRight,
   Clock3,
   Filter,
+  LibraryBig,
   Lightbulb,
   Loader2,
   Mic,
   MoreHorizontal,
   Newspaper,
+  Paperclip,
   PauseCircle,
   Pencil,
   Play,
@@ -20,9 +23,11 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useLayoutEffect, useRef, useState } from "react";
+import { type ChangeEvent, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { LibraryFilePicker } from "@/components/chat/library-file-picker";
+import { PreviewAttachment } from "@/components/chat/preview-attachment";
 import { usePreferences } from "@/components/preferences-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,7 +54,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useUploadSettings } from "@/hooks/use-upload-settings";
+import {
+  CHAT_ATTACHMENT_ACCEPT,
+  MAX_CHAT_ATTACHMENT_COUNT,
+} from "@/lib/ai/attachment-types";
+import { stashNewChatAttachments } from "@/lib/chat-input";
 import { describeSchedule } from "@/lib/scheduler/display";
+import type { Attachment } from "@/lib/types";
+import { uploadLimitBytes } from "@/lib/uploads/settings";
 import { cn, copyTextToClipboard } from "@/lib/utils";
 
 type Task = {
@@ -175,6 +188,82 @@ export function ScheduledTasksPanel() {
   const [multiline, setMultiline] = useState(false);
   const composerRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // 附件入口与聊天输入器「+」同款：电脑上传 / 我的文档选择；
+  // 已上传附件经 sessionStorage 交接进入新对话首条消息，不再丢失
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploadQueue, setUploadQueue] = useState<string[]>([]);
+  const [librarySelecting, setLibrarySelecting] = useState(false);
+  const [libraryPickerOpen, setLibraryPickerOpen] = useState(false);
+  const { data: uploadSettings } = useUploadSettings();
+
+  const uploadFile = async (file: File): Promise<Attachment | undefined> => {
+    if (uploadSettings && file.size > uploadLimitBytes(uploadSettings)) {
+      toast.error(
+        t("api.fileTooLarge", { maxMB: uploadSettings.maxFileSizeMB })
+      );
+      return;
+    }
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/files/upload`,
+        { body: formData, method: "POST" }
+      );
+      const body = await response.json();
+      if (!response.ok) {
+        toast.error(body.error);
+        return;
+      }
+      return {
+        contentType: body.contentType,
+        name: body.name ?? body.pathname,
+        url: body.url,
+      };
+    } catch {
+      toast.error(t("common.uploadFailed"));
+    }
+  };
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const availableSlots = Math.max(
+      0,
+      MAX_CHAT_ATTACHMENT_COUNT - attachments.length
+    );
+    const selectedFiles = Array.from(event.target.files || []);
+    const files = selectedFiles.slice(0, availableSlots);
+    if (selectedFiles.length > availableSlots) {
+      toast.error(
+        t("common.attachmentLimit", { count: MAX_CHAT_ATTACHMENT_COUNT })
+      );
+    }
+    if (files.length === 0) {
+      event.target.value = "";
+      return;
+    }
+    setUploadQueue(files.map((file) => file.name));
+    try {
+      const uploaded = await Promise.all(files.map((file) => uploadFile(file)));
+      const succeeded = uploaded.filter(
+        (attachment): attachment is Attachment => attachment !== undefined
+      );
+      setAttachments((current) =>
+        [...current, ...succeeded].slice(0, MAX_CHAT_ATTACHMENT_COUNT)
+      );
+    } finally {
+      setUploadQueue([]);
+      event.target.value = "";
+    }
+  };
+
+  const handleLibrarySelect = (attachment: Attachment) => {
+    setAttachments((current) =>
+      current.some((item) => item.url === attachment.url)
+        ? current
+        : [...current, attachment].slice(0, MAX_CHAT_ATTACHMENT_COUNT)
+    );
+  };
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
@@ -214,11 +303,25 @@ export function ScheduledTasksPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [manual, setManual] = useState(false);
   const startChat = (text: string) => {
-    if (!text.trim()) {
+    const trimmed = text.trim();
+    if (!trimmed) {
       return;
     }
+    // 上传/选择未完成时不提交，避免附件静默丢失
+    if (uploadQueue.length > 0 || librarySelecting) {
+      return;
+    }
+    const prompt = t("scheduledTasks.createPrompt", { text: trimmed });
+    if (attachments.length > 0) {
+      // 交接失败必须中止导航并提示，不能只带文本走
+      const stashed = stashNewChatAttachments(attachments);
+      if (!stashed) {
+        toast.error(t("scheduledTasks.attachmentHandoffFailed"));
+        return;
+      }
+    }
     window.location.assign(
-      `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/?query=${encodeURIComponent(t("scheduledTasks.createPrompt", { text: text.trim() }))}`
+      `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/?query=${encodeURIComponent(prompt)}`
     );
   };
   const change = async (task: Task, action: string) => {
@@ -326,32 +429,107 @@ export function ScheduledTasksPanel() {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
+        {(attachments.length > 0 || uploadQueue.length > 0) && (
+          <div
+            className="flex flex-wrap items-start gap-3"
+            data-testid="attachments-preview"
+          >
+            {attachments.map((attachment) => (
+              <PreviewAttachment
+                attachment={attachment}
+                composer
+                key={attachment.url}
+                onRemove={() =>
+                  setAttachments((current) =>
+                    current.filter((item) => item.url !== attachment.url)
+                  )
+                }
+              />
+            ))}
+            {uploadQueue.map((filename) => (
+              <PreviewAttachment
+                attachment={{ contentType: "", name: filename, url: "" }}
+                isUploading
+                key={filename}
+              />
+            ))}
+          </div>
+        )}
+        <input
+          accept={CHAT_ATTACHMENT_ACCEPT}
+          className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
+          multiple
+          onChange={handleFileChange}
+          ref={fileInputRef}
+          tabIndex={-1}
+          type="file"
+        />
         <form
           className={cn(
             "composer-plain grid min-h-14 grid-cols-[40px_minmax(0,1fr)_32px_32px] items-center gap-x-2 border border-[var(--hairline-strong)] bg-card px-2 py-[7px] shadow-[var(--shadow-whisper)]",
             multiline ? "gap-y-2 rounded-[28px]" : "rounded-full"
           )}
-          ref={composerRef}
           onSubmit={(event) => {
             event.preventDefault();
+            if (uploadQueue.length > 0 || librarySelecting) {
+              return;
+            }
             startChat(query);
           }}
+          ref={composerRef}
         >
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
-                aria-label={t("scheduledTasks.manual")}
-                className="col-start-1 row-start-2 size-10 shrink-0 cursor-pointer rounded-full p-0 text-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted"
-                onClick={() => setManual(true)}
+                aria-label={t("chat.uploadMenu")}
+                className="col-start-1 row-start-2 size-10 shrink-0 cursor-pointer rounded-full p-0 text-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted data-[state=open]:bg-muted"
+                disabled={uploadQueue.length > 0 || librarySelecting}
                 size="icon"
                 type="button"
                 variant="ghost"
               >
                 <Plus className="size-5" />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("scheduledTasks.manual")}</TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="w-[min(420px,calc(100vw-32px))] rounded-2xl p-2"
+              side="bottom"
+              sideOffset={12}
+            >
+              <DropdownMenuItem
+                className="gap-3 rounded-xl px-3 py-3"
+                onSelect={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className="size-5 shrink-0" />
+                <span>{t("chat.uploadMenu")}</span>
+                <span className="text-muted-foreground">
+                  {t("chat.uploadFromComputer")}
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="gap-3 rounded-xl px-3 py-3"
+                onSelect={() => setLibraryPickerOpen(true)}
+              >
+                <LibraryBig className="size-5 shrink-0" />
+                <span>{t("chat.pickDocuments")}</span>
+                <span className="text-muted-foreground">
+                  {t("chat.browseDocuments")}
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="gap-3 rounded-xl px-3 py-3"
+                onSelect={() => setManual(true)}
+              >
+                <CalendarClock className="size-5 shrink-0" />
+                <span>{t("scheduledTasks.manual")}</span>
+                <span className="text-muted-foreground">
+                  {t("scheduledTasks.manualHint")}
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <textarea
             aria-label={t("scheduledTasks.schedule")}
             className={cn(
@@ -371,6 +549,9 @@ export function ScheduledTasksPanel() {
                 return;
               }
               event.preventDefault();
+              if (uploadQueue.length > 0 || librarySelecting) {
+                return;
+              }
               startChat(event.currentTarget.value);
             }}
             placeholder={t("scheduledTasks.schedule")}
@@ -398,7 +579,9 @@ export function ScheduledTasksPanel() {
               <Button
                 aria-label={t("scheduledTasks.scheduleWithAI")}
                 className="col-start-4 row-start-2 size-8 shrink-0 rounded-full"
-                disabled={!query.trim()}
+                disabled={
+                  !query.trim() || uploadQueue.length > 0 || librarySelecting
+                }
                 type="submit"
               >
                 <ArrowUp className="size-4" />
@@ -601,6 +784,14 @@ export function ScheduledTasksPanel() {
           ))}
         </section>
       </div>
+      <LibraryFilePicker
+        attachments={attachments}
+        dialogOpen={libraryPickerOpen}
+        disabled={uploadQueue.length > 0}
+        onBusyChange={setLibrarySelecting}
+        onDialogOpenChange={setLibraryPickerOpen}
+        onSelect={handleLibrarySelect}
+      />
       {Boolean(editing || manual) && (
         <TaskEditor
           key={editing?.id || "new"}

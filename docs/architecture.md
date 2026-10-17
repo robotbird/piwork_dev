@@ -173,7 +173,7 @@ Stop 命令受理不等于干净取消；正在执行的 shell 若效果未知�
 
 ## 8. 定时任务 MVP（2026-09-28）
 
-- `/scheduled-tasks` 是任务中心：自然语言入口复用 `/?query=` 聊天，手动创建、编辑、暂停/恢复、立即运行、删除、最近 20 次运行记录和结果聊天。仅周期任务；无一次性提醒、事件监测、邮件或系统推送。
+- `/scheduled-tasks` 是任务中心：自然语言入口复用 `/?query=` 聊天，手动创建、编辑、暂停/恢复、立即运行、删除、最近 20 次运行记录和结果聊天。仅周期任务；无一次性提醒、事件监测、邮件或系统推送。任务输入框「+」与项目首页同款下拉（从电脑上传/从我的文档选择，手动创建收纳为菜单第三项）；已上传附件经 sessionStorage 交接进入新对话首条消息，项目 `?query=` 入口不消费交接仍禁附件，未上传完成的提交被拒绝不静默丢失。
 - 聊天装配 `lib/scheduler/service.ts` 注入用户身份与创建回调，`lib/ai/scheduled-task-tools.ts` 通过 Pi `AgentTool → customTools` 暴露 `create_scheduled_task`。工具参数不接受 userId；同一消息的相同创建请求有确定 ID，重复调用不重复插入。用户意图由模型理解，缺少时间先询问，不用关键词正则伪装 AI。
 - `lib/db/scheduled-task-queries.ts` 持有所有数据库访问。ScheduledTask.enabled 与最近执行 status 分离；ScheduledTaskRun 独立保存运行记录。事务内条件更新领取任务并插入运行记录，leaseToken 防止过期执行写回；10 分钟未完成的领取恢复为失败。暂停不取消当前运行，运行时不允许编辑/删除。
 - `lib/scheduler/executor.ts` 以默认启用模型构建 RuntimeSpec，使用已有 Skill/MCP/工作区/交付归档能力，走 `RunManager → InProcessBackend → Pi AgentSession`，等待 subscription.settled 才标记成功。运行最长 5 分钟，超时发送 abort。执行结果保存在独立 Chat 与 Message_v2；任务执行不注入创建任务工具，避免递归调度。

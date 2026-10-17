@@ -32,6 +32,7 @@ import {
   useChatCollab,
 } from "@/hooks/use-chat-collab";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { takeNewChatAttachments } from "@/lib/chat-input";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError, getMessageByErrorCode } from "@/lib/errors";
 import type { ChatMessage, ChatMyRole, ChatParticipantInfo } from "@/lib/types";
@@ -342,8 +343,20 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       ? currentPath
       : `${basePath}/chat/${chatId}`;
     window.history.replaceState({}, "", target);
+    // 定时任务等入口经 sessionStorage 交接的已上传附件：仅非项目入口消费；
+    // 项目 ?query= 按边界仍不带附件，未消费的交接留待下次新对话或随会话失效
+    const isProjectEntry = currentPath.includes("/projects/");
+    const handedOff = isProjectEntry ? [] : takeNewChatAttachments();
     sendMessage({
-      parts: [{ text: query, type: "text" }],
+      parts: [
+        ...handedOff.map((attachment) => ({
+          filename: attachment.name,
+          mediaType: attachment.contentType,
+          type: "file" as const,
+          url: attachment.url,
+        })),
+        { text: query, type: "text" as const },
+      ],
       role: "user" as const,
     });
   }, [sendMessage, chatId, sandboxView, resolvedModelId, isNewChat, chatData]);

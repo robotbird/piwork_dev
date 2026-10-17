@@ -166,13 +166,22 @@ try {
   await expect(
     page.getByRole("button", { exact: true, name: "Untranslated user title" })
   ).toBeVisible();
-  await page.getByRole("button", { exact: true, name: "手动创建任务" }).click();
+  // 「+」菜单：文件选择两项 + 手动创建；编辑器从菜单第三项打开
+  const openManual = async (label: string) => {
+    await page
+      .getByRole("button", {
+        exact: true,
+        name:
+          label === "手动创建任务" ? "添加照片和文件" : "Add photos and files",
+      })
+      .click();
+    await page.getByRole("menuitem", { name: label }).click();
+  };
+  await openManual("手动创建任务");
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("button", { exact: true, name: "取消" }).click();
   await page.getByRole("button", { exact: true, name: "English" }).click();
-  await page
-    .getByRole("button", { exact: true, name: "Create task manually" })
-    .click();
+  await openManual("Create task manually");
   await expect(page.getByRole("dialog")).toContainText("Create task manually");
   await expect(page.getByRole("dialog")).toContainText("Cron expression");
   assert.deepEqual(errors, []);
